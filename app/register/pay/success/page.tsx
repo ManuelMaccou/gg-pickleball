@@ -51,7 +51,7 @@ const STATUS_CONTENT_MAP = {
 type Status = keyof typeof STATUS_CONTENT_MAP | string;
 
 interface SuccessPageProps {
-  searchParams: Record<string, string | string[] | undefined>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
 export default async function SuccessPage({ searchParams }: SuccessPageProps) {

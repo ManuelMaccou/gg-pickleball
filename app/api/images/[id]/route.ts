@@ -5,10 +5,9 @@ import mongoose from "mongoose";
 
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { params } = context;
-  const { id } = await params;
+  const id = (await params).id;
   try {
     await connectToDatabase();
    

@@ -14,6 +14,7 @@ const processScrapedData = (
     const endPST = toZonedTime(entry.End, timeZone);
 
     return {
+      day: 'monday', // Change this
       date: format(startPST, "yyyy-MM-dd"), // Extract YYYY-MM-DD
       time: `${format(startPST, "h:mm a")} - ${format(endPST, "h:mm a")}`, // "1:30 PM - 2:00 PM"
       name: entry.Title,

@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getCroppedImg } from "@/lib/cropImage";
 import Cropper, { Area } from "react-easy-crop";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -33,7 +33,7 @@ interface FormData {
 
 const options = ["Beginner", "Intermediate", "Advanced"];
 
-export default function RegisterTeam() {
+function RegisterTeamPage() {
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -428,5 +428,13 @@ export default function RegisterTeam() {
         </Box>
       )}
     </Flex>
+  )
+}
+
+export default function RegisterTeam() {
+  return (
+    <Suspense>
+      <RegisterTeamPage />
+    </Suspense>
   )
 }

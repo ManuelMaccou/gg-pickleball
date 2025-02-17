@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle, Loader2 } from "lucide-react"
 import { ApiErrorResponse } from "@/app/types/functionTypes";
@@ -27,7 +27,7 @@ interface FormData {
 
 const options = ["Beginner", "Intermediate", "Advanced"];
 
-export default function RegisterTeam() {
+function RegisterTeammatePage() {
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -326,5 +326,13 @@ export default function RegisterTeam() {
         </Box>
       )}
     </Flex>
+  )
+}
+
+export default function RegisterTeammate() {
+  return (
+    <Suspense>
+      <RegisterTeammatePage />
+    </Suspense>
   )
 }

@@ -2,16 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
 import Team from '@/app/models/Team';
 
-type Params = {
-  id: string;
-};
-
-export async function PATCH(req: NextRequest, { params }: { params: Params }) {
-  await connectToDatabase();
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const id = (await params).id;
 
   try {
-    const { teammateId, registrationStep } = await req.json();
-    const { id } = params;
+    await connectToDatabase();
+    const { teammateId, registrationStep } = await request.json();
 
     if (!teammateId) {
       return NextResponse.json(
