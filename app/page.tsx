@@ -23,29 +23,51 @@ const goldman = Goldman({
 });
 
 export default function Home() {
-  const partnersRef = useRef<HTMLDivElement>(null);
+
+  const moreInfoRef = useRef<HTMLDivElement>(null);
 
   const scrollToPartners = () => {
-    partnersRef.current?.scrollIntoView({
+    moreInfoRef.current?.scrollIntoView({
       behavior: 'smooth',
       block: 'start',
     });
   };
 
   const pickleballImages = [pbplayer1, pbplayer2, pbplayer3]
-  const partnerLogos = [courtcrew_logo, mcconnells_logo, The_Hive_Logo, knockaround_logo, everytable_logo]
+  const partnerLogos = [
+    {
+      image: courtcrew_logo,
+      url: 'https://thecourtandcrew.com/?utm_source=gg-pickleball&utm_medium=referral&utm_campaign=community-partners&utm_content=courtcrew-logo',
+    },
+    {
+      image: mcconnells_logo,
+      url: 'https://mcconnells.com/?utm_source=gg-pickleball&utm_medium=referral&utm_campaign=community-partners&utm_content=mcconnells-logo',
+    },
+    {
+      image: The_Hive_Logo,
+      url: 'https://www.hivehealthyeats.com/?utm_source=gg-pickleball&utm_medium=referral&utm_campaign=community-partners&utm_content=the-hive-logo',
+    },
+    {
+      image: knockaround_logo,
+      url: 'https://knockaround.com/?utm_source=gg-pickleball&utm_medium=referral&utm_campaign=community-partners&utm_content=knockaround-logo',
+    },
+    {
+      image: everytable_logo,
+      url: 'https://www.everytable.com/?utm_source=gg-pickleball&utm_medium=referral&utm_campaign=community-partners&utm_content=everytable-logo',
+    },
+  ];
+  
 
   return (
     <Theme appearance="light" accentColor="yellow">
       <Flex direction={'column'} width={'100vw'}>
         
         {/* HERO SECTION */}
-        <Flex direction={{ initial: 'column', md: 'row' }} width={'100vw'}>
+        <Flex direction={{ initial: 'column', md: 'row' }} width={'100vw'} minHeight={{initial: '60vh', md: '100vh'}}>
           <Flex
-            direction="column" 
-            height={{initial: '60vh', md: '100vh'}} 
-            gap={{initial: "2", md: '2'}}
-            className="w-full md:w-[40vw]"
+            direction={{initial: "row", md:"column"}} 
+            width={{initial: '100vw', md: '40vw'}}
+            gap={{initial: "1", md: '2'}}
           >
             {pickleballImages.map((image, index) => {
               const marginLeftOffsets = ["md:ml-40", "md:ml-12", "md:ml-40"];
@@ -62,7 +84,9 @@ export default function Home() {
                     ease: "easeOut",
                     delay: index * 0.3, // Staggered effect
                   }}
-                  className="relative w-full"
+                  className={`relative w-full h-full ${
+                    index > 1 ? 'hidden md:block' : '' // Hide image 3 on mobile
+                  }`}
                 >
                   <Box
                     className={`relative flex-1 w-full ${marginLeftOffsets[index]} ${marginRightOffsets[index]}`}
@@ -83,44 +107,55 @@ export default function Home() {
           <Flex direction={'column'} justify={'center'} align={'center'} className="flex-1 px-4 py-12">
             <Heading as="h1" size={{initial:'8', md: '9'}} mb={'7'} align={'center'} className={`${goldman.className} w-[70%]`}>Santa Monica Pickleball League</Heading>
             <Text size={'5'} mb={'5'} align={'center'}>Santa Monica is your court.</Text>
-            <Flex direction={'row'} gap={'5'}>
-              <Button onClick={scrollToPartners}>Learn more</Button>
-              <Button>Register/Log in</Button>
+            <Flex direction={'row'} gap={'5'} wrap={'wrap'} justify={'center'}>
+              <Button onClick={scrollToPartners} size={'4'}>
+                <Text weight={'bold'}>Learn more</Text>
+              </Button>
+              <Button size={'4'} asChild>
+                <a href="/auth/login" style={{fontWeight: 'bold'}}>Register/Log in</a>
+              </Button>
             </Flex>
           </Flex>
         </Flex>
 
         {/* PARTNERS */}
-        <Flex direction={'column'} align={'center'} my={'9'} ref={partnersRef} className="w-full bg-white px-4" >
-          <Heading as="h3" className={goldman.className}>Our Community Partners</Heading>
+        <Flex direction={'column'} align={'center'} my={{initial: '0', md: '9'}} className="w-full bg-white px-4" >
+          <Heading as="h3" align={'center'} className={goldman.className}>Our Community Partners</Heading>
 
-          <Flex width={'100vw'} wrap={'wrap'} justify={'center'} align={'center'} gapX={'9'} gapY={'5'} mt={'7'}>
-          {partnerLogos.map((image, index) => {
+          <Flex direction={'row'} width={'100vw'} wrap={'wrap'} justify={'center'} align={'center'} gapX={'9'} gapY={'5'} mt={'7'}>
+          {partnerLogos.map((partner, index) => {
             return (
               <Flex
                 key={index}
                 className={`relative`}
                 justify={'center'}
                 maxWidth={'200px'}
+                asChild
               >
-                <Image
-                  src={image}
-                  alt={`Partner logo ${index + 1}`}
-                  style={{
-                    objectFit: "contain",
-                    objectPosition: "center",
-                    maxHeight: '70px',
-                    maxWidth: 'auto'
-                  }}
-                />
+                <a
+                  href={partner.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Image
+                    src={partner.image}
+                    alt={`Partner logo ${index + 1}`}
+                    style={{
+                      objectFit: "contain",
+                      objectPosition: "center",
+                      maxHeight: '70px',
+                      maxWidth: 'auto'
+                    }}
+                  />
+                </a>
               </Flex>
             );
           })}
           </Flex>
         </Flex>
         
-        <Flex direction={'column'} width={'100vw'} align={'center'} justify={'center'} py={{initial: '0', md:'9'}}>
-          <Flex direction={{initial: 'column', md:'row'}} maxWidth={'800px'} align={'center'} gap={'9'}>
+        <Flex direction={'column'} width={'100vw'} align={'center'} justify={'center'} py={'9'}>
+          <Flex direction={{initial: 'column', md:'row'}} maxWidth={'800px'} align={'center'} gapX={'9'} gapY={'5'} ref={moreInfoRef}>
             <Box>
               <Heading as="h2" size={'8'} className={goldman.className}>Community.</Heading>
               <Heading as="h2" size={'8'} className={goldman.className}>Pickleball.</Heading>
@@ -243,14 +278,25 @@ export default function Home() {
           </Flex>
 
           {/* Rules Button */}
-          <Button
-            variant="outline"
-            size="4"
-            mt="7"
-            className="text-[#FFF302] border-[#FFF302] w-[200px]"
-          >
-            See rules
-          </Button>
+          <Flex direction={'row'} gap={'5'} wrap={'wrap'} justify={'center'} mt={'7'} mb={'9'}>
+            <Button
+              asChild
+              variant="outline"
+              size="4"
+              style={{
+                color: '#FFF302',
+                borderColor: '#FFF302',
+                borderStyle: 'solid',
+                borderWidth: '1px'
+              }}
+              className="text-[#FFF302] border-[#FFF302] w-[200px]"
+            >
+              <Link href={"/rules"}>See rules</Link>
+            </Button>
+            <Button size={'4'}>
+              <Text weight={'bold'}> Register now</Text>
+            </Button>
+          </Flex>
         </Flex>
       </Flex>
     </Theme>
