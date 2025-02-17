@@ -111,8 +111,9 @@ export default function Home() {
               <Button onClick={scrollToPartners} size={'4'}>
                 <Text weight={'bold'}>Learn more</Text>
               </Button>
-              <Button size={'4'} asChild>
-                <a href="/auth/login" style={{fontWeight: 'bold'}}>Register/Log in</a>
+              <Button size={'4'} disabled>
+                {/*<a href="/auth/login" style={{fontWeight: 'bold'}}>Register soon</a>*/}
+                Register soon
               </Button>
             </Flex>
           </Flex>
@@ -184,10 +185,10 @@ export default function Home() {
                 </Flex>  
               </Flex> 
               <Text size={'6'} weight={'bold'} mb={'4'}>First season starts March 15th</Text>
-              <Button size={'4'} asChild>
-                <Link href='/register'>
-                  <Text size={'4'} weight={'bold'}>Register now</Text>
-                </Link>
+              <Button size={'4'} asChild disabled>
+                {/* <Link href='/register'> */}
+                  <Text size={'4'} weight={'bold'}>Register soon</Text>
+                 {/* </Link> */}
               </Button>
             </Flex>
             <Flex direction={'column'} gap={'4'} px={{initial: "4", md: '0'}}> 
@@ -293,8 +294,8 @@ export default function Home() {
             >
               <Link href={"/rules"}>See rules</Link>
             </Button>
-            <Button size={'4'}>
-              <Text weight={'bold'}> Register now</Text>
+            <Button size={'4'} disabled>
+              <Text weight={'bold'}>Register soon</Text>
             </Button>
           </Flex>
         </Flex>
