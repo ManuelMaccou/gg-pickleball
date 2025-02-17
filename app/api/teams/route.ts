@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
     await connectToDatabase();
 
     const body = await req.json();
-    const { teammates, captain, wins, losses, seasonId, regionId, status } = body;
+    const { teammates, captain, wins, losses, seasonId, regionId, registrationStep, status } = body;
 
     if (!teammates) {
       return NextResponse.json(
@@ -35,6 +35,7 @@ export async function POST(req: NextRequest) {
       losses,
       seasonId,
       regionId,
+      registrationStep,
       status,
     });
 

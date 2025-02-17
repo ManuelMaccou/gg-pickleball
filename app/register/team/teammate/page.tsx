@@ -125,11 +125,7 @@ function RegisterTeammatePage() {
       if (error instanceof Error) {
         console.error('Detailed error:', error.message);
       }
-  
-      // Fallback error message for non-API errors (e.g., network issues)
-      if (!apiError) {
-        setApiError('An unexpected error occurred. Please try again.');
-      }
+      setApiError((prev) => prev || "An unexpected error happened. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -161,7 +157,7 @@ function RegisterTeammatePage() {
   }, [searchParams]);
 
   return (
-    <Flex minHeight={'100vh'} direction={'column'} mx={'5'} pb={'9'}>
+    <Flex minHeight={'100vh'} direction={'column'} mx={'5'} pb={'9'} className="px-[15px] xl:px-[400px]">
       <Box pt={"9"} pb={"5"}>
         <Image
           src={lightGGLogo}

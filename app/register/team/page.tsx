@@ -126,7 +126,7 @@ function RegisterTeamPage() {
     }
 
     try {
-      // Create user
+      // Need to change this create user to an update user
       const userPayload = {
         name: data.fullName,
         email: "test@example.com", // Placeholder (replace later with auth)
@@ -181,7 +181,7 @@ function RegisterTeamPage() {
       
     } catch (error) {
       console.error("Error creating user:", error);
-      setApiError("An error occurred. Please try again.");
+      setApiError((prev) => prev || "An error occurred. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -227,7 +227,7 @@ function RegisterTeamPage() {
     }, [searchParams]);
 
   return (
-    <Flex minHeight={'100vh'} direction={'column'} mx={'5'} pb={'9'}>
+    <Flex minHeight={'100vh'} direction={'column'} mx={'5'} pb={'9'} className="px-[15px] xl:px-[400px]">
       <Box pt={"9"} pb={"5"}>
         <Image
           src={lightGGLogo}
