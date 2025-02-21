@@ -12,6 +12,8 @@ const UserAvailabilitySchema = new Schema<IUserAvailability & Document>(
 
 const UserSchema = new Schema<IUser & Document>(
   {
+    auth0Id: { type: String },
+    firstTimeInvite: { type: Boolean },
     name: { type: String },
     email: { type: String },
     profilePicture: { type: String },
@@ -21,8 +23,11 @@ const UserSchema = new Schema<IUser & Document>(
     availability: { type: [UserAvailabilitySchema] },
     wins: { type: Number },
     losses: { type: Number },
+    activeSeasons: [{  type: Schema.Types.ObjectId, ref: "Season" }],
   },
   { timestamps: true }
 );
+
+UserSchema.index({ email: 1 });
 
 export default mongoose.models.User || mongoose.model<IUser & Document>("User", UserSchema);

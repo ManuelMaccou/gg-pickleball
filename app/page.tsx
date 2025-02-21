@@ -1,14 +1,18 @@
 'use client'
 
+import { useUser } from "@auth0/nextjs-auth0"
 import { Box, Button, Flex, Heading, Text, Theme } from "@radix-ui/themes";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { Goldman } from 'next/font/google';
 import courtcrew_logo from "../public/logos/courtcrew_logo.png"
+import trainingmate_logo from "../public/logos/trainingmate_logo.png"
 import knockaround_logo from "../public/logos/knockaround_logo.png"
 import mcconnells_logo from "../public/logos/mcconnells_logo.png"
 import The_Hive_Logo from "../public/logos/The_Hive_Logo.png"
 import everytable_logo from "../public/logos/everytable_logo.png"
+import gherkin_logo from "../public/logos/gherkin_logo.png"
+import smpc_logo from "../public/logos/smpc_logo.png"
 import pbplayer2 from "../public/pbplayer2.jpeg"
 import pbplayer3 from "../public/pbplayer3.jpeg"
 import pbplayer1 from "../public/pbplayer1.jpeg"
@@ -23,6 +27,7 @@ const goldman = Goldman({
 });
 
 export default function Home() {
+  const { user, isLoading } = useUser()
 
   const moreInfoRef = useRef<HTMLDivElement>(null);
 
@@ -34,10 +39,25 @@ export default function Home() {
   };
 
   const pickleballImages = [pbplayer1, pbplayer2, pbplayer3]
-  const partnerLogos = [
+  const facilityPartnerLogos = [
+    {
+      image: smpc_logo,
+      url: 'https://santamonicapickleballcenter.com/?utm_source=gg-pickleball&utm_medium=referral&utm_campaign=facility-partners&utm_content=smpc-logo',
+    },
+  ];
+
+  const communityPartnerLogos = [
     {
       image: courtcrew_logo,
       url: 'https://thecourtandcrew.com/?utm_source=gg-pickleball&utm_medium=referral&utm_campaign=community-partners&utm_content=courtcrew-logo',
+    },
+    {
+      image: gherkin_logo,
+      url: 'https://www.gherkinusa.com/?utm_source=gg-pickleball&utm_medium=referral&utm_campaign=community-partners&utm_content=gherkin-logo',
+    },
+    {
+      image: trainingmate_logo,
+      url: 'https://trainingmate.com/?utm_source=gg-pickleball&utm_medium=referral&utm_campaign=community-partners&utm_content=trainingmate-logo',
     },
     {
       image: mcconnells_logo,
@@ -63,7 +83,7 @@ export default function Home() {
       <Flex direction={'column'} width={'100vw'}>
         
         {/* HERO SECTION */}
-        <Flex direction={{ initial: 'column', md: 'row' }} width={'100vw'} minHeight={{initial: '60vh', md: '100vh'}}>
+        <Flex direction={{ initial: 'column', md: 'row' }} width={'100vw'} minHeight={{initial: '60vh', md: '75vh'}}>
           <Flex
             direction={{initial: "row", md:"column"}} 
             width={{initial: '100vw', md: '40vw'}}
@@ -94,8 +114,8 @@ export default function Home() {
                     <Image
                       src={image}
                       alt={`Pickleball player ${index + 1}`}
-                      className="object-cover object-top h-[20vh] md:h-[31vh]"
-                      priority={index === 1}
+                      className="object-cover object-top h-[20vh] md:h-[25vh] w-[100%] md:w-[90%]"
+                      priority={index === 2}
                     />
                   </Box>
                 </motion.div>
@@ -106,31 +126,68 @@ export default function Home() {
           {/* Heading & CTA */}
           <Flex direction={'column'} justify={'center'} align={'center'} className="flex-1 px-4 py-12">
             <Heading as="h1" size={{initial:'8', md: '9'}} mb={'7'} align={'center'} className={`${goldman.className} w-[70%]`}>Santa Monica Pickleball League</Heading>
-            <Text size={'5'} mb={'5'} align={'center'}>Santa Monica is your court.</Text>
+            <Text size={'5'} weight={'bold'} mb={'5'} align={'center'}>Santa Monica is your court.</Text>
             <Flex direction={'row'} gap={'5'} wrap={'wrap'} justify={'center'}>
               <Button onClick={scrollToPartners} size={'4'}>
                 <Text weight={'bold'}>Learn more</Text>
               </Button>
-              <Button size={'4'} disabled>
-                {/*<a href="/auth/login" style={{fontWeight: 'bold'}}>Register soon</a>*/}
-                Register soon
+              <Button size="4" disabled={isLoading} asChild>
+                <a href={user ? "/register" : "/auth/login?screen_hint=signup&returnTo=/register"}>
+                  <Text size="4" weight="bold">Register</Text>
+                </a>
               </Button>
             </Flex>
           </Flex>
         </Flex>
 
-        {/* PARTNERS */}
-        <Flex direction={'column'} align={'center'} my={{initial: '0', md: '9'}} className="w-full bg-white px-4" >
-          <Heading as="h3" align={'center'} className={goldman.className}>Our Community Partners</Heading>
+        {/* FACILITY PARTNERS */}
+        <Flex direction={'column'} align={'center'} mt={{initial: '0', md: '9'}} className="w-full bg-white px-4" >
+          <Heading as="h3" align={'center'} className={goldman.className}>Facility Partner</Heading>
 
           <Flex direction={'row'} width={'100vw'} wrap={'wrap'} justify={'center'} align={'center'} gapX={'9'} gapY={'5'} mt={'7'}>
-          {partnerLogos.map((partner, index) => {
+          {facilityPartnerLogos.map((partner, index) => {
             return (
               <Flex
                 key={index}
                 className={`relative`}
                 justify={'center'}
-                maxWidth={'200px'}
+                maxWidth={'150px'}
+                asChild
+              >
+                <a
+                  href={partner.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Image
+                    src={partner.image}
+                    alt={`Partner logo ${index + 1}`}
+                    style={{
+                      objectFit: "contain",
+                      objectPosition: "center",
+                      maxHeight: '70px',
+                      maxWidth: 'auto'
+                    }}
+                  />
+                </a>
+              </Flex>
+            );
+          })}
+          </Flex>
+        </Flex>
+
+        {/* COMMUNITY PARTNERS */}
+        <Flex direction={'column'} align={'center'} my={{initial: '0', md: '9'}} className="w-full bg-white px-4" >
+          <Heading as="h3" align={'center'} className={goldman.className}>Community Partners</Heading>
+
+          <Flex direction={'row'} width={{initial:'100vw', md:'70vw'}} wrap={'wrap'} justify={'center'} align={'center'} gapX={'9'} gapY={'5'} mt={'7'}>
+          {communityPartnerLogos.map((partner, index) => {
+            return (
+              <Flex
+                key={index}
+                className={`relative`}
+                justify={'center'}
+                maxWidth={'150px'}
                 asChild
               >
                 <a
@@ -185,10 +242,10 @@ export default function Home() {
                 </Flex>  
               </Flex> 
               <Text size={'6'} weight={'bold'} mb={'4'}>First season starts March 15th</Text>
-              <Button size={'4'} asChild disabled>
-                {/* <Link href='/register'> */}
-                  <Text size={'4'} weight={'bold'}>Register soon</Text>
-                 {/* </Link> */}
+              <Button size="4" disabled={isLoading} asChild>
+                <a href={user ? "/register" : "/auth/login?screen_hint=signup&returnTo=/register"}>
+                  <Text size="4" weight="bold">Register</Text>
+                </a>
               </Button>
             </Flex>
             <Flex direction={'column'} gap={'4'} px={{initial: "4", md: '0'}}> 
@@ -257,7 +314,7 @@ export default function Home() {
               <Flex direction="column" className="max-w-full md:max-w-[600px]" gap="7">
                 <Flex direction="column" gap="3">
                   <Text size="7" weight="bold" className={`${goldman.className} text-white`}>
-                    Play at Picklepop or Santa Monica Pickleball Center
+                    Play at Pickle Pop or Santa Monica Pickleball Center
                   </Text>
                   <Text size="6" className="text-white leading-relaxed">
                     Book courts at Santa Monica&apos;s top facilities and expand your pickleball
@@ -294,8 +351,10 @@ export default function Home() {
             >
               <Link href={"/rules"}>See rules</Link>
             </Button>
-            <Button size={'4'} disabled>
-              <Text weight={'bold'}>Register soon</Text>
+            <Button size="4" disabled={isLoading} asChild>
+              <a href={user ? "/register" : "/auth/login?screen_hint=signup&returnTo=/register"}>
+                <Text size="4" weight="bold">Register</Text>
+              </a>
             </Button>
           </Flex>
         </Flex>

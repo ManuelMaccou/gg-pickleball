@@ -2,20 +2,20 @@
 
 "use client"
 
+import { useUser } from "@auth0/nextjs-auth0"
 import { useRouter, useSearchParams } from "next/navigation";
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { Box, Flex, Heading, Text, VisuallyHidden } from "@radix-ui/themes";
 import Image from "next/image";
 import lightGGLogo from '../../../../public/gg_logo_white_transparent.png'
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Suspense, useEffect, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle, Loader2 } from "lucide-react"
 import { ApiErrorResponse } from "@/app/types/functionTypes";
+import { ITeam, IUser } from "@/app/types/databaseTypes";
 
 interface FormData {
   fullName: string;
@@ -25,18 +25,25 @@ interface FormData {
   dropdownValue?: string;
 }
 
-const options = ["Beginner", "Intermediate", "Advanced"];
+interface Auth0User {
+  user_id: string
+  email: string
+}
+
+interface Auth0ResponseType {
+  auth0User: Auth0User
+  passwordSetupLink: string
+}
 
 function RegisterTeammatePage() {
 
+  const { user } = useUser()
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const {
     register,
     handleSubmit,
-    control,
-    watch,
     formState: { errors },
   } = useForm<FormData>({
     mode: "onBlur",
@@ -46,36 +53,52 @@ function RegisterTeammatePage() {
   const [regionId, setRegionId] = useState<string | null>(null);
   const [seasonId, setSeasonId] = useState<string | null>(null);
   const [teamId, setTeamId] = useState<string | null>(null);
-  const [checked, setChecked] = useState<boolean>(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [apiError, setApiError] = useState<string | null>(null);
-
-  const handleCheckBox = (value: boolean) => {
-    setChecked(value);
-  };
 
   const onSubmit = async (data: FormData) => {
     setApiError(null);
     setIsSubmitting(true);
 
     try {
-      const userPayload = {
-        name: data.fullName,
-        email: data.email,
-        dupr: data.dupr,
-        duprUrl: data.duprUrl,
-        skillLevel: data.dropdownValue,
-      };
 
       // Check if user with email exists
       const existingUserResponse = await fetch(`/api/users/email?email=${data.email}`);
-      const { exists, user } = await existingUserResponse.json();
+      const { exists, user: existingUser } = await existingUserResponse.json();
 
       let teammate2Id;
       
       if (!exists) {
+
+        // Create Auth0 user, generate password reset link, and email registration confirmation to user
+        const auth0Response = await fetch('/api/auth0/create-teammate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: data.email }),
+        })
+        
+        if (!auth0Response.ok) {
+          const errorData = await auth0Response.json()
+          setApiError(errorData.error.message || 'Failed to create Auth0 user')
+          throw new Error(`Auth0 error: ${errorData.error}`)
+        }
+        
+        const { auth0User, passwordSetupLink }: Auth0ResponseType = await auth0Response.json()
+        console.log('Auth0 user created:', auth0User)
+        console.log('Password setup link:', passwordSetupLink)
+
+
+        // Create user in database
+        const userPayload = {
+          name: data.fullName,
+          email: data.email,
+          auth0Id: auth0User.user_id,
+          firstTimeInvite: true,
+          activeSeasons: seasonId ? [seasonId] : undefined,
+        };
+
         const userResponse = await fetch("/api/users", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -90,16 +113,16 @@ function RegisterTeammatePage() {
   
         const { user: createdUser } = await userResponse.json();
         teammate2Id = createdUser._id;
-        console.log("Teammate 2 created successfully:", user);
+        console.log("Teammate 2 created successfully:", createdUser);
 
       } else {
-        teammate2Id = user._id;
+        teammate2Id = existingUser._id;
         console.log("not creating a new user");
       }
 
       const teamPayload = {
         teammateId: teammate2Id,
-        registrationStep: "REGISTERED_TEAMMATE",
+        registrationStep: "TEAMMATE_INVITED",
       };
 
       const teamResponse = await fetch(`/api/teams/${teamId}`, {
@@ -138,23 +161,64 @@ function RegisterTeammatePage() {
       const teammate1Param = searchParams.get('teammate1');
       const teamIdParam = searchParams.get('teamId');
 
-      if (teammate1Param) {
+      if (teammate1Param && regionIdParam && seasonIdParam && teamIdParam) {
        setTeammate1Id(teammate1Param)
-      }
-
-      if (regionIdParam) {
-        setRegionId(regionIdParam)
-      }
-
-      if (seasonIdParam) {
-        setSeasonId(seasonIdParam)
-      }
-
-      if (teamIdParam) {
-        setTeamId(teamIdParam)
+       setRegionId(regionIdParam)
+       setSeasonId(seasonIdParam)
+       setTeamId(teamIdParam)
+      } else {
+        router.push('/register')
       }
     }
-  }, [searchParams]);
+  }, [searchParams, router]);
+
+  useEffect(() => {
+    if (!user || !seasonId) return;
+
+    const checkProgress = async() => {
+      try {
+        console.log('Starting access check for user:', user.sub);
+
+        const getCurrentUser = await fetch(`/api/users/auth0Id/?auth0Id=${user.sub}`);
+        if (!getCurrentUser.ok) {
+          throw new Error(`Failed to fetch user: ${getCurrentUser.statusText}`);
+        }
+
+        const { user: currentUser }: { user: IUser } = await getCurrentUser.json();
+        if (!currentUser) {
+          console.log('current user not found individual success')
+          router.push('/register')
+          return;
+        }
+       
+        const getCurrentTeam = await fetch(
+          `/api/teams/findByUserAndSeason?userId=${currentUser._id}&seasonId=${seasonId}`
+        );
+
+        if (!getCurrentTeam.ok) {
+          throw new Error(`Failed to fetch team: ${getCurrentTeam.statusText}`);
+        }
+
+        const { team }: { team: ITeam } = await getCurrentTeam.json();
+        console.log('Fetched team:', team);
+
+        if (!team || (team.registrationStep !== 'CAPTAIN_REGISTERED' && team.registrationStep !== 'TEAMMATE_INVITED')) {
+          console.log('Invalid team state, redirecting to /register');
+          router.push('/register');
+        } else {
+          console.log('Access granted!');
+        }
+      } catch (error) {
+        console.error('Access check failed:', error);
+        router.push('/register');
+      }
+    };
+    
+    checkProgress();
+
+  }, [router, seasonId, user])
+
+  if (!user) return null
 
   return (
     <Flex minHeight={'100vh'} direction={'column'} mx={'5'} pb={'9'} className="px-[15px] xl:px-[400px]">
@@ -205,7 +269,7 @@ function RegisterTeammatePage() {
               {errors.email && <Text color="red">{errors.email.message}</Text>}
             </Flex>
 
-            {/* DUPR Profile URL */}
+            {/* DUPR Profile URL 
             <Flex direction={'column'} gap={'2'} mb={'5'}>
               <Label htmlFor="duprUrl" className="text-base">Teammate&apos;s DUPR Profile URL (Optional)</Label>
               <Input 
@@ -228,8 +292,9 @@ function RegisterTeammatePage() {
                 }}
               />
             </Flex>
+            */}
 
-            {/* Dropdown Selection */}
+            {/* Dropdown Selection 
             <Flex direction={'column'} gap={'2'} mb={'5'}>
               <Label className="text-base">Teammate&apos;s skill level (if no DUPR)</Label>
               <Controller
@@ -267,30 +332,16 @@ function RegisterTeammatePage() {
                 )}
               />
             </Flex>
+            */}
 
             <Button
               type="submit"
               className="w-full"
-              disabled={isSubmitting || !teammate1Id || !seasonId || !regionId || !checked}
+              disabled={isSubmitting || !teammate1Id || !seasonId || !regionId}
             >
               {isSubmitting && <Loader2 className="animate-spin" />}
               {isSubmitting ? "Please wait..." : "Continue to Payment"}
             </Button>
-
-            <Flex direction={'row'} gap={'3'} my={'5'}>
-              <Checkbox
-                id="terms"
-                className="w-6 h-6"
-                checked={checked}
-                onCheckedChange={handleCheckBox}
-              />
-              <label
-                htmlFor="terms"
-                className="text-m font-medium leading-6 peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                This payment covers the 1-month registration fee for you and your teammate. By continuing, you agree to our terms of service and privacy policies.
-              </label>
-            </Flex>
           </form>
           
         </Box>

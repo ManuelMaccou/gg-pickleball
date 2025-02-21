@@ -1,10 +1,13 @@
 import mongoose from "mongoose";
-import "../app/models/Team";
-import "../app/models/User";
+
 import "../app/models/Conversation";
 import "../app/models/Court";
+import "../app/models/Image";
 import "../app/models/Match";
 import "../app/models/Region";
+import "../app/models/Season";
+import "../app/models/Team";
+import "../app/models/User";
 
 const MONGODB_URI = process.env.MONGODB_URI as string;
 

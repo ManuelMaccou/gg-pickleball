@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
     await connectToDatabase();
 
     const body = await req.json();
-    const { teammates, captain, wins, losses, seasonId, regionId, registrationStep, status } = body;
+    const { teammates, captain, wins, losses, seasonId, regionId, registrationStep, status, individual } = body;
 
     if (!teammates) {
       return NextResponse.json(
@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
       regionId,
       registrationStep,
       status,
+      individual,
     });
 
     await newTeam.save();
@@ -59,7 +60,8 @@ export async function GET(req: Request) {
     // Parse URL query parameters
     const { searchParams } = new URL(req.url);
     const regionId = searchParams.get("regionId");
-    const activeSeason = searchParams.get("activeSeason") === "true"; // Convert to boolean
+    const activeSeason = searchParams.get("activeSeason") === "true";
+    const teamId = searchParams.get("teamId");
 
     const query: Partial<ITeam> = {};
 
@@ -80,6 +82,10 @@ export async function GET(req: Request) {
 
     if (regionId) {
       query.regionId = regionId; // Filter by region
+    }
+
+    if (teamId) {
+      query._id = teamId
     }
 
     const teams = await Team.find(query).populate<{ teammates: IUser[] }>("teammates", "name email profilePicture dupr skillLevel");

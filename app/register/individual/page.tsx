@@ -25,7 +25,6 @@ import { AlertCircle, Loader2 } from "lucide-react"
 import { Slider } from "@/components/ui/slider"
 import AvailabilitySelection from "@/app/components/ui/setAvailability";
 import { ApiErrorResponse } from "@/app/types/functionTypes";
-import { ITeam, IUser } from "@/app/types/databaseTypes";
 
 interface FormData {
   fullName: string;
@@ -34,9 +33,9 @@ interface FormData {
   dropdownValue?: string;
 }
 
+const options = ["Beginner", "Intermediate", "Advanced"];
 
-
-function RegisterTeamPage() {
+function RegisterIndividualPage() {
   const { user } = useUser()
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -46,7 +45,6 @@ function RegisterTeamPage() {
     handleSubmit,
     control,
     watch,
-    //reset,
     formState: { errors },
   } = useForm<FormData>({
     mode: "onBlur",
@@ -55,15 +53,9 @@ function RegisterTeamPage() {
     }
   });
 
-  //const [currentUser, setCurrentUser] = useState<IUser | null>(null);
-  const [currentDbUser, setCurrentDbUser] = useState<IUser | null>(null);
-  const [isFirstTimeInvite, setIsFirstTimeInvite] = useState(false);
-  const [teammateIsRegistering, setTeammateIsRegistering] = useState<boolean>(false);
-
   const [regionId, setRegionId] = useState<string | null>(null);
   const [seasonId, setSeasonId] = useState<string | null>(null);
 
-  //const [imageAlreadySet, setImageAlreadySet] = useState<boolean>(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [croppedImage, setCroppedImage] = useState<string | null>(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
@@ -76,103 +68,6 @@ function RegisterTeamPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [apiError, setApiError] = useState<string | null>(null);
-
-  // Get currently logged in user
-   useEffect(() => {
-    if (!user) return;
-
-      const fetchUser = async () => {
-        try {
-          const response = await fetch(`/api/users/auth0Id/?auth0Id=${user?.sub}`);
-  
-          if (!response.ok) {
-            const errorData: ApiErrorResponse = await response.json();
-            throw new Error(`API Error: ${errorData.systemMessage}`);
-          }
-  
-          const currentUser = await response.json();
-          setCurrentDbUser(currentUser.user);
-
-          console.log ('current user:', currentUser);
-
-          if (currentUser.user.firstTimeInvite) {
-            setIsFirstTimeInvite(currentUser.user.firstTimeInvite)
-          }
-
-        } catch (error) {
-          console.error('Error fetching current user:', error);
-          setApiError((prev) => prev || "An unexpected error happened. Please try again.");
-        }
-      };
-  
-      fetchUser();
-    }, [user]);
-
-    useEffect(() => {
-      console.log('is invite:', isFirstTimeInvite);
-
-    }, [isFirstTimeInvite])
-
-    // Checking if the teammate or the captain is on the page.
-    useEffect(() => {
-        if (!currentDbUser || !seasonId) return;
-        
-        const fetchCurrentTeam = async() => {
-          try {
-            const getCurrentTeam = await fetch(
-              `/api/teams/findByUserAndSeason?userId=${currentDbUser._id}&seasonId=${seasonId}`
-            );
-      
-            if (!getCurrentTeam.ok) {
-              throw new Error(`Failed to fetch team: ${getCurrentTeam.statusText}`);
-            }
-      
-            const { team }: { team: ITeam } = await getCurrentTeam.json();
-            console.log('Fetched team:', team);
-    
-            if (team.captain !== currentDbUser._id){
-              setTeammateIsRegistering(true);
-            }
-              
-          } catch (error) {
-            console.error('Error fetching team:', error);
-          }
-          
-        }
-        fetchCurrentTeam();
-        
-      }, [currentDbUser, seasonId])
-
-    /*
-
-    useEffect(() => {
-      if (croppedImage && croppedImage.startsWith("http")) {
-        setImageAlreadySet(true);
-      }
-      console.log('currentUser:', currentUser)
-    }, [croppedImage, currentUser])
-    */
-
-    /*
-    // Pre-fill out form
-    useEffect(() => {
-      if (currentUser) {
-        reset({
-          fullName: currentUser.name || "",
-          email: currentUser.email || user?.email || "",
-          duprUrl: currentUser.duprUrl || "",
-        });
-    
-        if (currentUser.profilePicture) {
-          setCroppedImage(currentUser.profilePicture);
-        }
-    
-        if (currentUser.availability) {
-          setAvailabilityBlocks(currentUser.availability);
-        }
-      }
-    }, [currentUser, reset, user]);
-    */
 
   const onCropComplete = useCallback((_: Area, croppedArea: Area) => {
     setCroppedAreaPixels(croppedArea);
@@ -212,9 +107,9 @@ function RegisterTeamPage() {
     setApiError(null);
     setIsSubmitting(true);
 
-    let imageUrl = croppedImage ?? "";
+    let imageUrl = "";
 
-    if (croppedImage && !croppedImage.startsWith("http")) {
+    if (croppedImage) {
       const base64Data = croppedImage;
       const contentType = base64Data.match(/^data:(.*?);base64/)?.[1];
 
@@ -236,18 +131,29 @@ function RegisterTeamPage() {
     }
 
     try {
-      const userPayload = {
-        name: data.fullName,
-        profilePicture: imageUrl
-          ? `${process.env.NEXT_PUBLIC_BASE_URL}${imageUrl}`
-          : undefined,
-        duprUrl: data.duprUrl,
-        skillLevel: data.dropdownValue,
-        availability: availabilityBlocks,
-      };
-      
-      const userResponse = await fetch(`/api/users/email/${user?.email}`, {
-        method: "PATCH",
+      let userPayload;
+      if (imageUrl) {
+        // Need to change this create user to an update user
+        userPayload = {
+          name: data.fullName,
+          email: user?.email,
+          profilePicture: `${process.env.NEXT_PUBLIC_BASE_URL}${imageUrl}`,
+          duprUrl: data.duprUrl,
+          skillLevel: data.dropdownValue,
+          availability: availabilityBlocks,
+        };
+      } else {
+        userPayload = {
+          name: data.fullName,
+          email: user?.email,
+          duprUrl: data.duprUrl,
+          skillLevel: data.dropdownValue,
+          availability: availabilityBlocks,
+        }
+      }
+  
+      const userResponse = await fetch("/api/users", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(userPayload),
       });
@@ -255,78 +161,40 @@ function RegisterTeamPage() {
       if (!userResponse.ok) {
         const errorData: ApiErrorResponse = await userResponse.json();
         setApiError(errorData.userMessage);
-        throw new Error(`Failed to update user: ${errorData.systemMessage}`);
+        throw new Error(`Failed to create user: ${errorData.systemMessage}`);
       }
   
-      const { updatedUser } = await userResponse.json();
-      console.log("User updated successfully:", updatedUser);
+      const { user: createdUser } = await userResponse.json();
+      console.log("User created successfully:", createdUser);
 
       // Create team
-      const teammate1Id = updatedUser._id
-      let existingTeam = null;
-
-      try {
-        const existingTeamResponse = await fetch(
-          `/api/teams/findByUserAndSeason?userId=${teammate1Id}&seasonId=${seasonId}`
-        );
-  
-        if (existingTeamResponse.ok) {
-          const { team } = await existingTeamResponse.json();
-          existingTeam = team;
-        } else if (existingTeamResponse.status !== 404) {
-          const errorData: ApiErrorResponse = await existingTeamResponse.json();
-          throw new Error(`Failed to check existing team: ${errorData.systemMessage}`);
-        }
-      } catch (err) {
-        console.error('Error fetching existing team:', err);
-        setIsSubmitting(false);
-        return;
-      }
-     
-
-      const teamPayload = teammateIsRegistering
-        ? { registrationStep: 'TEAMMATE_REGISTERED' }
-        : {
-            captain: teammate1Id,
-            registrationStep: 'CAPTAIN_REGISTERED',
-            status: 'REGISTERED',
-            teammates: [teammate1Id],
-            regionId,
-            seasonId,
+      const teammate1Id = createdUser._id
+      const teamPayload = {
+        teammates: [teammate1Id],
+        captain: teammate1Id,
+        regionId,
+        seasonId,
+        registrationStep: "CAPTAIN_REGISTERED",
+        status: "REGISTERED",
+        individual: true,
       };
 
-      let team;
-      try {
-        const teamResponse = await fetch(
-          existingTeam ? `/api/teams/${existingTeam._id}` : '/api/teams',
-          {
-            method: existingTeam ? 'PATCH' : 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(teamPayload),
-          }
-        );
+      const teamResponse = await fetch("/api/teams", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(teamPayload),
+      });
 
-        if (!teamResponse.ok) {
-          const errorData: ApiErrorResponse = await teamResponse.json();
-          throw new Error(
-            `Failed to ${existingTeam ? 'update' : 'create'} team: ${errorData.systemMessage}`
-          );
-        }
-
-        const teamResult = await teamResponse.json();
-        team = teamResult.team;
-      } catch (err) {
-        console.error('Team create/update failed:', err);
-        setApiError('Failed to create or update team. Please try again.');
-        setIsSubmitting(false);
-        return;
+      if (!teamResponse.ok) {
+        const errorData: ApiErrorResponse = await teamResponse.json();
+        setApiError(errorData.userMessage);
+        throw new Error(`Failed to create team: ${errorData.systemMessage}`);
       }
 
-      if (isFirstTimeInvite) {
-        router.push(`/register/success?seasonId=${seasonId}&regionId=${regionId}&teamId=${team._id}`);
-      } else {
-        router.push(`/register/team/teammate?seasonId=${seasonId}&regionId=${regionId}&teammate1=${updatedUser._id}&teamId=${team._id}`);
-      }
+      const { team } = await teamResponse.json();
+      console.log("Team created successfully:", team);
+
+      router.push(`/register/individual/success?seasonId=${seasonId}&regionId=${regionId}&teammate1=${createdUser._id}&teamId=${team._id}`);
       
     } catch (error) {
       console.error("Error creating user:", error);
@@ -335,6 +203,7 @@ function RegisterTeamPage() {
       setIsSubmitting(false);
     }
   };
+  
 
   const handleCancel = () => {
     setCropping(false);
@@ -350,8 +219,8 @@ function RegisterTeamPage() {
     // Clear file input if it exists
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
-    }
-  };
+}
+};
 
   const handleResetFileInput = (e: React.MouseEvent<HTMLInputElement>) => {
     const input = e.target as HTMLInputElement;
@@ -360,20 +229,21 @@ function RegisterTeamPage() {
   };
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && searchParams) {
-      const regionIdParam = searchParams.get('regionId');
-      const seasonIdParam = searchParams.get('seasonId');
-
-      if (regionIdParam && seasonIdParam) {
-        setRegionId(regionIdParam)
-        setSeasonId(seasonIdParam)
-      } else {
-        router.push('/register')
+        if (typeof window !== 'undefined' && searchParams) {
+        const regionIdParam = searchParams.get('regionId');
+        const seasonIdParam = searchParams.get('seasonId');
+  
+        if (regionIdParam) {
+          setRegionId(regionIdParam)
+        }
+  
+        if (seasonIdParam) {
+          setSeasonId(seasonIdParam)
+        }
       }
-    }
-  }, [router, searchParams]);
+    }, [searchParams]);
 
-  if (!user) return null
+    if (!user) return null
 
   return (
     <Flex minHeight={'100vh'} direction={'column'} mx={'5'} pb={'9'} className="px-[15px] xl:px-[400px]">
@@ -400,8 +270,8 @@ function RegisterTeamPage() {
           fallback="A"
           radius={"full"}
         />
-        ) : (
-          <Avatar fallback={user?.name?.[0] ?? "A"} radius="full" size={'7'}/>
+) : (
+          <Avatar fallback="A" radius="full" size={'7'}/>
         )}
         <Box>
           <Label htmlFor="profilePicture" className="text-base">Profile Picture</Label>
@@ -415,7 +285,7 @@ function RegisterTeamPage() {
           />
         </Box>
       </Flex>
-
+      
       <Dialog open={cropping} onOpenChange={(open) => !open && handleCancel()}>
         <DialogContent>
           <DialogHeader>
@@ -460,6 +330,7 @@ function RegisterTeamPage() {
       <Flex direction={'column'} mx={'4'}>
         <Box>
           <form onSubmit={handleSubmit(onSubmit)}>
+
             {/* Full Name Field */}
             <Flex direction={'column'} gap={'2'} mb={'5'}>
               <Label htmlFor="fullName" className="text-base">Full Name</Label>
@@ -487,7 +358,7 @@ function RegisterTeamPage() {
               />
               {errors.email && <Text color="red">{errors.email.message}</Text>}
             </Flex>
-
+  
             {/* DUPR Profile URL */}
             <Flex direction={'column'} gap={'2'} mb={'5'}>
               <Label htmlFor="duprUrl" className="text-base">DUPR Profile URL (Optional)</Label>
@@ -530,8 +401,8 @@ function RegisterTeamPage() {
                 render={({ field }) => (
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <SelectTrigger 
-                      style={{
-                        borderStyle: 'solid',
+        style={{
+          borderStyle: 'solid',
                         borderWidth: '1px',
                         borderColor: '#777777',
                         backgroundColor: '#2b2b2b'
@@ -540,7 +411,7 @@ function RegisterTeamPage() {
                     <SelectValue placeholder="Choose one"/>
                     </SelectTrigger>
                     <SelectContent>
-                      {["Beginner", "Intermediate", "Advanced"].map((option) => (
+                      {options.map((option) => (
                         <SelectItem key={option} value={option}>
                           {option}
                         </SelectItem>
@@ -557,13 +428,13 @@ function RegisterTeamPage() {
               type="submit"
               className="w-full"
               disabled={isSubmitting || !seasonId || !regionId}
-            >
-              {isSubmitting && <Loader2 className="animate-spin" />}
-              {isSubmitting ? "Please wait..." : "Continue"}
+      >
+        {isSubmitting && <Loader2 className="animate-spin" />}
+              {isSubmitting ? "Please wait..." : "Register"}
             </Button>
           </form>
-        </Box>
-      </Flex>
+      </Box>
+</Flex>
 
       {apiError && (
         <Box m={'4'}>
@@ -585,8 +456,8 @@ function RegisterTeamPage() {
               <AlertTitle>Input error</AlertTitle>
             </VisuallyHidden>
             <AlertDescription>
-              {errors.duprUrl.message}
-            </AlertDescription>
+        {errors.duprUrl.message}
+      </AlertDescription>
           </Alert>
         </Box>
       )}
@@ -594,10 +465,10 @@ function RegisterTeamPage() {
   )
 }
 
-export default function RegisterTeam() {
+export default function RegisterIndividual() {
   return (
     <Suspense>
-      <RegisterTeamPage />
+      <RegisterIndividualPage />
     </Suspense>
   )
 }

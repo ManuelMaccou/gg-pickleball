@@ -8,8 +8,8 @@ export async function POST(req: NextRequest) {
     await connectToDatabase(); // Ensure MongoDB is connected
 
     const body = await req.json();
-    const { name, email, profilePicture, duprUrl, dupr, skillLevel, availability }:
-      {name: string, email: string, profilePicture: string, duprUrl: string, dupr: number, skillLevel: string, availability: { day: string; time: string }[]} = body;
+    const { name, email, profilePicture, duprUrl, dupr, skillLevel, availability, auth0Id, activeSeasons, firstTimeInvite }:
+      {name: string, email: string, profilePicture: string, duprUrl: string, dupr: number, skillLevel: string, availability: { day: string; time: string }[], auth0Id: string, activeSeasons: string[], firstTimeInvite: boolean} = body;
 
       if (!name) {
         return NextResponse.json(
@@ -29,18 +29,19 @@ export async function POST(req: NextRequest) {
           },
           { status: 400 }
         );
-        
       }
 
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ auth0Id });
     if (existingUser) {
       console.log("email exists") 
       return NextResponse.json(
         {
+          user: existingUser,
+          exists: true,
           systemMessage: `A player with this email (${email}) already exists in the database.`,
           userMessage: "A player with this email already exists. Please use a different email.",
         },
-        { status: 400 }
+        { status: 200 }
       );
     }
 
@@ -51,12 +52,15 @@ export async function POST(req: NextRequest) {
       duprUrl,
       dupr,
       skillLevel,
-      availability
+      availability,
+      auth0Id,
+      activeSeasons,
+      firstTimeInvite,
     });
 
     await newUser.save();
 
-    return NextResponse.json({ message: "User created successfully", user: newUser }, { status: 201 });
+    return NextResponse.json({ exists: false, message: "User created successfully", user: newUser }, { status: 201 });
   } catch (error) {
     console.error("Error creating user:", error);
     return NextResponse.json(

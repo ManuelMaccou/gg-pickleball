@@ -7,20 +7,23 @@ export interface IUserAvailability {
 }
 
 export interface IUser {
-  _id: string;
-  name: string;
+  _id?: string;
+  auth0Id?: string;
+  firstTimeInvite?: boolean;
+  name?: string;
   email: string;
   profilePicture?: string;
   duprUrl?: string;
   dupr?: number;
-  skillLevel?: "beginner" | "intermediate" | "advanced";
+  skillLevel?: "Beginner" | "Intermediate" | "Advanced";
   availability?: IUserAvailability[];
   wins?: number;
   losses?: number;
+  activeSeasons?: ISeason[];
 }
 
 export interface ITeam {
-  _id: string;
+  _id?: string;
   teammates: IUser[];
   captain: Types.ObjectId | string;
   preferredCourt?: Types.ObjectId | string;
@@ -30,10 +33,11 @@ export interface ITeam {
   regionId: Types.ObjectId | string;
   registrationStep?: string,
   status?: string;
+  individual? : boolean;
 }
 
 export interface IMatch {
-  _id: string;
+  _id?: string;
   teams: Types.ObjectId[] | string[];
   challenger?: Types.ObjectId | string;
   status?: "initiated" | "paid" | "completed" | "canceled";
@@ -49,14 +53,14 @@ export interface IMatch {
 }
 
 export interface ISeason {
-  _id: string;
+  _id?: string;
   season: number;
   startDate: string;
   active: boolean;
 }
 
 export interface IConversation {
-  _id: string;
+  _id?: string;
   seasonId: Types.ObjectId | string;
   users: Types.ObjectId[] | string[];
 }
@@ -89,7 +93,7 @@ export interface ICourt {
 }
 
 export interface IRegion {
-  _id: string;
+  _id?: string;
   name: string;
 }
 

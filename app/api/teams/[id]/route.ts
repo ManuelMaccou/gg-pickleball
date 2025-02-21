@@ -10,14 +10,9 @@ export async function PATCH(
 
   try {
     await connectToDatabase();
-    const { teammateId, registrationStep } = await request.json();
+    const body = await request.json();
 
-    if (!teammateId) {
-      return NextResponse.json(
-        { systemMessage: 'teammateId is required', userMessage: 'An unexpected error occurred.' },
-        { status: 400 }
-      );
-    }
+    const { teammateId, ...updateFields } = body;
 
     const team = await Team.findById(id);
 
@@ -28,14 +23,18 @@ export async function PATCH(
       );
     }
 
-    // Add the second teammate if not already present
-    if (!team.teammates.includes(teammateId)) {
-      team.teammates.push(teammateId);
+    if (teammateId) {
+      if (!team.teammates.includes(teammateId)) {
+        team.teammates.push(teammateId);
+      }
     }
 
-    if (registrationStep) {
-      team.registrationStep = registrationStep;
-    }
+    // Update the rest of the fields dynamically
+    Object.entries(updateFields).forEach(([key, value]) => {
+      if (value !== undefined && key in team) {
+        (team.set as (path: string, val: unknown) => void)(key, value);
+      }
+    });
 
     await team.save();
 

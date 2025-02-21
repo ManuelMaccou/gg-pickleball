@@ -12,12 +12,13 @@ const TeamSchema = new Schema<ITeam & Document>(
     regionId: { type: Schema.Types.ObjectId, ref: "Region" },
     registrationStep: {
       type: String,
-      enum: ["REGISTERED_SELF", "REGISTERED_TEAMMATE"],
+      enum: ["CAPTAIN_REGISTERED", "TEAMMATE_INVITED", "TEAMMATE_REGISTERED"],
     },
     status: {
       type: String,
       enum: ["REGISTERED", "PAID"],
     },
+    individual: { type: Boolean },
   },
   { timestamps: true }
 );
