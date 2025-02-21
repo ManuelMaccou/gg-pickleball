@@ -212,8 +212,8 @@ export default function Register() {
 
 
   return (
-    <Flex align={"center"} minHeight={"100vh"} justify={"center"} direction={'column'} mt={'-9'} mx={'4'}>
-      <Flex direction={'column'} align={'center'} justify={'center'} gap={'4'} mt={'-9'}>
+    <Flex justify={"center"} direction={'column'} mx={'4'} mt={'9'}>
+      <Flex direction={'column'} align={'center'} justify={'center'} gap={'4'}>
         <Text size={'7'} weight={'bold'}>Welcome to</Text>
         <Box>
           <Image
