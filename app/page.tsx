@@ -144,7 +144,7 @@ export default function Home() {
         <Flex direction={'column'} align={'center'} mt={{initial: '0', md: '9'}} className="w-full bg-white px-4" >
           <Heading as="h3" align={'center'} className={goldman.className}>Facility Partner</Heading>
 
-          <Flex direction={'row'} width={'100vw'} wrap={'wrap'} justify={'center'} align={'center'} gapX={'9'} gapY={'5'} mt={'7'}>
+          <Flex direction={'row'} width={'100vw'} wrap={'wrap'} justify={'center'} align={'center'} gapX={'9'} gapY={'5'} mt={'4'}>
           {facilityPartnerLogos.map((partner, index) => {
             return (
               <Flex
@@ -177,10 +177,10 @@ export default function Home() {
         </Flex>
 
         {/* COMMUNITY PARTNERS */}
-        <Flex direction={'column'} align={'center'} my={{initial: '0', md: '9'}} className="w-full bg-white px-4" >
+        <Flex direction={'column'} align={'center'} my={'9'} className="w-full bg-white px-4" >
           <Heading as="h3" align={'center'} className={goldman.className}>Community Partners</Heading>
 
-          <Flex direction={'row'} width={{initial:'100vw', md:'70vw'}} wrap={'wrap'} justify={'center'} align={'center'} gapX={'9'} gapY={'5'} mt={'7'}>
+          <Flex direction={'row'} width={{initial:'100vw', md:'70vw'}} wrap={'wrap'} justify={'center'} align={'center'} gapX={'9'} gapY={'5'} mt={'4'}>
           {communityPartnerLogos.map((partner, index) => {
             return (
               <Flex

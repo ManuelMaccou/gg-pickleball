@@ -52,7 +52,7 @@ export default function Rules() {
           </Strong></Text>
         </Flex>
 
-        <Flex direction={'row'} justify={'between'} width={'90%'} mb={'9'}>
+        <Flex direction={{initial: 'column', md: 'row'}} justify={{initial: 'start', md: 'between'}} width={'90%'} mb={'9'} gap={'2'}>
           <Link color="blue" href="#rules">Official Rules</Link>
           <Link color="blue" href="#cancelation">Cancelation Policy</Link>
           <Link color="blue" href="#smpc">SM Pickleball Center Waiver</Link>
@@ -178,14 +178,14 @@ export default function Rules() {
           </Text>
         </Flex>
 
-        <Flex direction={'column'} mt={'9'} gap={'6'} id="smpc">
+        <Flex direction={'column'} gap={'6'} mt={'9'}>
           <Box>
-            <Heading as="h2" mb={'4'} id="rules">SM Pickleball Center Waiver</Heading>
+            <Heading as="h2" mb={'4'} id="smpc">SM Pickleball Center Waiver</Heading>
+          </Box>
             <Text>
               This waiver has been slightly modified to remove the Santa Monica Pickleball Center cancellation policy.
               The GG Pickleball league cancelation policy applies to all courts booked for league play.
             </Text>
-          </Box>
           <Flex direction={'column'} gap={'3'}>
             <Text>
               PLEASE READ CAREFULLY. BY SIGNING THIS AGREEMENT, YOU ARE CONSENTING TO THE WAIVER AND RELEASE OF 
@@ -302,7 +302,7 @@ export default function Rules() {
             <Text>
               By participating, I agree that Santa Monica Pickleball Center may send me 
               emails about future events and promotions at the email address provided and that I agree to Santa Monica 
-              Pickleball Center&apos;s privacy policy at: https://santamonicapickleballcenter.com/policies/privacy-policy 
+              Pickleball Center&apos;s <Link href="https://santamonicapickleballcenter.com/policies/privacy-policy">privacy policy</Link>
             </Text>
             <Text>
               The Center is not responsible for the security of property lost, found or abandoned in the facility or in the 
