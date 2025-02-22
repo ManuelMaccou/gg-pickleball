@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
           {
             to: [{ email }],
             dynamic_template_data: {
-              start_Date: "March 15, 2025",
+              start_date: "March 15, 2025",
               link: ticketData.ticket,
             },
           },

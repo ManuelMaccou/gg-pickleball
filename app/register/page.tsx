@@ -269,7 +269,7 @@ export default function Register() {
           {userIsRegistered && (
             <Box>
               <Flex mt={'9'} gap={'6'} direction={'column'} maxWidth={'600px'}>
-                <Text size={'5'} align={{initial:'left', md:'center'}}>
+                <Text size={'5'}>
                   You are successfully registered. Keep a look out for the welcome email with more information.
                   Be sure to add play@ggpickleball.co to your email contacts so we don&apos;t end up in your spam folder.
                 </Text>
@@ -281,7 +281,7 @@ export default function Register() {
             <>
             <Box>
               <Flex gap={'6'} direction={'column'} maxWidth={'600px'}>
-                <Text size={'5'} align={{initial:'left', md:'center'}}>
+                <Text size={'5'}>
                     We haven&apos;t received payment yet. Please complete payment for your team before the start of the season.
                     If you believe you or your teammate have already paid, please contact us
                     at <a href="mailto:play@ggpickleball.co">play@ggpickleball.co</a>
