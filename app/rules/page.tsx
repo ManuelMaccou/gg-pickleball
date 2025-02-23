@@ -139,27 +139,27 @@ export default function Rules() {
             <Heading as="h2">Match Rules for Officially Scored Games</Heading>
             <ul style={{ margin: 0, paddingLeft: '20px' }}>
               <li>
-                <Text size="5">
+                <Text>
                   • Games are played to 11.
                 </Text>
               </li>
               <li>
-                <Text size="5">
+                <Text>
                   • Games must be won by 2.
                 </Text>
               </li>
               <li>
-                <Text size="5">
+                <Text>
                   • Only teams of 2 are allowed.
                 </Text>
               </li>
               <li>
-                <Text size="5">
+                <Text>
                   • The player closest to the ball calls in or out.
                 </Text>
               </li>
               <li>
-                <Text size="5">
+                <Text>
                   • There is no rule for who serves first.
                 </Text>
               </li>
@@ -180,7 +180,7 @@ export default function Rules() {
 
         <Flex direction={'column'} gap={'6'} mt={'9'}>
           <Box>
-            <Heading as="h2" mb={'4'} id="smpc">SM Pickleball Center Waiver</Heading>
+            <Heading as="h2" mb={'4'} id="smpc">Santa Monica Pickleball Center Waiver</Heading>
           </Box>
             <Text>
               This waiver has been slightly modified to remove the Santa Monica Pickleball Center cancellation policy.
