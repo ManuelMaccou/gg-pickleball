@@ -237,6 +237,7 @@ export default function Home() {
               <Flex direction={'row'} gap={'3'} mb={'5'} minWidth={'300px'}>
                 <Text size={'9'} weight={'bold'}>$80</Text>
                 <Flex direction={'column'}>
+                  <Text>per team</Text>
                   <Text>per monthly season</Text>
                   <Text>+ court fees</Text>
                 </Flex>  
