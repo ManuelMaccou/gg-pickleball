@@ -251,6 +251,7 @@ export default function Home() {
             </Flex>
             <Flex direction={'column'} gap={'4'} px={{initial: "4", md: '0'}}> 
               <Text size={'5'} className={goldman.className}>Cash and prizes for top teams.</Text>
+              <Text size={'5'} className={goldman.className}>Discounted court fees.</Text>
               <Text size={'5'} className={goldman.className}>Discounts at local businesses for everyone.</Text>
               <Text size={'5'} className={goldman.className}>League platform to match with similarly skilled opponents.</Text>
             </Flex>
