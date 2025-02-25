@@ -72,6 +72,7 @@ function RegisterTeamPage() {
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
 
   const [availabilityBlocks, setAvailabilityBlocks] = useState<{ day: string; time: string }[]>([]);
+  const [availabilityError, setAvailabilityError] = useState<string | null>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -212,6 +213,12 @@ function RegisterTeamPage() {
     setApiError(null);
     setIsSubmitting(true);
 
+    if (availabilityBlocks.length === 0) {
+      setAvailabilityError("Please select at least one availability slot.");
+      setIsSubmitting(false);
+      return;
+    }
+
     let imageUrl = croppedImage ?? "";
 
     if (croppedImage && !croppedImage.startsWith("http")) {
@@ -232,7 +239,7 @@ function RegisterTeamPage() {
       }
 
       const imageResult = await imageResponse.json();
-      imageUrl = imageResult.imageUrl; // This is the /api/images/[id] URL
+      imageUrl = imageResult.imageUrl;
     }
 
     try {
@@ -347,7 +354,6 @@ function RegisterTeamPage() {
     setSelectedImage(null);
     setCroppedImage(null);
 
-    // Clear file input if it exists
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -553,6 +559,34 @@ function RegisterTeamPage() {
 
             <AvailabilitySelection onAvailabilityChange={setAvailabilityBlocks} />
 
+            {errors.duprUrl && (
+              <Box m={'4'}>
+                <Alert variant="destructive" style={{backgroundColor: "white"}}>
+                  <AlertCircle/>
+                  <VisuallyHidden>
+                    <AlertTitle>Input error</AlertTitle>
+                  </VisuallyHidden>
+                  <AlertDescription>
+                    {errors.duprUrl.message}
+                  </AlertDescription>
+                </Alert>
+              </Box>
+            )}
+
+            {availabilityError && (
+              <Box m={'4'}>
+                <Alert variant="destructive" style={{backgroundColor: "white"}}>
+                  <AlertCircle/>
+                  <VisuallyHidden>
+                    <AlertTitle>Availability error</AlertTitle>
+                  </VisuallyHidden>
+                  <AlertDescription>
+                    {availabilityError}
+                  </AlertDescription>
+                </Alert>
+              </Box>
+            )}
+
             <Button
               type="submit"
               className="w-full"
@@ -572,20 +606,6 @@ function RegisterTeamPage() {
             <AlertTitle>Error</AlertTitle>
             <AlertDescription>
               {apiError}
-            </AlertDescription>
-          </Alert>
-        </Box>
-      )}
-
-      {errors.duprUrl && (
-        <Box m={'4'}>
-          <Alert variant="destructive" style={{backgroundColor: "white"}}>
-            <AlertCircle/>
-            <VisuallyHidden>
-              <AlertTitle>Input error</AlertTitle>
-            </VisuallyHidden>
-            <AlertDescription>
-              {errors.duprUrl.message}
             </AlertDescription>
           </Alert>
         </Box>

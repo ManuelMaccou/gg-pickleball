@@ -103,7 +103,7 @@ export default function RegistrationSuccessPage() {
 
 function StatusLayout({ children }: { children: React.ReactNode }) {
   return (
-    <Flex direction="column" align="center" justify="center" className="min-h-screen px-4">
+    <Flex direction="column" align="center" justify="center" className="min-h-screen px-4" gap={'9'}>
       <Flex justify="center" my="9">
         <Image
           src={lightGGLogo}
