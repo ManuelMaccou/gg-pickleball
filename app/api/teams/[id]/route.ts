@@ -18,7 +18,7 @@ export async function PATCH(
 
     if (!team) {
       return NextResponse.json(
-        { systemMessage: 'Team not found', userMessage: 'An unexpected error occurred.' },
+        { systemMessage: 'Team not found', userMessage: 'An unexpected error occurred. Code 426.' },
         { status: 404 }
       );
     }

@@ -56,7 +56,7 @@ function PaymentForm() {
         if (error.type === "card_error" || error.type === "validation_error") {
           setMessage(error.message ?? "An error occurred.");
         } else {
-          setMessage("An unexpected error occurred.");
+          setMessage("An unexpected error occurred. Code 427.");
         }
       }
     } catch (err) {

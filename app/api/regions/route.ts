@@ -37,7 +37,7 @@ export async function GET() {
       return NextResponse.json(
         { 
           systemMessage: "No region found in the database.", 
-          userMessage: "An unexpected error happened. Please try again." 
+          userMessage: "An unexpected error happened. Please try again. Code 420" 
         }, { status: 404 });
     }
 
@@ -49,7 +49,7 @@ export async function GET() {
     return NextResponse.json(
       { 
         systemMessage: "Internal server error.", 
-        userMessage: "An unexpected error happened. Please try again." 
+        userMessage: "An unexpected error happened. Please try again. Code 421." 
       }, { status: 500 });
   }
 }

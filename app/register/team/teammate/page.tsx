@@ -148,7 +148,7 @@ function RegisterTeammatePage() {
       if (error instanceof Error) {
         console.error('Detailed error:', error.message);
       }
-      setApiError((prev) => prev || "An unexpected error happened. Please try again.");
+      setApiError((prev) => prev || "An unexpected error happened. Please try again. Code 431.");
     } finally {
       setIsSubmitting(false);
     }

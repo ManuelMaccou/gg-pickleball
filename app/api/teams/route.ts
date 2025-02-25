@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           systemMessage: "The users were not included in the request body.",
-          userMessage: "An unexpected error occured. Please refresh the page and try again."
+          userMessage: "An unexpected error occured. Please refresh the page and try again. Code 424"
          }, { status: 400 });
     }
 
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           systemMessage: "Season ID or Region ID were not included in the request body.",
-          userMessage: "An unexpected error occured. Please refresh the page and try again."
+          userMessage: "An unexpected error occured. Please refresh the page and try again. Code 425"
         }, { status: 400 });
     }
 
