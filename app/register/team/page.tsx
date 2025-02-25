@@ -354,7 +354,6 @@ function RegisterTeamPage() {
     setSelectedImage(null);
     setCroppedImage(null);
 
-    // Clear file input if it exists
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
