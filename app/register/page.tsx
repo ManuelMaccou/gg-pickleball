@@ -179,7 +179,7 @@ export default function Register() {
         setActiveSeason(seasonData);
       } catch (error) {
         console.error('Error fetching active season:', error);
-        setApiError((prev) => prev || "An unexpected error happened. Please try again.");
+        setApiError((prev) => prev || "An unexpected error happened. Please try again. Code 428.");
       }
     };
 
@@ -202,7 +202,7 @@ export default function Register() {
         setRegion(regionData);
       } catch (error) {
         console.error('Error fetching region:', error);
-        setApiError((prev) => prev || "An unexpected error happened. Please try again.");
+        setApiError((prev) => prev || "An unexpected error happened. Please try again. Code 429");
       }
     };
 

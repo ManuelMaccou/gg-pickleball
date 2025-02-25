@@ -12,7 +12,7 @@ export async function GET() {
       return NextResponse.json(
         { 
           systemMessage: "No active season found in the database.", 
-          userMessage: "An unexpected error happened. Please try again." 
+          userMessage: "An unexpected error happened. Please try again. Code 422" 
         }, { status: 404 });
     }
 
@@ -24,7 +24,7 @@ export async function GET() {
     return NextResponse.json(
       { 
         systemMessage: "Internal server error.", 
-        userMessage: "An unexpected error happened. Please try again." 
+        userMessage: "An unexpected error happened. Please try again. Code 423" 
       }, { status: 500 });
   }
 }

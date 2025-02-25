@@ -9,7 +9,7 @@ export async function PATCH(
   const email = (await params).email;
   if (!email) {
     return NextResponse.json(
-      { systemMessage: 'email is required', userMessage: 'An unexpected error occurred.' },
+      { systemMessage: 'email is required', userMessage: 'An unexpected error occurred. Code 416' },
       { status: 400 }
     );
   }
@@ -33,7 +33,7 @@ export async function PATCH(
 
     if (!updatedUser) {
       return NextResponse.json(
-        { systemMessage: 'User not found', userMessage: 'An unexpected error occurred.' },
+        { systemMessage: 'User not found', userMessage: 'An unexpected error occurred. Code 417' },
         { status: 404 }
       )
     }
@@ -42,7 +42,7 @@ export async function PATCH(
   } catch (error) {
     console.error('Error updating user:', error);
     return NextResponse.json(
-      { systemMessage: 'Internal server error', userMessage: 'Something went wrong. Please try again later.' },
+      { systemMessage: 'Internal server error', userMessage: 'Something went wrong. Please try again later. Code 418' },
       { status: 500 }
     );
   }

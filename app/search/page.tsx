@@ -23,7 +23,7 @@ export default function Search() {
 
         // Check if the error has a response from the API
         if (error instanceof AxiosError && error.response?.data) {
-          setError(error.response.data.userMessage || "An unexpected error occurred.");
+          setError(error.response.data.userMessage || "An unexpected error occurred. Code 432");
         } else {
           setError("Failed to load teams. Please try again later.");
         }

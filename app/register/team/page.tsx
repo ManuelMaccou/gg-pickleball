@@ -102,7 +102,7 @@ function RegisterTeamPage() {
 
         } catch (error) {
           console.error('Error fetching current user:', error);
-          setApiError((prev) => prev || "An unexpected error happened. Please try again.");
+          setApiError((prev) => prev || "An unexpected error happened. Please try again. Code 430.");
         }
       };
   

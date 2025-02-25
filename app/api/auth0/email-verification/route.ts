@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     if (!verificationUrl) {
   
       console.error('Failed to create email verification ticket:')
-      return NextResponse.json({ error: 'There was an unexpected error. Please try again.' })
+      return NextResponse.json({ error: 'There was an unexpected error. Please try again. Code 419' })
     }
 
     const sendgridResponse = await fetch('https://api.sendgrid.com/v3/mail/send', {
