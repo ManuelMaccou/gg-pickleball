@@ -33,7 +33,7 @@ interface FormData {
   dropdownValue?: string;
 }
 
-const options = ["Beginner", "Intermediate", "Advanced"];
+
 
 function RegisterIndividualPage() {
   const { user } = useUser()
@@ -64,6 +64,7 @@ function RegisterIndividualPage() {
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
 
   const [availabilityBlocks, setAvailabilityBlocks] = useState<{ day: string; time: string }[]>([]);
+  const [availabilityError, setAvailabilityError] = useState<string | null>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -106,10 +107,17 @@ function RegisterIndividualPage() {
   const onSubmit = async (data: FormData) => {
     setApiError(null);
     setIsSubmitting(true);
+    setAvailabilityError(null);
 
-    let imageUrl = "";
+    if (availabilityBlocks.length === 0) {
+      setAvailabilityError("Please select at least one availability slot.");
+      setIsSubmitting(false);
+      return;
+    }
 
-    if (croppedImage) {
+    let imageUrl = croppedImage ?? "";
+
+    if (croppedImage && !croppedImage.startsWith("http")) {
       const base64Data = croppedImage;
       const contentType = base64Data.match(/^data:(.*?);base64/)?.[1];
 
@@ -127,33 +135,22 @@ function RegisterIndividualPage() {
       }
 
       const imageResult = await imageResponse.json();
-      imageUrl = imageResult.imageUrl; // This is the /api/images/[id] URL
+      imageUrl = imageResult.imageUrl;
     }
 
     try {
-      let userPayload;
-      if (imageUrl) {
-        // Need to change this create user to an update user
-        userPayload = {
-          name: data.fullName,
-          email: user?.email,
-          profilePicture: `${process.env.NEXT_PUBLIC_BASE_URL}${imageUrl}`,
-          duprUrl: data.duprUrl,
-          skillLevel: data.dropdownValue,
-          availability: availabilityBlocks,
-        };
-      } else {
-        userPayload = {
-          name: data.fullName,
-          email: user?.email,
-          duprUrl: data.duprUrl,
-          skillLevel: data.dropdownValue,
-          availability: availabilityBlocks,
-        }
-      }
-  
-      const userResponse = await fetch("/api/users", {
-        method: "POST",
+      const userPayload = {
+        name: data.fullName,
+        profilePicture: imageUrl
+          ? `${process.env.NEXT_PUBLIC_BASE_URL}${imageUrl}`
+          : undefined,
+        duprUrl: data.duprUrl,
+        skillLevel: data.dropdownValue,
+        availability: availabilityBlocks,
+      };
+      
+      const userResponse = await fetch(`/api/users/email/${user?.email}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(userPayload),
       });
@@ -161,40 +158,73 @@ function RegisterIndividualPage() {
       if (!userResponse.ok) {
         const errorData: ApiErrorResponse = await userResponse.json();
         setApiError(errorData.userMessage);
-        throw new Error(`Failed to create user: ${errorData.systemMessage}`);
+        throw new Error(`Failed to update user: ${errorData.systemMessage}`);
       }
   
-      const { user: createdUser } = await userResponse.json();
-      console.log("User created successfully:", createdUser);
+      const { updatedUser } = await userResponse.json();
+      console.log("User updated successfully:", updatedUser);
 
       // Create team
-      const teammate1Id = createdUser._id
+      const teammate1Id = updatedUser._id
+      let existingTeam = null;
+
+      try {
+        const existingTeamResponse = await fetch(
+          `/api/teams/findByUserAndSeason?userId=${teammate1Id}&seasonId=${seasonId}`
+        );
+  
+        if (existingTeamResponse.ok) {
+          const { team } = await existingTeamResponse.json();
+          existingTeam = team;
+        } else if (existingTeamResponse.status !== 404) {
+          const errorData: ApiErrorResponse = await existingTeamResponse.json();
+          throw new Error(`Failed to check existing team: ${errorData.systemMessage}`);
+        }
+      } catch (err) {
+        console.error('Error fetching existing team:', err);
+        setIsSubmitting(false);
+        return;
+      }
+     
+
       const teamPayload = {
-        teammates: [teammate1Id],
         captain: teammate1Id,
+        registrationStep: 'CAPTAIN_REGISTERED',
+        status: 'REGISTERED',
+        teammates: [teammate1Id],
         regionId,
         seasonId,
-        registrationStep: "CAPTAIN_REGISTERED",
-        status: "REGISTERED",
         individual: true,
       };
 
-      const teamResponse = await fetch("/api/teams", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(teamPayload),
-      });
+      let team;
+      try {
+        const teamResponse = await fetch(
+          existingTeam ? `/api/teams/${existingTeam._id}` : '/api/teams',
+          {
+            method: existingTeam ? 'PATCH' : 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(teamPayload),
+          }
+        );
 
-      if (!teamResponse.ok) {
-        const errorData: ApiErrorResponse = await teamResponse.json();
-        setApiError(errorData.userMessage);
-        throw new Error(`Failed to create team: ${errorData.systemMessage}`);
+        if (!teamResponse.ok) {
+          const errorData: ApiErrorResponse = await teamResponse.json();
+          throw new Error(
+            `Failed to ${existingTeam ? 'update' : 'create'} team: ${errorData.systemMessage}`
+          );
+        }
+
+        const teamResult = await teamResponse.json();
+        team = teamResult.team;
+      } catch (err) {
+        console.error('Team create/update failed:', err);
+        setApiError('Failed to create or update team. Please try again.');
+        setIsSubmitting(false);
+        return;
       }
 
-      const { team } = await teamResponse.json();
-      console.log("Team created successfully:", team);
-
-      router.push(`/register/individual/success?seasonId=${seasonId}&regionId=${regionId}&teammate1=${createdUser._id}&teamId=${team._id}`);
+      router.push(`/register/individual/success?seasonId=${seasonId}&regionId=${regionId}&teammate1=${teammate1Id}&teamId=${team._id}`);
       
     } catch (error) {
       console.error("Error creating user:", error);
@@ -203,7 +233,6 @@ function RegisterIndividualPage() {
       setIsSubmitting(false);
     }
   };
-  
 
   const handleCancel = () => {
     setCropping(false);
@@ -219,8 +248,8 @@ function RegisterIndividualPage() {
     // Clear file input if it exists
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
-}
-};
+    }
+  };
 
   const handleResetFileInput = (e: React.MouseEvent<HTMLInputElement>) => {
     const input = e.target as HTMLInputElement;
@@ -229,21 +258,20 @@ function RegisterIndividualPage() {
   };
 
   useEffect(() => {
-        if (typeof window !== 'undefined' && searchParams) {
-        const regionIdParam = searchParams.get('regionId');
-        const seasonIdParam = searchParams.get('seasonId');
-  
-        if (regionIdParam) {
-          setRegionId(regionIdParam)
-        }
-  
-        if (seasonIdParam) {
-          setSeasonId(seasonIdParam)
-        }
-      }
-    }, [searchParams]);
+    if (typeof window !== 'undefined' && searchParams) {
+      const regionIdParam = searchParams.get('regionId');
+      const seasonIdParam = searchParams.get('seasonId');
 
-    if (!user) return null
+      if (regionIdParam && seasonIdParam) {
+        setRegionId(regionIdParam)
+        setSeasonId(seasonIdParam)
+      } else {
+        router.push('/register')
+      }
+    }
+  }, [router, searchParams]);
+
+  if (!user) return null
 
   return (
     <Flex minHeight={'100vh'} direction={'column'} mx={'5'} pb={'9'} className="px-[15px] xl:px-[400px]">
@@ -270,8 +298,8 @@ function RegisterIndividualPage() {
           fallback="A"
           radius={"full"}
         />
-) : (
-          <Avatar fallback="A" radius="full" size={'7'}/>
+        ) : (
+          <Avatar fallback={user?.name?.[0] ?? "A"} radius="full" size={'7'}/>
         )}
         <Box>
           <Label htmlFor="profilePicture" className="text-base">Profile Picture</Label>
@@ -285,7 +313,7 @@ function RegisterIndividualPage() {
           />
         </Box>
       </Flex>
-      
+
       <Dialog open={cropping} onOpenChange={(open) => !open && handleCancel()}>
         <DialogContent>
           <DialogHeader>
@@ -330,7 +358,6 @@ function RegisterIndividualPage() {
       <Flex direction={'column'} mx={'4'}>
         <Box>
           <form onSubmit={handleSubmit(onSubmit)}>
-
             {/* Full Name Field */}
             <Flex direction={'column'} gap={'2'} mb={'5'}>
               <Label htmlFor="fullName" className="text-base">Full Name</Label>
@@ -358,7 +385,7 @@ function RegisterIndividualPage() {
               />
               {errors.email && <Text color="red">{errors.email.message}</Text>}
             </Flex>
-  
+
             {/* DUPR Profile URL */}
             <Flex direction={'column'} gap={'2'} mb={'5'}>
               <Label htmlFor="duprUrl" className="text-base">DUPR Profile URL (Optional)</Label>
@@ -401,8 +428,8 @@ function RegisterIndividualPage() {
                 render={({ field }) => (
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <SelectTrigger 
-        style={{
-          borderStyle: 'solid',
+                      style={{
+                        borderStyle: 'solid',
                         borderWidth: '1px',
                         borderColor: '#777777',
                         backgroundColor: '#2b2b2b'
@@ -411,7 +438,7 @@ function RegisterIndividualPage() {
                     <SelectValue placeholder="Choose one"/>
                     </SelectTrigger>
                     <SelectContent>
-                      {options.map((option) => (
+                      {["Beginner", "Intermediate", "Advanced"].map((option) => (
                         <SelectItem key={option} value={option}>
                           {option}
                         </SelectItem>
@@ -424,17 +451,45 @@ function RegisterIndividualPage() {
 
             <AvailabilitySelection onAvailabilityChange={setAvailabilityBlocks} />
 
+            {errors.duprUrl && (
+              <Box m={'4'}>
+                <Alert variant="destructive" style={{backgroundColor: "white"}}>
+                  <AlertCircle/>
+                  <VisuallyHidden>
+                    <AlertTitle>Input error</AlertTitle>
+                  </VisuallyHidden>
+                  <AlertDescription>
+                    {errors.duprUrl.message}
+                  </AlertDescription>
+                </Alert>
+              </Box>
+            )}
+
+            {availabilityError && (
+              <Box m={'4'}>
+                <Alert variant="destructive" style={{backgroundColor: "white"}}>
+                  <AlertCircle/>
+                  <VisuallyHidden>
+                    <AlertTitle>Availability error</AlertTitle>
+                  </VisuallyHidden>
+                  <AlertDescription>
+                    {availabilityError}
+                  </AlertDescription>
+                </Alert>
+              </Box>
+            )}
+
             <Button
               type="submit"
               className="w-full"
               disabled={isSubmitting || !seasonId || !regionId}
-      >
-        {isSubmitting && <Loader2 className="animate-spin" />}
+            >
+              {isSubmitting && <Loader2 className="animate-spin" />}
               {isSubmitting ? "Please wait..." : "Register"}
             </Button>
           </form>
-      </Box>
-</Flex>
+        </Box>
+      </Flex>
 
       {apiError && (
         <Box m={'4'}>
@@ -444,20 +499,6 @@ function RegisterIndividualPage() {
             <AlertDescription>
               {apiError}
             </AlertDescription>
-          </Alert>
-        </Box>
-      )}
-
-      {errors.duprUrl && (
-        <Box m={'4'}>
-          <Alert variant="destructive" style={{backgroundColor: "white"}}>
-            <AlertCircle/>
-            <VisuallyHidden>
-              <AlertTitle>Input error</AlertTitle>
-            </VisuallyHidden>
-            <AlertDescription>
-        {errors.duprUrl.message}
-      </AlertDescription>
           </Alert>
         </Box>
       )}
