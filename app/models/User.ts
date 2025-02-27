@@ -24,6 +24,7 @@ const UserSchema = new Schema<IUser & Document>(
     wins: { type: Number },
     losses: { type: Number },
     activeSeasons: [{  type: Schema.Types.ObjectId, ref: "Season" }],
+    referrer: { type: String },
   },
   { timestamps: true }
 );

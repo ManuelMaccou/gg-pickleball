@@ -1,5 +1,6 @@
 'use client'
 
+import { useSearchParams } from 'next/navigation'
 import { useUser } from "@auth0/nextjs-auth0"
 import { Box, Button, Flex, Heading, Text, Theme } from "@radix-ui/themes";
 import Image from "next/image";
@@ -8,9 +9,9 @@ import { Goldman } from 'next/font/google';
 import courtcrew_logo from "../public/logos/courtcrew_logo.png"
 import trainingmate_logo from "../public/logos/trainingmate_logo.png"
 import knockaround_logo from "../public/logos/knockaround_logo.png"
-import mcconnells_logo from "../public/logos/mcconnells_logo.png"
 import The_Hive_Logo from "../public/logos/The_Hive_Logo.png"
 import everytable_logo from "../public/logos/everytable_logo.png"
+import picklepop_logo from "../public/logos/picklepop_logo.png"
 import gherkin_logo from "../public/logos/gherkin_logo.png"
 import smpc_logo from "../public/logos/smpc_logo.png"
 import pbplayer2 from "../public/pbplayer2.jpeg"
@@ -19,16 +20,27 @@ import pbplayer1 from "../public/pbplayer1.jpeg"
 import gg_example from "../public/gg_example.png"
 import gg_example2 from "../public/gg_example2.png"
 import Link from "next/link";
-import { useRef } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 
 const goldman = Goldman({
   weight: ['400', '700'],
   subsets: ['latin'],
 });
 
-export default function Home() {
+function HomePage() {
+  const searchParams = useSearchParams()
   const { user, isLoading } = useUser()
 
+  const [referrer, setReferrer] = useState<string | null>(null);
+  
+
+  useEffect(() => {
+    const referrerParam = searchParams.get("referrer");
+    if (referrerParam) {
+      setReferrer(referrerParam);
+    }
+  }, [searchParams]);
+  
   const moreInfoRef = useRef<HTMLDivElement>(null);
 
   const scrollToPartners = () => {
@@ -44,6 +56,10 @@ export default function Home() {
       image: smpc_logo,
       url: 'https://santamonicapickleballcenter.com/?utm_source=gg-pickleball&utm_medium=referral&utm_campaign=facility-partners&utm_content=smpc-logo',
     },
+    {
+      image: picklepop_logo,
+      url: 'https://www.picklepop.co/?utm_source=gg-pickleball&utm_medium=referral&utm_campaign=facility-partners&utm_content=picklepop-logo',
+    },
   ];
 
   const communityPartnerLogos = [
@@ -58,10 +74,6 @@ export default function Home() {
     {
       image: trainingmate_logo,
       url: 'https://trainingmate.com/?utm_source=gg-pickleball&utm_medium=referral&utm_campaign=community-partners&utm_content=trainingmate-logo',
-    },
-    {
-      image: mcconnells_logo,
-      url: 'https://mcconnells.com/?utm_source=gg-pickleball&utm_medium=referral&utm_campaign=community-partners&utm_content=mcconnells-logo',
     },
     {
       image: The_Hive_Logo,
@@ -132,7 +144,7 @@ export default function Home() {
                 <Text weight={'bold'}>Learn more</Text>
               </Button>
               <Button size="4" disabled={isLoading} asChild>
-                <a href={user ? "/register" : "/auth/login?screen_hint=signup&returnTo=/register"}>
+                <a href={user ? "/register" : `/auth/login?screen_hint=signup&returnTo=/register${referrer ? `?referrer=${referrer}` : ""}`}>
                   <Text size="4" weight="bold">Register</Text>
                 </a>
               </Button>
@@ -142,7 +154,7 @@ export default function Home() {
 
         {/* FACILITY PARTNERS */}
         <Flex direction={'column'} align={'center'} mt={{initial: '0', md: '9'}} className="w-full bg-white px-4" >
-          <Heading as="h3" align={'center'} className={goldman.className}>Facility Partner</Heading>
+          <Heading as="h3" align={'center'} className={goldman.className}>Facility Partners</Heading>
 
           <Flex direction={'row'} width={'100vw'} wrap={'wrap'} justify={'center'} align={'center'} gapX={'9'} gapY={'5'} mt={'4'}>
           {facilityPartnerLogos.map((partner, index) => {
@@ -363,5 +375,12 @@ export default function Home() {
       </Flex>
     </Theme>
   )
-    
-}
+};
+
+export default function Home() {
+  return (
+    <Suspense>
+      <HomePage />
+    </Suspense>
+  )
+};

@@ -8,8 +8,8 @@ export async function POST(req: NextRequest) {
     await connectToDatabase(); // Ensure MongoDB is connected
 
     const body = await req.json();
-    const { name, email, profilePicture, duprUrl, dupr, skillLevel, availability, auth0Id, activeSeasons, firstTimeInvite }:
-      {name: string, email: string, profilePicture: string, duprUrl: string, dupr: number, skillLevel: string, availability: { day: string; time: string }[], auth0Id: string, activeSeasons: string[], firstTimeInvite: boolean} = body;
+    const { name, email, profilePicture, duprUrl, dupr, skillLevel, availability, auth0Id, activeSeasons, firstTimeInvite, referrer }:
+      {name: string, email: string, profilePicture: string, duprUrl: string, dupr: number, skillLevel: string, availability: { day: string; time: string }[], auth0Id: string, activeSeasons: string[], firstTimeInvite: boolean, referrer: string,} = body;
 
       if (!name) {
         return NextResponse.json(
@@ -56,6 +56,7 @@ export async function POST(req: NextRequest) {
       auth0Id,
       activeSeasons,
       firstTimeInvite,
+      referrer,
     });
 
     await newUser.save();
