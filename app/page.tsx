@@ -20,14 +20,14 @@ import pbplayer1 from "../public/pbplayer1.jpeg"
 import gg_example from "../public/gg_example.png"
 import gg_example2 from "../public/gg_example2.png"
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 
 const goldman = Goldman({
   weight: ['400', '700'],
   subsets: ['latin'],
 });
 
-export default function Home() {
+function HomePage() {
   const searchParams = useSearchParams()
   const { user, isLoading } = useUser()
 
@@ -375,5 +375,12 @@ export default function Home() {
       </Flex>
     </Theme>
   )
-    
-}
+};
+
+export default function Home() {
+  return (
+    <Suspense>
+      <HomePage />
+    </Suspense>
+  )
+};

@@ -5,14 +5,14 @@ import { Box, Button, Flex, Text } from "@radix-ui/themes";
 import Image from "next/image";
 import lightGGLogo from '../../public/gg_logo_white_transparent.png'
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { IRegion, ISeason, ITeam, IUser } from "../types/databaseTypes";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { ApiErrorResponse } from "../types/functionTypes";
 import { useRouter, useSearchParams } from "next/navigation";
 
-export default function Register() {
+function RegisterPage() {
   const { user, isLoading } = useUser()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -333,5 +333,13 @@ export default function Register() {
       )}
 
     </Flex>
+  )
+}
+
+export default function Register() {
+  return (
+    <Suspense>
+      <RegisterPage />
+    </Suspense>
   )
 }
