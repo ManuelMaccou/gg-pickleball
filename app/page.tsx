@@ -58,7 +58,7 @@ function HomePage() {
     },
     {
       image: picklepop_logo,
-      url: 'https://www.picklepop.co/?utm_source=gg-pickleball&utm_medium=referral&utm_campaign=facility-partners&utm_content=picklepop-logo&referrer=pickle-pop',
+      url: 'https://www.picklepop.co/?utm_source=gg-pickleball&utm_medium=referral&utm_campaign=facility-partners&utm_content=picklepop-logo',
     },
   ];
 
