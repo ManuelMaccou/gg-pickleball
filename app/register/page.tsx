@@ -10,11 +10,21 @@ import { IRegion, ISeason, ITeam, IUser } from "../types/databaseTypes";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { ApiErrorResponse } from "../types/functionTypes";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function Register() {
   const { user, isLoading } = useUser()
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  const [referrer, setReferrer] = useState<string | null>(null);
+
+  useEffect(() => {
+    const referrerParam = searchParams.get("referrer");
+    if (referrerParam) {
+      setReferrer(referrerParam);
+    }
+  }, [searchParams]);
 
   const [currentUser, setCurrentUser] = useState<IUser | null>(null);
   const [currentTeam, setCurrentTeam] = useState<ITeam | null>(null);
@@ -113,6 +123,7 @@ export default function Register() {
             profilePicture: user.picture,
             auth0Id: user.sub,
             activeSeasons:  activeSeason ? [activeSeason] : undefined,
+            referrer: referrer ? referrer : undefined,
           };
     
           const userResponse = await fetch("/api/users", {
@@ -160,7 +171,7 @@ export default function Register() {
       }
     };
     checkAndCreateUser();
-  }, [activeSeason, isLoading, router, user])
+  }, [activeSeason, isLoading, referrer, router, user])
 
 
   useEffect(() => {

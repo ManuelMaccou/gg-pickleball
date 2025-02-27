@@ -1,5 +1,6 @@
 'use client'
 
+import { useSearchParams } from 'next/navigation'
 import { useUser } from "@auth0/nextjs-auth0"
 import { Box, Button, Flex, Heading, Text, Theme } from "@radix-ui/themes";
 import Image from "next/image";
@@ -19,7 +20,7 @@ import pbplayer1 from "../public/pbplayer1.jpeg"
 import gg_example from "../public/gg_example.png"
 import gg_example2 from "../public/gg_example2.png"
 import Link from "next/link";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const goldman = Goldman({
   weight: ['400', '700'],
@@ -27,8 +28,19 @@ const goldman = Goldman({
 });
 
 export default function Home() {
+  const searchParams = useSearchParams()
   const { user, isLoading } = useUser()
 
+  const [referrer, setReferrer] = useState<string | null>(null);
+  
+
+  useEffect(() => {
+    const referrerParam = searchParams.get("referrer");
+    if (referrerParam) {
+      setReferrer(referrerParam);
+    }
+  }, [searchParams]);
+  
   const moreInfoRef = useRef<HTMLDivElement>(null);
 
   const scrollToPartners = () => {
@@ -46,7 +58,7 @@ export default function Home() {
     },
     {
       image: picklepop_logo,
-      url: 'https://www.picklepop.co/?utm_source=gg-pickleball&utm_medium=referral&utm_campaign=facility-partners&utm_content=picklepop-logo',
+      url: 'https://www.picklepop.co/?utm_source=gg-pickleball&utm_medium=referral&utm_campaign=facility-partners&utm_content=picklepop-logo&referrer=pickle-pop',
     },
   ];
 
@@ -132,7 +144,7 @@ export default function Home() {
                 <Text weight={'bold'}>Learn more</Text>
               </Button>
               <Button size="4" disabled={isLoading} asChild>
-                <a href={user ? "/register" : "/auth/login?screen_hint=signup&returnTo=/register"}>
+                <a href={user ? "/register" : `/auth/login?screen_hint=signup&returnTo=/register${referrer ? `?referrer=${referrer}` : ""}`}>
                   <Text size="4" weight="bold">Register</Text>
                 </a>
               </Button>

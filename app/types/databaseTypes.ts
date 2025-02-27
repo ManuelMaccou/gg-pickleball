@@ -20,6 +20,7 @@ export interface IUser {
   wins?: number;
   losses?: number;
   activeSeasons?: ISeason[];
+  referrer?: string;
 }
 
 export interface ITeam {
