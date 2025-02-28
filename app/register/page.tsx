@@ -1,6 +1,7 @@
 'use client'
 
 import { useUser } from "@auth0/nextjs-auth0"
+import Cookies from "js-cookie";
 import { Box, Button, Flex, Text } from "@radix-ui/themes";
 import Image from "next/image";
 import lightGGLogo from '../../public/gg_logo_white_transparent.png'
@@ -23,6 +24,11 @@ function RegisterPage() {
     const referrerParam = searchParams.get("referrer");
     if (referrerParam) {
       setReferrer(referrerParam);
+    } else {
+      const storedReferrer = Cookies.get("referrer");
+      if (storedReferrer) {
+        setReferrer(storedReferrer);
+      }
     }
   }, [searchParams]);
 

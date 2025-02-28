@@ -2,6 +2,7 @@
 
 import { useSearchParams } from 'next/navigation'
 import { useUser } from "@auth0/nextjs-auth0"
+import Cookies from "js-cookie";
 import { Box, Button, Flex, Heading, Text, Theme } from "@radix-ui/themes";
 import Image from "next/image";
 import { motion } from "framer-motion";
@@ -36,8 +37,15 @@ function HomePage() {
 
   useEffect(() => {
     const referrerParam = searchParams.get("referrer");
+
     if (referrerParam) {
       setReferrer(referrerParam);
+      Cookies.set("referrer", referrerParam, { expires: 30 }); // 30 days
+    } else {
+      const storedReferrer = Cookies.get("referrer");
+      if (storedReferrer) {
+        setReferrer(storedReferrer);
+      }
     }
   }, [searchParams]);
   
