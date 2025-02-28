@@ -75,11 +75,12 @@ export async function POST(req: NextRequest) {
             to: [{ email }],
             dynamic_template_data: {
               start_date: "March 15, 2025",
-              link: ticketData.ticket,
+              password_reset_url: ticketData.ticket,
+              referral_url: `${process.env.NEXT_PUBLIC_BASE_URL}?referrer=${email}`
             },
           },
         ],
-        template_id: 'd-3f45ecae5efc4510877518a84c12809a',
+        template_id: 'd-9e792c58dbf64f659262fe0c4b27c27b',
       }),
     })
 

@@ -139,6 +139,25 @@ function RegisterTeammatePage() {
 
       const { team } = await teamResponse.json();
       console.log("Team created successfully:", team);
+
+      // Send welcome email to logged in teammate
+      const emailPayload = {
+        toEmail: user?.email,
+        startDate: 'March 15, 2025',
+        paymentLink: `${process.env.NEXT_PUBLIC_BASE_URL}/register`,
+        referralUrl: `${process.env.NEXT_PUBLIC_BASE_URL}?referrer=${user?.email}`
+      }
+
+      const emailResponse = await fetch(`/api/email/teamWelcomeEmail`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(emailPayload),
+      });
+
+      if (!emailResponse.ok) {
+        const errorData: ApiErrorResponse = await emailResponse.json();
+       console.error(`Failed to send team welcome email: ${errorData.systemMessage}`);
+      }
       
       router.push(`/register/pay?teamId=${teamId}`);
 

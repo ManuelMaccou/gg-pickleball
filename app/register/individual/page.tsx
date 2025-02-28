@@ -185,7 +185,6 @@ function RegisterIndividualPage() {
         setIsSubmitting(false);
         return;
       }
-     
 
       const teamPayload = {
         captain: teammate1Id,
@@ -217,6 +216,27 @@ function RegisterIndividualPage() {
 
         const teamResult = await teamResponse.json();
         team = teamResult.team;
+
+        // Send individual team welcome email to logged in person
+        const emailPayload = {
+          toEmail: user?.email,
+          startDate: 'March 15, 2025',
+          referralUrl: `${process.env.NEXT_PUBLIC_BASE_URL}?referrer=${user?.email}`
+        }
+  
+        const emailResponse = await fetch(`/api/email/individualWelcomeEmail`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(emailPayload),
+        });
+  
+        if (!emailResponse.ok) {
+          const errorData: ApiErrorResponse = await emailResponse.json();
+         console.error(`Failed to send team welcome email: ${errorData.systemMessage}`);
+        }
+
+
+
       } catch (err) {
         console.error('Team create/update failed:', err);
         setApiError('Failed to create or update team. Please try again.');
