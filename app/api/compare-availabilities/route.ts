@@ -11,6 +11,20 @@ interface UserWithAvailability {
   availability: IAvailability[];
 }
 
+interface UserComparisonResult {
+  user1Name: string;
+  user1SkillLevel: string;
+  user2Name: string;
+  user2SkillLevel: string;
+  user1TotalAvailabilities: number;
+  user2TotalAvailabilities: number;
+  matches: number;
+  user1Availabilities: { day: string; time: string }[];
+  user2Availabilities: { day: string; time: string }[];
+  matchedTimes: { day: string; time: string }[];
+}
+
+
 async function getUserAvailabilities(userIds: string[]): Promise<UserWithAvailability[]> {
   try {
     await connectToDatabase();
@@ -36,15 +50,9 @@ async function getUserAvailabilities(userIds: string[]): Promise<UserWithAvailab
   }
 }
 
-function compareAvailabilities(users: UserWithAvailability[]) {
+function compareAvailabilities(users: UserWithAvailability[]): UserComparisonResult[] {
   const availabilityMaps: Record<string, Record<string, Set<string>>> = {};
-  const pairs: { 
-    user1Name: string;
-    user1SkillLevel: string;
-    user2Name: string;
-    user2SkillLevel: string;
-    matches: number 
-  }[] = [];
+  const pairs: UserComparisonResult[] = [];
 
   // Convert each user's availability into a set-based map
   users.forEach((user) => {
@@ -62,21 +70,31 @@ function compareAvailabilities(users: UserWithAvailability[]) {
       const user1 = users[i];
       const user2 = users[j];
       let matches = 0;
+      const matchedTimes: { day: string; time: string }[] = [];
 
       Object.keys(availabilityMaps[user1._id]).forEach((day) => {
         if (availabilityMaps[user2._id][day]) {
-          matches += [...availabilityMaps[user1._id][day]].filter((time) =>
+          const commonTimes = [...availabilityMaps[user1._id][day]].filter((time) =>
             availabilityMaps[user2._id][day].has(time)
-          ).length;
+          );
+          matches += commonTimes.length;
+
+          // Store exact matching times
+          commonTimes.forEach((time) => matchedTimes.push({ day, time }));
         }
       });
 
-      pairs.push({ 
-        user1Name: user1.name, 
-        user1SkillLevel: user1.skillLevel, 
-        user2Name: user2.name, 
-        user2SkillLevel: user2.skillLevel, 
-        matches 
+      pairs.push({
+        user1Name: user1.name,
+        user1SkillLevel: user1.skillLevel,
+        user2Name: user2.name,
+        user2SkillLevel: user2.skillLevel,
+        user1TotalAvailabilities: user1.availability.length,
+        user2TotalAvailabilities: user2.availability.length,
+        user1Availabilities: user1.availability, // ✅ Fixed missing property
+        user2Availabilities: user2.availability, // ✅ Fixed missing property
+        matchedTimes,
+        matches,
       });
     }
   }
@@ -85,6 +103,8 @@ function compareAvailabilities(users: UserWithAvailability[]) {
   pairs.sort((a, b) => b.matches - a.matches);
   return pairs;
 }
+
+
 
 export async function POST(req: Request) {
   try {
