@@ -226,6 +226,10 @@ function RegisterPage() {
     fetchRegion();
   }, []);
 
+  if (currentTeam && currentTeam.individual && currentTeam.status === "PAYMENT_READY") {
+    router.push(`/register/pay?teamId=${currentTeam._id}`)
+  }
+
 
 
   return (

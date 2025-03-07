@@ -7,6 +7,7 @@ import { auth0 } from '@/lib/auth0';
 import connectToDatabase from '@/lib/mongodb';
 import User from '@/app/models/User';
 import Team from '@/app/models/Team';
+import { ITeam } from '@/app/types/databaseTypes';
 
 const SuccessIcon =
   <svg width="16" height="14" viewBox="0 0 16 14" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -82,13 +83,7 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
     redirect('/register');
   }
 
-  const team = await Team.findOne({ teammates: currentUser._id });
-
-  if (!team || (team.registrationStep !== 'TEAMMATE_INVITED' && team.registrationStep !== 'TEAMMATE_REGISTERED')) {
-    redirect('/register');
-  }
-  
-  const { payment_intent: paymentIntentId, teamId } = await searchParams;
+  const { payment_intent: paymentIntentId, teamId, userId } = await searchParams;
 
   if (!paymentIntentId || typeof paymentIntentId !== 'string') {
     return (
@@ -112,16 +107,33 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
       STATUS_CONTENT_MAP[status as keyof typeof STATUS_CONTENT_MAP] || STATUS_CONTENT_MAP.default;
 
       if ((status === 'succeeded' || status === 'requires_capture') && teamId) {
+        const team: ITeam | null = await Team.findById(teamId);
+
+        const registeredTeam = !team?.individual;
+        const indivualTeam = team?.individual;
+        const bothIndividualTeammatesPaid = team?.teammatesPaid?.length === 1;
+
+        const allPaymentsReceived = registeredTeam || (indivualTeam && bothIndividualTeammatesPaid);
+
         try {
           const updatedTeam = await Team.findOneAndUpdate(
             { _id: teamId },
-            { $set: { status: 'PAID' } },
+            { 
+              $set: { 
+                status: allPaymentsReceived ? 'PAID' : team?.status,
+              },
+              $addToSet: { 
+                teammatesPaid: userId,
+                stripePaymentIntent: paymentIntentId,
+              },
+            },
             { new: true }
           );
     
           if (!updatedTeam) {
             console.error(`Failed to update team ${teamId}. Team not found.`);
           } else {
+            console.log("updated team:", updatedTeam)
             console.log(`Team ${teamId} status updated to PAID.`);
           }
         } catch (err) {
