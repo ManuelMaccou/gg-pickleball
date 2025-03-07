@@ -153,7 +153,7 @@ function RegisterPage() {
             return;
           }
 
-          // User exists. Don't do anything.
+          // User exists. Don't do anything..
           const existingUser = await userResponse.json();
           setCurrentUser(existingUser.user);
 
