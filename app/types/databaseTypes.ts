@@ -35,6 +35,8 @@ export interface ITeam {
   registrationStep?: string,
   status?: string;
   individual? : boolean;
+  teammatesPaid?: IUser[];
+  stripePaymentIntent?: string[];
 }
 
 export interface IMatch {

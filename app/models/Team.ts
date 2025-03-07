@@ -27,5 +27,4 @@ const TeamSchema = new Schema<ITeam & Document>(
 
 TeamSchema.index({ seasonId: 1, teammates: 1 });
 
-delete mongoose.models.Team;
 export default mongoose.models.Team || mongoose.model<ITeam & Document>("Team", TeamSchema);
