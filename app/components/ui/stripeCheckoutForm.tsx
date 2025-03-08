@@ -108,7 +108,7 @@ function PaymentForm({ userId }: { userId: string }) {
 
 interface CheckoutFormProps {
   clientSecret: string;
-  userId: string
+  userId: string;
 }
 
 export default function StripeCheckoutForm({ clientSecret, userId }: CheckoutFormProps) {

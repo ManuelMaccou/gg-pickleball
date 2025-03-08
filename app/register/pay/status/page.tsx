@@ -109,11 +109,11 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
       if ((status === 'succeeded' || status === 'requires_capture') && teamId) {
         const team: ITeam | null = await Team.findById(teamId);
 
-        const registeredTeam = !team?.individual;
+        const partnerTeam = !team?.individual;
         const indivualTeam = team?.individual;
-        const bothIndividualTeammatesPaid = team?.teammatesPaid?.length === 1;
+        const bothIndividualTeammatesPaid = team?.stripePaymentIntent?.length === 1;
 
-        const allPaymentsReceived = registeredTeam || (indivualTeam && bothIndividualTeammatesPaid);
+        const allPaymentsReceived = partnerTeam || (indivualTeam && bothIndividualTeammatesPaid);
 
         try {
           const updatedTeam = await Team.findOneAndUpdate(
@@ -231,7 +231,7 @@ function StatusMessage({
 
       {isFailed && (
         <Flex direction="column" align="center" mt="5">
-          <a href={`/register/pay${teamId ? `?teamId=${teamId}` : ''}`}>
+          <a href={`${process.env.NEXT_PUBLIC_BASE_URL}/register/pay${teamId ? `?teamId=${teamId}` : ''}`}>
             <Text color="blue">Try Again</Text>
           </a>
         </Flex>
