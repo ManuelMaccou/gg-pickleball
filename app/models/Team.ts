@@ -16,9 +16,11 @@ const TeamSchema = new Schema<ITeam & Document>(
     },
     status: {
       type: String,
-      enum: ["REGISTERED", "PAID"],
+      enum: ["REGISTERED", "PAYMENT_READY", "PAID"]
     },
     individual: { type: Boolean },
+    teammatesPaid: [{ type: Schema.Types.ObjectId, ref: "User" }],
+    stripePaymentIntent: [{ type: String }],
   },
   { timestamps: true }
 );

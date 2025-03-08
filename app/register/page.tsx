@@ -153,7 +153,7 @@ function RegisterPage() {
             return;
           }
 
-          // User exists. Don't do anything.
+          // User exists. Don't do anything..
           const existingUser = await userResponse.json();
           setCurrentUser(existingUser.user);
 
@@ -225,6 +225,10 @@ function RegisterPage() {
 
     fetchRegion();
   }, []);
+
+  if (currentTeam && currentTeam.individual && currentTeam.status === "PAYMENT_READY") {
+    router.push(`/register/pay?teamId=${currentTeam._id}`)
+  }
 
 
 

@@ -15,7 +15,7 @@ import Link from "next/link";
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
-function PaymentForm() {
+function PaymentForm({ userId }: { userId: string }) {
   const stripe = useStripe();
   const elements = useElements();
   const searchParams = useSearchParams();
@@ -43,6 +43,10 @@ function PaymentForm() {
       const returnUrl = new URL(`${process.env.NEXT_PUBLIC_BASE_URL}/register/pay/status`);
       if (teamId) {
         returnUrl.searchParams.set("teamId", teamId);
+      }
+
+      if (userId) {
+        returnUrl.searchParams.set("userId", userId);
       }
 
       const { error } = await stripe.confirmPayment({
@@ -104,9 +108,10 @@ function PaymentForm() {
 
 interface CheckoutFormProps {
   clientSecret: string;
+  userId: string
 }
 
-export default function StripeCheckoutForm({ clientSecret }: CheckoutFormProps) {
+export default function StripeCheckoutForm({ clientSecret, userId }: CheckoutFormProps) {
   if (!clientSecret) {
     console.error("Missing clientSecret. Cannot render payment form.");
     return <p>Error: Missing payment information.</p>;
@@ -125,7 +130,7 @@ export default function StripeCheckoutForm({ clientSecret }: CheckoutFormProps) 
     <Elements stripe={stripePromise} options={options}>
       <Flex direction={'column'}>
         <Suspense fallback={<p>Loading payment form...</p>}>
-          <PaymentForm />
+          <PaymentForm userId={userId} />
         </Suspense>
       </Flex>
     </Elements>
