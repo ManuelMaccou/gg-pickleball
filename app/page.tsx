@@ -22,6 +22,7 @@ import gg_example from "../public/gg_example.png"
 import gg_example2 from "../public/gg_example2.png"
 import Link from "next/link";
 import { Suspense, useEffect, useRef, useState } from "react";
+import { InstagramLogoIcon } from '@radix-ui/react-icons';
 
 const goldman = Goldman({
   weight: ['400', '700'],
@@ -245,6 +246,16 @@ function HomePage() {
                 players together across multiple facilities and courts.
                 Play matches against similarly skilled players when your schedule allows.
               </Text>
+              
+              <Flex direction={'column'} mt={'4'} style={{width: 'fit-content'}}>
+                <Button size={'3'} asChild>
+                  <a href='https://www.instagram.com/ggpickleball.co/' target='blank'>
+                    <InstagramLogoIcon width={'25'} height={'25'} /> Follow us on Instagram
+                  </a>
+                </Button>
+              </Flex>
+             
+             
             </Box>
           </Flex>
         </Flex>
