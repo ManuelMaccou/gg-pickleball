@@ -154,7 +154,7 @@ function HomePage() {
               </Button>
               <Button size="4" disabled={isLoading} asChild>
                 <a href={user ? "/register" : `/auth/login?screen_hint=signup&returnTo=/register${referrer ? `?referrer=${referrer}` : ""}`}>
-                  <Text size="4" weight="bold">Register</Text>
+                  <Text size="4" weight="bold">Register/Log in</Text>
                 </a>
               </Button>
             </Flex>
