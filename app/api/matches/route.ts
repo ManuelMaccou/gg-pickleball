@@ -4,7 +4,6 @@ import Match from "@/app/models/Match";
 import { IUser, ICourt, ITeam } from "@/app/types/databaseTypes";
 import Team from "@/app/models/Team";
 
-
 export async function POST(req: NextRequest) {
   try {
     await connectToDatabase();
@@ -62,10 +61,18 @@ export async function GET(request: NextRequest) {
   try {
     await connectToDatabase();
 
+    const adminId = process.env.ENV === 'dev'
+      ? "67bf5eee8dd2fb5ee5a40cba"
+      : "67d4a1cf3a795dc67a9a3915";
+
+    
+
     // Extract matchId from query parameters
     const { searchParams } = new URL(request.url);
     const matchId = searchParams.get("matchId");
     const userId = searchParams.get("userId");
+
+    const isAdmin = adminId === userId;
 
     if (!matchId && !userId) {
       return NextResponse.json(
@@ -119,10 +126,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ match, users });
     }
 
-    if (userId) {
+    if (userId && !isAdmin) {
       const teams: ITeam[] = await Team.find({ teammates: userId }).select("_id");
 
-      if (!teams.length) {
+      if (teams.length === 0) {
         return NextResponse.json(
           { matches: [] },
           { status: 200 }
@@ -142,6 +149,16 @@ export async function GET(request: NextRequest) {
         .sort({ date: -1 });
 
       return NextResponse.json({ matches }, { status: 200 });
+
+    } else if (userId && isAdmin) {
+      const matches = await Match.find({})
+      .populate<{ location: ICourt }>("location")
+        .populate({
+          path: "teams",
+          populate: { path: "teammates" },
+        })
+        .sort({ date: -1 });
+        return NextResponse.json({ matches }, { status: 200 });
     }
    
   } catch (error) {

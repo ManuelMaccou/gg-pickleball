@@ -9,7 +9,6 @@ import { Avatar, Flex, Text, Separator, Button, TextField, IconButton, Box, Dial
 import { PaperPlaneIcon } from '@radix-ui/react-icons';
 import DesktopSidebar from "@/app/components/Sections/DesktopSidebar";
 import MatchRescheduleDialog from "@/components/ui/MatchRescheduleDialog";
-import mongoose from "mongoose";
 import TopBanner from "@/app/components/Sections/TopBanner";
 import { X } from "lucide-react";
 
@@ -212,8 +211,8 @@ export default function Chat() {
     if (!matchId) return;
 
     const adminId = process.env.NEXT_PUBLIC_ENV === 'dev'
-      ? new mongoose.Types.ObjectId("67bf5eee8dd2fb5ee5a40cba")
-      : new mongoose.Types.ObjectId("67d32c45878c39e7ef4a357b");
+      ? "67bf5eee8dd2fb5ee5a40cba"
+      : "67d4a1cf3a795dc67a9a3915";
 
     const fetchMatch = async() => {
       try {
@@ -225,9 +224,11 @@ export default function Chat() {
 
         const { match, users } = await response.json();
 
-        const updatedUsers: IUser[] = users.some((user: IUser) => user._id === adminId.toString()) 
+        const isDev = process.env.NEXT_PUBLIC_ENV === "dev"
+
+        const updatedUsers: IUser[] = users.some((user: IUser) => user._id === adminId) 
           ? users 
-          : [...users, { _id: adminId.toString(), name: "GG Admin", profilePicture: "http://localhost:3000/api/images/67d333cc8e3b4015c870a101" }];
+          : [...users, { _id: adminId, name: "Admin", profilePicture: isDev ? "http://localhost:3000/api/images/67d333cc8e3b4015c870a101" : "https://www.ggpickleball.co/api/images/67d4a21d3a795dc67a9a3918" }];
 
 
         setMatch(match);
@@ -377,7 +378,7 @@ export default function Chat() {
             style={{ backgroundColor: 'green', color: 'white', alignItems: 'center' }}
           >
             <Text style={{maxWidth: '90%'}}>
-              Chat with the players of this match and request a court reservation.
+              Chat with the players and request a court reservation.
             </Text>
             <X onClick={() => setBannerIndex(null)} style={{ cursor: 'pointer' }} />
           </Flex>

@@ -20,11 +20,11 @@ export async function GET(request: NextRequest) {
     const userIds = userIdsString.split(",").map((id) => new mongoose.Types.ObjectId(id));
 
     const adminId = process.env.NEXT_PUBLIC_ENV === 'dev'
-      ? new mongoose.Types.ObjectId("67bf5eee8dd2fb5ee5a40cba")
-      : new mongoose.Types.ObjectId("67d32c45878c39e7ef4a357b") ;
+      ? "67bf5eee8dd2fb5ee5a40cba"
+      : "67d4a1cf3a795dc67a9a3915";
 
-    if (!userIds.some(id => id.equals(adminId))) {
-      userIds.push(adminId);
+    if (!userIds.some(id => id.equals(new mongoose.Types.ObjectId(adminId)))) {
+      userIds.push(new mongoose.Types.ObjectId(adminId));
     }
    
     let conversation = await Conversation.findOne({ matchId });
