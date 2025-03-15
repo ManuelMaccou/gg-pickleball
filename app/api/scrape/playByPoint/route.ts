@@ -108,7 +108,7 @@ async function scrapeAndSaveData() {
 
   // https://stackoverflow.com/questions/70118400/puppeteer-cant-find-elements-when-headless-true
   const browser = await puppeteer.launch({
-    headless: 'shell',
+    headless: true,
     args: [
       "--disable-blink-features=AutomationControlled",
       "--no-sandbox",
