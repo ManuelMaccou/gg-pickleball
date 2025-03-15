@@ -68,7 +68,7 @@ export default function Chat() {
   }, [conversation?.messages, isDesktop]);
 
   const formatDate = (dateString: string | undefined) => {
-    if (!dateString) return "Unknown Date";
+    if (!dateString) return "";
   
     const [year, month, day] = dateString.split("-");
   
