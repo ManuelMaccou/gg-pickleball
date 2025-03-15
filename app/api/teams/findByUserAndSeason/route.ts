@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     const team = await Team.findOne({
       teammates: userId,
       seasonId: seasonId,
-    });
+    }).populate('teammates', 'name email availability');
 
     if (!team) {
       return NextResponse.json(

@@ -11,6 +11,8 @@ import StripeCheckoutForm from '@/app/components/ui/stripeCheckoutForm';
 import { ITeam } from '@/app/types/databaseTypes';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
+import DesktopSidebar from '@/app/components/Sections/DesktopSidebar';
+import TopBanner from '@/app/components/Sections/TopBanner';
 
 export default async function Pay({
   searchParams,
@@ -68,10 +70,16 @@ export default async function Pay({
     console.error('Failed to create payment intent. Missing clientSecret.');
     redirect('/pay/error');
   }
-
-  if (errorMessage) {
+ if (errorMessage) {
     return (
-      <Flex direction="column" justify={'center'} height={'100vh'}>
+      <Flex direction={{initial: 'column', md: 'row'}} minHeight={'100vh'} px={{initial: '0', md: '5'}}>
+        <Flex display={{ initial: 'none', md: 'flex' }}>
+          <DesktopSidebar />
+        </Flex>
+
+        <Flex direction={'column'} display={{ initial: 'flex', md: 'none' }}>
+          <TopBanner />
+        </Flex>
         <Box m="4">
           <Alert variant="destructive" style={{ backgroundColor: "white" }}>
             <AlertCircle />

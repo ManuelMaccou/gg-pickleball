@@ -3,22 +3,39 @@ import { IMatch } from "../types/databaseTypes";
 
 const MatchSchema = new Schema<IMatch & Document>(
   {
-    teams: [{ type: Schema.Types.ObjectId, ref: "Team"}],
+    day: { type: String }, // Monday
+    date: { type: String }, // YYYY-MM-DD
+    time: { type: String }, // 1:30-2pm
+    location: { type:Schema.Types.ObjectId, ref: "Court" },
+    teams: [{ type: Schema.Types.ObjectId, ref: "Team" }],
     challenger: { type: Schema.Types.ObjectId, ref: "Team" },
     status: {
       type: String,
-      enum: ["INITIATED", "PAID", "COMPLETED", "CANCELED"],
-      default: "INITIATED",
+      enum: ["PENDING", "BOOKED", "COMPLETED"],
+      default: "PENDING",
+    },
+    scores: {
+      items: [
+        {
+          teamId: { type: Schema.Types.ObjectId, ref: "Team" },
+          score: { type: Number },
+          submittingTeam: { type: Schema.Types.ObjectId, ref: "Team" },
+        },
+      ],
+      confirmed: { type: Boolean, default: false },
     },
     winner: {
-      team: { type: Schema.Types.ObjectId, ref: "Team" },
+      teamId: { type: Schema.Types.ObjectId, ref: "Team" },
       score: { type: Number },
     },
     loser: {
-      team: { type: Schema.Types.ObjectId, ref: "Team" },
+      teamId: { type: Schema.Types.ObjectId, ref: "Team" },
       score: { type: Number },
     },
     seasonId: { type: Schema.Types.ObjectId, ref: "Season" },
+    regionId: { type: Schema.Types.ObjectId, ref: "Region" },
+    playersPaid: [{ type: Schema.Types.ObjectId, ref: "User" }],
+    stripePaymentIntent: [{ type: String }],
   },
   { timestamps: true }
 );

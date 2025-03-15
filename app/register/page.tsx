@@ -45,6 +45,7 @@ function RegisterPage() {
   const [teammateIsRegistering, setTeammateIsRegistering] = useState<boolean>(false);
   const [userIsRegistered, setUserIsRegistered] = useState<boolean>(false);
   const [paymentNeeded, setPaymentNeeded] = useState<boolean>(false);
+  const [continueToLeague, setContinueToLeague] = useState<boolean>(false);
 
   useEffect(() => {
     if (!currentUser || !activeSeason) return;
@@ -83,6 +84,7 @@ function RegisterPage() {
             setUserIsRegistered(true);
             setPaymentNeeded(false);
             setTeammateIsRegistering(false);
+            setContinueToLeague(true);
           }
           return;
         }
@@ -287,7 +289,18 @@ function RegisterPage() {
             </Box>
           )}
 
-          {userIsRegistered && (
+          {continueToLeague && (
+            <Box>
+              <Flex mt={'9'} gap={'6'} direction={'column'} maxWidth={'600px'}>
+                <Text size={'5'}>
+                  You are successfully registered. Time to find your first match!
+                </Text>
+                <Button size={'4'} onClick={() => router.push('/challenge')}>Continue</Button>
+              </Flex>
+            </Box>
+          )}
+
+          {userIsRegistered && !continueToLeague && (
             <Box>
               <Flex mt={'9'} gap={'6'} direction={'column'} maxWidth={'600px'}>
                 <Text size={'5'}>

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import connectToDatabase from "@/lib/mongodb";
 import Team from "@/app/models/Team";
 import Season from "@/app/models/Season";
-import { ITeam, IUser } from "@/app/types/databaseTypes";
+import { Types } from "mongoose";
+import { IUser } from "@/app/types/databaseTypes";
 
 
 export async function POST(req: NextRequest) {
@@ -57,14 +58,17 @@ export async function GET(req: Request) {
   try {
     await connectToDatabase();
 
-    // Parse URL query parameters
     const { searchParams } = new URL(req.url);
     const regionId = searchParams.get("regionId");
     const activeSeason = searchParams.get("activeSeason") === "true";
     const teamId = searchParams.get("teamId");
 
-    const query: Partial<ITeam> = {};
+    // Query object
+    const query: Record<string, unknown> = {
+      status: "PAID",
+    };
 
+    // Handle active season filtering
     if (activeSeason) {
       const activeSeasonDoc = await Season.findOne({ active: true }).select("_id");
 
@@ -77,18 +81,39 @@ export async function GET(req: Request) {
           { status: 404 }
         );
       }
-      query.seasonId = activeSeasonDoc._id; // Filter by active season
+
+      query.seasonId = activeSeasonDoc._id;
     }
 
     if (regionId) {
-      query.regionId = regionId; // Filter by region
+      if (!Types.ObjectId.isValid(regionId)) {
+        return NextResponse.json(
+          { 
+            systemMessage: "Invalid regionId provided.", 
+            userMessage: "The selected region is not valid." 
+          }, 
+          { status: 400 }
+        );
+      }
+      query.regionId = new Types.ObjectId(regionId);
     }
 
     if (teamId) {
-      query._id = teamId
+      if (!Types.ObjectId.isValid(teamId)) {
+        return NextResponse.json(
+          { 
+            systemMessage: "Invalid teamId provided.", 
+            userMessage: "The selected team is not valid." 
+          }, 
+          { status: 400 }
+        );
+      }
+      query._id = new Types.ObjectId(teamId);
     }
 
-    const teams = await Team.find(query).populate<{ teammates: IUser[] }>("teammates", "name email profilePicture dupr skillLevel");
+    // Fetch teams, populating teammates (User model)
+    const teams = await Team.find(query)
+    .populate<{ teammates: IUser[] }>("teammates", "name email profilePicture dupr skillLevel availability");
 
     return NextResponse.json(teams, { status: 200 });
   } catch (error) {
