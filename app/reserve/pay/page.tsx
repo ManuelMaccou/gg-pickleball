@@ -54,8 +54,7 @@ export default async function Pay({
     console.error("Error fetching chat users:", error);
   }
 
-
-  const session = await auth0.getSession();
+  const session = await auth0.getSession()
   if (!session || !session.user) {
     errorMessage = "You must be logged in to view this page.";
   }
@@ -185,6 +184,7 @@ export default async function Pay({
   };
 
   const formattedMatchDate = formatDate(match?.date)
+
 
   return (
     <Flex direction={{initial: 'column', md: 'row'}} minHeight={'100vh'} px={{initial: '0', md: '5'}}>

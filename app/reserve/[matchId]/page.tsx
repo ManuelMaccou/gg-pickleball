@@ -1,5 +1,6 @@
 'use client'
 
+import { useUser } from "@auth0/nextjs-auth0"
 import DesktopSidebar from "@/app/components/Sections/DesktopSidebar";
 import { Button, Flex, Strong, Text } from "@radix-ui/themes";
 import { Checkbox } from "@/components/ui/checkbox"
@@ -12,12 +13,17 @@ export default function Chat() {
   const router = useRouter();
   const params = useParams()
   const matchId = params.matchId
+  const { isLoading, user } = useUser();
 
   const [checked, setChecked] = useState<boolean>(false);
 
   const handleCheckBox = (value: boolean) => {
     setChecked(value);
   };
+
+  if (!isLoading && !user) {
+    router.push('/auth/login')
+  }
 
 
   return (

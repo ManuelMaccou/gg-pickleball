@@ -13,8 +13,6 @@ type TeamWithAvailability = ITeam & {
   matchingAvailability: IAvailability[];
 };
 
-
-
 export default function Challenge() {
   const router = useRouter();
   const { user, isLoading } = useUser();
@@ -492,7 +490,9 @@ export default function Challenge() {
     });
   };
 
-  if (isLoading) return null;
+  if (!isLoading && !user) {
+    router.push('/auth/login')
+  }
 
  
   return (
