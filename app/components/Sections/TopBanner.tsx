@@ -10,7 +10,7 @@ export default function TopBanner() {
   
   return (
     <Box>
-      <Flex justify={"between"} direction={"row"} pt={"9"} pb={"5"} px={'6'}
+      <Flex justify={"between"} direction={"row"} pt={"2"} pb={"5"} px={'6'}
         style={{
           backgroundColor: "#191919"
         }}
