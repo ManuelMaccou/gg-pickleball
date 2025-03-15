@@ -1,5 +1,6 @@
 "use client"
 
+import { useRouter } from "next/navigation";
 import { useUser } from "@auth0/nextjs-auth0"
 import { useForm, Controller } from "react-hook-form";
 import { Avatar, Box, Flex, Heading, Text, VisuallyHidden } from "@radix-ui/themes";
@@ -34,7 +35,8 @@ interface FormData {
 }
 
 export default function ProfilePage() {
-  const { user } = useUser()
+  const router = useRouter();
+  const { isLoading, user } = useUser()
 
   //const [currentUser, setCurrentUser] = useState<IUser | null>(null);
   const [currentDbUser, setCurrentDbUser] = useState<IUser | null>(null);
@@ -304,7 +306,9 @@ export default function ProfilePage() {
  const formattedAvailability = useMemo(() => transformUserAvailability(currentDbUser?.availability), [currentDbUser?.availability]);
  */ 
 
-  if (!user) return null
+  if (!isLoading && !user) {
+    router.push('/auth/login')
+  }
 
   return (
     <Flex direction={{initial: 'column', md: 'row'}} minHeight={'100vh'} px={{initial: '0', md: '5'}} pb={'9'}>

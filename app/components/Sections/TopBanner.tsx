@@ -10,7 +10,7 @@ export default function TopBanner() {
   
   return (
     <Box>
-      <Flex justify={"between"} direction={"row"} pt={"9"} pb={"5"} px={'6'}
+      <Flex justify={"between"} direction={"row"} pt={"2"} pb={"5"} px={'6'}
         style={{
           backgroundColor: "#191919"
         }}
@@ -34,7 +34,7 @@ export default function TopBanner() {
               }}
             />
           </Dialog.Trigger>
-          <Dialog.Content size="1" width="95%" height={'100vh'} 
+          <Dialog.Content size="1" width="95%" height={'100vh'}
             style={{
               position: 'fixed',
               right: 0,
@@ -61,22 +61,23 @@ export default function TopBanner() {
                 { label: 'Perks', icon: <Gift />, link: '/perks' },
               ].map((item) => (
                 <React.Fragment key={item.link}>
+                  
                   <Link key={item.link} href={item.link} passHref>
-                    <Button 
-                      key={item.link}
-                      variant="ghost"
-                      size="4"
-                      style={{ 
-                        color: 'white', 
-                        width: '100%', 
-                        justifyContent: 'flex-start', 
-                        padding: '12px 16px' 
-                      }}
+                  <Flex align="center" gap="3" py="3" px="6" 
+                    style={{
+                      width: '100%',
+                      cursor: 'pointer'
+                    }}
                     >
-                      {item.icon}
-                      <Text size="6" style={{ marginLeft: '12px' }}>{item.label}</Text>
-                    </Button>
-                  </Link>
+                   {item.icon}
+                    
+                 
+                   
+                   <Text size="6" style={{ marginLeft: '12px' }}>{item.label}</Text>
+                   </Flex> 
+               </Link>
+                
+                 
                   <Separator color="yellow" size="4" />
                 </React.Fragment>
               ))}

@@ -1,5 +1,6 @@
 'use client'
 
+import { useRouter } from "next/navigation";
 import { useUser } from "@auth0/nextjs-auth0"
 import { Box, Flex, Grid, Heading, Spinner, Text, VisuallyHidden } from "@radix-ui/themes";
 import DesktopSidebar from "../components/Sections/DesktopSidebar";
@@ -12,6 +13,7 @@ import { IMatch, ITeam, IUser } from "../types/databaseTypes";
 import MatchCard from "./components/MatchCards";
 
 export default function Schedule() {
+  const router = useRouter();
   const { user, isLoading } = useUser()
 
   const [loading, setLoading] = useState<boolean>(true);
@@ -102,7 +104,9 @@ export default function Schedule() {
 
     
 
-    if (isLoading) return null;
+    if (!isLoading && !user) {
+      router.push('/auth/login')
+    }
 
     if (!isLoading && !user) {
       return (

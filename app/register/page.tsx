@@ -232,7 +232,9 @@ function RegisterPage() {
     router.push(`/register/pay?teamId=${currentTeam._id}`)
   }
 
-
+  if (!isLoading && !user) {
+    router.push('/auth/login')
+  }
 
   return (
     <Flex justify={"center"} direction={'column'} mx={'4'} mt={'9'}>

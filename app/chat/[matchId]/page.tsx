@@ -358,6 +358,10 @@ export default function Chat() {
   }
 
   if (isAuthorized === false || isLoading) return null;
+  
+  if (!isLoading && !user) {
+    router.push('/auth/login')
+  }
 
   return (
     <Flex direction={{initial: 'column', md: 'row'}} height={'100vh'} width={'100%'} px={{initial: '0', md: '5'}}>
