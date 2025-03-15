@@ -105,7 +105,7 @@ const MatchRescheduleDialog: React.FC<MatchRescheduleDialogProps> = ({
             validBlocks.push({ 
               day, 
               time: block[0].time, 
-              date: block[0].date ?? "Unknown Date" // Ensure date is included
+              date: block[0].date ?? "" // was previously "Unknown Date"
             });
           }
         }
@@ -195,7 +195,7 @@ const MatchRescheduleDialog: React.FC<MatchRescheduleDialogProps> = ({
     const teamSlots = finalAvailability.map((slot) => ({ 
       day: slot.day, 
       time: slot.time, 
-      date: court.availability.find(courtSlot => courtSlot.day === slot.day && courtSlot.time === slot.time)?.date || "Unknown Date" 
+      date: court.availability.find(courtSlot => courtSlot.day === slot.day && courtSlot.time === slot.time)?.date || "" 
     }));
 
     const courtSlots = court.availability.map((slot) => ({
