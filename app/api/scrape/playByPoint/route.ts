@@ -109,12 +109,13 @@ async function scrapeAndSaveData() {
   // https://stackoverflow.com/questions/70118400/puppeteer-cant-find-elements-when-headless-true
   const browser = await puppeteer.launch({
     headless: true,
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || (await puppeteer.executablePath()),
     args: [
       "--disable-blink-features=AutomationControlled",
       "--no-sandbox",
       "--disable-setuid-sandbox",
     ],
-  }); // Set false for debugging
+  });
   const page = await browser.newPage();
 
   const userAgent = new UserAgent({ deviceCategory: 'desktop' }).toString();
