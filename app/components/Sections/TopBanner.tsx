@@ -1,6 +1,6 @@
 import Image from 'next/image'
 import lightGGLogo from '../../../public/gg_logo_white_transparent.png'
-import { Box, Button, Dialog, Flex, Separator,  Text, VisuallyHidden } from '@radix-ui/themes'
+import { Box, Dialog, Flex, Separator,  Text, VisuallyHidden } from '@radix-ui/themes'
 import { HamburgerMenuIcon } from '@radix-ui/react-icons';
 import { CalendarDays, Gift, User, X, Zap } from 'lucide-react';
 import Link from 'next/link';
