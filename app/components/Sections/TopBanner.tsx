@@ -70,7 +70,7 @@ export default function TopBanner() {
                         color: 'white', 
                         width: '100%', 
                         justifyContent: 'flex-start', 
-                        padding: '12px 16px' 
+                        paddingLeft: '50px' 
                       }}
                     >
                       {item.icon}
