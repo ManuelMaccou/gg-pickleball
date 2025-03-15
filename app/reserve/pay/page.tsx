@@ -175,7 +175,7 @@ export default async function Pay({
   }
 
   const formatDate = (dateString: string | undefined) => {
-    if (!dateString) return "Unknown Date";
+    if (!dateString) return "";
   
     const [year, month, day] = dateString.split("-");
   
