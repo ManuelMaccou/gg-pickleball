@@ -34,7 +34,7 @@ export default function TopBanner() {
               }}
             />
           </Dialog.Trigger>
-          <Dialog.Content size="1" width="95%" height={'100vh'}
+          <Dialog.Content size="1" width="95%" height={'90vh'}
             style={{
               position: 'fixed',
               right: 0,
@@ -53,7 +53,7 @@ export default function TopBanner() {
 
             </Flex>
             
-            <Flex direction="column" gap="6">
+            <Flex direction="column" gap="4">
               {[
                 { label: 'Profile', icon: <User />, link: '/profile' },
                 { label: 'Schedule', icon: <CalendarDays />, link: '/schedule' },
@@ -83,7 +83,7 @@ export default function TopBanner() {
               ))}
 
               <Link href="/auth/logout">
-                <Flex direction="column" mt={'9'}>
+                <Flex direction="column">
                   <Button size={'4'} variant='ghost'>
                   <Text size={'6'}>Log out</Text>
                   </Button>
