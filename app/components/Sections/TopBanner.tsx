@@ -69,10 +69,7 @@ export default function TopBanner() {
                       cursor: 'pointer'
                     }}
                     >
-                   {item.icon}
-                    
-                 
-                   
+                    {item.icon}
                    <Text size="6" style={{ marginLeft: '12px' }}>{item.label}</Text>
                    </Flex> 
                </Link>
@@ -83,10 +80,8 @@ export default function TopBanner() {
               ))}
 
               <Link href="/auth/logout">
-                <Flex direction="column">
-                  <Button size={'4'} variant='ghost'>
-                  <Text size={'6'}>Log out</Text>
-                  </Button>
+                <Flex direction="column" align={'center'}>
+                  <Text color='yellow' size={'6'}>Log out</Text>
                 </Flex>
               </Link>
             </Flex>
