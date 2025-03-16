@@ -23,7 +23,6 @@ const getDayOfWeekFromTimestamp = (timestamp: number): string => {
 // ✅ Helper Function: Format time correctly for DB storage
 
 const splitOneHourBlocks = (date: string, day: string, timeSlot: string, available: boolean) => {
-  console.log(`🔹 Splitting time slot for ${day}: ${timeSlot}`);
 
   if (!timeSlot.includes("-")) {
     console.error("❌ Invalid time slot format:", timeSlot);
@@ -48,10 +47,6 @@ const splitOneHourBlocks = (date: string, day: string, timeSlot: string, availab
     const nextHour = i === 0 ? startHour : startHour + 0.5;
     const formattedStart = nextHour % 1 === 0 ? `${Math.floor(nextHour)}` : `${Math.floor(nextHour)}:30`;
 
-    console.log('formatted start:', formattedStart)
-    console.log('end hour:', endHour)
-    console.log('suffix:', suffix)
-
     if (formattedStart === '11' && endHour === 12 && suffix === 'PM') {
       suffix = "AM"
     }
@@ -60,7 +55,6 @@ const splitOneHourBlocks = (date: string, day: string, timeSlot: string, availab
     if (formattedEnd === "13pm") {
       formattedEnd = "1pm"
     }
-    console.log('formatted end:', formattedEnd)
 
     slots.push({
       date,
@@ -75,16 +69,13 @@ const splitOneHourBlocks = (date: string, day: string, timeSlot: string, availab
 
 
 const processScrapedData = (scrapedData: PlayByPointScrapedEntry[], courtName: string): PlayByPointProcessedAvailability[] => {
-  console.log(`Processing scraped data for: ${courtName}`);
 
   return scrapedData.flatMap((entry: PlayByPointScrapedEntry) => {
     const dayOfWeek = getDayOfWeekFromTimestamp(Math.floor(new Date(entry.date).getTime() / 1000));
 
     return entry.data.available_hours
       .filter((hour: PlayByPointScrapedHour) => hour.available)
-      .flatMap((hour: PlayByPointScrapedHour) => {
-        console.log(`➡️ Processing time slot for ${courtName}:`, hour.schedule);
-        
+      .flatMap((hour: PlayByPointScrapedHour) => {        
         
         if (courtName === "Pickle Pop") {
           return splitOneHourBlocks(entry.date, dayOfWeek, hour.schedule, hour.available); // Split into 30-min blocks
@@ -120,7 +111,6 @@ async function scrapeAndSaveData() {
   const page = await browser.newPage();
 
   const userAgent = new UserAgent({ deviceCategory: 'desktop' }).toString();
-  console.log("Generated User-Agent:", userAgent);
   await page.setUserAgent(userAgent);
 
   // Prevent Puppeteer detection
@@ -178,8 +168,6 @@ async function scrapeAndSaveData() {
 
       if (response) {
         allAvailabilities.push({ date: date.toISOString().split("T")[0], data: response });
-      } else {
-        console.log(`⏩ Skipping unavailable timestamp: ${date.toISOString().split("T")[0]}`);
       }
     }
 
@@ -200,11 +188,9 @@ async function saveCourtData(name: string, address: string, availability: PlayBy
       existingCourt.availability = availability;
       existingCourt.address = address;
       await existingCourt.save();
-      console.log(`Updated availability for ${name}`);
     } else {
       const newCourt = new Court({ name, address, availability });
       await newCourt.save();
-      console.log(`Added new court: ${name}`);
     }
   } catch (error) {
     console.error(`Error saving data for ${name}:`, error);
