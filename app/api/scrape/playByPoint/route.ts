@@ -106,6 +106,7 @@ async function scrapeAndSaveData() {
       "--no-sandbox",
       "--disable-setuid-sandbox",
       "--disable-dev-shm-usage",
+      "--disable-crash-reporter",
     ],
   });
   const page = await browser.newPage();
