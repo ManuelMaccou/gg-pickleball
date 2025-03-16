@@ -25,7 +25,7 @@ import { ApiErrorResponse } from "@/app/types/functionTypes";
 import { IUser } from "@/app/types/databaseTypes";
 import DesktopSidebar from "../components/Sections/DesktopSidebar";
 import TopBanner from "../components/Sections/TopBanner";
-import AvailabilitySelection from "../components/ui/setAvailability";
+import UpdatedAvailabilitySelection from "../components/ui/setUpdatedAvailability";
 
 interface FormData {
   fullName: string;
@@ -512,18 +512,11 @@ export default function ProfilePage() {
                 {isSavingProfile ? "Please wait..." : "Save profile"}
               </Button>
 
-            {/*
-               <UpdatedAvailabilitySelection 
-               userAvailability={formattedAvailability} // ✅ Passes the correctly formatted object
-               onAvailabilityChange={(processedAvailability) => {
-                 console.log("✅ Received from child:", processedAvailability);
-               }}
-             />;
-            */}
-            
-
-            <AvailabilitySelection onAvailabilityChange={setAvailabilityBlocks} showAdditionalText={true} />
-             
+         
+              <UpdatedAvailabilitySelection 
+                onAvailabilityChange={setAvailabilityBlocks}
+                userId={currentDbUser?._id || ""}
+             />
 
               {errors.duprUrl && (
                 <Box m={'4'}>
