@@ -114,6 +114,7 @@ async function scrapeAndSaveData() {
       "--disable-blink-features=AutomationControlled",
       "--no-sandbox",
       "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
     ],
   });
   const page = await browser.newPage();
