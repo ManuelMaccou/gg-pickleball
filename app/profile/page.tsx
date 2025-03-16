@@ -520,8 +520,9 @@ export default function ProfilePage() {
                }}
              />;
             */}
+            
 
-            <AvailabilitySelection onAvailabilityChange={setAvailabilityBlocks} />
+            <AvailabilitySelection onAvailabilityChange={setAvailabilityBlocks} showAdditionalText={true} />
              
 
               {errors.duprUrl && (

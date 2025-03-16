@@ -9,9 +9,10 @@ import { transformAvailabilityToBlocks } from "@/app/register/utils";
 
 interface AvailabilitySelectionProps {
   onAvailabilityChange: (availabilityBlocks: { day: string; time: string }[]) => void;
+  showAdditionalText?: boolean;
 }
 
-export default function AvailabilitySelection({ onAvailabilityChange }: AvailabilitySelectionProps) {
+export default function AvailabilitySelection({ onAvailabilityChange, showAdditionalText = false }: AvailabilitySelectionProps) {
 
   const [availability, setAvailability] = useState<AvailabilityState>({});
   const [enabledDays, setEnabledDays] = useState<Record<string, boolean>>({});
@@ -97,7 +98,13 @@ export default function AvailabilitySelection({ onAvailabilityChange }: Availabi
   return (
     <Flex mt={'9'} direction={'column'} mb={'5'}>
         <Text as="p" size={'5'} weight={'bold'}>Availabilty</Text>
-        <Flex my={'5'} gap={'7'} direction={'column'}>
+        {showAdditionalText && (
+        <Text as="p" size={'3'}>
+          Your availability settings are saved from your last selections, even if they appear empty. 
+          To adjust your availability, make new selections.
+        </Text>
+      )}
+        <Flex my={'6'} gap={'7'} direction={'column'}>
 
         {daysOfWeek.map((day) => (
           <Flex key={day} gap="5" direction="column">
