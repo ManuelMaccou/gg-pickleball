@@ -228,6 +228,12 @@ function RegisterPage() {
     fetchRegion();
   }, []);
 
+  useEffect(() => {
+    if (continueToLeague) {
+      router.push('/challenge')
+    }
+  }, [continueToLeague, router])
+
   if (currentTeam && currentTeam.individual && currentTeam.status === "PAYMENT_READY") {
     router.push(`/register/pay?teamId=${currentTeam._id}`)
   }
@@ -287,17 +293,6 @@ function RegisterPage() {
                     Continue
                   </Button>
                 </Link>
-              </Flex>
-            </Box>
-          )}
-
-          {continueToLeague && (
-            <Box>
-              <Flex mt={'9'} gap={'6'} direction={'column'} maxWidth={'600px'}>
-                <Text size={'5'}>
-                  You are successfully registered. Time to find your first match!
-                </Text>
-                <Button size={'4'} onClick={() => router.push('/challenge')}>Continue</Button>
               </Flex>
             </Box>
           )}
