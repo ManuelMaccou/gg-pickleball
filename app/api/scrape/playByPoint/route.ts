@@ -107,8 +107,15 @@ async function scrapeAndSaveData() {
       "--disable-setuid-sandbox",
       "--disable-dev-shm-usage",
       "--disable-crash-reporter",
+      "--no-zygote"
     ],
+    env: {
+      ...process.env,
+      CHROME_CRASHPAD_DISABLE: '1'
+    },
+    pipe: true
   });
+
   const page = await browser.newPage();
 
   const userAgent = new UserAgent({ deviceCategory: 'desktop' }).toString();

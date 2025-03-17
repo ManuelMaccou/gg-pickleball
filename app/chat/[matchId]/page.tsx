@@ -364,7 +364,7 @@ export default function Chat() {
   }
 
   return (
-    <Flex direction={{initial: 'column', md: 'row'}} height={'100vh'} width={'100%'} px={{initial: '0', md: '5'}}>
+    <Flex direction={{initial: 'column', md: 'row'}} minHeight={'100vh'} width={'100%'} px={{initial: '0', md: '5'}}>
       <Flex display={{ initial: 'none', md: 'flex' }}>
         <DesktopSidebar />
       </Flex>
@@ -373,10 +373,7 @@ export default function Chat() {
         <TopBanner />
       </Flex>
 
-      
-
       <Flex direction={'column'} style={{marginRight: 'auto', marginLeft: 'auto'}} width={{initial: "100%", md: "60%"}} px={'4'} pt={{initial: '2', md: '7'}}>
-        
         {bannerIndex !== null && (
           <Flex direction="row" p="3" mx={'-4'} justify={'between'}
             style={{ backgroundColor: 'green', color: 'white', alignItems: 'center' }}
