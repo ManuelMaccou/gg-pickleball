@@ -303,7 +303,11 @@ export default async function RegisterPage() {
                 <Text size={'8'} mt={'-4'} weight={'bold'} align={'center'}>
                   All players receive a free class for you and a friend at the Santa Monica location. Valued at $64.
                 </Text>
-              <Button mt={'3'} size={'3'} style={{backgroundColor: '#0093D0', color: '#FFFFFF'}}> Claim your free class</Button>
+                <Flex direction={'column'} width={'100%'} align={'center'}>
+                  <Link href="https://trainingmatesantamonica.brandbot-checkout.com/class-for-you-and-a-mate-ajZ.html" target="blank">
+                    <Button mt={'3'} size={'3'} style={{backgroundColor: '#0093D0', color: '#FFFFFF'}}> Claim your free class</Button>
+                  </Link>
+                </Flex>
               </Flex>
             </Flex>
           </Flex>
