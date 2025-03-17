@@ -27,7 +27,6 @@ export default function Chat() {
   const [isMemorialPark, setIsMemorialPark] = useState(false);
   const [memorialParkConfirm, setMemorialParkConfirm] = useState(false);
 
-
   const [currentUser, setCurrentUser] = useState<IUser | null>(null);
   const [usersForChat, setUsersForChat] = useState<IUser[] | null>(null);
   const [bannerIndex, setBannerIndex] = useState<number | null>(0);
@@ -35,6 +34,7 @@ export default function Chat() {
   const [match, setMatch] = useState<IMatch | null>(null);
   const [conversation, setConversation] = useState<IConversation | null>(null);
   const [messageText, setMessageText] = useState("");
+  const [isSendingMessage, setIsSendingMessage] = useState<boolean>(false);
 
   // const [regionId, setRegionId] = useState<string | null>(null);
   const [courts, setCourts] = useState<ICourt[]>([]);
@@ -293,6 +293,8 @@ export default function Chat() {
   const sendMessage = useCallback(async (isSystemMessage: boolean, text: string) => {
     const messageText = text.trim();
     if (!messageText) return;
+
+    setIsSendingMessage(true)
   
     try {
       const response = await fetch(`/api/conversations/message`, {
@@ -333,6 +335,8 @@ export default function Chat() {
       setMessageText(""); // Clear input field
     } catch (error) {
       console.error("Error sending message:", error);
+    } finally {
+      setIsSendingMessage(false)
     }
   }, [matchId, currentUser?._id, usersForChat]);
   
@@ -512,7 +516,7 @@ export default function Chat() {
               style={{ flexGrow: 1, height: "50px" }}
             >
               <TextField.Slot side='right' pr="3">
-                <IconButton size="2" variant="ghost" disabled={!currentUser || !messageText} onClick={() => sendMessage(false, messageText)}>
+                <IconButton size="2" variant="ghost" disabled={!currentUser || !messageText || isSendingMessage} loading={isSendingMessage} onClick={() => sendMessage(false, messageText)}>
                   <PaperPlaneIcon height="25" width="25" />
                 </IconButton>
               </TextField.Slot>
@@ -608,7 +612,7 @@ export default function Chat() {
               style={{ flexGrow: 1, height: "50px" }}
             >
               <TextField.Slot side='right' pr="3">
-                <IconButton size="2" variant="ghost" disabled={!currentUser || !messageText} onClick={() => sendMessage(false, messageText)}>
+                <IconButton size="2" variant="ghost" disabled={!currentUser || !messageText || isSendingMessage}  loading={isSendingMessage} onClick={() => sendMessage(false, messageText)}>
                   <PaperPlaneIcon height="25" width="25" />
                 </IconButton>
               </TextField.Slot>
