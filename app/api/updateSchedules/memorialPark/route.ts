@@ -34,25 +34,27 @@ const TIME_SLOTS: Record<string, string[]> = {
 };
 
 const generateNext7Days = (): IAvailability[] => {
-  const today = new Date();
+  // ⬇️ Hardcoded first 7 days (March 16, 2025 - March 22, 2025)
+  const firstWeek = [
+    { date: "2025-03-16", day: "Sunday" },
+    { date: "2025-03-17", day: "Monday" },
+    { date: "2025-03-18", day: "Tuesday" },
+    { date: "2025-03-19", day: "Wednesday" },
+    { date: "2025-03-20", day: "Thursday" },
+    { date: "2025-03-21", day: "Friday" },
+    { date: "2025-03-22", day: "Saturday" },
+  ];
+
   const newSchedule: IAvailability[] = [];
 
-  for (let i = 0; i < 7; i++) {
-    const date = new Date(today);
-    date.setDate(today.getDate() + i);
-    
-    const formattedDate = date.toISOString().split("T")[0]; // YYYY-MM-DD
-    const dayName = DAYS_OF_WEEK[date.getDay()];
+  for (const { date, day } of firstWeek) {
+    // ✅ Use hardcoded date & day instead of dynamically calculating
+    if (!TIME_SLOTS[day]) continue;
 
-    if (!TIME_SLOTS[dayName]) {
-      console.warn(`No time slots found for ${dayName}. Skipping.`);
-      continue;
-    }
-
-    const dailySlots: IAvailability[] = TIME_SLOTS[dayName].map((time) => ({
-      day: dayName,
+    const dailySlots: IAvailability[] = TIME_SLOTS[day].map((time) => ({
+      day,
       time,
-      date: formattedDate,
+      date, // ✅ Uses pre-defined date instead of `new Date()`
       available: true,
     }));
 
@@ -60,7 +62,8 @@ const generateNext7Days = (): IAvailability[] => {
   }
 
   return newSchedule;
-}
+};
+
 
 const shiftAvailability = (availability: IAvailability[]): IAvailability[] => {
   if (availability.length === 0) return [];
