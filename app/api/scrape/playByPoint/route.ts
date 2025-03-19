@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import UserAgent from 'user-agents';
-import puppeteer, { Browser, Page } from "puppeteer";
+import puppeteer from "puppeteer";
 import Court from "@/app/models/Court";
 import { PlayByPointProcessedAvailability, PlayByPointScrapedEntry, PlayByPointScrapedHour } from "@/app/types/functionTypes";
 import connectToDatabase from "@/lib/mongodb";
@@ -93,17 +93,12 @@ const processScrapedData = (scrapedData: PlayByPointScrapedEntry[], courtName: s
   });
 };
 
-let browser: Browser | null = null;
-let scrapeCount = 0;
-const SCRAPE_LIMIT_BEFORE_RESTART = 10;
 
-async function getBrowserInstance(): Promise<Browser> {
-  if (!browser || !browser.process() || scrapeCount >= SCRAPE_LIMIT_BEFORE_RESTART) {
-    if (browser) {
-      console.log("♻️ Restarting browser instance...");
-      await browser.close();
-    }
-    browser = await puppeteer.launch({
+async function scrapeAndSaveData() {
+  await connectToDatabase(); 
+
+  // https://stackoverflow.com/questions/70118400/puppeteer-cant-find-elements-when-headless-true
+  const browser = await puppeteer.launch({
       headless: true,
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || (await puppeteer.executablePath()),
       args: [
@@ -112,41 +107,16 @@ async function getBrowserInstance(): Promise<Browser> {
         "--disable-setuid-sandbox",
         "--disable-dev-shm-usage",
         "--disable-crash-reporter",
-        "--no-zygote",
-        "--single-process",
-        "--disable-gpu"
+      "--no-zygote"
       ],
       env: {
         ...process.env,
-        CHROME_CRASHPAD_DISABLE: "1"
+      CHROME_CRASHPAD_DISABLE: '1'
       },
       pipe: true
     });
-    scrapeCount = 0;
-  }
-  scrapeCount++;
-  return browser;
-}
 
-async function retry<T>(fn: () => Promise<T>, retries = 3, delay = 2000): Promise<T | null> {
-  for (let i = 0; i < retries; i++) {
-    try {
-      return await fn();
-    } catch (error) {
-      console.error(`⚠️ Retry ${i + 1} failed:`, error);
-      await new Promise(res => setTimeout(res, delay));
-    }
-  }
-  console.error("❌ All retries failed.");
-  return null;
-}
-
-// https://stackoverflow.com/questions/70118400/puppeteer-cant-find-elements-when-headless-true
-
-async function scrapeAndSaveData() {
-  await connectToDatabase(); 
-  const browser = await getBrowserInstance();
-  const page: Page = await browser.newPage();
+  const page = await browser.newPage();
   
   try {
     const userAgent = new UserAgent({ deviceCategory: 'desktop' }).toString();
@@ -180,13 +150,29 @@ async function scrapeAndSaveData() {
 
         const apiUrl = `https://app.playbypoint.com/api/facilities/${facilityId}/available_hours?timestamp=${timestamp}&surface=pickleball&kind=reservation`;
 
-        const response = await retry(async () => {
-          return await page.evaluate(async (apiUrl) => {
+      const response = await page.evaluate(async (apiUrl) => {
+        try {
             const res = await fetch(apiUrl, { headers: { "User-Agent": navigator.userAgent } });
-            if (!res.ok) throw new Error(`API error: ${res.status}`);
-            return await res.json();
+
+          if (!res.ok) {
+            console.error(`⚠️ API returned an error for ${apiUrl}: ${res.status} ${res.statusText}`);
+            return null; // Returning null so we can skip it later
+          }
+
+          const data = await res.json();
+
+          if (!data || Object.keys(data).length === 0) {
+            console.warn(`⚠️ Empty response for ${apiUrl}, skipping...`);
+            return null; // Returning null so we can skip it later
+          }
+
+          return data;
+        } catch (error) {
+          console.error(`❌ Error fetching ${apiUrl}:`, error);
+          return null; // Prevent script from crashing
+        }
+        
           }, apiUrl);
-        });
 
         if (response) {
           allAvailabilities.push({ date: date.toISOString().split("T")[0], data: response });
@@ -194,6 +180,7 @@ async function scrapeAndSaveData() {
       }
 
       const processedData = processScrapedData(allAvailabilities, name);
+
       await saveCourtData(name, address, processedData);
     }
 
@@ -211,7 +198,7 @@ async function scrapeAndSaveData() {
       console.error("❌ An unknown error occurred:", error);
     }
   } finally {
-    await page.close(); // Close the page after scraping
+    await browser.close(); // Close the page after scraping
   }
 }
 
