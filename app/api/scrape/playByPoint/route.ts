@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import UserAgent from 'user-agents';
-import puppeteer from "puppeteer";
+import puppeteer, { Browser, Page } from "puppeteer";
 import Court from "@/app/models/Court";
 import { PlayByPointProcessedAvailability, PlayByPointScrapedEntry, PlayByPointScrapedHour } from "@/app/types/functionTypes";
 import connectToDatabase from "@/lib/mongodb";
@@ -80,7 +80,7 @@ const processScrapedData = (scrapedData: PlayByPointScrapedEntry[], courtName: s
         if (courtName === "Pickle Pop") {
           return splitOneHourBlocks(entry.date, dayOfWeek, hour.schedule, hour.available); // Split into 30-min blocks
         } else {
-         
+        
         
           return [{
             date: entry.date,
@@ -93,98 +93,126 @@ const processScrapedData = (scrapedData: PlayByPointScrapedEntry[], courtName: s
   });
 };
 
+let browser: Browser | null = null;
+let scrapeCount = 0;
+const SCRAPE_LIMIT_BEFORE_RESTART = 10;
+
+async function getBrowserInstance(): Promise<Browser> {
+  if (!browser || !browser.process() || scrapeCount >= SCRAPE_LIMIT_BEFORE_RESTART) {
+    if (browser) {
+      console.log("♻️ Restarting browser instance...");
+      await browser.close();
+    }
+    browser = await puppeteer.launch({
+      headless: true,
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || (await puppeteer.executablePath()),
+      args: [
+        "--disable-blink-features=AutomationControlled",
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-crash-reporter",
+        "--no-zygote",
+        "--single-process",
+        "--disable-gpu"
+      ],
+      env: {
+        ...process.env,
+        CHROME_CRASHPAD_DISABLE: "1"
+      },
+      pipe: true
+    });
+    scrapeCount = 0;
+  }
+  scrapeCount++;
+  return browser;
+}
+
+async function retry<T>(fn: () => Promise<T>, retries = 3, delay = 2000): Promise<T | null> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn();
+    } catch (error) {
+      console.error(`⚠️ Retry ${i + 1} failed:`, error);
+      await new Promise(res => setTimeout(res, delay));
+    }
+  }
+  console.error("❌ All retries failed.");
+  return null;
+}
+
+// https://stackoverflow.com/questions/70118400/puppeteer-cant-find-elements-when-headless-true
 
 async function scrapeAndSaveData() {
   await connectToDatabase(); 
+  const browser = await getBrowserInstance();
+  const page: Page = await browser.newPage();
+  
+  try {
+    const userAgent = new UserAgent({ deviceCategory: 'desktop' }).toString();
+    await page.setUserAgent(userAgent);
 
-  // https://stackoverflow.com/questions/70118400/puppeteer-cant-find-elements-when-headless-true
-  const browser = await puppeteer.launch({
-    headless: true,
-    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || (await puppeteer.executablePath()),
-    args: [
-      "--disable-blink-features=AutomationControlled",
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--disable-crash-reporter",
-      "--no-zygote"
-    ],
-    env: {
-      ...process.env,
-      CHROME_CRASHPAD_DISABLE: '1'
-    },
-    pipe: true
-  });
+    await page.evaluateOnNewDocument(() => {
+      Object.defineProperty(navigator, "webdriver", { get: () => false });
+    });
 
-  const page = await browser.newPage();
+    await page.goto("https://app.playbypoint.com/users/sign_in", { waitUntil: "domcontentloaded" });
+    await page.waitForSelector("#new_user", { visible: true, timeout: 15000 });
+    await page.type("#user_email", "manuelmaccou@gmail.com");
+    await page.type("#user_password", "wussyb-tUgby5-kykbar");
 
-  const userAgent = new UserAgent({ deviceCategory: 'desktop' }).toString();
-  await page.setUserAgent(userAgent);
+    await Promise.all([
+      page.click("input[type='submit']"),
+      page.waitForNavigation({ waitUntil: "domcontentloaded" }),
+    ]);
 
-  // Prevent Puppeteer detection
-  await page.evaluateOnNewDocument(() => {
-    Object.defineProperty(navigator, "webdriver", { get: () => false });
-  });
+    for (const facilityId of Object.keys(facilityMap).map(Number)) {
+      const { name, address, daysToScrape = 5 } = facilityMap[facilityId];
 
-  await page.goto("https://app.playbypoint.com/users/sign_in", { waitUntil: "domcontentloaded" });
-  await page.waitForSelector("#new_user", { visible: true, timeout: 15000 });
-  await page.type("#user_email", "manuelmaccou@gmail.com");
-  await page.type("#user_password", "wussyb-tUgby5-kykbar");
+      const allAvailabilities = [];
+      const baseDate = new Date();
 
-  await Promise.all([
-    page.click("input[type='submit']"),
-    page.waitForNavigation({ waitUntil: "domcontentloaded" }),
-  ]);
+      for (let i = 0; i < daysToScrape; i++) {
+        const date = new Date(baseDate);
+        date.setDate(date.getDate() + i);
+        date.setHours(0, 0, 0, 0);
+        const timestamp = Math.floor(date.getTime() / 1000);
 
-  for (const facilityId of Object.keys(facilityMap).map(Number)) {
-    const { name, address, daysToScrape = 5 } = facilityMap[facilityId];
+        const apiUrl = `https://app.playbypoint.com/api/facilities/${facilityId}/available_hours?timestamp=${timestamp}&surface=pickleball&kind=reservation`;
 
-    const allAvailabilities = [];
-    const baseDate = new Date();
+        const response = await retry(async () => {
+          return await page.evaluate(async (apiUrl) => {
+            const res = await fetch(apiUrl, { headers: { "User-Agent": navigator.userAgent } });
+            if (!res.ok) throw new Error(`API error: ${res.status}`);
+            return await res.json();
+          }, apiUrl);
+        });
 
-    for (let i = 0; i < daysToScrape; i++) {
-      const date = new Date(baseDate);
-      date.setDate(date.getDate() + i);
-      date.setHours(0, 0, 0, 0);
-      const timestamp = Math.floor(date.getTime() / 1000);
-
-      const apiUrl = `https://app.playbypoint.com/api/facilities/${facilityId}/available_hours?timestamp=${timestamp}&surface=pickleball&kind=reservation`;
-
-      const response = await page.evaluate(async (apiUrl) => {
-        try {
-          const res = await fetch(apiUrl, { headers: { "User-Agent": navigator.userAgent } });
-
-          if (!res.ok) {
-            console.error(`⚠️ API returned an error for ${apiUrl}: ${res.status} ${res.statusText}`);
-            return null; // Returning null so we can skip it later
-          }
-
-          const data = await res.json();
-
-          if (!data || Object.keys(data).length === 0) {
-            console.warn(`⚠️ Empty response for ${apiUrl}, skipping...`);
-            return null; // Returning null so we can skip it later
-          }
-
-          return data;
-        } catch (error) {
-          console.error(`❌ Error fetching ${apiUrl}:`, error);
-          return null; // Prevent script from crashing
+        if (response) {
+          allAvailabilities.push({ date: date.toISOString().split("T")[0], data: response });
         }
-        
-      }, apiUrl);
-
-      if (response) {
-        allAvailabilities.push({ date: date.toISOString().split("T")[0], data: response });
       }
+
+      const processedData = processScrapedData(allAvailabilities, name);
+      await saveCourtData(name, address, processedData);
     }
 
-    const processedData = processScrapedData(allAvailabilities, name);
+  } catch (error) {
+    console.error("❌ Scraping error:", error);
 
-    await saveCourtData(name, address, processedData);
+    // Ensure TypeScript treats error as an instance of Error
+    if (error instanceof Error) {
+      // If Puppeteer crashes, force Railway to restart the container
+      if (error.message.includes("Target closed") || error.message.includes("Protocol error")) {
+        console.log("🚨 Critical Puppeteer error detected. Restarting Railway container...");
+        process.exit(1); // This will force Railway to restart the entire container
+      }
+    } else {
+      console.error("❌ An unknown error occurred:", error);
+    }
+  } finally {
+    await page.close(); // Close the page after scraping
   }
-
-  await browser.close();
 }
 
 async function saveCourtData(name: string, address: string, availability: PlayByPointProcessedAvailability[]) {
