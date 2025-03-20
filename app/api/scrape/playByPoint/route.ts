@@ -16,21 +16,17 @@ const facilityMap: Record<number, { name: string; address: string, daysToScrape:
 };
 
 const getDayOfWeekFromTimestamp = (timestamp: number, timeZone = TIMEZONE): string => {
-  const date = new Date(timestamp * 1000);
-  const formattedDay = new Intl.DateTimeFormat("en-US", { timeZone, weekday: "long" }).format(date);
+  if (timestamp > 9999999999) {
+    timestamp = Math.floor(timestamp / 1000); // Convert from ms to seconds if necessary
+  }
+  const date = DateTime.fromSeconds(timestamp).setZone(timeZone);
+  const formattedDay = date.toFormat("EEEE");
 
-  console.log(`🕰 Timestamp: ${timestamp} -> ${date.toISOString()} | LA Day: ${formattedDay}`);
+  console.log(`🕰 Timestamp: ${timestamp} -> ${date.toISO()} | Day: ${formattedDay}`);
   return formattedDay;
 };
 
-// ✅ Ensures dates are always formatted in `YYYY-MM-DD`
-const getFormattedDate = (date: Date, timeZone = TIMEZONE): string => {
-  const formattedDate = DateTime.fromJSDate(date).setZone(timeZone).toISODate();
-  if (!formattedDate) {
-    throw new Error("Failed to convert date to ISO format");
-  }
-  return formattedDate;
-};
+
 
 // ✅ Helper Function: Format time correctly for DB storage
 const splitOneHourBlocks = (date: string, day: string, timeSlot: string, available: boolean) => {
@@ -94,7 +90,7 @@ const processScrapedData = (scrapedData: PlayByPointScrapedEntry[], courtName: s
         
         
           return [{
-            date: getFormattedDate(new Date(entry.date)),
+            date: entry.date,
             day: dayOfWeek,
             time: hour.schedule,
             available: hour.available,
@@ -128,6 +124,7 @@ async function scrapeAndSaveData() {
     });
 
     const page = await browser.newPage();
+    await page.emulateTimezone("America/Los_Angeles");
     await page.setCacheEnabled(false);
     await page.setRequestInterception(true);
     page.on('request', (req) => {
@@ -167,7 +164,8 @@ async function scrapeAndSaveData() {
         const date = baseDate.plus({ days: i }).toJSDate();
         date.setDate(date.getDate() + i);
         date.setHours(0, 0, 0, 0);
-        const timestamp = Math.floor(baseDate.startOf("day").toSeconds());
+        const timestamp = Math.floor(DateTime.local().setZone("America/Los_Angeles").toSeconds());
+
 
         const apiUrl = `https://app.playbypoint.com/api/facilities/${facilityId}/available_hours?timestamp=${timestamp}&surface=pickleball&kind=reservation&r=${Math.random()}`;
 
@@ -197,13 +195,13 @@ async function scrapeAndSaveData() {
           }, apiUrl);
 
           if (response) {
-            allAvailabilities.push({ date: getFormattedDate(date), data: response });
+            allAvailabilities.push({ date: date.toISOString().split("T")[0], data: response });
           }
 
         if (response && response.available_hours && Array.isArray(response.available_hours)) {
           // Extract the first 3 entries from the available_hours array
           console.log(`📡 RAW API Response for ${apiUrl} (First 3 Entries):`,
-            JSON.stringify(response.available_hours.slice(0, 5), null, 2)
+            JSON.stringify(response.available_hours.slice(0, 3), null, 2)
           );
         } else {
           console.log(`📡 RAW API Response for ${apiUrl}:`, JSON.stringify(response, null, 2));
@@ -214,7 +212,7 @@ async function scrapeAndSaveData() {
       const processedData = processScrapedData(allAvailabilities, name);
       if (processedData.length > 0) {
         console.log(`🏓 Processed data for ${name} (First 3, Date: ${processedData[0].date}):`,
-          JSON.stringify(processedData.slice(0, 5), null, 2)
+          JSON.stringify(processedData.slice(0, 3), null, 2)
         );
       }
 
