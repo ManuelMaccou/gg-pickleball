@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import UserAgent from 'user-agents';
 import puppeteer from "puppeteer";
@@ -7,7 +9,7 @@ import connectToDatabase from "@/lib/mongodb";
 
 const facilityMap: Record<number, { name: string; address: string, daysToScrape: number, }> = {
   440: { name: "Santa Monica Pickleball Center", address: "2501 Wilshire Blvd, Santa Monica, CA 90403", daysToScrape: 6 },
-  523: { name: "Pickle Pop", address: "1231 3rd St, Santa Monica, CA 90401", daysToScrape: 5 },
+ // 523: { name: "Pickle Pop", address: "1231 3rd St, Santa Monica, CA 90401", daysToScrape: 5 },
 };
 
 const getDayOfWeekFromTimestamp = (timestamp: number): string => {
@@ -120,6 +122,9 @@ async function scrapeAndSaveData() {
     await page.setCacheEnabled(false);
   
     const userAgent = new UserAgent({ deviceCategory: 'desktop' }).toString();
+
+    console.log(`🛠 Using User Agent: ${userAgent}`);
+
     await page.setUserAgent(userAgent);
 
   // Prevent Puppeteer detection
@@ -181,9 +186,12 @@ async function scrapeAndSaveData() {
         if (response) {
           allAvailabilities.push({ date: date.toISOString().split("T")[0], data: response });
         }
-        
-        if (response && Array.isArray(response)) {
-          console.log(`📡 RAW API Response for ${apiUrl}:`, JSON.stringify(response.slice(0, 10), null, 2));
+
+        if (response && response.available_hours && Array.isArray(response.available_hours)) {
+          // Extract the first 3 entries from the available_hours array
+          console.log(`📡 RAW API Response for ${apiUrl} (First 3 Entries):`,
+            JSON.stringify(response.available_hours.slice(0, 3), null, 2)
+          );
         } else {
           console.log(`📡 RAW API Response for ${apiUrl}:`, JSON.stringify(response, null, 2));
         }
@@ -191,7 +199,11 @@ async function scrapeAndSaveData() {
       
 
       const processedData = processScrapedData(allAvailabilities, name);
-      console.log(`🏓 Processed data for ${name} (Production Check - First 10):`, JSON.stringify(processedData.slice(0, 10), null, 2));
+      if (processedData.length > 0) {
+        console.log(`🏓 Processed data for ${name} (First 3, Date: ${processedData[0].date}):`,
+          JSON.stringify(processedData.slice(0, 3), null, 2)
+        );
+      }
 
       await saveCourtData(name, address, processedData);
     }
@@ -201,29 +213,19 @@ async function scrapeAndSaveData() {
 
 async function saveCourtData(name: string, address: string, availability: PlayByPointProcessedAvailability[]) {
   try {
-    console.log(`💾 Saving court data: ${name} (${availability.length} entries)`);
-    console.log(`📊 First 10 availability slots for ${name}:`, availability.slice(0, 10));
 
-    const existingCourt = await Court.findOne({ name });
+    await Court.updateOne(
+      { name }, // 🔍 Find document by name
+      { $set: { address, availability } }, // 🔄 Update address & availability
+      { upsert: true } // 🔥 Insert if not exists, update if exists
+    );
 
-    if (existingCourt) {
-      // Overwrite the entire availability array
-      existingCourt.availability = availability;
-      existingCourt.address = address;
-      try {
-        await existingCourt.save();
-        console.log(`✅ Data successfully saved for ${name}`);
-      } catch (error) {
-        console.error(`❌ Database write error for ${name}:`, error);
-      }
-    } else {
-      const newCourt = new Court({ name, address, availability });
-      await newCourt.save();
-    }
+    console.log(`✅ Data successfully saved for ${name}`);
   } catch (error) {
-    console.error(`Error saving data for ${name}:`, error);
+    console.error(`❌ Database write error for ${name}:`, error);
   }
 }
+
 
 export async function GET() {
   try {
