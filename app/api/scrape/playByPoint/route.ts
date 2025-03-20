@@ -1,29 +1,34 @@
 export const dynamic = "force-dynamic";
 
+import { DateTime } from "luxon";
 import { NextResponse } from "next/server";
-//import UserAgent from 'user-agents';
+import UserAgent from 'user-agents';
 import puppeteer from "puppeteer";
 import Court from "@/app/models/Court";
 import { PlayByPointProcessedAvailability, PlayByPointScrapedEntry, PlayByPointScrapedHour } from "@/app/types/functionTypes";
 import connectToDatabase from "@/lib/mongodb";
 
+const TIMEZONE = "America/Los_Angeles"; 
+
 const facilityMap: Record<number, { name: string; address: string, daysToScrape: number, }> = {
   440: { name: "Santa Monica Pickleball Center", address: "2501 Wilshire Blvd, Santa Monica, CA 90403", daysToScrape: 6 },
- // 523: { name: "Pickle Pop", address: "1231 3rd St, Santa Monica, CA 90401", daysToScrape: 5 },
+  523: { name: "Pickle Pop", address: "1231 3rd St, Santa Monica, CA 90401", daysToScrape: 5 },
 };
 
-const getDayOfWeekFromTimestamp = (timestamp: number): string => {
-  const date = new Date(timestamp * 1000);
+const getDayOfWeekFromTimestamp = (timestamp: number, timeZone = TIMEZONE): string => {
+  if (timestamp > 9999999999) {
+    timestamp = Math.floor(timestamp / 1000); // Convert from ms to seconds if necessary
+  }
+  const date = DateTime.fromSeconds(timestamp).setZone(timeZone);
+  const formattedDay = date.toFormat("EEEE");
 
-  // Extract UTC day of the week
-  const dayIndex = date.getUTCDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-
-  const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  return daysOfWeek[dayIndex];
+  console.log(`🕰 Timestamp: ${timestamp} -> ${date.toISO()} | Day: ${formattedDay}`);
+  return formattedDay;
 };
+
+
 
 // ✅ Helper Function: Format time correctly for DB storage
-
 const splitOneHourBlocks = (date: string, day: string, timeSlot: string, available: boolean) => {
 
   if (!timeSlot.includes("-")) {
@@ -73,7 +78,7 @@ const splitOneHourBlocks = (date: string, day: string, timeSlot: string, availab
 const processScrapedData = (scrapedData: PlayByPointScrapedEntry[], courtName: string): PlayByPointProcessedAvailability[] => {
 
   return scrapedData.flatMap((entry: PlayByPointScrapedEntry) => {
-    const dayOfWeek = getDayOfWeekFromTimestamp(Math.floor(new Date(entry.date).getTime() / 1000));
+    const dayOfWeek = getDayOfWeekFromTimestamp(DateTime.fromISO(entry.date, { zone: TIMEZONE }).toSeconds());
 
     return entry.data.available_hours
       .filter((hour: PlayByPointScrapedHour) => hour.available)
@@ -95,13 +100,12 @@ const processScrapedData = (scrapedData: PlayByPointScrapedEntry[], courtName: s
   });
 };
 
-
 async function scrapeAndSaveData() {
   await connectToDatabase(); 
 
   // https://stackoverflow.com/questions/70118400/puppeteer-cant-find-elements-when-headless-true
   const browser = await puppeteer.launch({
-    headless: true,
+    headless: false,
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
       args: [
         "--disable-blink-features=AutomationControlled",
@@ -109,7 +113,8 @@ async function scrapeAndSaveData() {
         "--disable-setuid-sandbox",
         "--disable-dev-shm-usage",
         "--disable-crash-reporter",
-        "--no-zygote"
+        "--no-zygote",
+        "--force-timezone=America/Los_Angeles"
       ],
       env: {
         ...process.env,
@@ -119,18 +124,18 @@ async function scrapeAndSaveData() {
     });
 
     const page = await browser.newPage();
+    await page.emulateTimezone("America/Los_Angeles");
     await page.setCacheEnabled(false);
     await page.setRequestInterception(true);
     page.on('request', (req) => {
       req.continue({ headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' } });
     });
   
-    //const userAgent = new UserAgent({ deviceCategory: 'desktop' }).toString();
+    const userAgent = new UserAgent({ deviceCategory: 'desktop' }).toString();
 
-    //console.log(`🛠 Using User Agent: ${userAgent}`);
+    console.log(`🛠 Using User Agent: ${userAgent}`);
 
-    await page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36");
-
+    await page.setUserAgent(userAgent);
 
   // Prevent Puppeteer detection
     await page.evaluateOnNewDocument(() => {
@@ -153,13 +158,14 @@ async function scrapeAndSaveData() {
       const { name, address, daysToScrape = 5 } = facilityMap[facilityId];
 
       const allAvailabilities = [];
-      const baseDate = new Date();
+      const baseDate = DateTime.now().setZone(TIMEZONE);
 
       for (let i = 0; i < daysToScrape; i++) {
-        const date = new Date(baseDate);
+        const date = baseDate.plus({ days: i }).toJSDate();
         date.setDate(date.getDate() + i);
         date.setHours(0, 0, 0, 0);
-        const timestamp = Math.floor(date.getTime() / 1000);
+        const timestamp = Math.floor(DateTime.local().setZone("America/Los_Angeles").toSeconds());
+
 
         const apiUrl = `https://app.playbypoint.com/api/facilities/${facilityId}/available_hours?timestamp=${timestamp}&surface=pickleball&kind=reservation&r=${Math.random()}`;
 
@@ -188,9 +194,9 @@ async function scrapeAndSaveData() {
         
           }, apiUrl);
 
-        if (response) {
-          allAvailabilities.push({ date: date.toISOString().split("T")[0], data: response });
-        }
+          if (response) {
+            allAvailabilities.push({ date: date.toISOString().split("T")[0], data: response });
+          }
 
         if (response && response.available_hours && Array.isArray(response.available_hours)) {
           // Extract the first 3 entries from the available_hours array
