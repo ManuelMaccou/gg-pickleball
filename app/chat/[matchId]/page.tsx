@@ -1,8 +1,7 @@
 "use client"
 
 import { useUser } from "@auth0/nextjs-auth0"
-import { useRouter } from 'next/navigation';
-import { useParams } from 'next/navigation'
+import { useRouter, useParams, usePathname } from 'next/navigation';
 import { IAvailability, IConversation, ICourt, IMatch, ITeam, IUser } from "@/app/types/databaseTypes";
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Avatar, Flex, Text, Separator, Button, TextField, IconButton, Box, Dialog, Link } from '@radix-ui/themes';
@@ -15,6 +14,7 @@ import { X } from "lucide-react";
 export default function Chat() {
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
   const { user, isLoading } = useUser()
+  const pathname = usePathname();
   const router = useRouter();
   const params = useParams()
   const matchId = params.matchId
@@ -353,7 +353,7 @@ export default function Chat() {
     }
   }, [currentUser, usersForChat, router]);
 
-  if (isAuthorized === null) {
+  if (isAuthorized === null && user && !isLoading) {
     return (
       <Flex height="100vh" align="center" justify="center">
         <Text size="4">Loading chat...</Text>
@@ -361,10 +361,14 @@ export default function Chat() {
     );
   }
 
-  if (isAuthorized === false || isLoading) return null;
+  if (isAuthorized === false || isLoading) return (
+    <Flex height="100vh" align="center" justify="center">
+      <Text size="4">You are not authorized to view this page</Text>
+    </Flex>
+  );
   
   if (!isLoading && !user) {
-    router.push('/auth/login')
+    router.push(`/auth/login?returnTo=${pathname}`)
   }
 
   return (
