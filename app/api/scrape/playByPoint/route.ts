@@ -13,6 +13,8 @@ const facilityMap: Record<number, { name: string; address: string, daysToScrape:
 const getDayOfWeekFromTimestamp = (timestamp: number): string => {
   const date = new Date(timestamp * 1000);
 
+  console.log(`Converting timestamp ${timestamp} to date: ${date}`);
+
   // Extract UTC day of the week
   const dayIndex = date.getUTCDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
 
@@ -99,7 +101,7 @@ async function scrapeAndSaveData() {
 
   // https://stackoverflow.com/questions/70118400/puppeteer-cant-find-elements-when-headless-true
   const browser = await puppeteer.launch({
-      headless: true,
+    headless: process.env.NODE_ENV === "production" ? false : true, 
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || (await puppeteer.executablePath()),
       args: [
         "--disable-blink-features=AutomationControlled",
@@ -166,6 +168,9 @@ async function scrapeAndSaveData() {
             return null; // Returning null so we can skip it later
           }
 
+          console.log("Raw API response data:", data);
+          console.log(`📡 RAW API Response for ${apiUrl}:`, JSON.stringify(data, null, 2));
+
           return data;
         } catch (error) {
           console.error(`❌ Error fetching ${apiUrl}:`, error);
@@ -180,9 +185,7 @@ async function scrapeAndSaveData() {
       }
 
       const processedData = processScrapedData(allAvailabilities, name);
-      console.log(`🏓 Processed data for ${name} (showing first 10 of ${processedData.length} entries):`, 
-        processedData.slice(0, 10)
-      );
+      console.log(`🏓 Processed data for ${name} (Production Check - First 10):`, JSON.stringify(processedData.slice(0, 10), null, 2));
 
       await saveCourtData(name, address, processedData);
     }
@@ -216,7 +219,12 @@ async function saveCourtData(name: string, address: string, availability: PlayBy
       // Overwrite the entire availability array
       existingCourt.availability = availability;
       existingCourt.address = address;
-      await existingCourt.save();
+      try {
+        await existingCourt.save();
+        console.log(`✅ Data successfully saved for ${name}`);
+      } catch (error) {
+        console.error(`❌ Database write error for ${name}:`, error);
+      }
     } else {
       const newCourt = new Court({ name, address, availability });
       await newCourt.save();
