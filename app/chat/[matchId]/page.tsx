@@ -10,6 +10,7 @@ import DesktopSidebar from "@/app/components/Sections/DesktopSidebar";
 import MatchRescheduleDialog from "@/components/ui/MatchRescheduleDialog";
 import TopBanner from "@/app/components/Sections/TopBanner";
 import { X } from "lucide-react";
+import { ApiErrorResponse } from "@/app/types/functionTypes";
 
 export default function Chat() {
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
@@ -29,7 +30,7 @@ export default function Chat() {
 
   const [currentUser, setCurrentUser] = useState<IUser | null>(null);
   const [usersForChat, setUsersForChat] = useState<IUser[] | null>(null);
-  const [bannerIndex, setBannerIndex] = useState<number | null>(0);
+  const [bannerIndex, setBannerIndex] = useState<boolean>(true);
 
   const [match, setMatch] = useState<IMatch | null>(null);
   const [conversation, setConversation] = useState<IConversation | null>(null);
@@ -315,6 +316,7 @@ export default function Chat() {
       }
   
       const { newMessage } = await response.json(); // Expecting only the new message
+      console.log("new message:", newMessage)
   
       // ✅ Append the new message instead of replacing the entire conversation
       setConversation((prev) => {
@@ -331,14 +333,50 @@ export default function Chat() {
           messages: [...(prev.messages ?? []), newMessage],
         };
       });
-  
-      setMessageText(""); // Clear input field
+
+      setMessageText("");
+
+      const toEmails = usersForChat
+        ? usersForChat
+          .map(user => user.email)
+          .filter(email => email && email !== currentUser?.email)
+        : [];
+      
+        const messagePreheader = newMessage.text
+        ? newMessage.text.length > 70
+          ? `${newMessage.text.substring(0, 70)}...`
+         : `${newMessage.text}. Reply to this message by clicking the button below.`
+        : "Reply to this message by clicking the button below.";
+
+      const chatUrl = `${process.env.NEXT_PUBLIC_BASE_URL}${pathname}`;
+
+      const emailPayload = {
+        toEmails,
+        messageSender: currentUser?.name,
+        messageText: newMessage.text,
+        messagePreheader,
+        chatUrl
+      }
+
+      const emailResponse = await fetch(`/api/email/newMessageEmail`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(emailPayload),
+      });
+
+       console.log('chat email sent:', emailResponse)
+      
+      if (!emailResponse.ok) {
+        const errorData: ApiErrorResponse = await emailResponse.json();
+        console.error(`Failed to send new message email: ${errorData.systemMessage}`);
+      }
+      
     } catch (error) {
       console.error("Error sending message:", error);
     } finally {
       setIsSendingMessage(false)
     }
-  }, [matchId, currentUser?._id, usersForChat]);
+  }, [matchId, currentUser, usersForChat, pathname]);
   
 
   // Check Authorization Before Rendering
@@ -382,19 +420,19 @@ export default function Chat() {
       </Flex>
 
       <Flex direction={'column'} style={{marginRight: 'auto', marginLeft: 'auto'}} width={{initial: "100%", md: "60%"}} px={'4'} pt={{initial: '2', md: '7'}}>
-        {bannerIndex !== null && (
+        {bannerIndex && (
           <Flex direction="row" p="3" mx={'-4'} justify={'between'}
             style={{ backgroundColor: 'green', color: 'white', alignItems: 'center' }}
           >
             <Text style={{maxWidth: '90%'}}>
               Chat with the players and request a court reservation.
             </Text>
-            <X onClick={() => setBannerIndex(null)} style={{ cursor: 'pointer' }} />
+            <X onClick={() => setBannerIndex(false)} style={{ cursor: 'pointer' }} />
           </Flex>
         )}
       
 
-           <Dialog.Root open={isMemorialDialogOpen} onOpenChange={setIsMemorialDialogOpen}>
+        <Dialog.Root open={isMemorialDialogOpen} onOpenChange={setIsMemorialDialogOpen}>
           <Dialog.Content className="dialog-content">
             <Dialog.Title>Import note about Memorial Park</Dialog.Title>
             <Dialog.Description>
@@ -598,7 +636,7 @@ export default function Chat() {
           )}
           </Flex>
 
-          <Box display={{initial: 'none', md: 'block'}}>
+          <Box display={{initial: 'none', md: 'block'}} mb={'7'}>
             <TextField.Root
               placeholder="Send message…"
               size='3'
