@@ -116,7 +116,8 @@ async function scrapeAndSaveData() {
       pipe: true
     });
 
-  const page = await browser.newPage();
+    const page = await browser.newPage();
+    await page.setCacheEnabled(false);
   
     const userAgent = new UserAgent({ deviceCategory: 'desktop' }).toString();
     await page.setUserAgent(userAgent);
@@ -150,9 +151,10 @@ async function scrapeAndSaveData() {
         date.setHours(0, 0, 0, 0);
         const timestamp = Math.floor(date.getTime() / 1000);
 
-        const apiUrl = `https://app.playbypoint.com/api/facilities/${facilityId}/available_hours?timestamp=${timestamp}&surface=pickleball&kind=reservation`;
+        const apiUrl = `https://app.playbypoint.com/api/facilities/${facilityId}/available_hours?timestamp=${timestamp}&surface=pickleball&kind=reservation&r=${Math.random()}`;
 
-      const response = await page.evaluate(async (apiUrl) => {
+        console.log("🔍 Fetching:", apiUrl);
+        const response = await page.evaluate(async (apiUrl) => {
         try {
             const res = await fetch(apiUrl, { headers: { "User-Agent": navigator.userAgent } });
 
@@ -168,9 +170,6 @@ async function scrapeAndSaveData() {
             return null; // Returning null so we can skip it later
           }
 
-          console.log("Raw API response data:", data);
-          console.log(`📡 RAW API Response for ${apiUrl}:`, JSON.stringify(data, null, 2));
-
           return data;
         } catch (error) {
           console.error(`❌ Error fetching ${apiUrl}:`, error);
@@ -182,7 +181,14 @@ async function scrapeAndSaveData() {
         if (response) {
           allAvailabilities.push({ date: date.toISOString().split("T")[0], data: response });
         }
+        
+        if (response && Array.isArray(response)) {
+          console.log(`📡 RAW API Response for ${apiUrl}:`, JSON.stringify(response.slice(0, 10), null, 2));
+        } else {
+          console.log(`📡 RAW API Response for ${apiUrl}:`, JSON.stringify(response, null, 2));
+        }
       }
+      
 
       const processedData = processScrapedData(allAvailabilities, name);
       console.log(`🏓 Processed data for ${name} (Production Check - First 10):`, JSON.stringify(processedData.slice(0, 10), null, 2));
