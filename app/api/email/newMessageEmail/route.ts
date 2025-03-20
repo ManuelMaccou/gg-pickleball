@@ -34,6 +34,9 @@ export async function POST(req: NextRequest) {
           },
         ],
         template_id: 'd-fc9902550d5c424c828fe1471984ac9d',
+        asm: {
+          group_id: 30528,
+        },
       }),
     });
 
