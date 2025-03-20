@@ -13,8 +13,6 @@ const facilityMap: Record<number, { name: string; address: string, daysToScrape:
 const getDayOfWeekFromTimestamp = (timestamp: number): string => {
   const date = new Date(timestamp * 1000);
 
-  console.log(`Converting timestamp ${timestamp} to date: ${date}`);
-
   // Extract UTC day of the week
   const dayIndex = date.getUTCDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
 
@@ -101,8 +99,8 @@ async function scrapeAndSaveData() {
 
   // https://stackoverflow.com/questions/70118400/puppeteer-cant-find-elements-when-headless-true
   const browser = await puppeteer.launch({
-    headless: false, 
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || (await puppeteer.executablePath()),
+    headless: true,
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
       args: [
         "--disable-blink-features=AutomationControlled",
         "--no-sandbox",
@@ -120,10 +118,10 @@ async function scrapeAndSaveData() {
 
   const page = await browser.newPage();
   
-  try {
     const userAgent = new UserAgent({ deviceCategory: 'desktop' }).toString();
     await page.setUserAgent(userAgent);
 
+  // Prevent Puppeteer detection
     await page.evaluateOnNewDocument(() => {
       Object.defineProperty(navigator, "webdriver", { get: () => false });
     });
@@ -137,6 +135,8 @@ async function scrapeAndSaveData() {
       page.click("input[type='submit']"),
       page.waitForNavigation({ waitUntil: "domcontentloaded" }),
     ]);
+
+    console.log("✅ Successfully logged in");
 
     for (const facilityId of Object.keys(facilityMap).map(Number)) {
       const { name, address, daysToScrape = 5 } = facilityMap[facilityId];
@@ -190,22 +190,7 @@ async function scrapeAndSaveData() {
       await saveCourtData(name, address, processedData);
     }
 
-  } catch (error) {
-    console.error("❌ Scraping error:", error);
-
-    // Ensure TypeScript treats error as an instance of Error
-    if (error instanceof Error) {
-      // If Puppeteer crashes, force Railway to restart the container
-      if (error.message.includes("Target closed") || error.message.includes("Protocol error")) {
-        console.log("🚨 Critical Puppeteer error detected. Restarting Railway container...");
-        process.exit(1); // This will force Railway to restart the entire container
-      }
-    } else {
-      console.error("❌ An unknown error occurred:", error);
-    }
-  } finally {
-    await browser.close(); // Close the page after scraping
-  }
+  await browser.close();
 }
 
 async function saveCourtData(name: string, address: string, availability: PlayByPointProcessedAvailability[]) {
