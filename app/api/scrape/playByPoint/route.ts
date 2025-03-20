@@ -107,7 +107,7 @@ async function scrapeAndSaveData() {
         "--disable-setuid-sandbox",
         "--disable-dev-shm-usage",
         "--disable-crash-reporter",
-      "--no-zygote"
+        "--no-zygote"
       ],
       env: {
         ...process.env,
@@ -180,6 +180,9 @@ async function scrapeAndSaveData() {
       }
 
       const processedData = processScrapedData(allAvailabilities, name);
+      console.log(`🏓 Processed data for ${name} (showing first 10 of ${processedData.length} entries):`, 
+        processedData.slice(0, 10)
+      );
 
       await saveCourtData(name, address, processedData);
     }
@@ -204,6 +207,9 @@ async function scrapeAndSaveData() {
 
 async function saveCourtData(name: string, address: string, availability: PlayByPointProcessedAvailability[]) {
   try {
+    console.log(`💾 Saving court data: ${name} (${availability.length} entries)`);
+    console.log(`📊 First 10 availability slots for ${name}:`, availability.slice(0, 10));
+
     const existingCourt = await Court.findOne({ name });
 
     if (existingCourt) {
