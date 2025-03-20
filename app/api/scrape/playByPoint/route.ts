@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import UserAgent from 'user-agents';
+//import UserAgent from 'user-agents';
 import puppeteer from "puppeteer";
 import Court from "@/app/models/Court";
 import { PlayByPointProcessedAvailability, PlayByPointScrapedEntry, PlayByPointScrapedHour } from "@/app/types/functionTypes";
@@ -120,12 +120,17 @@ async function scrapeAndSaveData() {
 
     const page = await browser.newPage();
     await page.setCacheEnabled(false);
+    await page.setRequestInterception(true);
+    page.on('request', (req) => {
+      req.continue({ headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' } });
+    });
   
-    const userAgent = new UserAgent({ deviceCategory: 'desktop' }).toString();
+    //const userAgent = new UserAgent({ deviceCategory: 'desktop' }).toString();
 
-    console.log(`🛠 Using User Agent: ${userAgent}`);
+    //console.log(`🛠 Using User Agent: ${userAgent}`);
 
-    await page.setUserAgent(userAgent);
+    await page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36");
+
 
   // Prevent Puppeteer detection
     await page.evaluateOnNewDocument(() => {
