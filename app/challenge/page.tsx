@@ -1,5 +1,7 @@
 'use client'
 
+export const dynamic = 'force-dynamic';
+
 import { useUser } from "@auth0/nextjs-auth0"
 import { useRouter } from 'next/navigation';
 import { Avatar, Button, Card, Flex, Grid, Heading, RadioCards, Spinner, Text } from "@radix-ui/themes";
@@ -8,6 +10,7 @@ import TopBanner from "../components/Sections/TopBanner";
 import { useEffect, useState } from "react";
 import { IAvailability, ICourt, IMatch, ISeason, ITeam, IUser } from "../types/databaseTypes";
 import { ApiErrorResponse } from "../types/functionTypes";
+import { SymbolIcon } from "@radix-ui/react-icons";
 
 type TeamWithAvailability = ITeam & {
   matchingAvailability: IAvailability[];
@@ -15,6 +18,8 @@ type TeamWithAvailability = ITeam & {
 
 export default function Challenge() {
   const router = useRouter();
+
+
   const { user, isLoading } = useUser();
 
   const [activeSeasonId, setActiveSeasonId] = useState<string | null>(null);
@@ -25,6 +30,7 @@ export default function Challenge() {
   const [selectedCourt, setSelectedCourt] = useState<ICourt | null>(null);
   const [courtAvailability, setCourtAvailability] = useState<IAvailability[]>([]);
   const [loggedInTeamAvailability, setLoggedInTeamAvailability] = useState<IAvailability[]>([]);
+  const [refreshAvailability, setRefreshAvailability] = useState<number>(0);
 
   const [regionId, setRegionId] = useState<string | null>(null);
 
@@ -148,7 +154,7 @@ export default function Challenge() {
     };
   
     fetchCourtAvailability();
-  }, [selectedCourt, regionId]);
+  }, [selectedCourt, regionId, refreshAvailability]);
 
   useEffect(() => {
     console.log('court availability:', courtAvailability)
@@ -162,205 +168,205 @@ export default function Challenge() {
 
     setLoading(true)
     const processTeams = async () => {
-      try {
-        const filtered: TeamWithAvailability[] = teams
-          .filter((team) => team.teammates.length === 2)
-          .map((team) => {
-            const teammatesAvailability = team.teammates.map((teammate: IUser) =>
-              (teammate.availability || []).map(({ day, time }: { day: string; time: string }) => ({
-                day,
-                date: "",
-                time,
-                available: true,
-              }))
-            );
+    try {
+      const filtered: TeamWithAvailability[] = teams
+        .filter((team) => team.teammates.length === 2)
+        .map((team) => {
+          const teammatesAvailability = team.teammates.map((teammate: IUser) =>
+            (teammate.availability || []).map(({ day, time }: { day: string; time: string }) => ({
+              day,
+              date: "",
+              time,
+              available: true,
+            }))
+          );
 
-            const teamAvailability: IAvailability[] =
-              teammatesAvailability.length > 1
-                ? teammatesAvailability.reduce((acc, teammateAvail) =>
-                    acc.filter(slot => teammateAvail.some(t => t.day === slot.day && t.time === slot.time))
-                  )
-                : teammatesAvailability[0] || [];
+          const teamAvailability: IAvailability[] =
+            teammatesAvailability.length > 1
+              ? teammatesAvailability.reduce((acc, teammateAvail) =>
+                  acc.filter(slot => teammateAvail.some(t => t.day === slot.day && t.time === slot.time))
+                )
+              : teammatesAvailability[0] || [];
 
-            if (teamAvailability.length === 0) return null;
+          if (teamAvailability.length === 0) return null;
 
-            const groupBy = (array: IAvailability[], key: keyof IAvailability) => {
-              return array.reduce((acc, item) => {
-                const group = item[key] as string;
-                if (!acc[group]) acc[group] = [];
-                acc[group].push(item);
-                return acc;
-              }, {} as Record<string, IAvailability[]>);
-            };
+          const groupBy = (array: IAvailability[], key: keyof IAvailability) => {
+            return array.reduce((acc, item) => {
+              const group = item[key] as string;
+              if (!acc[group]) acc[group] = [];
+              acc[group].push(item);
+              return acc;
+            }, {} as Record<string, IAvailability[]>);
+          };
 
-            const sortTimeSlots = (a: string, b: string) => {
-              const parseTime = (time: string) => new Date(`2000-01-01 ${time.split("-")[0]}`).getTime();
-              return parseTime(a) - parseTime(b);
-            };
+          const sortTimeSlots = (a: string, b: string) => {
+            const parseTime = (time: string) => new Date(`2000-01-01 ${time.split("-")[0]}`).getTime();
+            return parseTime(a) - parseTime(b);
+          };
 
-            const getConsecutiveBlocks = (slots: string[]) => {
-              const validBlocks: string[] = [];
-              for (let i = 0; i <= slots.length - 4; i++) {
-                const block = slots.slice(i, i + 4);
-                if (isConsecutive(block)) {
-                  validBlocks.push(block[0]); // Store the first time of the valid block
-                }
+          const getConsecutiveBlocks = (slots: string[]) => {
+            const validBlocks: string[] = [];
+            for (let i = 0; i <= slots.length - 4; i++) {
+              const block = slots.slice(i, i + 4);
+              if (isConsecutive(block)) {
+                validBlocks.push(block[0]); // Store the first time of the valid block
               }
-              return validBlocks;
-            };
+            }
+            return validBlocks;
+          };
 
-            const isConsecutive = (times: string[]): boolean => {
-              if (times.length < 2) return false;
-              for (let i = 0; i < times.length - 1; i++) {
-                if (!isNextHalfHour(times[i], times[i + 1])) {
-                  return false;
-                }
-              }
-              return true;
-            };
-
-            const isNextHalfHour = (time1: string, time2: string): boolean => {
-              const extractTimeParts = (time: string): { start: string; end: string; period: string } | null => {
-                const match = time.match(/^(\d{1,2}):?(\d{2})?-(\d{1,2}):?(\d{2})?(am|pm)$/);
-
-                if (!match) return null;
-            
-                const [ , startHour, startMin = "00", endHour, endMin = "00", period] = match;
-            
-                return {
-                  start: `${startHour}:${startMin}`, // e.g. "10:30"
-                  end: `${endHour}:${endMin}`, // e.g. "11:00"
-                  period // "am" or "pm"
-                };
-              };
-            
-              const prev = extractTimeParts(time1);
-              const next = extractTimeParts(time2);
-            
-              if (!prev || !next) {
+          const isConsecutive = (times: string[]): boolean => {
+            if (times.length < 2) return false;
+            for (let i = 0; i < times.length - 1; i++) {
+              if (!isNextHalfHour(times[i], times[i + 1])) {
                 return false;
               }
-            
-              // Convert both to 24-hour time for comparison
-              const convertTo24Hour = (time: string, period: string): string => {
-                const [hourStr, minStr] = time.split(":"); // Keep hour mutable, min immutable
-                let hour = Number(hourStr);
-                const min = Number(minStr); // Ensure min is constant
-              
-                if (period === "pm" && hour !== 12 && (hour !== 11 && min !== 30)) hour += 12;
-                if (period === "am" && hour === 12) hour = 0;
-              
-                return `${hour}:${min.toString().padStart(2, "0")}`; // Ensure "HH:MM" format
+            }
+            return true;
+          };
+
+          const isNextHalfHour = (time1: string, time2: string): boolean => {
+            const extractTimeParts = (time: string): { start: string; end: string; period: string } | null => {
+              const match = time.match(/^(\d{1,2}):?(\d{2})?-(\d{1,2}):?(\d{2})?(am|pm)$/);
+
+              if (!match) return null;
+          
+              const [ , startHour, startMin = "00", endHour, endMin = "00", period] = match;
+          
+              return {
+                start: `${startHour}:${startMin}`, // e.g. "10:30"
+                end: `${endHour}:${endMin}`, // e.g. "11:00"
+                period // "am" or "pm"
               };
-              
-            
-              const prevEnd = convertTo24Hour(prev.end, prev.period);
-              const nextStart = convertTo24Hour(next.start, next.period);
-              const isSequential = prevEnd === nextStart;
-            
-              return isSequential;
             };
+          
+            const prev = extractTimeParts(time1);
+            const next = extractTimeParts(time2);
+          
+            if (!prev || !next) {
+              return false;
+            }
+          
+            // Convert both to 24-hour time for comparison
+            const convertTo24Hour = (time: string, period: string): string => {
+              const [hourStr, minStr] = time.split(":"); // Keep hour mutable, min immutable
+              let hour = Number(hourStr);
+              const min = Number(minStr); // Ensure min is constant
+            
+              if (period === "pm" && hour !== 12 && (hour !== 11 && min !== 30)) hour += 12;
+              if (period === "am" && hour === 12) hour = 0;
+            
+              return `${hour}:${min.toString().padStart(2, "0")}`; // Ensure "HH:MM" format
+            };
+            
+          
+            const prevEnd = convertTo24Hour(prev.end, prev.period);
+            const nextStart = convertTo24Hour(next.start, next.period);
+            const isSequential = prevEnd === nextStart;
+          
+            return isSequential;
+          };
 
-            const findTwoHourBlocks = (loggedInSlots: string[],
-              teamSlots: string[],
-              courtSlots: string[],
-            ) => {
-            
-              // ✅ Extract valid consecutive 2-hour blocks **first**
-              const validLoggedInBlocks = getConsecutiveBlocks(loggedInSlots);
-              const validTeamBlocks = getConsecutiveBlocks(teamSlots);
-              const validCourtBlocks = getConsecutiveBlocks(courtSlots);
-            
-              // ✅ Find shared availability across all lists
-              const finalMatches = validLoggedInBlocks.filter(time =>
-                validTeamBlocks.includes(time) && validCourtBlocks.includes(time)
-              );
-                    
-              console.log("✅ Final Matches:", finalMatches);
-              return finalMatches;
-            };  
-
-            const findConsecutiveMatches = (
-              teamAvailability: IAvailability[],
-              loggedInTeamAvailability: IAvailability[],
-              courtAvailability: IAvailability[]
-            ) => {
-              const matches: IAvailability[] = [];
-            
-              // ✅ Group availability by day
-              const teamAvailabilityByDay = groupBy(teamAvailability, "day");
-              const loggedInTeamAvailabilityByDay = groupBy(loggedInTeamAvailability, "day");
-              const courtAvailabilityByDay = groupBy(courtAvailability, "day");
-            
-              for (const day in teamAvailabilityByDay) {
-                if (!teamAvailabilityByDay[day] || !courtAvailabilityByDay[day]) {
-                  continue;
-                }
-
-                const loggedInSlots = (loggedInTeamAvailabilityByDay[day] || []).map(slot => slot.time).sort(sortTimeSlots);
-                const teamSlots = (teamAvailabilityByDay[day] || []).map(slot => slot.time).sort(sortTimeSlots);
-                const courtSlots = (courtAvailabilityByDay[day] || []).map(slot => slot.time).sort(sortTimeSlots);
-                const courtSlotsWithDate = (courtAvailabilityByDay[day] || []).map(slot => ({
-                  day: slot.day,
-                  date: slot.date,
-                  time: slot.time,
-                }));
-
-                if (loggedInSlots.length === 0 || teamSlots.length === 0 || courtSlots.length === 0) {
-                  continue;
-                }
-            
-                // ✅ Find 2-hour consecutive blocks in both team & court availability
-                const consecutiveMatches = findTwoHourBlocks(loggedInSlots, teamSlots, courtSlots);
-
-                if (consecutiveMatches.length > 0) {
-                  matches.push(
-                    ...consecutiveMatches.map(time => {
-                      const matchingCourtSlot = courtSlotsWithDate.find(slot => slot.time === time);
-                      return {
-                        day: matchingCourtSlot?.day || day, // ✅ Use day from court availability or fallback to loop day
-                        date: matchingCourtSlot?.date || "", // ✅ Get the correct date from courtSlotsWithDate
-                        time, // ✅ Use the matched time
-                        available: true,
-                      };
-                    })
-                  );
-                }  else {
-                  console.log(`❌ No 2-hour matches found for ${day}`);
-                }
-              }
-            
-              return matches;
-            };     
-      
-            // Find matches with merged court availability (for "All Courts") or selected court
-            const matchingAvailability = findConsecutiveMatches(
-              teamAvailability,
-              loggedInTeamAvailability,
-              courtAvailability
+          const findTwoHourBlocks = (loggedInSlots: string[],
+            teamSlots: string[],
+            courtSlots: string[],
+          ) => {
+          
+            // ✅ Extract valid consecutive 2-hour blocks **first**
+            const validLoggedInBlocks = getConsecutiveBlocks(loggedInSlots);
+            const validTeamBlocks = getConsecutiveBlocks(teamSlots);
+            const validCourtBlocks = getConsecutiveBlocks(courtSlots);
+          
+            // ✅ Find shared availability across all lists
+            const finalMatches = validLoggedInBlocks.filter(time =>
+              validTeamBlocks.includes(time) && validCourtBlocks.includes(time)
             );
+                  
+            console.log("✅ Final Matches:", finalMatches);
+            return finalMatches;
+          };  
 
-            console.log("✅ Matching Availability (2-hour blocks):", matchingAvailability);
-      
-            // If no matches with courts, exclude the team
-            if (matchingAvailability.length === 0) return null;
-      
-            return {
-              ...team,
-              matchingAvailability: selectedCourt?.name === "Pickle Pop" ? matchingAvailability.slice(0, 3) : matchingAvailability.slice(0, 2), // ✅ Show only next 2 available matches
-            };
-          })
-          .filter((team): team is TeamWithAvailability => !!team);
+          const findConsecutiveMatches = (
+            teamAvailability: IAvailability[],
+            loggedInTeamAvailability: IAvailability[],
+            courtAvailability: IAvailability[]
+          ) => {
+            const matches: IAvailability[] = [];
+          
+            // ✅ Group availability by day
+            const teamAvailabilityByDay = groupBy(teamAvailability, "day");
+            const loggedInTeamAvailabilityByDay = groupBy(loggedInTeamAvailability, "day");
+            const courtAvailabilityByDay = groupBy(courtAvailability, "day");
+          
+            for (const day in teamAvailabilityByDay) {
+              if (!teamAvailabilityByDay[day] || !courtAvailabilityByDay[day]) {
+                continue;
+              }
 
-        setFilteredTeams(filtered);
-      } catch (error) {
-        console.error("Error processing teams:", error);
-        setError('There was an error loading teams. Please try again.')
-      } 
+              const loggedInSlots = (loggedInTeamAvailabilityByDay[day] || []).map(slot => slot.time).sort(sortTimeSlots);
+              const teamSlots = (teamAvailabilityByDay[day] || []).map(slot => slot.time).sort(sortTimeSlots);
+              const courtSlots = (courtAvailabilityByDay[day] || []).map(slot => slot.time).sort(sortTimeSlots);
+              const courtSlotsWithDate = (courtAvailabilityByDay[day] || []).map(slot => ({
+                day: slot.day,
+                date: slot.date,
+                time: slot.time,
+              }));
+
+              if (loggedInSlots.length === 0 || teamSlots.length === 0 || courtSlots.length === 0) {
+                continue;
+              }
+          
+              // ✅ Find 2-hour consecutive blocks in both team & court availability
+              const consecutiveMatches = findTwoHourBlocks(loggedInSlots, teamSlots, courtSlots);
+
+              if (consecutiveMatches.length > 0) {
+                matches.push(
+                  ...consecutiveMatches.map(time => {
+                    const matchingCourtSlot = courtSlotsWithDate.find(slot => slot.time === time);
+                    return {
+                      day: matchingCourtSlot?.day || day, // ✅ Use day from court availability or fallback to loop day
+                      date: matchingCourtSlot?.date || "", // ✅ Get the correct date from courtSlotsWithDate
+                      time, // ✅ Use the matched time
+                      available: true,
+                    };
+                  })
+                );
+              }  else {
+                console.log(`❌ No 2-hour matches found for ${day}`);
+              }
+            }
+          
+            return matches;
+          };     
+    
+          // Find matches with merged court availability (for "All Courts") or selected court
+          const matchingAvailability = findConsecutiveMatches(
+            teamAvailability,
+            loggedInTeamAvailability,
+            courtAvailability
+          );
+
+          console.log("✅ Matching Availability (2-hour blocks):", matchingAvailability);
+    
+          // If no matches with courts, exclude the team
+          if (matchingAvailability.length === 0) return null;
+    
+          return {
+            ...team,
+            matchingAvailability: selectedCourt?.name === "Pickle Pop" ? matchingAvailability.slice(0, 3) : matchingAvailability.slice(0, 2), // ✅ Show only next 2 available matches
+          };
+        })
+        .filter((team): team is TeamWithAvailability => !!team);
+
+      setFilteredTeams(filtered);
+    } catch (error) {
+      console.error("Error processing teams:", error);
+      setError('There was an error loading teams. Please try again.')
+    }
     };
       processTeams().finally(() => setLoading(false));
   }, [teams, courtAvailability, loggedInTeamAvailability, selectedCourt?.name]);
-  
+
   const handleSelectChange = (value: string) => {
     if (value === "All") {
       setSelectedCourt(null);
@@ -517,7 +523,7 @@ export default function Challenge() {
 
         {/* Filters */}
       
-        <Flex direction={'row'} p={'4'} gap={'3'}>
+        <Flex direction={'column'} p={'4'} gap={'3'} width={'70%'}>
           {/*
           <Flex direction={'column'} gap={'2'} width={'50%'}>
             <Text>Date</Text>
@@ -535,6 +541,10 @@ export default function Challenge() {
                   </RadioCards.Item>
                 ))}
             </RadioCards.Root>
+          </Flex>
+
+          <Flex direction={'column'} style={{width: "fit-content"}} my={'4'} px={'4'}>
+            <Button size={'4'} variant="ghost" onClick={() => setRefreshAvailability(refreshAvailability + 1)}><SymbolIcon />Update court availability</Button>
           </Flex>
         </Flex>
 
