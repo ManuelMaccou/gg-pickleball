@@ -229,7 +229,7 @@ export default function Chat() {
 
         const updatedUsers: IUser[] = users.some((user: IUser) => user._id === adminId) 
           ? users 
-          : [...users, { _id: adminId, name: "Admin", profilePicture: isDev ? "http://localhost:3000/api/images/67d333cc8e3b4015c870a101" : "https://www.ggpickleball.co/api/images/67d4a21d3a795dc67a9a3918" }];
+          : [...users, { _id: adminId, name: "Admin", email: "manuelmaccou@gmail.com", profilePicture: isDev ? "http://localhost:3000/api/images/67d333cc8e3b4015c870a101" : "https://www.ggpickleball.co/api/images/67d4a21d3a795dc67a9a3918" }];
 
 
         setMatch(match);
