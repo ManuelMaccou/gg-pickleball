@@ -523,7 +523,7 @@ export default function Challenge() {
 
         {/* Filters */}
       
-        <Flex direction={'column'} p={'4'} gap={'3'} width={'70%'}>
+        <Flex direction={'column'} p={'4'} gap={'3'} width={{initial: '100%', md: '70%'}}>
           {/*
           <Flex direction={'column'} gap={'2'} width={'50%'}>
             <Text>Date</Text>
