@@ -273,7 +273,10 @@ const MatchRescheduleDialog: React.FC<MatchRescheduleDialogProps> = ({
               <SelectContent>
                 {filterTimes(availableTimes, selectedCourt).map((slot, idx) => (
                   <SelectItem key={idx} value={JSON.stringify({ time: slot.time, date: slot.date, day: slot.day })}>
-                    {`${slot.day} at ${slot.time}`}
+                    {`${slot.day}, ${new Date(slot.date).toLocaleDateString("en-US", {
+                      month: "long",
+                      day: "numeric"
+                    })}, ${slot.time}`}
                   </SelectItem>
                 ))}
               </SelectContent>
