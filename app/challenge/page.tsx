@@ -37,6 +37,8 @@ export default function Challenge() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [isCreatingMatch, setIsCreatingMatch] = useState<boolean>(false);
+
   // Get logged in user's team's regionId. Used to fetch courts in this region.
   useEffect(() => {
     const fetchLoggedInUsersTeamsRegion = async () => {
@@ -390,6 +392,7 @@ export default function Challenge() {
       seasonId,
       regionId
     }
+    setIsCreatingMatch(true);
     try {
       const response = await fetch('/api/matches', {
         method: 'POST',
@@ -452,6 +455,8 @@ export default function Challenge() {
     } catch (error) {
       console.error("Error fetching user, season, or team:", error);
       setError(error instanceof Error ? error.message : "Unknown error occurred. Code 505");
+    } finally {
+      setIsCreatingMatch(false)
     }
   }
 
@@ -621,6 +626,8 @@ export default function Challenge() {
                     <Button 
                       mt={'4'}
                       style={{width: '150px'}}
+                      loading={isCreatingMatch}
+                      disabled={isCreatingMatch}
                       onClick={() => {
                         if (!currentUsersTeam?._id || !team?._id || !team.matchingAvailability.length) return;
                         
