@@ -42,6 +42,17 @@ export default function Chat() {
 
   const [team1Availability, setTeam1Availability] = useState<IAvailability[]>([]);
   const [team2Availability, setTeam2Availability] = useState<IAvailability[]>([]);
+  const [userTeam, setUserTeam] = useState<ITeam | null>(null);
+  const [opponentTeam, setOpponentTeam] = useState<ITeam | null>(null);
+
+  const [open, setOpen] = useState(false);
+  const [closeDialog, setCloseDialog] = useState(false);
+  const [scores, setScores] = useState<{ [teamId: string]: string }>({});
+  const [message, setMessage] = useState<{ type: "success" | "error" | null; text: string }>({ type: null, text: "" });
+  const [pendingMatchUpdate, setPendingMatchUpdate] = useState<IMatch | null>(null);
+  const [isSubmittingScore, setIsSubmittingScore] = useState<boolean>(false);
+
+
 
   useEffect(() => {
     const memorialParkCourtId = process.env.NEXT_PUBLIC_ENV === "dev"
@@ -217,13 +228,16 @@ export default function Chat() {
 
     const fetchMatch = async() => {
       try {
-        const response = await fetch(`/api/matches?matchId=${matchId}`);
+        const response = await fetch(`/api/matches?matchId=${matchId}&populateTeams=true`);
 
         if (!response.ok) {
           throw new Error(`Failed to fetch users for matchId: ${matchId}`);
         }
 
         const { match, users } = await response.json();
+
+        setUserTeam(match.teams.find((team: ITeam) => team.teammates.some((player) => player._id === currentUser?._id)) || null);
+        setOpponentTeam(match.teams.find((team: ITeam) => team._id !== userTeam?._id) || null);
 
         const isDev = process.env.NEXT_PUBLIC_ENV === "dev"
 
@@ -235,6 +249,7 @@ export default function Chat() {
         setMatch(match);
         // setRegionId(match.regionId);
         setUsersForChat(updatedUsers);
+        setScores(match.scores);
 
         // Get availability of both teams
         if (match.teams.length !== 2) {
@@ -265,7 +280,7 @@ export default function Chat() {
     };
 
     fetchMatch();
-  }, [matchId])
+  }, [currentUser?._id, matchId, userTeam?._id])
 
 
   useEffect(() => {
@@ -377,6 +392,220 @@ export default function Chat() {
       setIsSendingMessage(false)
     }
   }, [matchId, currentUser, usersForChat, pathname]);
+
+  const handleScoreChange = (teamId: string | undefined, value: string) => {
+    if (!teamId) return;
+
+    setScores((prevScores) => ({
+      ...prevScores,
+      [teamId]: value,
+    }));
+  };
+
+  const submitScores = async () => {
+    if (!userTeam || !opponentTeam || !userTeam._id || !opponentTeam) return;
+
+    setIsSubmittingScore(true);
+
+    try {
+      const userTeamId: string = String(userTeam._id);
+      const opponentTeamId: string = String(opponentTeam._id);
+
+      const existingScores: Record<string, string> = scores || {};
+
+      const formattedScores: { teamId: string; score: number; submittingTeam: string }[] = [
+          { teamId: userTeamId, score: parseInt(existingScores[userTeamId] || "0", 10), submittingTeam: userTeamId },
+          { teamId: opponentTeamId, score: parseInt(existingScores[opponentTeamId] || "0", 10), submittingTeam: userTeamId },
+        ];
+
+      // If scores already exist in state, compare them before sending anything
+      if (match && match.scores?.items?.length && match.scores.items.length > 0) {
+        const dbScores: { teamId: string; score: number, submittingTeam: string }[] = match.scores.items.map((entry) => ({
+          teamId: typeof entry.teamId === "string" ? entry.teamId : entry.teamId.toString(), // ✅ Convert ObjectId to string
+          score: entry.score ?? 0, // ✅ Prevent undefined scores
+          submittingTeam: typeof entry.submittingTeam === "string" ? entry.submittingTeam : entry.submittingTeam.toString(),
+        }));
+
+        const teamAlreadySubmitted = dbScores.some((entry) => entry.submittingTeam === userTeamId);
+
+        // Compare new scores with existing scores
+        const scoresMatch =
+        dbScores.some((entry) => entry.teamId === userTeamId && entry.score === formattedScores[0].score) &&
+        dbScores.some((entry) => entry.teamId === opponentTeamId && entry.score === formattedScores[1].score);
+
+        if (scoresMatch && !teamAlreadySubmitted) {
+          // Scoresmatch and the submitting team is different, update confirmation
+          const payload = {
+            matchId: match._id,
+            scores: {
+              items: dbScores, // Keep existing scores
+              confirmed: true, // Update confirmation only
+            },
+            status: "COMPLETED"
+          };
+
+          try {
+            const response = await fetch("/api/matches", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+              throw new Error("Failed to confirm scores.");
+            }
+
+            const updatedMatch = await response.json();
+            setPendingMatchUpdate(updatedMatch);
+
+            setMessage({ type: "success", text: "Scores successfuly recorded!" });
+            setCloseDialog(true);
+          } catch (error) {
+            console.error("Error confirming scores:", error);
+            setMessage({ type: "error", text: "An error occurred while confirming scores." });
+          }
+          return; // Stop execution here since we're just confirming
+
+        } else if (teamAlreadySubmitted) {
+          // The same team is resubmitting, update their previous entry
+          const updatedScores = dbScores.map((entry) =>
+            entry.submittingTeam === userTeamId
+              ? formattedScores.find((score) => score.teamId === entry.teamId) || entry
+              : entry
+          );
+
+          const updatePayload = {
+            matchId: match._id,
+            scores: {
+              items: updatedScores, // Overwrite only the submitting team's previous score
+              confirmed: false, // Do not confirm yet
+            },
+          };
+
+          try {
+            const response = await fetch("/api/matches", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(updatePayload),
+            });
+
+            if (!response.ok) {
+              throw new Error("Failed to update scores.");
+            }
+
+            const updatedMatch = await response.json();
+            setPendingMatchUpdate(updatedMatch);
+
+            setCloseDialog(true);
+            setMessage({ type: "success", text: "Your score submission has been updated." });
+          } catch (error) {
+            console.error("Error updating scores:", error);
+            setMessage({ type: "error", text: "An error occurred while updating your scores." });
+          }
+          return;
+        } else {
+          setMessage({ type: "error", text: "Scores do not match with the other team. Please review and resubmit." });
+          return;
+        }
+      }
+
+      // If no scores exist in the database, re-fetch in case someone else submitted them
+      try {
+        const refreshResponse = await fetch(`/api/matches?matchId=${match?._id}`);
+        if (!refreshResponse.ok) throw new Error("Failed to fetch latest match data.");
+
+        const refreshedMatchResponse = await refreshResponse.json();
+        const refreshedMatch: IMatch = refreshedMatchResponse.match;
+
+        if (refreshedMatch.scores?.items && refreshedMatch.scores.items.length > 0) {
+          // New scores exist, compare them instead of saving new ones
+
+          const refreshedDbScores: { teamId: string; score: number; submittingTeam: string }[] = refreshedMatch.scores.items.map((entry) => ({
+            teamId: typeof entry.teamId === "string" ? entry.teamId : entry.teamId.toString(),
+            score: entry.score ?? 0,
+            submittingTeam: typeof entry.submittingTeam === "string" ? entry.submittingTeam : entry.submittingTeam.toString(),
+          }));
+          
+          const teamAlreadySubmitted = refreshedDbScores.some((entry) => entry.submittingTeam === userTeamId);
+
+          if (!teamAlreadySubmitted) {
+            const scoresMatch =
+            refreshedDbScores.some((entry) => entry.teamId === userTeamId && entry.score === formattedScores[0].score) &&
+            refreshedDbScores.some((entry) => entry.teamId === opponentTeamId && entry.score === formattedScores[1].score);
+
+            if (match && scoresMatch) {
+              // ✅ Update only confirmed status
+              const confirmPayload = {
+                matchId: match._id,
+                scores: {
+                  items: refreshedDbScores, // Keep the existing scores
+                  confirmed: true, // ✅ Confirm the match
+                },
+                status: "COMPLETED"
+              };
+
+              const response = await fetch("/api/matches", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(confirmPayload),
+              });
+
+              if (!response.ok) {
+                throw new Error("Failed to fetch latest match data.");
+              }
+
+              const updatedMatch = await response.json();
+              setPendingMatchUpdate(updatedMatch);
+
+              setMessage({ type: "success", text: "Scores confirmed!" });
+              return
+              
+            } else {
+              setMessage({ type: "error", text: "Scores do not match with the other team. Please review and resubmit." });
+              return;
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching latest match scores:", error);
+      }
+
+      // If the database still has no scores, submit new scores
+      const payload = {
+        matchId: match?._id,
+        scores: {
+          items: formattedScores, // Save new scores
+          confirmed: false, // Do not confirm yet
+        },
+      };
+
+      try {
+        const response = await fetch("/api/matches", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to submit scores.");
+        }
+        const updatedMatch = await response.json();
+        setMatch(updatedMatch)
+        
+        setCloseDialog(true);
+        setMessage({ type: "success", text: "Scores submitted. Waiting for confirmation from the other team." });
+      } catch (error) {
+        console.error("Error submitting scores:", error);
+        setMessage({ type: "error", text: "An error occurred while submitting scores." });
+      }
+    } catch (error) {
+      setMessage({ type: "error", text: "Something went wrong." });
+      console.error(error);
+    
+    } finally {
+      setIsSubmittingScore(false);
+    }
+  };
   
 
   // Check Authorization Before Rendering
@@ -531,8 +760,13 @@ export default function Chat() {
             </Flex>
           </Flex>
 
-          <Flex direction={'row'} justify={{initial: 'between', md: 'center'}} gap={{initial: '0', md: '5'}} mt={'5'}>
-            <MatchRescheduleDialog 
+          <Flex direction={'row'} justify={{initial: 'between', md: 'center'}} align={'end'} gap={{initial: '5', md: '5'}} mt={'5'}>
+            
+            
+
+            {match && match.status === "PENDING" ? (
+              <>
+              <MatchRescheduleDialog 
               team1Availability={team1Availability}
               team2Availability={team2Availability}
               courts={courts}
@@ -540,9 +774,90 @@ export default function Chat() {
               open={isDialogOpen}
               setOpen={setIsDialogOpen}
             />
-            <Button size={'4'} onClick={() => isMemorialPark ? setMemorialParkConfirm(true) : router.push(`/reserve/${matchId}`) }>
+              <Button size={'4'} onClick={() => isMemorialPark ? setMemorialParkConfirm(true) : router.push(`/reserve/${matchId}`) }>
               { isMemorialPark ? "Confirm match" : "Request court" }
             </Button>
+            </>
+            ) : match && match.status === "BOOKED" ? (
+              <Dialog.Root open={open} onOpenChange={setOpen}>
+              <Dialog.Trigger>
+                
+                  <Button size={'4'} mt="2">
+                    {match.scores?.items?.some((score) => score.submittingTeam?.toString() === userTeam?._id)
+                      ? "Resubmit Scores" 
+                      : "Submit Scores"} 
+                  </Button>
+            
+              
+              </Dialog.Trigger>
+              <Dialog.Content maxWidth={"500px"}>
+                <Dialog.Title>Record Match Score</Dialog.Title>
+                <Dialog.Description>
+                  Enter the final scores for the match.
+                </Dialog.Description>
+                
+                {[userTeam, opponentTeam].map((team) =>
+                  team ? (
+                    <Flex key={team._id} direction="column" gap="3" p="2" >
+                      <Text>{team.teammates[0].name?.split(' ')[0]} & {team.teammates[1].name?.split(' ')[0]}</Text>
+                      <Flex direction={'row'} mb={'5'}>
+                        {team.teammates.map((teammate) => (
+                          <Flex key={teammate._id} align="center">
+                            <Avatar
+                              src={teammate.profilePicture}
+                              alt={teammate.name} fallback={teammate.name?.charAt(0) || ''} 
+                              radius="full"
+                            />
+                          </Flex>
+                        ))}
+                        <TextField.Root
+                          placeholder="Enter score"
+                          value={scores[team._id!] || ""}
+                          onChange={(e) => handleScoreChange(team._id, e.target.value)}
+                          ml={'5'}
+                        />
+                      </Flex>
+                    </Flex>
+                  ) : null
+                )}
+
+                {message.type && <Text color={message.type === "success" ? "green" : "red"}>{message.text}</Text>}
+
+                <Flex justify="end" gap="5" mt={'5'}>
+                  <Dialog.Close>
+                    <Box>
+                      <Button
+                        variant="outline"
+                        loading={isSubmittingScore}
+                        disabled={isSubmittingScore}
+                        onClick={() => {
+                          if (closeDialog && pendingMatchUpdate) {
+                            setMatch(pendingMatchUpdate);
+                            setPendingMatchUpdate(null);
+                          }
+                          setCloseDialog(false);
+                          setMessage({ type: null, text: "" })
+                        }}
+                      >{
+                        closeDialog ? "Close" : "Cancel"}
+                      </Button>
+                    </Box>
+                  </Dialog.Close>
+                  <Box display={closeDialog ? "none" : "block"}>
+                    <Button 
+                      loading={isSubmittingScore}
+                      disabled={isSubmittingScore}
+                      onClick={submitScores}
+                    >
+                      Submit
+                    </Button>
+                  </Box>
+                </Flex>
+              </Dialog.Content>
+            </Dialog.Root>
+            ) : null
+          }
+
           </Flex>
 
           <Separator orientation="horizontal" my={'4'} size="4" style={{color: '#FFFFFF'}} />
