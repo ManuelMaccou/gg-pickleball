@@ -225,6 +225,15 @@ const MatchRescheduleDialog: React.FC<MatchRescheduleDialogProps> = ({
     });
   };
 
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return "";
+  
+    const [year, month, day] = dateString.split("-");
+  
+    return new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric" })
+      .format(new Date(parseInt(year), parseInt(month) - 1, parseInt(day)));
+  };
+
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -273,10 +282,7 @@ const MatchRescheduleDialog: React.FC<MatchRescheduleDialogProps> = ({
               <SelectContent>
                 {filterTimes(availableTimes, selectedCourt).map((slot, idx) => (
                   <SelectItem key={idx} value={JSON.stringify({ time: slot.time, date: slot.date, day: slot.day })}>
-                    {`${slot.day}, ${new Date(slot.date).toLocaleDateString("en-US", {
-                      month: "long",
-                      day: "numeric"
-                    })}, ${slot.time}`}
+                    {`${slot.day}, ${formatDate(slot.date)}, ${slot.time}`}
                   </SelectItem>
                 ))}
               </SelectContent>
