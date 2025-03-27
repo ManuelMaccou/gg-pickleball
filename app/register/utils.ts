@@ -54,9 +54,6 @@ const formatTimeRange = (start: string, end: string): string => {
   return `${formattedStart}-${formattedEnd}`;
 };
 
-
-
-
 export const transformAvailabilityToBlocks = (availability: Record<string, { start: string; end: string }[]>) => {
   const results: { day: string; time: string }[] = [];
 
