@@ -49,12 +49,12 @@ export default async function Pay({
   let finalAmount: number = 8000;
 
   if (team.individual === true) {
-    if (currentUser.referrer === 'trainingmate' || currentUser.referrer === 'courtandcrew') {
+    if (currentUser.referrer === 'trainingmate' || currentUser.referrer === 'courtandcrew' || currentUser.referrer === 'smpc') {
       finalAmount = 3000
     } else {
       finalAmount = 4000
     }
-  } else  if (currentUser.referrer === 'trainingmate' || currentUser.referrer === 'courtandcrew') {
+  } else  if (currentUser.referrer === 'trainingmate' || currentUser.referrer === 'courtandcrew' || currentUser.referrer === 'smpc') {
     finalAmount = 7000
   } else {
     finalAmount = 8000
