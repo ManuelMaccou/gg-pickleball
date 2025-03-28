@@ -273,7 +273,7 @@ function HomePage() {
                   <Text>+ court fees</Text>
                 </Flex>  
               </Flex> 
-              <Text size={'6'} weight={'bold'} mb={'4'}>First season starts March 15th</Text>
+              <Text size={'6'} weight={'bold'} mb={'4'}>Registration ends April 1 at 11:59pm</Text>
               <Button size="4" disabled={isLoading} asChild>
                 <a href={user ? "/register" : "/auth/login?screen_hint=signup&returnTo=/register"}>
                   <Text size="4" weight="bold">Register</Text>
