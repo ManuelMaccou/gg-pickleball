@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { Card, Flex, Text, Select } from "@radix-ui/themes";
+import { useEffect, useState } from "react";
+import { ITeam } from "../types/databaseTypes";
 
 export default function CompareAvailabilityPage() {
   const [userIds, setUserIds] = useState<string[]>(Array(8).fill(""));
@@ -22,6 +24,30 @@ export default function CompareAvailabilityPage() {
   const [loading, setLoading] = useState(false);
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
 
+  const [teams, setTeams] = useState<ITeam[]>([]);
+  const [statusFilter, setStatusFilter] = useState<string>('ALL');
+
+  useEffect(() => {
+    const fetchTeams = async () => {
+      try {
+        setLoading(true);
+        const query = statusFilter !== 'ALL' ? `?status=${statusFilter}` : '';
+        const res = await fetch(`/api/teams${query}`);
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.userMessage || 'Error fetching teams');
+
+        setTeams(data);
+      } catch (err) {
+        console.error('Failed to fetch teams:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTeams();
+  }, [statusFilter]);
+  
   const handleChange = (index: number, value: string) => {
     const updatedIds = [...userIds];
     updatedIds[index] = value;
@@ -66,6 +92,54 @@ export default function CompareAvailabilityPage() {
   };
 
   return (
+    <>
+    <div className="max-w-4xl mx-auto px-4 py-8">
+      <h1 className="text-2xl font-bold mb-6">Teams</h1>
+
+      <Flex direction={'column'}>
+        <Text>Filter by status</Text>
+        <Select.Root onValueChange={setStatusFilter} defaultValue="ALL">
+          <Select.Trigger />
+          <Select.Content>
+            <Select.Item value="ALL">All</Select.Item>
+            <Select.Item value="REGISTERED">Registered</Select.Item>
+            <Select.Item value="PAYMENT_READY">Payment Ready</Select.Item>
+            <Select.Item value="PAID">Paid</Select.Item>
+          </Select.Content>
+        </Select.Root>
+      </Flex>
+
+      {loading ? (
+        <p>Loading teams...</p>
+      ) : !Array.isArray(teams) || teams.length === 0 ? (
+        <p>No teams found.</p>
+      ) : (
+        <div className="grid gap-4">
+          {teams.map((team) => (
+            <Card key={team._id} className="p-4">
+              <h2 className="text-lg font-semibold mb-2">Status: {team.status}</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                {Array.isArray(team.teammates) ? (
+                  team.teammates.map((mate) => (
+                    <div key={mate._id} className="flex items-center space-x-2">
+                      <div>
+                        <p className="text-sm font-medium">{mate.name}</p>
+                        <p className="text-xs text-muted-foreground">{mate.skillLevel}</p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">No teammates</p>
+                )}
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+
+
+
     <div className="w-[80%] mx-auto p-6 bg-white shadow-lg rounded-lg">
       <h2 className="text-xl font-bold mb-4">Compare User Availability</h2>
 
@@ -172,5 +246,7 @@ export default function CompareAvailabilityPage() {
         </div>
       )}
     </div>
+
+    </>
   );
 }

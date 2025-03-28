@@ -60,13 +60,18 @@ export async function GET(req: Request) {
 
     const { searchParams } = new URL(req.url);
     const regionId = searchParams.get("regionId");
+    const status = searchParams.get("status");
     const activeSeason = searchParams.get("activeSeason") === "true";
     const teamId = searchParams.get("teamId");
 
     // Query object
-    const query: Record<string, unknown> = {
-      status: "PAID",
-    };
+    const query: Record<string, unknown> = {};
+    
+    if (status && ["REGISTERED", "PAYMENT_READY", "PAID"].includes(status)) {
+      query.status = status;
+    } else {
+      query.status = "PAID"; // fallback default
+    }
 
     // Handle active season filtering
     if (activeSeason) {
