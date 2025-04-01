@@ -504,7 +504,7 @@ export default function GguprMatchPage() {
   }
 
   return (
-    <Flex direction={'column'} minHeight={'100dvh'} p={'4'} style={{paddingBottom: '150px'}}>
+    <Flex direction={'column'} minHeight={'100vh'} p={'4'} style={{paddingBottom: '150px'}}>
       <Flex justify={"between"} align={'center'} direction={"row"} pt={"2"} pb={"5"} px={'2'}>
         <Flex direction={'column'} position={'relative'} maxWidth={'120px'}>
           <Image
@@ -517,7 +517,7 @@ export default function GguprMatchPage() {
         </Flex>
 
         {!authIsLoading && (
-          <Flex direction={'column'} justify={'center'} align={'center'} gap={'4'}>
+          <Flex direction={'column'} justify={'center'} gap={'4'}>
             <Text size={'3'} weight={'bold'}>
               {userName ? (
                 user 
@@ -527,7 +527,7 @@ export default function GguprMatchPage() {
             </Text>
 
             {matchId && (
-              <Flex direction={'column'} align={'end'} width={'100%'} mr={'-4'}>
+              <Flex direction={'column'} align={'end'}>
                 <QrCodeDialog matchId={matchId} />
               </Flex>
             )}

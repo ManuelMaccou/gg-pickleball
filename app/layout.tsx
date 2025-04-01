@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: 'black',
+  themeColor: 'linear-gradient(135deg,rgb(5, 21, 94), #4895FC)',
 }
 
 export default function RootLayout({

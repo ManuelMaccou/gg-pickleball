@@ -237,8 +237,8 @@ export default function GguprPage() {
 
   if (!isMobile) {
     return (
-      <Flex direction={'column'} minHeight={'100dvh'} p={'4'} justify={'center'} gap={'7'}>
-      <Flex direction={'column'} position={'relative'} align={'center'} mt={'-9'} p={'7'}>
+      <Flex direction={'column'} minHeight={'100vh'} p={'4'} justify={'center'} gap={'7'}>
+        <Flex direction={'column'} position={'relative'} align={'center'} p={'7'}>
           <Image
             src={lightGguprLogo}
             alt="GG Pickleball dark logo"
@@ -262,8 +262,8 @@ export default function GguprPage() {
   }
 
   return (
-      <Flex direction={'column'} minHeight={'100dvh'} p={'4'} justify={'center'} gap={'7'}>
-        <Flex direction={'column'} position={'relative'} align={'center'} mt={'-9'} p={'7'}>
+      <Flex direction={'column'} minHeight={'100vh'} p={'4'} justify={'center'} gap={'7'}>
+        <Flex direction={'column'} position={'relative'} align={'center'} p={'7'}>
             <Image
               src={lightGguprLogo}
               alt="GG Pickleball dark logo"
