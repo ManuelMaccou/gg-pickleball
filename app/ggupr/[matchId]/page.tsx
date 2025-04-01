@@ -534,7 +534,7 @@ export default function GguprMatchPage() {
       
       <GuestDialog showDialog={showDialog} setShowDialog={setShowDialog} />
 
-      <Flex direction={'row'} mt={'5'} justify={'between'} mx={'9'}>
+      <Flex direction={'row'} mt={'5'} justify={'between'}>
         {matchId && (
           <Flex direction={'column'}>
             <QrCodeDialog matchId={matchId} />
