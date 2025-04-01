@@ -1,5 +1,6 @@
 import { GoogleTagManager } from '@next/third-parties/google'
 import type { Metadata } from "next";
+import type { Viewport } from 'next'
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "../globals.css";
 import "@radix-ui/themes/styles.css";
@@ -14,8 +15,11 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   title: "GG Pickleball",
   description: "LA pickleball league",
-  themeColor: "000000",
 };
+
+export const viewport: Viewport = {
+  themeColor: 'black',
+}
 
 export default function RootLayout({
   children,
