@@ -518,7 +518,7 @@ export default function GguprMatchPage() {
 
         {!authIsLoading && (
           <Flex direction={'column'} justify={'center'} gap={'4'}>
-            <Text size={'3'} weight={'bold'}>
+            <Text size={'3'} weight={'bold'} align={'right'}>
               {userName ? (
                 user 
                   ? (String(userName).includes('@') ? String(userName).split('@')[0] : userName)
@@ -526,11 +526,7 @@ export default function GguprMatchPage() {
               ) : ''}
             </Text>
 
-            {matchId && (
-              <Flex direction={'column'} align={'end'}>
-                <QrCodeDialog matchId={matchId} />
-              </Flex>
-            )}
+          
       
           </Flex>
         )}
@@ -538,7 +534,12 @@ export default function GguprMatchPage() {
       
       <GuestDialog showDialog={showDialog} setShowDialog={setShowDialog} />
 
-      <Flex direction={'column'} align={'end'} mt={'5'}>
+      <Flex direction={'row'} mt={'5'} justify={'between'} mx={'9'}>
+        {matchId && (
+          <Flex direction={'column'}>
+            <QrCodeDialog matchId={matchId} />
+          </Flex>
+        )}
         <Dialog.Root>
           <Dialog.Trigger>
             <Button variant="soft" color="red">Cancel match</Button>
