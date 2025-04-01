@@ -1,5 +1,6 @@
 'use client'
 
+import { useMediaQuery } from 'react-responsive';
 import { v4 as uuidv4 } from 'uuid';
 import { Badge, Button, Flex, Heading, Spinner, Text, TextField } from "@radix-ui/themes";
 import Image from "next/image";
@@ -12,6 +13,8 @@ import { ApiErrorResponse } from '../types/functionTypes';
 import { useUser } from '@auth0/nextjs-auth0';
 
 export default function GguprPage() {
+  const isMobile = useMediaQuery({ maxWidth: 767 });
+
   const router = useRouter();
   const { user, isLoading: authIsLoading } = useUser();
 
@@ -232,6 +235,32 @@ export default function GguprPage() {
 
   }, [authIsLoading, isAuthenticatedUser, user])
 
+  if (!isMobile) {
+    return (
+      <Flex direction={'column'} minHeight={'100dvh'} p={'4'} justify={'center'} gap={'7'}>
+      <Flex direction={'column'} position={'relative'} align={'center'} mt={'-9'} p={'7'}>
+          <Image
+            src={lightGguprLogo}
+            alt="GG Pickleball dark logo"
+            priority
+            height={540}
+            width={960}
+            style={{
+              width: 'auto',
+              maxHeight: '170px',
+            }}
+          />
+          <Text mt={'4'} size={'5'} weight={'bold'}>DUPR for recreational players</Text>
+          <Text size={'5'} weight={'bold'}>A GG Pickleball experiment</Text>
+        </Flex>
+
+        <Flex direction={'column'} justify={'center'} align={'center'}>
+          <Text size={'6'} align={'center'}>This app is optimized for mobile devices only.</Text>
+        </Flex>
+      </Flex>
+    )
+  }
+
   return (
       <Flex direction={'column'} minHeight={'100dvh'} p={'4'} justify={'center'} gap={'7'}>
         <Flex direction={'column'} position={'relative'} align={'center'} mt={'-9'} p={'7'}>
@@ -247,7 +276,7 @@ export default function GguprPage() {
               }}
             />
             <Text mt={'4'} size={'5'} weight={'bold'}>DUPR for recreational players</Text>
-            <Text size={'5'} weight={'bold'}>A GG Pickleball Experiment</Text>
+            <Text size={'5'} weight={'bold'}>A GG Pickleball experiment</Text>
           </Flex>
       
         {matchId && userActive ? (

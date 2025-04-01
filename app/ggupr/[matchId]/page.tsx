@@ -14,6 +14,7 @@ import { ScoreUpdateData } from "@/app/types/socketTypes";
 import { ApiErrorResponse } from "@/app/types/functionTypes";
 import { useRouter } from "next/navigation";
 import QrCodeDialog from "../components/QrCodeDialog";
+import { useMediaQuery } from "react-responsive";
 
 
 type Player = {
@@ -23,6 +24,8 @@ type Player = {
 };
 
 export default function GguprMatchPage() {
+  const isMobile = useMediaQuery({ maxWidth: 767 });
+  
   const bottomRef = useRef<HTMLDivElement | null>(null);
   
   const { user, isLoading: authIsLoading } = useUser();
@@ -419,6 +422,32 @@ export default function GguprMatchPage() {
     };
   }, [pathname]);
 
+  if (!isMobile) {
+    return (
+      <Flex direction={'column'} minHeight={'100dvh'} p={'4'} justify={'center'} gap={'7'}>
+      <Flex direction={'column'} position={'relative'} align={'center'} mt={'-9'} p={'7'}>
+          <Image
+            src={lightGguprLogo}
+            alt="GG Pickleball dark logo"
+            priority
+            height={540}
+            width={960}
+            style={{
+              width: 'auto',
+              maxHeight: '170px',
+            }}
+          />
+          <Text mt={'4'} size={'5'} weight={'bold'}>DUPR for recreational players</Text>
+          <Text size={'5'} weight={'bold'}>A GG Pickleball experiment</Text>
+        </Flex>
+
+        <Flex direction={'column'} justify={'center'} align={'center'}>
+          <Text size={'6'} align={'center'}>This app is optimized for mobile devices only.</Text>
+        </Flex>
+      </Flex>
+    )
+  }
+
 
   if (userName === null) {
     return (
@@ -436,7 +465,7 @@ export default function GguprMatchPage() {
               }}
             />
             <Text mt={'4'} size={'5'} weight={'bold'}>DUPR for recreational players</Text>
-            <Text size={'5'} weight={'bold'}>A GG Pickleball Experiment</Text>
+            <Text size={'5'} weight={'bold'}>A GG Pickleball experiment</Text>
           </Flex>
 
 
