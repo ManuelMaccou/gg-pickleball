@@ -56,6 +56,7 @@ export const initiateSocketConnection = (matchId: string, userName: string, curr
 
 export const handleSaveMatch = async (data: SaveMatchData, players: Player[]) => {
   console.log("📥 Received 'save-match' event from server:", data);
+  console.log("📍 Location received:", data.location);
   if (data.success) {
     console.log("✅ Scores validated successfully. Triggering save to database.");
     try {
@@ -78,11 +79,13 @@ export const handleSaveMatch = async (data: SaveMatchData, players: Player[]) =>
           team1: { players: team1Ids, score: data.team1Score },
           team2: { players: team2Ids, score: data.team2Score },
           winners: data.team1Score > data.team2Score ? team1Ids : team2Ids,
+          location: data.location,
         }),
       });
 
       const result = await response.json();
       console.log("📬 Received response from /api/ggupr/match:", result);
+      console.log("📬 Data received from /api/ggupr/match:", data);
 
       if (response.ok) {
         console.log("Match successfully saved to database!", result);

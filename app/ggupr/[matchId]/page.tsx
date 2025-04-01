@@ -6,7 +6,7 @@ import Image from "next/image";
 import lightGguprLogo from '../../../public/ggupr_logo_white_transparent.png'
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Cookies from 'js-cookie';
-import { useParams, usePathname } from 'next/navigation';
+import { useParams, usePathname, useSearchParams } from 'next/navigation';
 import { disconnectSocket, getSocket, handleSaveMatch, initiateSocketConnection, subscribeToMatchSaved, subscribeToPlayerJoined, subscribeToSaveMatch, subscribeToScoreUpdate, subscribeToScoreValidation } from '../../socket';
 import { debounce } from 'lodash';
 import GuestDialog from "../components/GuestDialog";
@@ -31,6 +31,7 @@ export default function GguprMatchPage() {
   const { user, isLoading: authIsLoading } = useUser();
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams()
 
   const [isCheckingUser, setIsCheckingUser] = useState<boolean | null>(null);
   const [isGuestUser, setIsGuestUser] = useState<boolean | null>(null);
@@ -50,6 +51,7 @@ export default function GguprMatchPage() {
   const [opponentsScore, setOpponentsScore] = useState<number | null>(null);
   const [waitingForScores, setWaitingForScores] = useState(true);
   const [scoreMatch, setScoreMatch] = useState<string | null>(null);
+  const [selectedLocation, setSelectedLocation] = useState<string>("");
   const [showLogNewMatch, setShowLogNewMatch] = useState<boolean>(false);
   const [showDialog, setShowDialog] = useState<boolean>(false);
   const [scoreError, setScoreError] = useState<string | null>(null);
@@ -59,6 +61,13 @@ export default function GguprMatchPage() {
 
   const params = useParams<{ matchId: string }>()
   const matchId = params.matchId;
+  const locationParam = searchParams.get('location')
+
+  useEffect(() => {
+    if (locationParam) {
+      setSelectedLocation(locationParam)
+    }
+  }, [locationParam])
 
   const handleNameSubmit = async () => {
     setSubmittingName(true);
@@ -120,10 +129,11 @@ export default function GguprMatchPage() {
         team1, 
         team2, 
         yourScore, 
-        opponentsScore 
+        opponentsScore,
+        location: selectedLocation
       });
     }
-  }, [matchId, userName, team1, team2, yourScore, opponentsScore]); 
+  }, [matchId, userName, team1, team2, yourScore, opponentsScore, selectedLocation]); 
 
   const debouncedSubmitScores = useMemo(() => debounce(handleSubmitScores, 2000), [handleSubmitScores]);
 
@@ -537,7 +547,7 @@ export default function GguprMatchPage() {
       <Flex direction={'row'} mt={'5'} justify={'between'}>
         {matchId && (
           <Flex direction={'column'}>
-            <QrCodeDialog matchId={matchId} />
+            <QrCodeDialog matchId={matchId} selectedLocation={selectedLocation} />
           </Flex>
         )}
         <Dialog.Root>
@@ -677,7 +687,7 @@ export default function GguprMatchPage() {
                   value={opponentsScore !== null ? opponentsScore.toString() : ''}
                   onChange={(e) => setOpponentsScore(e.target.value === '' ? null : parseInt(e.target.value, 10))}
                   onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}
-                  placeholder="Enter opponent's team's score"
+                  placeholder="Enter opponent's score"
                 />
               </Flex>
               {showLogNewMatch && (

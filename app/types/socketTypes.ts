@@ -12,6 +12,7 @@ export interface ClientToServerEvents {
     team2: string[]; 
     yourScore: number | null; 
     opponentsScore: number | null; 
+    location: string;
   }) => void;
   "save-match": (data: { 
     matchId: string; 
@@ -20,6 +21,7 @@ export interface ClientToServerEvents {
     team1Score: number; 
     team2Score: number; 
     winners: string[]; 
+    location: string;
   }) => void;
   "match-saved": (data: { matchId: string }) => void;
   "clear-scores": (data: { matchId: string }) => void;
@@ -52,6 +54,7 @@ export interface SaveMatchData {
   team2: string[];
   team1Score: number;
   team2Score: number;
+  location: string;
 }
 
 // Define your socket type

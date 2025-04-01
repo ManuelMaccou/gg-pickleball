@@ -13,6 +13,7 @@ const GguprMatchSchema = new Schema<IGguprMatch & Document>(
       score: { type: Number},
     },
     winners: [{ type: Schema.Types.ObjectId, ref: "GguprUser" }], // Array of players
+    location: { type: String },
   },
   { timestamps: true }
 );

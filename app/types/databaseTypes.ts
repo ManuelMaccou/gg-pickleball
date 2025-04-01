@@ -154,4 +154,5 @@ export interface IGguprMatch {
     score: number;
   };
   winners: Types.ObjectId[];
+  location: string
 }
