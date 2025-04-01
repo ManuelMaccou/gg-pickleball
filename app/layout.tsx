@@ -14,6 +14,7 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   title: "GG Pickleball",
   description: "LA pickleball league",
+  themeColor: "000000",
 };
 
 export default function RootLayout({
