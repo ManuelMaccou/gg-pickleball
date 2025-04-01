@@ -8,6 +8,8 @@ import "../app/models/Region";
 import "../app/models/Season";
 import "../app/models/Team";
 import "../app/models/User";
+import "../app/models/GguprUser";
+import "../app/models/GguprMatch";
 
 const MONGODB_URI = process.env.MONGODB_URI as string;
 

@@ -130,3 +130,28 @@ export interface IImage {
   contentType: string;
   data: Buffer;
 }
+
+export interface IGguprUser {
+  _id?: string;
+  name: string;
+  auth0Id?: string;
+  email?: string;
+  profilePicture?: string;
+  wins?: number;
+  losses?: number;
+  matches?: IGguprMatch[];
+}
+
+export interface IGguprMatch {
+  _id?: string;
+  matchId?: number;
+  team1: {
+    players: Types.ObjectId[] | string[]; 
+    score: number;
+  };
+  team2: {
+    players: Types.ObjectId[] | string[];  // Mixed reference: ObjectId (if user exists) or raw string for guests
+    score: number;
+  };
+  winners: Types.ObjectId[];
+}
