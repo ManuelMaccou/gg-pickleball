@@ -268,7 +268,7 @@ export default function GguprPage() {
   }
 
   return (
-      <Flex direction={'column'} minHeight={'100vh'} p={'4'} justify={'center'} gap={'7'}>
+      <Flex direction={'column'} minHeight={'100vh'} p={'4'} justify={'center'} gap={'7'} pb={'9'}>
         <Flex direction={'column'} position={'relative'} align={'center'} p={'7'}>
             <Image
               src={lightGguprLogo}
