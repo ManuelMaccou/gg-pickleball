@@ -251,7 +251,7 @@ export default function GguprPage() {
             }}
           />
           <Text mt={'4'} size={'5'} weight={'bold'}>DUPR for recreational players</Text>
-          <Text size={'5'} weight={'bold'}>A GG Pickleball Experiment</Text>
+          <Text size={'5'} weight={'bold'}>A GG Pickleball experiment</Text>
         </Flex>
 
         <Flex direction={'column'} justify={'center'} align={'center'}>
@@ -276,7 +276,7 @@ export default function GguprPage() {
               }}
             />
             <Text mt={'4'} size={'5'} weight={'bold'}>DUPR for recreational players</Text>
-            <Text size={'5'} weight={'bold'}>A GG Pickleball Experiment</Text>
+            <Text size={'5'} weight={'bold'}>A GG Pickleball experiment</Text>
           </Flex>
       
         {matchId && userActive ? (
