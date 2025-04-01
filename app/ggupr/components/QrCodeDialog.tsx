@@ -5,10 +5,11 @@ import QRCodeGenerator from "./QrCodeGenerator";
 
 interface QrCodeDialogProps {
   matchId: string;
+  selectedLocation: string;
 }
 
 
-const QrCodeDialog: React.FC<QrCodeDialogProps> = ({ matchId }) => {
+const QrCodeDialog: React.FC<QrCodeDialogProps> = ({ matchId, selectedLocation }) => {
 
   return (
       <Dialog.Root>
@@ -22,7 +23,7 @@ const QrCodeDialog: React.FC<QrCodeDialogProps> = ({ matchId }) => {
           <VisuallyHidden>
             <Dialog.Description>Scan QR code to join match</Dialog.Description>
           </VisuallyHidden>
-          <QRCodeGenerator matchId={matchId} />
+          <QRCodeGenerator matchId={matchId} selectedLocation={selectedLocation}/>
           <Dialog.Close>
             <Button size={'3'} mt={'5'} variant="outline">Close</Button>
           </Dialog.Close>

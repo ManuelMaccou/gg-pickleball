@@ -11,6 +11,7 @@ import Cookies from 'js-cookie';
 import { useRouter } from "next/navigation";
 import { ApiErrorResponse } from '../types/functionTypes';
 import { useUser } from '@auth0/nextjs-auth0';
+import LocationSearch from './components/LocationSearch';
 
 export default function GguprPage() {
   const isMobile = useMediaQuery({ maxWidth: 767 });
@@ -22,6 +23,7 @@ export default function GguprPage() {
 
   const [matchId, setMatchId] = useState<string | null>(null);
   const [submittingName, setSubmittingName] = useState<boolean>(false);
+  const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [tempName, setTempName] = useState<string>('');
   const [userActive, setUserActive] = useState<boolean>(false);
@@ -54,6 +56,10 @@ export default function GguprPage() {
       setSubmittingName(false);
     }
   };
+
+  useEffect(() => {
+    console.log('selected location:', selectedLocation)
+  }, [selectedLocation])
 
   // Create match ID on page load
   useEffect(() => {
@@ -281,19 +287,30 @@ export default function GguprPage() {
       
         {matchId && userActive ? (
           <Flex direction={'column'} mx={'9'}>
+             <Flex direction={'column'} align={'center'} gap={'5'} mb={'5'}>
+              <LocationSearch selectedLocation={selectedLocation} onLocationSelect={setSelectedLocation} />
+              <Button variant='ghost' size={'3'} onClick={() => setSelectedLocation('Other')}>skip</Button>
+            </Flex>
 
-              
-            <Flex direction={'column'} align={'center'} gap={'4'}>
-              <Heading align={'center'}>Log a new match</Heading>
-              <QRCodeGenerator matchId={matchId} />
-            </Flex>
-            
-            <Flex direction={'column'} mt={'4'} align={'center'}>
+          {selectedLocation && (
+            <>
+              <Flex direction={'column'} align={'center'} gap={'4'}>
+                <Heading align={'center'}>Log a new match</Heading>
+                <QRCodeGenerator matchId={matchId} selectedLocation={selectedLocation} />
+              </Flex>
+
+              <Flex direction={'column'} mt={'4'} align={'center'}>
               <Text>All players must scan the same QR code. Once scanned, click continue.</Text>
-            </Flex>
+              </Flex>
+            </>
+          )}
+            
+           
+            
+            
 
             <Flex direction={'column'} mt={'9'}>
-              <Button size={'3'} onClick={() => router.push(`/ggupr/${matchId}`)}>Continue</Button>
+              <Button size={'3'} disabled={!selectedLocation} onClick={() => router.push(`/ggupr/${matchId}${selectedLocation ? `?location=${selectedLocation}` : ""}`)}>Continue</Button>
             </Flex>
             
     

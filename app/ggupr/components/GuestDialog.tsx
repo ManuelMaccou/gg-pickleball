@@ -16,7 +16,7 @@ export default function GuestDialog({ showDialog, setShowDialog }: GuestDialogPr
       <Dialog.Content>
         <Dialog.Title>You&apos;re on a guest account</Dialog.Title>
         <Dialog.Description size="3" mb="4">
-          This match was saved, but to make sure you don&apos;t lose your saved matches, create an account.
+          This match was temporarily saved. To make sure you don&apos;t lose your saved matches, create an account.
         </Dialog.Description>
         <Flex direction={'row'} gap={'9'} justify={'between'} mt={'6'}>
          

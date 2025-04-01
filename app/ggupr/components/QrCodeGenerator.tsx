@@ -5,15 +5,16 @@ import { Flex } from '@radix-ui/themes';
 
 interface QRCodeGeneratorProps {
   matchId: string;
+  selectedLocation: string;
 }
 
-const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({ matchId }) => {
+const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({ matchId, selectedLocation }) => {
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const generateQRCode = async () => {
       try {
-        const url = `${process.env.NEXT_PUBLIC_BASE_URL}/ggupr/${matchId}`;
+        const url = `${process.env.NEXT_PUBLIC_BASE_URL}/ggupr/${matchId}${selectedLocation ? `?location=${encodeURIComponent(selectedLocation)}` : ""}`;
         const generatedUrl = await QRCode.toDataURL(url, { width: 300, margin: 2 });
         setQrCodeUrl(generatedUrl);
       } catch (error) {
@@ -22,7 +23,7 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({ matchId }) => {
     };
 
     generateQRCode();
-  }, [matchId]); // Regenerate QR code if matchId or teamName changes
+  }, [matchId, selectedLocation]); // Regenerate QR code if matchId or teamName changes
 
   return (
     <Flex direction={'column'}>

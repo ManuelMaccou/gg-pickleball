@@ -6,7 +6,7 @@ export async function POST(req: NextRequest) {
   await connectToDatabase();
 
   try {
-    const { matchId, team1, team2, winners } = await req.json();
+    const { matchId, team1, team2, winners, location } = await req.json();
 
     if (!matchId || !team1 || !team2 || !winners) {
       return NextResponse.json({ success: false, error: 'Missing required data.' }, { status: 400 });
@@ -18,6 +18,7 @@ export async function POST(req: NextRequest) {
       team1,
       team2,
       winners,
+      location,
     });
 
     return NextResponse.json({ success: true, match });
