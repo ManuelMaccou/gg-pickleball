@@ -21,7 +21,7 @@ import pbplayer1 from "../public/pbplayer1.jpeg"
 import gg_example from "../public/gg_example.png"
 import gg_example2 from "../public/gg_example2.png"
 import Link from "next/link";
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { InstagramLogoIcon } from '@radix-ui/react-icons';
 
 const goldman = Goldman({
@@ -31,7 +31,7 @@ const goldman = Goldman({
 
 function HomePage() {
   const searchParams = useSearchParams()
-  const { user, isLoading } = useUser()
+  const { isLoading } = useUser()
 
   const [referrer, setReferrer] = useState<string | null>(null);
   
@@ -49,15 +49,6 @@ function HomePage() {
       }
     }
   }, [searchParams]);
-  
-  const moreInfoRef = useRef<HTMLDivElement>(null);
-
-  const scrollToPartners = () => {
-    moreInfoRef.current?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'start',
-    });
-  };
 
   const pickleballImages = [pbplayer1, pbplayer2, pbplayer3]
   const facilityPartnerLogos = [
@@ -149,14 +140,20 @@ function HomePage() {
             <Heading as="h1" size={{initial:'8', md: '9'}} mb={'7'} align={'center'} className={`${goldman.className} w-[70%]`}>Santa Monica Pickleball League</Heading>
             <Text size={'5'} weight={'bold'} mb={'5'} align={'center'}>Santa Monica is your court.</Text>
             <Flex direction={'row'} gap={'5'} wrap={'wrap'} justify={'center'}>
-              <Button onClick={scrollToPartners} size={'4'}>
-                <Text weight={'bold'}>Learn more</Text>
-              </Button>
-              <Button size="4" disabled={isLoading} asChild>
-                <a href={user ? "/register" : `/auth/login?screen_hint=signup&returnTo=/register${referrer ? `?referrer=${referrer}` : ""}`}>
-                  <Text size="4" weight="bold">Register/Log in</Text>
+              {/*
+            <Button size="4" disabled={isLoading} asChild>
+                <a href={`/auth/login?screen_hint=signup&returnTo=/register${referrer ? `&referrer=${referrer}` : ""}`}>
+                  <Text size="4" weight="bold">Preregister for season 2</Text>
                 </a>
               </Button>
+              
+                <Button size="4" disabled={isLoading} asChild>
+                <a href={user ? "/challenge" : `/auth/login?returnTo=/challenge`}>
+                  <Text size="4" weight="bold">Enter season 1</Text>
+                </a>
+              </Button>
+               */}
+             
             </Flex>
           </Flex>
         </Flex>
@@ -234,7 +231,7 @@ function HomePage() {
         </Flex>
         
         <Flex direction={'column'} width={'100vw'} align={'center'} justify={'center'} py={'9'}>
-          <Flex direction={{initial: 'column', md:'row'}} maxWidth={'800px'} align={'center'} gapX={'9'} gapY={'5'} ref={moreInfoRef}>
+          <Flex direction={{initial: 'column', md:'row'}} maxWidth={'800px'} align={'center'} gapX={'9'} gapY={'5'}>
             <Box>
               <Heading as="h2" size={'8'} className={goldman.className}>Community.</Heading>
               <Heading as="h2" size={'8'} className={goldman.className}>Pickleball.</Heading>
@@ -273,10 +270,10 @@ function HomePage() {
                   <Text>+ court fees</Text>
                 </Flex>  
               </Flex> 
-              <Text size={'6'} weight={'bold'} mb={'4'}>First season starts March 15th</Text>
+              <Text size={'6'} weight={'bold'} mb={'4'}>Next season starts soon</Text>
               <Button size="4" disabled={isLoading} asChild>
-                <a href={user ? "/register" : "/auth/login?screen_hint=signup&returnTo=/register"}>
-                  <Text size="4" weight="bold">Register</Text>
+                <a href={`https://instagram.com/ggpickleball.co`}>
+                  <Text size="4" weight="bold">Follow for updates</Text>
                 </a>
               </Button>
             </Flex>
@@ -384,11 +381,14 @@ function HomePage() {
             >
               <Link href={"/rules"}>See rules</Link>
             </Button>
-            <Button size="4" disabled={isLoading} asChild>
-              <a href={user ? "/register" : "/auth/login?screen_hint=signup&returnTo=/register"}>
-                <Text size="4" weight="bold">Register</Text>
+            {/*
+             <Button size="4" disabled={isLoading} asChild>
+              <a href={`/auth/login?screen_hint=signup&returnTo=/register${referrer ? `&referrer=${referrer}` : ""}`}>
+                <Text size="4" weight="bold">Preregister for season 2</Text>
               </a>
             </Button>
+             */}
+            
           </Flex>
         </Flex>
       </Flex>
