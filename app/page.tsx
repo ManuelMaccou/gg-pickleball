@@ -1,8 +1,8 @@
 'use client'
 
-import { useSearchParams } from 'next/navigation'
+// import { useSearchParams } from 'next/navigation'
 import { useUser } from "@auth0/nextjs-auth0"
-import Cookies from "js-cookie";
+// import Cookies from "js-cookie";
 import { Box, Button, Flex, Heading, Text, Theme } from "@radix-ui/themes";
 import Image from "next/image";
 import { motion } from "framer-motion";
@@ -21,7 +21,7 @@ import pbplayer1 from "../public/pbplayer1.jpeg"
 import gg_example from "../public/gg_example.png"
 import gg_example2 from "../public/gg_example2.png"
 import Link from "next/link";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense } from "react";
 import { InstagramLogoIcon } from '@radix-ui/react-icons';
 
 const goldman = Goldman({
@@ -30,12 +30,12 @@ const goldman = Goldman({
 });
 
 function HomePage() {
-  const searchParams = useSearchParams()
+  // const searchParams = useSearchParams()
   const { isLoading } = useUser()
 
-  const [referrer, setReferrer] = useState<string | null>(null);
+  // const [referrer, setReferrer] = useState<string | null>(null);
   
-
+{/**
   useEffect(() => {
     const referrerParam = searchParams.get("referrer");
 
@@ -49,6 +49,8 @@ function HomePage() {
       }
     }
   }, [searchParams]);
+  */}
+  
 
   const pickleballImages = [pbplayer1, pbplayer2, pbplayer3]
   const facilityPartnerLogos = [
