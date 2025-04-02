@@ -13,8 +13,22 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'ggupr',
     description: 'DUPR for rec play.',
-    url: 'https://www.ggpickleball.co/ggupr',
+    url: 'https://ggpickleball.co/ggupr',
+    images: [
+      {
+        url: 'https://ggpickleball.co/opengraph-image.jpg',
+        width: 1179,
+        height: 1025,
+        alt: 'ggupr preview image',
+      },
+    ],
     siteName: 'ggupr',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'ggupr',
+    description: 'DUPR for rec play.',
+    images: ['https://ggpickleball.co/opengraph-image.jpg'],
   },
 };
 

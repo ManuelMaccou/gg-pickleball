@@ -1,5 +1,3 @@
-// http://localhost:3000/register/team/teammate?teammate1=67ae71665833c2dff397bc18&regionId=67aaed654bf05bdbe38ca440&seasonId=67aa859d7852366cccb37379
-
 "use client"
 
 import { useUser } from "@auth0/nextjs-auth0"
