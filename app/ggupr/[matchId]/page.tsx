@@ -559,8 +559,8 @@ export default function GguprMatchPage() {
             <Dialog.Description>Are you sure? You will lose data for this match.</Dialog.Description>
             <Dialog.Close>
               <Flex direction={'row'} align={'stretch'} justify={'between'} mt={'5'}>
-                <Button size={'3'} variant="outline">Cancel</Button>
-                <Button size={'3'} onClick={() => router.push("/ggupr")}>Yes</Button>
+                <Button size={'3'} variant="outline">Go back</Button>
+                <Button size={'3'} onClick={() => router.push("/ggupr/new")}>Yes</Button>
               </Flex>
             </Dialog.Close>
            
@@ -692,7 +692,7 @@ export default function GguprMatchPage() {
               </Flex>
               {showLogNewMatch && (
               <Flex direction={'column'} gap={'4'} ref={bottomRef}>
-                <Button size={'3'} onClick={() => router.push('/ggupr')}>Log new match</Button>
+                <Button size={'3'} onClick={() => router.push('/ggupr/new')}>Log new match</Button>
                 <Text size={'3'}>View ranking is coming soon. Keep logging your matches.</Text>
               </Flex>
               )}

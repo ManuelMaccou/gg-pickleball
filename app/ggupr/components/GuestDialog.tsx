@@ -1,6 +1,7 @@
 "use client"
 
 import { Button, Dialog, Flex } from "@radix-ui/themes";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 interface GuestDialogProps {
@@ -20,9 +21,7 @@ export default function GuestDialog({ showDialog, setShowDialog }: GuestDialogPr
         </Dialog.Description>
         <Flex direction={'row'} gap={'9'} justify={'between'} mt={'6'}>
          
-          <Dialog.Close>
-            <Button variant="outline">Close</Button>
-          </Dialog.Close>
+          <Button variant="outline" asChild><Link href={'/ggupr/new'}>Close</Link></Button>
           <Button onClick={() => router.push('/auth/login?screen_hint=signup&returnTo=/ggupr')}>Create account</Button>
         </Flex>
        
