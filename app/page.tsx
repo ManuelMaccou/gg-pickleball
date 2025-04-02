@@ -272,7 +272,9 @@ function HomePage() {
                   <Text>+ court fees</Text>
                 </Flex>  
               </Flex> 
+
               <Text size={'6'} weight={'bold'} mb={'4'}>Next season starts soon</Text>
+
               <Button size="4" disabled={isLoading} asChild>
                 <a href={`https://instagram.com/ggpickleball.co`}>
                   <Text size="4" weight="bold">Follow for updates</Text>
