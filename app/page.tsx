@@ -31,7 +31,7 @@ const goldman = Goldman({
 
 function HomePage() {
   // const searchParams = useSearchParams()
-  const { isLoading } = useUser()
+  const { isLoading, user } = useUser()
 
   // const [referrer, setReferrer] = useState<string | null>(null);
   
@@ -148,13 +148,13 @@ function HomePage() {
                   <Text size="4" weight="bold">Preregister for season 2</Text>
                 </a>
               </Button>
-              
+               */}
                 <Button size="4" disabled={isLoading} asChild>
                 <a href={user ? "/challenge" : `/auth/login?returnTo=/challenge`}>
-                  <Text size="4" weight="bold">Enter season 1</Text>
+                  <Text size="4" weight="bold">Log in to season 1</Text>
                 </a>
               </Button>
-               */}
+              
              
             </Flex>
           </Flex>
