@@ -125,6 +125,7 @@ export default function CompareAvailabilityPage() {
                       <div>
                         <p className="text-sm font-medium">{mate.name}</p>
                         <p className="text-xs text-muted-foreground">{mate.skillLevel}</p>
+                        <p className="text-xs text-muted-foreground">{mate.email}</p>
                       </div>
                     </div>
                   ))
