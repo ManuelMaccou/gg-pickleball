@@ -140,6 +140,11 @@ const shiftAvailability = (availability: IAvailability[]): IAvailability[] => {
     available: true,
   }));
 
+  // ✅ Add a check to prevent adding empty days
+if (nextDayAvailability.length === 0) {
+  return filteredAvailability; // Just return the filtered array without modifying it
+}
+
   return [...filteredAvailability, ...nextDayAvailability];
 };
 
@@ -160,7 +165,7 @@ export async function GET() {
       availability = shiftAvailability(availability);
     }
 
-    court.availability = availability;
+    court.availability = availability.filter(slot => slot.day && slot.date && slot.time);
     await court.save();
 
     return NextResponse.json({ message: "Availability updated successfully", court }, { status: 200 });
