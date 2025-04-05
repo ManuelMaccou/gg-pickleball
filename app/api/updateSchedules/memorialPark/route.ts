@@ -82,7 +82,9 @@ const generateNext7Days = (): IAvailability[] => {
 
   for (const { date, day } of firstWeek) {
     // ✅ Use hardcoded date & day instead of dynamically calculating
-    if (!TIME_SLOTS[day]) continue;
+    const slots = TIME_SLOTS[day];
+
+    if (!slots || slots.length === 0) continue;
 
     const dailySlots: IAvailability[] = TIME_SLOTS[day].map((time) => ({
       day,
