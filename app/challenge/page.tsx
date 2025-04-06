@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import { useUser } from "@auth0/nextjs-auth0"
 import { useRouter } from 'next/navigation';
-import { Avatar, Button, Card, Flex, Grid, Heading, RadioCards, Spinner, Text } from "@radix-ui/themes";
+import { Avatar, Button, Card, Flex, Grid, Heading, Select, Spinner, Switch, Text } from "@radix-ui/themes";
 import DesktopSidebar from "../components/Sections/DesktopSidebar";
 import TopBanner from "../components/Sections/TopBanner";
 import { useEffect, useState } from "react";
@@ -26,6 +26,7 @@ export default function Challenge() {
   const [teams, setTeams] = useState<ITeam[]>([]);
   const [currentUsersTeam, setCurrentUsersTeam] = useState<ITeam | null>(null);
   const [filteredTeams, setFilteredTeams] = useState<TeamWithAvailability[]>([]);
+  const [filterByTeamAvailability, setFilterByTeamAvailability] = useState<boolean>(false);
   const [courts, setCourts] = useState<ICourt[]>([]);
   const [selectedCourt, setSelectedCourt] = useState<ICourt | null>(null);
   const [courtAvailability, setCourtAvailability] = useState<IAvailability[]>([]);
@@ -138,7 +139,6 @@ export default function Challenge() {
 
         const data = await response.json();
         const courts: ICourt[] = data.courts || [];
-        console.log("courts:", data.courts)
         setCourts(courts); 
 
         // If "All Courts" is selected, merge availability from all courts
@@ -319,7 +319,9 @@ export default function Challenge() {
               }
           
               // ✅ Find 2-hour consecutive blocks in both team & court availability
-              const consecutiveMatches = findTwoHourBlocks(loggedInSlots, teamSlots, courtSlots);
+              const consecutiveMatches = filterByTeamAvailability
+              ? findTwoHourBlocks(loggedInSlots, teamSlots, courtSlots)
+              : findTwoHourBlocks(teamSlots, teamSlots, courtSlots);
 
               if (consecutiveMatches.length > 0) {
                 matches.push(
@@ -367,7 +369,7 @@ export default function Challenge() {
     }
     };
       processTeams().finally(() => setLoading(false));
-  }, [teams, courtAvailability, loggedInTeamAvailability, selectedCourt?.name]);
+  }, [teams, courtAvailability, loggedInTeamAvailability, selectedCourt?.name, filterByTeamAvailability]);
 
   const handleSelectChange = (value: string) => {
     if (value === "All") {
@@ -518,12 +520,17 @@ export default function Challenge() {
 
       <Flex direction={'column'} width={'100%'}>
         <Flex direction={'column'} p={'4'} gap={'2'}>
+        <Flex direction={'row'} justify={'between'} align={'center'}>
           <Heading>Challenge</Heading>
-          <Text>
-            Select a court to view available matches based on team and court availability. 
-            Then select the team you want to challenge.
-          </Text>
+          <Flex direction={'column'} style={{width: "fit-content"}} my={'4'} px={'4'}>
+            <Button size={'4'} variant="ghost" onClick={() => setRefreshAvailability(refreshAvailability + 1)}><SymbolIcon />Update court availability</Button>
+          </Flex>
         </Flex>
+        <Text>
+          Select a court to view available matches based on team and court availability. 
+          Then select the team you want to challenge.
+        </Text>
+      </Flex>
       
 
         {/* Filters */}
@@ -535,22 +542,30 @@ export default function Challenge() {
             <DatePicker onDateSelect={setSelectedDate} />
           </Flex>
           */}
-          <Flex direction={'column'} gap={'2'}>
+          <Flex direction={'column'} gap={'4'}>
             <Text weight={'bold'}>Viewing times for:</Text>
-            <RadioCards.Root value={selectedCourt?._id || defaultCourt} onValueChange={handleSelectChange} columns={{initial: "2", md: "3"}}>
+            <Select.Root size={'3'} value={selectedCourt?._id || defaultCourt} onValueChange={handleSelectChange}>
+              <Select.Trigger placeholder="Select a Court" />
+              <Select.Content>
                 {courts.map((court) => (
-                  <RadioCards.Item key={court._id} value={court._id ?? ""}>
-                    <Flex direction="column" width="100%" align="center">
-                      <Text weight="bold">{court.name}</Text>
-                    </Flex>
-                  </RadioCards.Item>
+                  <Select.Item key={court._id} value={court._id ?? ""}>
+                    <Text size={'3'}>{court.name}</Text>
+                  </Select.Item>
                 ))}
-            </RadioCards.Root>
+              </Select.Content>
+            </Select.Root>
+
+            <Text as="label" size="4">
+              <Flex gap="2">
+                <Switch size="3"
+                  checked={filterByTeamAvailability}
+                  onCheckedChange={(checked) => setFilterByTeamAvailability(checked as boolean)}
+                /> Only show teams that match my team&apos;s availability
+              </Flex>
+            </Text>
           </Flex>
 
-          <Flex direction={'column'} style={{width: "fit-content"}} my={'4'} px={'4'}>
-            <Button size={'4'} variant="ghost" onClick={() => setRefreshAvailability(refreshAvailability + 1)}><SymbolIcon />Update court availability</Button>
-          </Flex>
+          
         </Flex>
 
         {/* Loading and Error States */}
@@ -603,7 +618,9 @@ export default function Challenge() {
                   <Flex direction="column" mt={'4'}>
                     <Text weight="bold">Next available:</Text>
                     {team.matchingAvailability && team.matchingAvailability.length > 0 ? (
-                      filterTimes(team.matchingAvailability, selectedCourt).map((slot) => {
+                      filterTimes(team.matchingAvailability, selectedCourt)
+                      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                      .map((slot) => {
                         const [year, month, day] = slot.date.split("-"); // ["2025", "03", "06"]
                         const formattedDate = slot.date ? 
                           new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric" })
