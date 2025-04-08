@@ -21,6 +21,7 @@ import {
 import { Text } from "@radix-ui/themes"
 
 const locations = [
+  { value: "California Smash" },
   { value: "Pickle Pop" },
   { value: "Santa Monica Pickleball Center" },
   { value: "Memorial Park" },
