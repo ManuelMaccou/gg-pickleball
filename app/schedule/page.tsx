@@ -40,7 +40,9 @@ export default function Schedule() {
 
       const { matches }: { matches: IMatch[] } = await response.json();
 
-      const matchesWithOpponents = matches.map((match) => {
+      const filteredMatches = matches.filter((match) => match.status !== "CANCELED");
+
+      const matchesWithOpponents = filteredMatches.map((match) => {
         const teams = match.teams as unknown as ITeam[];
       
         // Identify the user's team

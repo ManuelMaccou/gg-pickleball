@@ -11,7 +11,7 @@ const MatchSchema = new Schema<IMatch & Document>(
     challenger: { type: Schema.Types.ObjectId, ref: "Team" },
     status: {
       type: String,
-      enum: ["PENDING", "BOOKED", "COMPLETED"],
+      enum: ["PENDING", "BOOKED", "COMPLETED", "CANCELED"],
       default: "PENDING",
     },
     scores: {

@@ -57,7 +57,7 @@ export interface IMatch {
   location: Types.ObjectId | string;
   teams: Types.ObjectId[] | string[];
   challenger?: Types.ObjectId | string;
-  status?: "PENDING" | "BOOKED" | "COMPLETED";
+  status?: "PENDING" | "BOOKED" | "COMPLETED" | "CANCELED";
   scores?: IScores;
   winner?: {
     teamId: Types.ObjectId | string;

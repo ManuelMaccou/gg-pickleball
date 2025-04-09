@@ -4,7 +4,7 @@ import { useUser } from "@auth0/nextjs-auth0"
 import { useRouter, useParams, usePathname } from 'next/navigation';
 import { IAvailability, IConversation, ICourt, IMatch, ITeam, IUser } from "@/app/types/databaseTypes";
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Avatar, Flex, Text, Separator, Button, TextField, IconButton, Box, Dialog, Link } from '@radix-ui/themes';
+import { Avatar, Flex, Text, Separator, Button, TextField, IconButton, Box, Dialog, Link, VisuallyHidden } from '@radix-ui/themes';
 import { PaperPlaneIcon } from '@radix-ui/react-icons';
 import DesktopSidebar from "@/app/components/Sections/DesktopSidebar";
 import MatchRescheduleDialog from "@/components/ui/MatchRescheduleDialog";
@@ -45,18 +45,20 @@ export default function Chat() {
   const [userTeam, setUserTeam] = useState<ITeam | null>(null);
   const [opponentTeam, setOpponentTeam] = useState<ITeam | null>(null);
 
-  const [open, setOpen] = useState(false);
+  const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false);
   const [closeDialog, setCloseDialog] = useState(false);
   const [scores, setScores] = useState<{ [teamId: string]: string }>({});
   const [message, setMessage] = useState<{ type: "success" | "error" | null; text: string }>({ type: null, text: "" });
   const [pendingMatchUpdate, setPendingMatchUpdate] = useState<IMatch | null>(null);
   const [isSubmittingScore, setIsSubmittingScore] = useState<boolean>(false);
 
+  const [confirmCancelDialogOpen, setConfirmCancelDialogOpen] = useState(false);
+
 
 
   useEffect(() => {
     const memorialParkCourtId = process.env.NEXT_PUBLIC_ENV === "dev"
-      ? '67d3436c3a795dc67a9a38d7' 
+      ? '67d774425aef65139111f81f' 
       : '67d3436c3a795dc67a9a38d7';
 
     if (
@@ -402,6 +404,31 @@ export default function Chat() {
     }));
   };
 
+  const handleCancelMatch = async () => {
+    const payload = {
+      matchId,
+      status: "CANCELED"
+    }
+
+    try {
+      const response = await fetch("/api/matches", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to cancel match.");
+      }
+
+      setConfirmCancelDialogOpen(false);
+      router.push('/schedule')
+    } catch (error) {
+      console.error("Error canceling the match:", error);
+      setMessage({ type: "error", text: "An error occurred while canceling the match." });
+    }
+  }
+
   const submitScores = async () => {
     if (!userTeam || !opponentTeam || !userTeam._id || !opponentTeam) return;
 
@@ -663,9 +690,11 @@ export default function Chat() {
 
         <Dialog.Root open={isMemorialDialogOpen} onOpenChange={setIsMemorialDialogOpen}>
           <Dialog.Content className="dialog-content">
-            <Dialog.Title>Import note about Memorial Park</Dialog.Title>
-            <Dialog.Description>
-              <Flex direction={'column'} gap={'3'}>
+            <Dialog.Title>Important note about Memorial Park</Dialog.Title>
+            <VisuallyHidden>
+              <Dialog.Description>Important note about Memorial Park</Dialog.Description>
+            </VisuallyHidden>
+            <Flex direction={'column'} gap={'3'}>
                 <Text>
                   We added Memorial Park as an affordable alternative to booking your own court. 
                   Reservations for Memorial Park cannot be made through this platform, so we can&apos;t guarantee
@@ -680,13 +709,13 @@ export default function Chat() {
                   Open play for a small fee - Monday and Wednesday evenings | Weekend mornings
                 </Link>
               </Flex>
+           
               
-            
-            </Dialog.Description>
+
             <Dialog.Close>
               <Button mt={'5'} onClick={() => setIsMemorialDialogOpen(false)}>Got it</Button>
             </Dialog.Close>
-          </Dialog.Content>
+            </Dialog.Content>
          </Dialog.Root>
 
          <Dialog.Root open={memorialParkConfirm} onOpenChange={setMemorialParkConfirm}>
@@ -760,9 +789,30 @@ export default function Chat() {
             </Flex>
           </Flex>
 
-          <Flex direction={'row'} justify={{initial: 'between', md: 'center'}} align={'end'} gap={{initial: '5', md: '5'}} mt={'5'}>
-            
-            
+          <Flex direction={'row'} justify={{initial: 'between', md: 'center'}} align={'center'} gap={{initial: '5', md: '5'}} mt={'5'}>
+            <Dialog.Root open={confirmCancelDialogOpen} onOpenChange={setConfirmCancelDialogOpen}>
+              <Dialog.Trigger>
+                <Button size={'3'} variant="ghost">Cancel match</Button>
+              </Dialog.Trigger>
+              <Dialog.Content>
+              <Dialog.Title>Are you sure?</Dialog.Title>
+              <VisuallyHidden>
+                <Dialog.Description>Cancel match</Dialog.Description>
+              </VisuallyHidden>
+              <Text>
+                {match?.stripePaymentIntent && match.stripePaymentIntent.length > 0 ? `There are currently pending payments associated with this match. Please confirm with the rest of the players. Canceling the match will remove it from everyone's view.` : `Canceling the match will remove it from everyone's view.`}
+              </Text>
+              <Flex justify="between" gap="5" mt={'5'}>
+                <Button variant="outline" onClick={()=> setConfirmCancelDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleCancelMatch}>
+                  Confirm
+                </Button>
+              </Flex>
+
+              </Dialog.Content>
+            </Dialog.Root>
 
             {match && match.status === "PENDING" ? (
               <>
@@ -772,14 +822,15 @@ export default function Chat() {
               courts={courts}
               onConfirm={updateMatchDetails}
               open={isDialogOpen}
-              setOpen={setIsDialogOpen}
+              setRescheduleDialogOpen={setIsDialogOpen}
             />
-              <Button size={'4'} onClick={() => isMemorialPark ? setMemorialParkConfirm(true) : router.push(`/reserve/${matchId}`) }>
+             
+              <Button size={'3'} onClick={() => isMemorialPark ? setMemorialParkConfirm(true) : router.push(`/reserve/${matchId}`) }>
               { isMemorialPark ? "Confirm match" : "Request court" }
             </Button>
             </>
             ) : match && match.status === "BOOKED" ? (
-              <Dialog.Root open={open} onOpenChange={setOpen}>
+              <Dialog.Root open={rescheduleDialogOpen} onOpenChange={setRescheduleDialogOpen}>
               <Dialog.Trigger>
                 
                   <Button size={'4'} mt="2">
