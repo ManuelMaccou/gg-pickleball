@@ -789,10 +789,10 @@ export default function Chat() {
             </Flex>
           </Flex>
 
-          <Flex direction={'row'} justify={{initial: 'between', md: 'center'}} align={'center'} gap={{initial: '5', md: '5'}} mt={'5'}>
+          <Flex direction={'row'} justify={{initial: 'between', md: 'center'}} align={'center'} gap={'3'} mt={'5'} wrap={'wrap'}>
             <Dialog.Root open={confirmCancelDialogOpen} onOpenChange={setConfirmCancelDialogOpen}>
               <Dialog.Trigger>
-                <Button size={'3'} variant="ghost">Cancel match</Button>
+                <Button size={'2'} variant="ghost">Cancel match</Button>
               </Dialog.Trigger>
               <Dialog.Content>
               <Dialog.Title>Are you sure?</Dialog.Title>
@@ -825,7 +825,7 @@ export default function Chat() {
               setRescheduleDialogOpen={setIsDialogOpen}
             />
              
-              <Button size={'3'} onClick={() => isMemorialPark ? setMemorialParkConfirm(true) : router.push(`/reserve/${matchId}`) }>
+              <Button size={'2'} onClick={() => isMemorialPark ? setMemorialParkConfirm(true) : router.push(`/reserve/${matchId}`) }>
               { isMemorialPark ? "Confirm match" : "Request court" }
             </Button>
             </>
@@ -833,7 +833,7 @@ export default function Chat() {
               <Dialog.Root open={rescheduleDialogOpen} onOpenChange={setRescheduleDialogOpen}>
               <Dialog.Trigger>
                 
-                  <Button size={'4'} mt="2">
+                  <Button size={'2'} mt="2">
                     {match.scores?.items?.some((score) => score.submittingTeam?.toString() === userTeam?._id)
                       ? "Resubmit Scores" 
                       : "Submit Scores"} 
