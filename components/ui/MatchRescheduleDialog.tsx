@@ -13,7 +13,7 @@ interface MatchRescheduleDialogProps {
   team2Availability: IAvailability[];
   courts: ICourt[];
   open: boolean;
-  setOpen: (open: boolean) => void;
+  setRescheduleDialogOpen: (open: boolean) => void;
   onConfirm: (selectedCourt: ICourt, selectedTimeDate: { day: string;  date: string; time: string }) => void;
 }
 
@@ -23,7 +23,7 @@ const MatchRescheduleDialog: React.FC<MatchRescheduleDialogProps> = ({
   courts, 
   onConfirm,
   open,
-  setOpen
+  setRescheduleDialogOpen
 }) => {
   const [selectedCourt, setSelectedCourt] = useState<ICourt | undefined>();
   const [selectedTimeDate, setSelectedTimeDate] = useState<{ time: string; day: string; date: string } | undefined>();
@@ -236,9 +236,9 @@ const MatchRescheduleDialog: React.FC<MatchRescheduleDialogProps> = ({
 
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={setRescheduleDialogOpen}>
       <DialogTrigger asChild >
-        <Button variant="outline" size="4" onClick={() => setOpen(true)}>Edit details</Button>
+        <Button variant="outline" size="3" onClick={() => setRescheduleDialogOpen(true)}>Edit details</Button>
       </DialogTrigger>
       <DialogContent>
         <DialogTitle>Reschedule Match</DialogTitle>
