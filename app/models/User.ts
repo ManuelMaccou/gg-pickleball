@@ -1,0 +1,32 @@
+import mongoose, { Schema } from "mongoose";
+import { IUser } from "../types/databaseTypes";
+
+const AchievementSchema = new Schema(
+  {
+    count: { type: Number, default: 1 },
+    earnedAt: { type: [Date], required: true },
+  },
+  { _id: false }
+);
+
+
+const UserSchema = new Schema<IUser>(
+  {
+    name: { type: String, required: true, unique: true },
+    auth0Id: { type: String },
+    profilePicture: { type: String },
+    wins: { type: Number },
+    losses: { type: Number },
+    winStreak: { type: Number },
+    pointsWon: { types: Number },
+    matches: [{ type: Schema.Types.ObjectId, ref: "Match" }],
+    achievements: {
+      type: Map,
+      of: AchievementSchema,
+      default: {},
+    },
+  },
+  { timestamps: true }
+);
+
+export default mongoose.models.User || mongoose.model<IUser>("User", UserSchema);
