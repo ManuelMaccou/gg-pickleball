@@ -136,7 +136,7 @@ export default function Ggupr() {
       <Flex direction={'column'}>
         <Box position={'relative'} style={{alignSelf: 'center'}}>
           <Image
-            src={'/partnerLogos/PowerPlayPb.png'} 
+            src={'/partnerLogos/PowerPlay_logo.png'} 
             alt={''}
             height={96}
             width={306}
