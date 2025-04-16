@@ -31,20 +31,9 @@ export interface ServerToClientEvents {
   "player-list": (players: { userName: string; socketId: string, userId: string, }[]) => void;
   "scores-validated": (data: { success: boolean; message?: string }) => void;
   "teams-set": (data: { team1: string[]; team2: string[] }) => void;
-  "score-update": (data: ScoreUpdateData) => void;
   "save-match": (data: SaveMatchData) => void;
   "match-saved": (data: { success: boolean; message: string }) => void;
   "room-expired": (data: { matchId: string }) => void;
-}
-
-export interface ScoreUpdateData {
-  scores: Array<{
-    userName: string;
-    yourScore: number;
-    opponentsScore: number;
-    team1: string[];
-    team2: string[];
-  }>;
 }
 
 export interface SaveMatchData {

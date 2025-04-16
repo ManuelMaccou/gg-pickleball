@@ -1,7 +1,7 @@
 'use client'
 
 import { useMediaQuery } from 'react-responsive';
-import { Badge, Box, Button, Flex, Heading, Text } from "@radix-ui/themes";
+import { Box, Button, Flex, Text } from "@radix-ui/themes";
 import Image from "next/image";
 import lightGguprLogo from '../public/logos/ggupr_logo_white_transparent.png'
 import Link from 'next/link';
@@ -9,8 +9,7 @@ import { useUser as useAuth0User } from '@auth0/nextjs-auth0';
 import { useUserContext } from './contexts/UserContext';
 import { useEffect, useState } from 'react';
 import AchievementsGrid from '@/components/sections/AchievementsGrid';
-import { IAchievement, IUser } from './types/databaseTypes';
-import RewardGrid from '@/components/sections/RewardsGrid';
+import { IUser } from './types/databaseTypes';
 import RewardsGrid from '@/components/sections/RewardsGrid';
 
 export default function Ggupr() {
@@ -25,13 +24,18 @@ export default function Ggupr() {
 
   type EarnedAchievement = {
     name: string
-    count: number
+    count?: number
+    earnedAt: Date[]
+  }
+
+  type AchievementDetails = {
+    count?: number
     earnedAt: Date[]
   }
 
   const earnedAchievements: EarnedAchievement[] = Object.entries(
     dbUser?.achievements || {}
-  ).map(([name, details]: [string, any]) => ({
+  ).map(([name, details]: [string, AchievementDetails]) => ({
     name,
     count: details.count,
     earnedAt: details.earnedAt,

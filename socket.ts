@@ -1,5 +1,5 @@
 import { io } from "socket.io-client";
-import { GguprSocket, SaveMatchData, ScoreUpdateData } from "./app/types/socketTypes";
+import { GguprSocket, SaveMatchData } from "./app/types/socketTypes";
 import { updateUserAndAchievements } from "./utils/achievementFunctions/updateUserAndAchievements";
 
 let socket: GguprSocket | null = null;
@@ -126,7 +126,6 @@ const cleanupSocketListeners = () => {
     socket.off("player-list");
     socket.off("scores-validated");
     socket.off("teams-set");
-    socket.off("score-update");
     socket.off("save-match");
     socket.off("match-saved");
   }
@@ -139,12 +138,6 @@ export const subscribeToPlayerJoined = (callback: (players: Player[]) => void) =
     console.log("Updated player list received from backend:", updatedPlayers);
     callback(updatedPlayers);  // Properly passing updated players to the callback
   });
-};
-
-export const subscribeToScoreUpdate = (callback: (data: ScoreUpdateData) => void) => {
-  if (!socket) return;
-  socket.off("score-update");
-  socket.on("score-update", (data) => callback(data));
 };
 
 export const subscribeToScoreValidation = (callback: (data: { success: boolean; message?: string }) => void) => {

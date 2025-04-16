@@ -37,8 +37,8 @@ function pickle(user: IUser, match: MatchData): AchievementEarned[] {
   const isOnTeam1 = match.team1Ids.includes(userIdStr);
   const isOnTeam2 = match.team2Ids.includes(userIdStr);
 
-  const shutoutByTeam1 = match.team1Score === 11 && match.team2Score === 0;
-  const shutoutByTeam2 = match.team2Score === 11 && match.team1Score === 0;
+  const shutoutByTeam1 = match.team1Score && match.team2Score === 0;
+  const shutoutByTeam2 = match.team2Score && match.team1Score === 0;
 
   if ((isOnTeam1 && shutoutByTeam1) || (isOnTeam2 && shutoutByTeam2)) {
     return [{ key: 'pickle', repeatable: true }];
@@ -212,7 +212,6 @@ export async function updateUserAndAchievements(
           if (!alreadyHas) {
             if (!updateOps.$set) updateOps.$set = {};
             updateOps.$set[baseField] = {
-              count: 1,
               earnedAt: [new Date()],
             };
           }

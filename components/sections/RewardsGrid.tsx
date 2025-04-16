@@ -11,7 +11,7 @@ type Props = {
   maxCount?: number
 }
 
-export default function RewardGrid({ earnedAchievements, variant = 'full', maxCount }: Props) {
+export default function RewardGrid({ earnedAchievements, maxCount }: Props) {
   const [allRewards, setAllRewards] = useState<IReward[]>([])
 
   useEffect(() => {

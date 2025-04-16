@@ -3,7 +3,7 @@ import { IUser } from "../types/databaseTypes";
 
 const AchievementSchema = new Schema(
   {
-    count: { type: Number, default: 1 },
+    count: { type: Number },
     earnedAt: { type: [Date], required: true },
   },
   { _id: false }

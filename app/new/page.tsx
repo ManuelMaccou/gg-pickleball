@@ -5,12 +5,13 @@ import { v4 as uuidv4 } from 'uuid';
 import { Badge, Button, Flex, Heading, Spinner, Text, TextField } from "@radix-ui/themes";
 import Image from "next/image";
 import lightGguprLogo from '../../public/logos/ggupr_logo_white_transparent.png'
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import QRCodeGenerator from '../components/QrCodeGenerator';
 import Cookies from 'js-cookie';
 import { useRouter, useSearchParams } from "next/navigation";
 import { useUser } from '@auth0/nextjs-auth0';
 import LocationSearch from '../components/LocationSearch';
+import { useUserContext } from '../contexts/UserContext';
 
 export default function NewMatch() {
   const isMobile = useMediaQuery({ maxWidth: 767 });
@@ -19,6 +20,7 @@ export default function NewMatch() {
   const searchParams = useSearchParams()
 
   const { user, isLoading: authIsLoading } = useUser();
+    const { setUser } = useUserContext()
   const locationParam = searchParams.get('location')
 
   const [isAuthenticatedUser, setIsAuthenticatedUser] = useState<boolean | null>(null);
@@ -30,6 +32,7 @@ export default function NewMatch() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [tempName, setTempName] = useState<string>('');
   const [userActive, setUserActive] = useState<boolean>(false);
+  const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -54,6 +57,11 @@ export default function NewMatch() {
 
       if (response.ok) {
         Cookies.set('userName', tempName, { sameSite: 'strict' });
+        setUser({
+          id: data.user._id,
+          name: tempName,
+          isGuest: true,
+        })
         setUserActive(true);
         setError(null);
       } else {
@@ -66,10 +74,6 @@ export default function NewMatch() {
       setSubmittingName(false);
     }
   };
-
-  useEffect(() => {
-    console.log('selected location:', selectedLocation)
-  }, [selectedLocation])
 
   // Create match ID on page load
   useEffect(() => {
@@ -180,6 +184,16 @@ export default function NewMatch() {
 
   }, [authIsLoading, isAuthenticatedUser, user])
 
+ 
+const handleContinue = () => {
+  if (!selectedLocation) return
+
+  startTransition(() => {
+    const url = `/match/${matchId}?location=${encodeURIComponent(selectedLocation)}`
+    router.push(url)
+  })
+}
+
   if (!isMobile) {
     return (
       <Flex direction={'column'} minHeight={'100vh'} p={'4'} justify={'center'} gap={'7'} pb={'9'}>
@@ -251,14 +265,14 @@ export default function NewMatch() {
           )}
             <Flex direction={'column'} mt={'9'}>
               <Button size={'3'}
-                disabled={!selectedLocation}
-                onClick={() => router.push(`/match/${matchId}${selectedLocation ? `?location=${selectedLocation}` : ""}`)}
+                disabled={!selectedLocation || isPending}
+                loading={isPending}
+                onClick={handleContinue}
               >
-                Continue
+               Continue
               </Button>
             </Flex>
             
-    
           </Flex>
           ) : !userActive && !isLoading ? (
             <Flex direction={'column'} gap={'4'}>

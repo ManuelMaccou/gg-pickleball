@@ -7,10 +7,18 @@ import lightGguprLogo from '../../../public/logos/ggupr_logo_white_transparent.p
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Cookies from 'js-cookie';
 import { useParams, usePathname, useSearchParams } from 'next/navigation';
-import { disconnectSocket, getSocket, handleSaveMatch, initiateSocketConnection, subscribeToMatchSaved, subscribeToPlayerJoined, subscribeToSaveMatch, subscribeToScoreUpdate, subscribeToScoreValidation } from '../../../socket';
+import { 
+  disconnectSocket,
+  getSocket,
+  handleSaveMatch,
+  initiateSocketConnection,
+  subscribeToMatchSaved,
+  subscribeToPlayerJoined,
+  subscribeToSaveMatch,
+  subscribeToScoreValidation
+} from '../../../socket';
 import { debounce } from 'lodash';
 import GuestDialog from "@/app/components/GuestDialog";
-import { ScoreUpdateData } from "@/app/types/socketTypes";
 import { useRouter } from "next/navigation";
 import QrCodeDialog from "@/app/components/QrCodeDialog";
 import { useMediaQuery } from "react-responsive";
@@ -35,9 +43,7 @@ export default function GguprMatchPage() {
   const pathname = usePathname();
   const searchParams = useSearchParams()
 
-  const [isCheckingUser, setIsCheckingUser] = useState<boolean | null>(null);
-  const [isGuestUser, setIsGuestUser] = useState<boolean | null>(null);
-  const [isAuthenticatedUser, setIsAuthenticatedUser] = useState<boolean | null>(null);
+  const [isCheckingUser, setIsCheckingUser] = useState<boolean>(true);
 
   const [tempName, setTempName] = useState<string>('');
   const [submittingName, setSubmittingName] = useState<boolean>(false);
@@ -101,7 +107,6 @@ export default function GguprMatchPage() {
         setPlayers(prevPlayers => {
           const playerExists = prevPlayers.some(player => player.userName === tempName);
           if (playerExists) {
-            console.log(`Player ${tempName} already exists. Not adding again.`);
             return prevPlayers;
           }
           return [...prevPlayers, newPlayer];
@@ -126,7 +131,6 @@ export default function GguprMatchPage() {
     const socket = getSocket();
 
     if (socket && socket.connected && matchId && user?.name) {
-      console.log("yourScore type/value:", typeof yourScore, yourScore);
 
       socket.emit("submit-score", { 
         matchId, 
@@ -163,14 +167,13 @@ export default function GguprMatchPage() {
       setPlayers(prevPlayers => {
         const playerExists = prevPlayers.some(player => player.userName === user.name);
         if (playerExists) {
-          console.log(`Player ${user.name} already exists. Not adding again.`);
           return prevPlayers;
         }
         return [...prevPlayers, newPlayer];
       });
     }
     setIsCheckingUser(false)
-  },[isGuestUser, user?.name])
+  },[user])
 
   // User is authenticated but may still have a cookie set. If they do, update their record
   // with the auth0Id and delete cookie. If they don't have a cookie, set the player 
@@ -210,14 +213,12 @@ export default function GguprMatchPage() {
                 setPlayers(prevPlayers => {
                   const playerExists = prevPlayers.some(player => player.userName === storedName);
                   if (playerExists) {
-                    console.log(`Player ${storedName} already exists. Not adding again.`);
                     return prevPlayers;
                   }
                   return [...prevPlayers, newPlayer];
                 });
 
                 Cookies.remove('userName')
-                console.log("User updated, player set, and cookie removed", updatedUser);
               } else {
                 console.warn("No user found for the stored name.");
               }
@@ -231,7 +232,6 @@ export default function GguprMatchPage() {
           setPlayers(prevPlayers => {
             const playerExists = prevPlayers.some(player => player.userName === user.name);
             if (playerExists) {
-              console.log(`Player ${user.name} already exists. Not adding again.`);
               return prevPlayers;
             }
             return [...prevPlayers, newPlayer];
@@ -239,12 +239,10 @@ export default function GguprMatchPage() {
         }
     }
     setIsCheckingUser(false)
-  }, [authIsLoading, isAuthenticatedUser, auth0User, user])
+  }, [authIsLoading, auth0User, user, setUser])
 
   // Initiating socket connection
-  useEffect(() => {
-    console.log("Updated players:", players);
-  
+  useEffect(() => {  
     if (user?.name && matchId && players.length > 0) {
       initiateSocketConnection(matchId, user.name, players);
     }
@@ -253,7 +251,6 @@ export default function GguprMatchPage() {
   // Tracked joined players, score updates, and score validation
   useEffect(() => {
     if (user?.name && matchId && players.length > 0) {
-      console.log("Setting up socket listeners via helper functions...");
   
       // Subscribe to player joined events
       subscribeToPlayerJoined((newPlayers: Player[]) => {
@@ -261,38 +258,26 @@ export default function GguprMatchPage() {
         setIsWaiting(newPlayers.length < 4);
       });
   
-      // Subscribe to score updates - Fires whenever server sends a score update
-      subscribeToScoreUpdate((data: ScoreUpdateData) => {
-        console.log("✅ Scores updated:", data);
-      });
-  
       // Subscribe to score validation results - Fires when validation completes
       subscribeToScoreValidation((data) => {
-        console.log("📥 Received 'scores-validated' event:", data);
   
         if (data.success) {
-          console.log("✅ Scores validated successfully!");
           setScoreError(null);
           setScoreMatch("Scores successfully validated!");
           setIsWaiting(false); 
         } else {
-          console.log("❌ Score mismatch detected. Message:", data.message);
           setScoreError(data.message ?? "An unknown error occurred.");
           setScoreMatch(null);
           setIsWaiting(false); 
         }
         setWaitingForScores(false); 
       });
-  
-    } else {
-      console.warn(`⚠️ Required states (user.name: ${user?.name}, matchId: ${matchId}, players: ${players}) are not properly set.`);
     }
   }, [user?.name, matchId, players]);
   
   // Saving the match and broadcasting success/error message
   useEffect(() => {
     if (user?.name && matchId && players.length > 0) {
-      console.log("📡 Setting up 'save-match' and 'match-saved' listeners via helpers...");
   
       subscribeToSaveMatch(async (data) => {
         try {
@@ -329,9 +314,7 @@ export default function GguprMatchPage() {
         }
       });
   
-    } else {
-      console.warn("⚠️ Required states (user.name, matchId, players) are not properly set.");
-    }
+    } 
   }, [user?.name, matchId, players, authIsLoading, auth0User]);
 
   // Leave rooms when they leave the page
@@ -339,7 +322,6 @@ export default function GguprMatchPage() {
     // Cleanup logic when the component unmounts or the pathname changes
     return () => {
       if (!pathname.startsWith('/matchId')) { // Adjust based on your route structure
-        console.log("Navigating away from the matchId page. Disconnecting socket...");
         disconnectSocket();
       }
     };
@@ -392,7 +374,7 @@ export default function GguprMatchPage() {
           </Flex>
 
 
-        {!isCheckingUser ? (
+        {!isCheckingUser && !user ? (
           <Flex direction={'column'} gap={'4'} mt={'4'}>
             <TextField.Root 
               size={'3'}
@@ -523,7 +505,6 @@ export default function GguprMatchPage() {
               
               if (socket && socket.connected && matchId) {
                 socket.emit("set-teams", { matchId, team1: newTeam1, team2: newTeam2 });
-                console.log("Emitting set-teams event with:", { matchId, team1: newTeam1, team2: newTeam2 });
               } else {
                 console.error("Socket is not connected or does not exist.");
               }

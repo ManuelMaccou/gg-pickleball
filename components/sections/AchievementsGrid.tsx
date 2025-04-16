@@ -1,12 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Flex, Text } from '@radix-ui/themes'
+import { Badge, Flex } from '@radix-ui/themes'
 import Image from 'next/image'
 
 type EarnedAchievement = {
   name: string
-  count: number
+  count?: number
   earnedAt: Date[]
 }
 
@@ -59,12 +59,13 @@ export default function AchievementsGrid({
       {displayedAchievements.map((achievement) => {
         const isEarned = userHasAchievement(achievement.name)
         const earnedData = earnedAchievements.find((a) => a.name === achievement.name)
-        const earnedCount = earnedData?.count || 0
+        const earnedCount = earnedData?.count
 
         return (
           <div
             key={achievement._id}
             style={{
+              position: 'relative',
               width: '25%',
               textAlign: 'center',
               transition: 'filter 0.3s ease',
@@ -72,11 +73,13 @@ export default function AchievementsGrid({
           >
             <div
               style={{
+               
                 filter: isEarned ? 'none' : 'grayscale(100%) brightness(0.6)',
                 borderRadius: '12px',
                 overflow: 'hidden',
               }}
             >
+              
               <Image
                 src={achievement.badge}
                 alt={achievement.friendlyName}
@@ -89,6 +92,24 @@ export default function AchievementsGrid({
                 }}
               />
             </div>
+            {earnedCount && (
+                <Badge 
+                size={'3'}
+                radius='full'
+                color='red'
+                variant='solid'
+                style={{
+                  position: 'absolute',
+                  top: '-8px',
+                  right: '-8px',
+                  padding: '4px 8px',
+                  fontWeight: 'bold',
+                  zIndex: 1,
+                }}
+              >
+                {earnedCount}
+              </Badge>
+              )}
           </div>
         )
       })}
