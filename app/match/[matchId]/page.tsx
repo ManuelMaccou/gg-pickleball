@@ -1,19 +1,20 @@
 'use client'
 
-import { useUser } from "@auth0/nextjs-auth0"
+import { useUser as useAuth0User } from "@auth0/nextjs-auth0"
 import { Badge, Box, Button, Dialog, Flex, RadioCards, Separator, Spinner, Text, TextField } from "@radix-ui/themes";
 import Image from "next/image";
-import lightGguprLogo from '../../../public/ggupr_logo_white_transparent.png'
+import lightGguprLogo from '../../../public/logos/ggupr_logo_white_transparent.png'
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Cookies from 'js-cookie';
 import { useParams, usePathname, useSearchParams } from 'next/navigation';
-import { disconnectSocket, getSocket, handleSaveMatch, initiateSocketConnection, subscribeToMatchSaved, subscribeToPlayerJoined, subscribeToSaveMatch, subscribeToScoreUpdate, subscribeToScoreValidation } from '../../socket';
+import { disconnectSocket, getSocket, handleSaveMatch, initiateSocketConnection, subscribeToMatchSaved, subscribeToPlayerJoined, subscribeToSaveMatch, subscribeToScoreUpdate, subscribeToScoreValidation } from '../../../socket';
 import { debounce } from 'lodash';
-import GuestDialog from "../components/GuestDialog";
+import GuestDialog from "@/app/components/GuestDialog";
 import { ScoreUpdateData } from "@/app/types/socketTypes";
 import { useRouter } from "next/navigation";
-import QrCodeDialog from "../components/QrCodeDialog";
+import QrCodeDialog from "@/app/components/QrCodeDialog";
 import { useMediaQuery } from "react-responsive";
+import { useUserContext } from "@/app/contexts/UserContext";
 
 
 type Player = {
@@ -27,7 +28,9 @@ export default function GguprMatchPage() {
   
   const bottomRef = useRef<HTMLDivElement | null>(null);
   
-  const { user, isLoading: authIsLoading } = useUser();
+  const { user: auth0User, isLoading: authIsLoading } = useAuth0User();
+  const { user, setUser } = useUserContext()
+  
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams()
@@ -38,8 +41,6 @@ export default function GguprMatchPage() {
 
   const [tempName, setTempName] = useState<string>('');
   const [submittingName, setSubmittingName] = useState<boolean>(false);
-
-  const [userName, setUserName] = useState<string | null>(null);
 
   const [players, setPlayers] = useState<Player[]>([]);
   const [teammate, setTeammate] = useState<string | null>(null);
@@ -62,6 +63,8 @@ export default function GguprMatchPage() {
   const matchId = params.matchId;
   const locationParam = searchParams.get('location')
 
+
+
   useEffect(() => {
     if (locationParam) {
       setSelectedLocation(locationParam)
@@ -73,7 +76,7 @@ export default function GguprMatchPage() {
     if (!tempName.trim()) return;
 
     try {
-      const gguprResponse = await fetch('/api/ggupr/user', {
+      const gguprResponse = await fetch('/api/user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: tempName })
@@ -83,11 +86,13 @@ export default function GguprMatchPage() {
 
       if (gguprResponse.ok) {
         Cookies.set('userName', tempName, { sameSite: 'strict' });
-        
-        if(!userName) {
-          setUserName(tempName);
-        }
-
+ 
+        setUser({
+          id: gguprData.user._id,
+          name: tempName,
+          isGuest: true,
+        })
+      
         setError(null);
 
         const userId = gguprData.user._id;
@@ -120,11 +125,12 @@ export default function GguprMatchPage() {
   const handleSubmitScores = useCallback(() => {
     const socket = getSocket();
 
-    if (socket && socket.connected && matchId && userName) {
+    if (socket && socket.connected && matchId && user?.name) {
+      console.log("yourScore type/value:", typeof yourScore, yourScore);
 
       socket.emit("submit-score", { 
         matchId, 
-        userName, 
+        userName: user.name, 
         team1, 
         team2, 
         yourScore, 
@@ -132,215 +138,121 @@ export default function GguprMatchPage() {
         location: selectedLocation
       });
     }
-  }, [matchId, userName, team1, team2, yourScore, opponentsScore, selectedLocation]); 
+  }, [matchId, user?.name, team1, team2, yourScore, opponentsScore, selectedLocation]); 
 
   const debouncedSubmitScores = useMemo(() => debounce(handleSubmitScores, 2000), [handleSubmitScores]);
 
   // Related to submitting the scores
   useEffect(() => {
-    if (yourScore && opponentsScore && team1.length === 2 && team2.length === 2) {
+    if (
+      yourScore != null &&
+      opponentsScore != null &&
+      team1.length === 2 &&
+      team2.length === 2
+    ) {
       debouncedSubmitScores();
     }
     return () => debouncedSubmitScores.cancel();
-  }, [yourScore, opponentsScore, team1, team2, debouncedSubmitScores, matchId, userName]);
+  }, [yourScore, opponentsScore, team1, team2, debouncedSubmitScores, matchId, user?.name]);
 
-  // Determining guest or authenticated user
+  // Guest user
   useEffect(() => {
-    setIsCheckingUser(true)
-    if (authIsLoading) return;
+    if (user && user?.isGuest) {
+      const newPlayer = { userName: user.name, userId: user.id, socketId: '' };
 
-    if (!user) {
-      setIsGuestUser(true)
-      setIsAuthenticatedUser(false)
-    } else {
-      setIsAuthenticatedUser(true)
-      setIsGuestUser(false)
+      setPlayers(prevPlayers => {
+        const playerExists = prevPlayers.some(player => player.userName === user.name);
+        if (playerExists) {
+          console.log(`Player ${user.name} already exists. Not adding again.`);
+          return prevPlayers;
+        }
+        return [...prevPlayers, newPlayer];
+      });
     }
-  }, [authIsLoading, user])
+    setIsCheckingUser(false)
+  },[isGuestUser, user?.name])
 
-    // If guest user, find player form cookie
-    useEffect(() => {
-      if (isGuestUser) {
+  // User is authenticated but may still have a cookie set. If they do, update their record
+  // with the auth0Id and delete cookie. If they don't have a cookie, set the player 
+  // with the existing user context
+  useEffect(() => {
+    if (!authIsLoading && auth0User && user && !user.isGuest) {
         const storedName = Cookies.get('userName');
         if (storedName) {
-          if (!userName) {
-            console.log("Loading user from cookie:", storedName);
-            setUserName(storedName);
-        
-            const fetchUser = async () => {
-              try {
-                const response = await fetch(`/api/ggupr/user?name=${encodeURIComponent(storedName)}`);
-        
-                if (!response.ok) {
-                  throw new Error('Failed to fetch user from cookie.');
-                }
-        
-                const { user } = await response.json();
-                if (user) {
-                  const newPlayer = { userName: storedName, userId: user._id, socketId: '' };
-                  setPlayers(prevPlayers => {
-                    const playerExists = prevPlayers.some(player => player.userName === storedName);
-                    if (playerExists) {
-                      console.log(`Player ${storedName} already exists. Not adding again.`);
-                      return prevPlayers;
-                    }
-                    return [...prevPlayers, newPlayer];
-                  });
+          const addAuth0IdToGguprUser = async () => {
+            try {
 
-                  console.log("User loaded from cookie and added to players state:", newPlayer);
-                } else {
-                  console.warn("No user found for the stored name.");
-                }
-              } catch (error) {
-                console.error("Error fetching user from cookie:", error);
+              const updatedUserResponse = await fetch(`/api/user`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  findBy: 'userName',
+                  upsertValue: true,
+                  userName: storedName,
+                  auth0Id: auth0User.sub
+                })
+              });
+      
+              if (!updatedUserResponse.ok) {
+                throw new Error('Failed to create user from guest account.');
               }
-            };
-            fetchUser();
-          }
-        }
-      }
-      setIsCheckingUser(false)
-    },[isGuestUser, userName])
+      
+              const updatedUser = await updatedUserResponse.json();
+              if (updatedUser) {
+                setUser({
+                  id: updatedUser._id,
+                  name: storedName,
+                  isGuest: false,
+                })
 
-    // If authenticated user, find data from Auth0 ID
-    useEffect(() => {
-      if (isAuthenticatedUser) {
-        if (!authIsLoading && user) {
-          const storedName = Cookies.get('userName');
-          if (storedName) {
-            const addAuth0IdToGguprUser = async () => {
-              try {
-
-                const updatedUserResponse = await fetch(`/api/ggupr/user`, {
-                  method: 'PATCH',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    findBy: 'userName',
-                    upsertValue: true,
-                    userName: storedName,
-                    auth0Id: user.sub
-                  })
-                });
-        
-                if (!updatedUserResponse.ok) {
-                  throw new Error('Failed to create user from guest account.');
-                }
-        
-                const updatedUser = await updatedUserResponse.json();
-               
-                if (updatedUser) {
-                  setUserName(updatedUser.name);
-
-                  const newPlayer = { userName: storedName, userId: updatedUser._id, socketId: '' };
-                  setPlayers(prevPlayers => {
-                    const playerExists = prevPlayers.some(player => player.userName === storedName);
-                    if (playerExists) {
-                      console.log(`Player ${storedName} already exists. Not adding again.`);
-                      return prevPlayers;
-                    }
-                    return [...prevPlayers, newPlayer];
-                  });
-
-                  Cookies.remove('userName')
-                  console.log("User updated, player set, and cookie removed", updatedUser);
-                } else {
-                  console.warn("No user found for the stored name.");
-                }
-              } catch (error) {
-                console.error("Error fetching user from cookie:", error);
-              }
-            };
-            addAuth0IdToGguprUser()
-
-          } else {
-            const fetchGguprUserByAuth0Id = async () => {
-             
-              try {
-                const response = await fetch(`/api/ggupr/user?auth0Id=${user.sub}`);
-        
-                if (!response.ok) {  
-                  if (response.status === 404) {
-                    const username = user?.email || '';
-
-                    const gguprResponse = await fetch('/api/ggupr/user', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ 
-                        name: username,
-                        auth0Id: user?.sub
-                      })
-                    });
-
-                    if (!gguprResponse.ok) {
-                      const errorData = await gguprResponse.json().catch(() => null);
-                      const message = errorData?.message || `User creation failed with status ${gguprResponse.status}`;
-                      throw new Error(message);
-                    }
-
-                    const { user: gguprUser } = await gguprResponse.json()
-                    setUserName(username);
-
-                    const newPlayer = { userName: gguprUser.name, userId: gguprUser._id, socketId: '' };
-                    setPlayers(prevPlayers => {
-                      const playerExists = prevPlayers.some(player => player.userName === gguprUser.name);
-                      if (playerExists) {
-                        console.log(`Player ${gguprUser.name} already exists. Not adding again.`);
-                        return prevPlayers;
-                      }
-                      return [...prevPlayers, newPlayer];
-                    });
-                    
-                  } else {
-                    const errorData = await response.json().catch(() => null);
-                    const message = errorData?.message || `User lookup failed with status ${response.status}`;
-                    throw new Error(message);
+                const newPlayer = { userName: storedName, userId: updatedUser._id, socketId: '' };
+                
+                setPlayers(prevPlayers => {
+                  const playerExists = prevPlayers.some(player => player.userName === storedName);
+                  if (playerExists) {
+                    console.log(`Player ${storedName} already exists. Not adding again.`);
+                    return prevPlayers;
                   }
-                } else {
+                  return [...prevPlayers, newPlayer];
+                });
 
-                  const { user: currentGguprUser } = await response.json();
-        
-                  setUserName(currentGguprUser.name)
-
-                  const newPlayer = { userName: currentGguprUser.name, userId: currentGguprUser._id, socketId: '' };
-                  setPlayers(prevPlayers => {
-                    const playerExists = prevPlayers.some(player => player.userName === currentGguprUser.name);
-                    if (playerExists) {
-                      console.log(`Player ${currentGguprUser.name} already exists. Not adding again.`);
-                      return prevPlayers;
-                    }
-                    return [...prevPlayers, newPlayer];
-                  });
-
-
-                  console.log("User updated and player set", currentGguprUser);
-                
-
-                }
-        
-                
-              } catch (error) {
-                console.error("Error fetching user from cookie:", error);
+                Cookies.remove('userName')
+                console.log("User updated, player set, and cookie removed", updatedUser);
+              } else {
+                console.warn("No user found for the stored name.");
               }
-            };
-            fetchGguprUserByAuth0Id()
-          }
+            } catch (error) {
+              console.error("Error fetching user from cookie:", error);
+            }
+          };
+          addAuth0IdToGguprUser()
+        } else {
+          const newPlayer = { userName: user.name, userId: user.id, socketId: '' };
+          setPlayers(prevPlayers => {
+            const playerExists = prevPlayers.some(player => player.userName === user.name);
+            if (playerExists) {
+              console.log(`Player ${user.name} already exists. Not adding again.`);
+              return prevPlayers;
+            }
+            return [...prevPlayers, newPlayer];
+          });
         }
-      }
-      setIsCheckingUser(false)
-    }, [authIsLoading, isAuthenticatedUser, user])
+    }
+    setIsCheckingUser(false)
+  }, [authIsLoading, isAuthenticatedUser, auth0User, user])
 
   // Initiating socket connection
   useEffect(() => {
     console.log("Updated players:", players);
   
-    if (userName && matchId && players.length > 0) {
-      initiateSocketConnection(matchId, userName, players);
+    if (user?.name && matchId && players.length > 0) {
+      initiateSocketConnection(matchId, user.name, players);
     }
-  }, [players, userName, matchId]);
+  }, [players, user?.name, matchId]);
 
   // Tracked joined players, score updates, and score validation
   useEffect(() => {
-    if (userName && matchId && players.length > 0) {
+    if (user?.name && matchId && players.length > 0) {
       console.log("Setting up socket listeners via helper functions...");
   
       // Subscribe to player joined events
@@ -373,13 +285,13 @@ export default function GguprMatchPage() {
       });
   
     } else {
-      console.warn(`⚠️ Required states (userName: ${userName}, matchId: ${matchId}, players: ${players}) are not properly set.`);
+      console.warn(`⚠️ Required states (user.name: ${user?.name}, matchId: ${matchId}, players: ${players}) are not properly set.`);
     }
-  }, [userName, matchId, players]);
+  }, [user?.name, matchId, players]);
   
   // Saving the match and broadcasting success/error message
   useEffect(() => {
-    if (userName && matchId && players.length > 0) {
+    if (user?.name && matchId && players.length > 0) {
       console.log("📡 Setting up 'save-match' and 'match-saved' listeners via helpers...");
   
       subscribeToSaveMatch(async (data) => {
@@ -404,7 +316,7 @@ export default function GguprMatchPage() {
           setShowLogNewMatch(true);
           setSaveErrorMessage(null);
   
-          if (!authIsLoading && !user) {
+          if (!authIsLoading && !auth0User) {
             setShowDialog(true);
           }
 
@@ -418,9 +330,9 @@ export default function GguprMatchPage() {
       });
   
     } else {
-      console.warn("⚠️ Required states (userName, matchId, players) are not properly set.");
+      console.warn("⚠️ Required states (user.name, matchId, players) are not properly set.");
     }
-  }, [userName, matchId, players, authIsLoading, user]);
+  }, [user?.name, matchId, players, authIsLoading, auth0User]);
 
   // Leave rooms when they leave the page
   useEffect(() => {
@@ -460,7 +372,7 @@ export default function GguprMatchPage() {
   }
 
 
-  if (userName === null) {
+  if (!user) {
     return (
       <Flex direction={'column'} minHeight={'100dvh'} p={'4'} justify={'center'} gap={'7'}>
         <Flex direction={'column'} position={'relative'} align={'center'} mt={'-9'} p={'7'}>
@@ -493,8 +405,6 @@ export default function GguprMatchPage() {
             <Button size={'3'} mb={'4'} disabled={submittingName || !tempName} loading={submittingName} onClick={handleNameSubmit}>
               Continue (quick)
             </Button>
-            <Text align={'center'}>----- or -----</Text>
-            <Button size={'3'} variant='outline' onClick={() => router.push(`/auth/login?screen_hint=signup&returnTo=${pathname}`)}>Create account / Log in</Button>
             {error && (
                  <Badge size={'3'} color='red'>
                  
@@ -503,6 +413,9 @@ export default function GguprMatchPage() {
                   
                  </Badge>
               )}
+            <Text align={'center'}>----- or -----</Text>
+            <Button size={'3'} variant='outline' onClick={() => router.push(`/auth/login?screen_hint=signup&returnTo=${pathname}`)}>Create account / Log in</Button>
+            
           </Flex>
 
         ) : (
@@ -530,10 +443,10 @@ export default function GguprMatchPage() {
         {!authIsLoading && (
           <Flex direction={'column'} justify={'center'} gap={'4'}>
             <Text size={'3'} weight={'bold'} align={'right'}>
-              {userName ? (
-                user 
-                  ? (String(userName).includes('@') ? String(userName).split('@')[0] : userName)
-                  : `${String(userName).includes('@') ? String(userName).split('@')[0] : userName} (guest)`
+              {user.name ? (
+                auth0User 
+                  ? (String(user.name).includes('@') ? String(user.name).split('@')[0] : user.name)
+                  : `${String(user.name).includes('@') ? String(user.name).split('@')[0] : user.name} (guest)`
               ) : ''}
             </Text>
 
@@ -561,7 +474,7 @@ export default function GguprMatchPage() {
             <Dialog.Close>
               <Flex direction={'row'} align={'stretch'} justify={'between'} mt={'5'}>
                 <Button size={'3'} variant="outline">Go back</Button>
-                <Button size={'3'} onClick={() => router.push("/ggupr/new")}>Yes</Button>
+                <Button size={'3'} onClick={() => router.push("/")}>Yes</Button>
               </Flex>
             </Dialog.Close>
            
@@ -578,7 +491,10 @@ export default function GguprMatchPage() {
       
 
       <Flex direction={'column'} mt={isWaiting ? '0' : '4'}>
-        <Text weight={'bold'} size={'3'} mb={'5'}>Select your partner</Text>
+        {players.length >=2 && (
+           <Text weight={'bold'} size={'3'} mb={'5'}>Select your partner</Text>
+        )}
+       
         <Box maxWidth="600px">
           <RadioCards.Root
             value={teammate || ""}
@@ -586,13 +502,13 @@ export default function GguprMatchPage() {
               setTeammate(value);
 
               // Ensure currentPlayer is not null before proceeding
-              if (!userName || !value) {
+              if (!user.name || !value) {
                 console.error("UserName or selected teammate is null");
                 return;
               }
 
               const selectedTeammate = value;
-              const currentPlayer = userName;
+              const currentPlayer = user.name;
 
               const newTeam1: string[] = [currentPlayer, selectedTeammate];
               const newTeam2: string[] = players
@@ -615,7 +531,7 @@ export default function GguprMatchPage() {
             columns={{ initial: "1", sm: "2" }}
           >
             {players
-            .filter(player => player.userName !== userName)
+            .filter(player => player.userName !== user.name)
             .map((player) => (
               <RadioCards.Item key={player.socketId} value={player.userName}>
                 <Flex direction="column" width="100%">
@@ -693,8 +609,7 @@ export default function GguprMatchPage() {
               </Flex>
               {showLogNewMatch && (
               <Flex direction={'column'} gap={'4'} ref={bottomRef}>
-                <Button size={'3'} onClick={() => router.push('/ggupr/new')}>Log new match</Button>
-                <Text size={'3'}>View ranking is coming soon. Keep logging your matches.</Text>
+                <Button size={'3'} onClick={() => router.push('/new')}>Log new match</Button>
               </Flex>
               )}
               

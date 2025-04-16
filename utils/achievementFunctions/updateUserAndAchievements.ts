@@ -1,6 +1,9 @@
+'use server'
+
 import { Types, UpdateQuery } from 'mongoose';
 import User from '@/app/models/User';
 import { IUser } from '@/app/types/databaseTypes';
+import connectToDatabase from '@/lib/mongodb';
 
 interface MatchData {
   team1Ids: string[];
@@ -19,7 +22,7 @@ type AchievementEarned = {
 
 type AchievementCheckFn = (user: IUser, match: MatchData) => AchievementEarned[];
 
-export function firstWin(user: IUser, match: MatchData): AchievementEarned[] {
+function firstWin(user: IUser, match: MatchData): AchievementEarned[] {
   // Use the string representation of the ObjectId for reliable comparison.
   const userIdStr = user._id.toString();
   if (match.winners.includes(userIdStr) && (user.wins === 0 || user.wins == null )) {
@@ -28,7 +31,7 @@ export function firstWin(user: IUser, match: MatchData): AchievementEarned[] {
   return [];
 }
 
-export function pickle(user: IUser, match: MatchData): AchievementEarned[] {
+function pickle(user: IUser, match: MatchData): AchievementEarned[] {
   const userIdStr = user._id.toString();
 
   const isOnTeam1 = match.team1Ids.includes(userIdStr);
@@ -44,13 +47,13 @@ export function pickle(user: IUser, match: MatchData): AchievementEarned[] {
   return [];
 }
 
-export function winStreak(user: IUser, match: MatchData): AchievementEarned[] {
+function winStreak(user: IUser, match: MatchData): AchievementEarned[] {
   
   const userIdStr = user._id.toString();
   const earned: AchievementEarned[] = [];
 
   if (match.winners.includes(userIdStr)) {
-    if (user.winStreak === 1) earned.push({ key: 'back-to-back-wins', repeatable: true });
+    if (user.winStreak === 1) earned.push({ key: '2-win-streak', repeatable: true });
     else if (user.winStreak === 4) earned.push({ key: '5-win-streak', repeatable: true });
     else if (user.winStreak === 9) earned.push({ key: '10-win-streak', repeatable: true });
   }
@@ -58,22 +61,22 @@ export function winStreak(user: IUser, match: MatchData): AchievementEarned[] {
   return earned;
 }
 
-export function matchesPlayed(user: IUser): AchievementEarned[] {
-  if (user.matches?.length === 5) {
+function matchesPlayed(user: IUser): AchievementEarned[] {
+  if (user.matches?.length === 4) {
     return [{key: '5-matches-played', repeatable: false }]
-  } else if (user.matches?.length === 10) {
+  } else if (user.matches?.length === 9) {
     return [{key: '10-matches-played', repeatable: false }]
-  } else if (user.matches?.length === 20) {
+  } else if (user.matches?.length === 19) {
     return [{key: '20-matches-played', repeatable: false }]
-  } else if (user.matches?.length === 50) {
+  } else if (user.matches?.length === 49) {
     return [{key: '50-matches-played', repeatable: false }]
-  } else if (user.matches?.length === 100) {
+  } else if (user.matches?.length === 99) {
     return [{key: 'century-club', repeatable: false }]
   }
   return [];
 }
 
-export function pointsWon(user: IUser, match: MatchData): AchievementEarned[] {
+function pointsWon(user: IUser, match: MatchData): AchievementEarned[] {
   const userIdStr = user._id.toString();
   const isOnTeam1 = match.team1Ids.includes(userIdStr);
   const isOnTeam2 = match.team2Ids.includes(userIdStr);
@@ -125,6 +128,7 @@ export async function updateUserAndAchievements(
   team1Score: number,
   team2Score: number,
 ): Promise<{ success: boolean; message: string; updatedUsers: string[] }> {
+  await connectToDatabase();
   try {
     // Basic validation: each team is expected to have exactly 2 members.
     if (team1Ids.length !== 2 || team2Ids.length !== 2) {
@@ -152,7 +156,7 @@ export async function updateUserAndAchievements(
       team2Score,
     };
 
-    const achievementChecks: AchievementCheckFn[] = [firstWin, winStreak, matchesPlayed, pickle];
+    const achievementChecks: AchievementCheckFn[] = [firstWin, winStreak, matchesPlayed, pickle, pointsWon];
 
     // Prepare bulk update operations.
     const bulkOperations = users.reduce<
@@ -174,7 +178,7 @@ export async function updateUserAndAchievements(
       if (isWinner) {
         updateOps.$inc = {
           wins: 1,
-          streak: 1,
+          winStreak: 1,
           pointsWon: teamScore,
         };
       } else {
@@ -182,7 +186,7 @@ export async function updateUserAndAchievements(
           losses: 1,
           pointsWon: teamScore,
         };
-        updateOps.$set = { streak: 0 };
+        updateOps.$set = { winStreak: 0 };
       }
 
       // Add matchId to the user's match history

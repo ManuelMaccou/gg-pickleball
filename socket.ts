@@ -1,6 +1,6 @@
 import { io } from "socket.io-client";
 import { GguprSocket, SaveMatchData, ScoreUpdateData } from "./app/types/socketTypes";
-import { updateUserAndAchievements } from "./utils/achievementFunctions/updateUserandAchievements";
+import { updateUserAndAchievements } from "./utils/achievementFunctions/updateUserAndAchievements";
 
 let socket: GguprSocket | null = null;
 
@@ -20,7 +20,7 @@ export const initiateSocketConnection = (matchId: string, userName: string, curr
 
     socket = io(process.env.NEXT_PUBLIC_SOCKET_URL, { 
       path: '/socket.io',
-      transports: ['websocket'],
+      transports: ['websocket']
     });
 
     socket.on("connect", () => {
@@ -54,10 +54,6 @@ export const initiateSocketConnection = (matchId: string, userName: string, curr
     console.log('Socket already connected:', socket.id);
   }
 };
-
-const updateUser = async (data: SaveMatchData) => {
-
-}
 
 export const handleSaveMatch = async (data: SaveMatchData, players: Player[]) => {
   console.log("📥 Received 'save-match' event from server:", data);
@@ -132,6 +128,7 @@ const cleanupSocketListeners = () => {
     socket.off("teams-set");
     socket.off("score-update");
     socket.off("save-match");
+    socket.off("match-saved");
   }
 };
 

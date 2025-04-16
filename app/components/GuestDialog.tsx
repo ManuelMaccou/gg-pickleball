@@ -21,8 +21,8 @@ export default function GuestDialog({ showDialog, setShowDialog }: GuestDialogPr
         </Dialog.Description>
         <Flex direction={'row'} gap={'9'} justify={'between'} mt={'6'}>
          
-          <Button variant="outline" asChild><Link href={'/ggupr/new'}>Close</Link></Button>
-          <Button onClick={() => router.push('/auth/login?screen_hint=signup&returnTo=/ggupr')}>Create account</Button>
+          <Button variant="outline" asChild><Link href={'/'}>Close</Link></Button>
+          <Button onClick={() => router.push('/auth/login?screen_hint=signup&returnTo=/')}>Create account</Button>
         </Flex>
        
       </Dialog.Content>

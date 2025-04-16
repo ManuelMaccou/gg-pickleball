@@ -14,7 +14,7 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({ matchId, selectedLoca
   useEffect(() => {
     const generateQRCode = async () => {
       try {
-        const url = `${process.env.NEXT_PUBLIC_BASE_URL}/ggupr/${matchId}${selectedLocation ? `?location=${encodeURIComponent(selectedLocation)}` : ""}`;
+        const url = `${process.env.NEXT_PUBLIC_BASE_URL}/match/${matchId}${selectedLocation ? `?location=${encodeURIComponent(selectedLocation)}` : ""}`;
         const generatedUrl = await QRCode.toDataURL(url, { width: 300, margin: 2 });
         setQrCodeUrl(generatedUrl);
       } catch (error) {

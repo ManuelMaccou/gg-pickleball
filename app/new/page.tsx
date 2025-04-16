@@ -4,11 +4,11 @@ import { useMediaQuery } from 'react-responsive';
 import { v4 as uuidv4 } from 'uuid';
 import { Badge, Button, Flex, Heading, Spinner, Text, TextField } from "@radix-ui/themes";
 import Image from "next/image";
-import lightGguprLogo from '../../../public/ggupr_logo_white_transparent.png'
+import lightGguprLogo from '../../public/logos/ggupr_logo_white_transparent.png'
 import { useEffect, useState } from "react";
 import QRCodeGenerator from '../components/QrCodeGenerator';
 import Cookies from 'js-cookie';
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useUser } from '@auth0/nextjs-auth0';
 import LocationSearch from '../components/LocationSearch';
 
@@ -16,24 +16,35 @@ export default function NewMatch() {
   const isMobile = useMediaQuery({ maxWidth: 767 });
 
   const router = useRouter();
+  const searchParams = useSearchParams()
+
   const { user, isLoading: authIsLoading } = useUser();
+  const locationParam = searchParams.get('location')
 
   const [isAuthenticatedUser, setIsAuthenticatedUser] = useState<boolean | null>(null);
 
   const [matchId, setMatchId] = useState<string | null>(null);
   const [submittingName, setSubmittingName] = useState<boolean>(false);
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
+  const [preselectedLocation, setPreselectedLocation] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [tempName, setTempName] = useState<string>('');
   const [userActive, setUserActive] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (locationParam) {
+      setPreselectedLocation(locationParam);
+      setSelectedLocation(locationParam);
+    }
+  }, [locationParam])
 
   const handleNameSubmit = async () => {
     setSubmittingName(true);
     if (!tempName.trim()) return;
 
     try {
-      const response = await fetch('/api/ggupr/user', {
+      const response = await fetch('/api/user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: tempName })
@@ -82,79 +93,6 @@ export default function NewMatch() {
     }
   }, [authIsLoading, user])
 
-/*
-  // OLD
-  useEffect(() => {   
-
-    const fetchUserAndSaveToGgupr = async () => {
-      setIsLoading(true)
-
-      let username: string;
-
-      try {
-        const response = await fetch(`/api/users/auth0Id/?auth0Id=${user?.sub}`);
-
-        if (!response.ok) {  
-          if (response.status === 404) {
-            username = user?.email || '';
-          } else {
-            const errorData: ApiErrorResponse = await response.json();
-            throw new Error(`API Error: ${errorData.systemMessage}`);
-          }
-        } else {
-          const fetchedUser = await response.json();
-          username = fetchedUser.user.email
-        }
-
-        const gguprUserresponse = await fetch(`/api/ggupr/user?auth0Id=${user?.sub}`);
-
-        if (!gguprUserresponse.ok) {
-          if (gguprUserresponse.status === 404 ) {
-            const gguprResponse = await fetch('/api/ggupr/user', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ 
-                name: username,
-                auth0Id: user?.sub
-              })
-            });
-
-            if (!gguprResponse.ok) {
-              const errorData: ApiErrorResponse = await gguprResponse.json();
-              throw new Error(`API Error: ${errorData.systemMessage}`);
-            } else {
-              const { user: newGguprUser } = await gguprResponse.json()
-              Cookies.remove('userName')
-              setUserActive(true)
-              console.log("saved user:", newGguprUser )
-            }
-          } else {
-            const errorData: ApiErrorResponse = await gguprUserresponse.json();
-            throw new Error(`API Error: ${errorData.systemMessage}`);
-          }
-        } else {
-          Cookies.remove('userName')
-          setUserActive(true);
-        }
-      } catch (error) {
-        console.error('Error fetching and saving current user:', error);
-      } finally {
-        setIsLoading(false)
-      }
-    };
-
-    if (!authIsLoading && user) {
-      fetchUserAndSaveToGgupr();
-    } else {
-      const storedName = Cookies.get('userName');
-      if (storedName) {
-        setUserActive(true);
-      }
-    }
-    
-  }, [authIsLoading, user]);
-*/
-
   // NEW
   useEffect(() => {
     setIsLoading(true)
@@ -166,7 +104,7 @@ export default function NewMatch() {
           const addAuth0IdToGguprUser = async () => {
             try {
 
-              const updatedUserResponse = await fetch(`/api/ggupr/user`, {
+              const updatedUserResponse = await fetch(`/api/user`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -200,13 +138,13 @@ export default function NewMatch() {
           const fetchGguprUserByAuth0Id = async () => {
            
             try {
-              const response = await fetch(`/api/ggupr/user?auth0Id=${user.sub}`);
+              const response = await fetch(`/api/user?auth0Id=${user.sub}`);
       
               if (!response.ok) {  
                 if (response.status === 404) {
                   const username = user?.email || '';
 
-                  const gguprResponse = await fetch('/api/ggupr/user', {
+                  const gguprResponse = await fetch('/api/user', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
@@ -244,7 +182,7 @@ export default function NewMatch() {
 
   if (!isMobile) {
     return (
-      <Flex direction={'column'} minHeight={'100vh'} p={'4'} justify={'center'} gap={'7'}>
+      <Flex direction={'column'} minHeight={'100vh'} p={'4'} justify={'center'} gap={'7'} pb={'9'}>
         <Flex direction={'column'} position={'relative'} align={'center'} p={'7'}>
           <Image
             src={lightGguprLogo}
@@ -289,14 +227,20 @@ export default function NewMatch() {
         {matchId && userActive ? (
           <Flex direction={'column'} mx={'9'}>
              <Flex direction={'column'} align={'center'} gap={'5'} mb={'5'}>
-              <LocationSearch selectedLocation={selectedLocation} onLocationSelect={setSelectedLocation} />
-              <Button variant='ghost' size={'3'} onClick={() => setSelectedLocation('Other')}>skip</Button>
+              {preselectedLocation ? (
+                <Text size={'7'} weight={'bold'}>{preselectedLocation}</Text>
+              ) : (
+                <>
+                  <LocationSearch selectedLocation={selectedLocation} onLocationSelect={setSelectedLocation} />
+                  <Button variant='ghost' size={'3'} onClick={() => setSelectedLocation('Other')}>skip</Button>
+                </>
+              )}
             </Flex>
 
           {selectedLocation && (
             <>
               <Flex direction={'column'} align={'center'} gap={'4'}>
-                <Heading align={'center'}>Log a new match</Heading>
+                <Heading align={'center'}>Scan</Heading>
                 <QRCodeGenerator matchId={matchId} selectedLocation={selectedLocation} />
               </Flex>
 
@@ -305,13 +249,13 @@ export default function NewMatch() {
               </Flex>
             </>
           )}
-            
-           
-            
-            
-
             <Flex direction={'column'} mt={'9'}>
-              <Button size={'3'} disabled={!selectedLocation} onClick={() => router.push(`/ggupr/${matchId}${selectedLocation ? `?location=${selectedLocation}` : ""}`)}>Continue</Button>
+              <Button size={'3'}
+                disabled={!selectedLocation}
+                onClick={() => router.push(`/match/${matchId}${selectedLocation ? `?location=${selectedLocation}` : ""}`)}
+              >
+                Continue
+              </Button>
             </Flex>
             
     
@@ -329,19 +273,16 @@ export default function NewMatch() {
               <Button size={'3'} disabled={submittingName || !tempName} loading={submittingName} onClick={handleNameSubmit}>
                 Continue (quick)
               </Button>
-              <Text align={'center'}>----- or -----</Text>
-              <Button size={'3'} variant='outline' onClick={() => router.push('/auth/login?screen_hint=signup&returnTo=/ggupr/new')}>Create account / Log in</Button>
-
               {error && (
                  <Badge size={'3'} color='red'>
-                 
                   {error}
-            
-                  
                  </Badge>
               )}
+              <Text align={'center'}>----- or -----</Text>
+              <Button size={'3'} variant='outline' onClick={() => router.push('/auth/login?screen_hint=signup&returnTo=/new')}>Create account / Log in</Button>
+
              
-              
+             
             </Flex>
           </Flex>
             
@@ -351,9 +292,6 @@ export default function NewMatch() {
             </Flex>
           ) : null }
 
-
-       
-  
       </Flex>
 
    

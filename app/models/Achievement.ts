@@ -4,7 +4,9 @@ import { IAchievement } from "../types/databaseTypes";
 
 const AchievementSchema = new Schema<IAchievement>(
   {
+    friendlyName: { type: String },
     name: { type: String },
+    badge: { type: String }
   }
 );
 

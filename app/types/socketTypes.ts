@@ -34,7 +34,7 @@ export interface ServerToClientEvents {
   "score-update": (data: ScoreUpdateData) => void;
   "save-match": (data: SaveMatchData) => void;
   "match-saved": (data: { success: boolean; message: string }) => void;
-
+  "room-expired": (data: { matchId: string }) => void;
 }
 
 export interface ScoreUpdateData {

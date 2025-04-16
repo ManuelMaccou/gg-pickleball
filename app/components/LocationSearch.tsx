@@ -111,7 +111,8 @@ export default function LocationSearch({ onLocationSelect, selectedLocation }: L
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-[100%] justify-between py-[10px]"
+          className="w-[100%] justify-between"
+          style={{padding: "10px"}}
         >
           <Text wrap={'pretty'}>
             {value || "Select court..."}
@@ -120,9 +121,9 @@ export default function LocationSearch({ onLocationSelect, selectedLocation }: L
           <ChevronsUpDown className="opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="p-0">
+      <PopoverContent style={{padding: "10px"}}>
         <Command>
-          <CommandInput placeholder="Search courts..." className="h-9" />
+          <CommandInput placeholder="Search courts..." />
           <CommandList>
             <CommandEmpty>Court not added. Check back soon.</CommandEmpty>
             <CommandGroup>
@@ -130,7 +131,7 @@ export default function LocationSearch({ onLocationSelect, selectedLocation }: L
               .slice() // Create a copy to avoid mutating the original array
               .sort((a, b) => a.value.localeCompare(b.value)) // Sort alphabetically
               .map((location) => (
-                <CommandItem
+                <CommandItem  style={{padding: "5px"}}
                   key={location.value}
                   value={location.value}
                   onSelect={(currentValue) => {

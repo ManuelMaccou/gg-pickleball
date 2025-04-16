@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
 import User from '@/app/models/User';
+import { escapeRegex } from '@/utils/escapeRegex';
 
 // Connect to the database
 await connectToDatabase();
@@ -13,14 +14,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 });
     }
 
-    const existingUser = await User.findOne({ name });
+    const trimmedName = name.trim();
+    const safeName = escapeRegex(trimmedName);
+
+    const existingUser = await User.findOne({
+      name: { $regex: `^${safeName}$`, $options: 'i' }
+    });
 
     if (existingUser) {
       return NextResponse.json({ error: 'Name already exists. Choose a different name.' }, { status: 409 });
     }
 
     const newUser = new User({
-      name,
+      name: trimmedName,
       auth0Id,
     });
 

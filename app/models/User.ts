@@ -13,6 +13,7 @@ const AchievementSchema = new Schema(
 const UserSchema = new Schema<IUser>(
   {
     name: { type: String, required: true, unique: true },
+    email: { type: String },
     auth0Id: { type: String },
     profilePicture: { type: String },
     wins: { type: Number },
@@ -28,5 +29,7 @@ const UserSchema = new Schema<IUser>(
   },
   { timestamps: true }
 );
+
+UserSchema.index({ auth0Id: 1 });
 
 export default mongoose.models.User || mongoose.model<IUser>("User", UserSchema);

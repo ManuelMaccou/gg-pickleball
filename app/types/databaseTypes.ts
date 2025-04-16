@@ -37,5 +37,16 @@ export interface IMatch extends Document {
 
 export interface IAchievement extends Document {
   _id: Types.ObjectId;
+  friendlyName: string;
   name: string;
+  badge: string;
+}
+
+
+export interface IReward extends Document {
+  _id: Types.ObjectId;
+  discount: string;
+  product: string;
+  name: string;
+  achievement: string;
 }
