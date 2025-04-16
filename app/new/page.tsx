@@ -242,7 +242,7 @@ const handleContinue = () => {
           <Flex direction={'column'} mx={'9'}>
              <Flex direction={'column'} align={'center'} gap={'5'} mb={'5'}>
               {preselectedLocation ? (
-                <Text size={'7'} weight={'bold'}>{preselectedLocation}</Text>
+                <Text align={'center'} size={'7'} weight={'bold'}>{preselectedLocation}</Text>
               ) : (
                 <>
                   <LocationSearch selectedLocation={selectedLocation} onLocationSelect={setSelectedLocation} />
