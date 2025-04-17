@@ -69,7 +69,50 @@ export default function GguprMatchPage() {
   const matchId = params.matchId;
   const locationParam = searchParams.get('location')
 
+  const simulatePlayersJoining = () => {
+    if (!user?.name || !user?.id) return;
+  
+    const simulatedPlayers: Player[] = [
+      { userName: user.name, userId: user.id, socketId: '' }, // yourself
+      { userName: 'Howard', userId: '680039e3b66a0b2253e33d31', socketId: '' },
+      { userName: 'Jules', userId: '680039edb66a0b2253e33d34', socketId: '' },
+      { userName: 'Billy', userId: '680039fdb66a0b2253e33d37', socketId: '' },
+    ];
+  
+    setPlayers(simulatedPlayers);
+    setIsWaiting(false);
+  };
 
+  const simulateScoreSubmissions = () => {
+    if (!matchId || !user?.name) return;
+  
+    const socket = getSocket();
+    if (!socket || !socket.connected) return;
+  
+    const team1 = [user.name, "Howard"];
+    const team2 = ["Jules", "Billy"];
+    const yourScore = 11;
+    const opponentsScore = 9;
+    const locationToSend = selectedLocation || "Demo Location";
+  
+    const allPlayers = [...team1, ...team2];
+  
+    allPlayers.forEach((playerName) => {
+      const isTeam1 = team1.includes(playerName);
+      const payload = {
+        matchId,
+        userName: playerName,
+        team1,
+        team2,
+        yourScore: isTeam1 ? yourScore : opponentsScore,
+        opponentsScore: isTeam1 ? opponentsScore : yourScore,
+        location: locationToSend
+      };
+  
+      socket.emit("submit-score", payload);
+    });
+  };
+  
 
   useEffect(() => {
     if (locationParam) {
@@ -469,6 +512,27 @@ export default function GguprMatchPage() {
           <Badge color="blue" size={'3'} mb={'5'}>Waiting for players to join...</Badge>
         </Flex>
       )}
+
+      {players.length < 4 ? (
+          <Button
+          size="3"
+          variant="solid"
+          onClick={simulatePlayersJoining}
+        >
+          Simulate All Players Joined
+        </Button>
+      ) : (
+        <Button
+          size="3"
+          color="green"
+          variant="solid"
+          onClick={simulateScoreSubmissions}
+          disabled={players.length < 4}
+        >
+          Simulate Scores
+        </Button>
+      )}
+    
 
       
 

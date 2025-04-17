@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Card, Text, Flex, Box, Badge } from '@radix-ui/themes'
+import { Card, Text, Flex, Box, Badge, Spinner } from '@radix-ui/themes'
 import Image from 'next/image'
 import { IReward } from '@/app/types/databaseTypes'
 
@@ -27,6 +27,12 @@ export default function RewardGrid({ earnedAchievements, maxCount }: Props) {
   const displayedRewards = maxCount
     ? allRewards.slice(0, maxCount)
     : allRewards
+
+  if (allRewards.length === 0) return (
+    <Flex direction={'row'} width={'100%'} align={'center'} justify={'center'}>
+        <Spinner size={'3'} style={{color: 'white'}} />
+    </Flex>
+  )
 
   return (
     <Flex

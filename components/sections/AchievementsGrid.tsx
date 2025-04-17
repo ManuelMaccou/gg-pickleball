@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Badge, Flex } from '@radix-ui/themes'
+import { Badge, Flex, Spinner } from '@radix-ui/themes'
 import Image from 'next/image'
 
 type EarnedAchievement = {
@@ -31,6 +31,7 @@ export default function AchievementsGrid({
   const [allAchievements, setAllAchievements] = useState<Achievement[]>([])
 
   useEffect(() => {
+    
     const fetchAchievements = async () => {
       const res = await fetch('/api/achievement')
       const data = await res.json()
@@ -46,6 +47,12 @@ export default function AchievementsGrid({
 
     const userHasAchievement = (name: string) =>
       earnedAchievements.some((a) => a.name === name)
+
+  if (allAchievements.length === 0) return (
+    <Flex direction={'row'} width={'100%'} align={'center'} justify={'center'}>
+       <Spinner size={'3'} style={{color: 'white'}} />
+    </Flex>
+  )
 
   return (
     <Flex
