@@ -136,15 +136,15 @@ export default function Ggupr() {
       <Flex direction={'column'}>
         <Box position={'relative'} style={{alignSelf: 'center'}}>
           <Image
-            src={'/partnerLogos/PowerPlay_logo.png'} 
+            src={'/partnerLogos/Piklla_logo.png'} 
             alt={''}
-            height={96}
-            width={306}
+            height={131}
+            width={300}
           />
         </Box>
         <Flex direction={'column'} mt={'7'}>
           <Flex direction={'column'} mx={'9'} mb={'7'}>
-            <Link href={'/new?location=PowerPlay%20Pickleball'}>
+            <Link href={'/new?location=PIKL'}>
               <Button size={'3'} style={{width: '100%'}}>Log match</Button>
             </Link>
           </Flex>

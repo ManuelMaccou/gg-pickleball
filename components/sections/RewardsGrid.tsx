@@ -59,10 +59,10 @@ export default function RewardGrid({ earnedAchievements, maxCount }: Props) {
             <Flex direction={'row'} gap={'6'}>
               <Box position={'relative'}>
                 <Image
-                  src={'/partnerLogos/PowerPlay_icon.png'}
+                  src={'/partnerLogos/PiklLa_Icon.png'}
                   alt={''}
-                  height={702}
-                  width={380}
+                  height={150}
+                  width={150}
                   style={{maxWidth: '50px', height: 'auto'}}
                   />
               </Box>
