@@ -10,13 +10,17 @@ export function CookieWarning() {
 
   useEffect(() => {
     const checkCookies = () => {
+      if (typeof navigator !== 'undefined' && !navigator.cookieEnabled) {
+        console.warn('navigator.cookieEnabled reports cookies blocked.');
+        return false;
+      }
       try {
         document.cookie = "cookietest=1; SameSite=Lax";
         const cookiesEnabled = document.cookie.includes("cookietest=");
         document.cookie = "cookietest=1; Max-Age=0";
         return cookiesEnabled;
       } catch (err) {
-        console.warn('Cookie check failed:', err);
+        console.warn('Cookie set failed:', err);
         return false;
       }
     };
@@ -26,9 +30,11 @@ export function CookieWarning() {
     }
   }, []);
 
+  if (!cookiesBlocked) return null;
+
   return (
     <Dialog.Root open={cookiesBlocked}>
-      <Dialog.Content forceMount>
+      <Dialog.Content>
         <Dialog.Title>Cookies are disabled</Dialog.Title>
         <Dialog.Description size="3" mb="4">
           ⚠️ Cookies are blocked or disabled. Guest accounts and certain features may not work correctly. Please enable cookies or create a full account.
