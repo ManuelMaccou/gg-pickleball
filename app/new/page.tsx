@@ -187,31 +187,7 @@ const handleContinue = () => {
   })
 }
 
-  if (!isMobile) {
-    return (
-      <Flex direction={'column'} minHeight={'100vh'} p={'4'} justify={'center'} gap={'7'} pb={'9'}>
-        <Flex direction={'column'} position={'relative'} align={'center'} p={'7'}>
-          <Image
-            src={lightGguprLogo}
-            alt="GG Pickleball dark logo"
-            priority
-            height={540}
-            width={960}
-            style={{
-              width: 'auto',
-              maxHeight: '170px',
-            }}
-          />
-          <Text mt={'4'} size={'5'} weight={'bold'}>DUPR for recreational players</Text>
-          <Text size={'5'} weight={'bold'}>A GG Pickleball experiment</Text>
-        </Flex>
 
-        <Flex direction={'column'} justify={'center'} align={'center'}>
-          <Text size={'6'} align={'center'}>This app is optimized for mobile devices only.</Text>
-        </Flex>
-      </Flex>
-    )
-  }
 
   return (
       <Flex direction={'column'} minHeight={'100vh'} p={'4'} justify={'center'} gap={'7'} pb={'9'}>
