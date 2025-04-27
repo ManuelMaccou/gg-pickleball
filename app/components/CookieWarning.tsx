@@ -37,9 +37,9 @@ export function CookieWarning() {
       <Dialog.Content>
         <Dialog.Title>Cookies are disabled</Dialog.Title>
         <Dialog.Description size="3" mb="4">
-          ⚠️ Cookies are blocked or disabled. Guest accounts and certain features may not work correctly. Please enable cookies or create a full account.
+          Cookies are blocked or disabled. Guest accounts and certain features may not work correctly. Please enable cookies or create an account with email and password.
         </Dialog.Description>
-        <Flex direction="row" gap="9" justify="between" mt="6">
+        <Flex direction="row" gap="5" justify="between" mt="6" wrap={'wrap'}>
           <Dialog.Close>
             <Button variant="outline">Continue anyway</Button>
           </Dialog.Close>
