@@ -2,8 +2,9 @@
 
 import { Types, UpdateQuery } from 'mongoose';
 import User from '@/app/models/User';
-import { IUser } from '@/app/types/databaseTypes';
+import { IClient, IUser } from '@/app/types/databaseTypes';
 import connectToDatabase from '@/lib/mongodb';
+import Client from '@/app/models/Client';
 
 interface MatchData {
   team1Ids: string[];
@@ -23,9 +24,15 @@ type AchievementEarned = {
 type AchievementCheckFn = (user: IUser, match: MatchData) => AchievementEarned[];
 
 function firstWin(user: IUser, match: MatchData): AchievementEarned[] {
-  // Use the string representation of the ObjectId for reliable comparison.
   const userIdStr = user._id.toString();
-  if (match.winners.includes(userIdStr) && (user.wins === 0 || user.wins == null )) {
+  const clientId = match.location;
+  console.log('clientId:', clientId);
+
+  const userStatsForClient = user.stats?.[clientId];
+
+  const { wins } = userStatsForClient;
+
+  if (match.winners.includes(userIdStr) && (!wins || wins === 0)) {
     return [{ key: 'first-win', repeatable: false }];
   }
   return [];
@@ -50,27 +57,35 @@ function pickle(user: IUser, match: MatchData): AchievementEarned[] {
 function winStreak(user: IUser, match: MatchData): AchievementEarned[] {
   
   const userIdStr = user._id.toString();
+  const clientId = match.location;
+  const userStatsForClient = user.stats?.[clientId];
+  const { winStreak } = userStatsForClient;
+
   const earned: AchievementEarned[] = [];
 
   if (match.winners.includes(userIdStr)) {
-    if (user.winStreak === 1) earned.push({ key: '2-win-streak', repeatable: true });
-    else if (user.winStreak === 4) earned.push({ key: '5-win-streak', repeatable: true });
-    else if (user.winStreak === 9) earned.push({ key: '10-win-streak', repeatable: true });
+    if (winStreak === 1) earned.push({ key: '2-win-streak', repeatable: true });
+    else if (winStreak === 4) earned.push({ key: '5-win-streak', repeatable: true });
+    else if (winStreak === 9) earned.push({ key: '10-win-streak', repeatable: true });
   }
 
   return earned;
 }
 
-function matchesPlayed(user: IUser): AchievementEarned[] {
-  if (user.matches?.length === 4) {
+function matchesPlayed(user: IUser, match: MatchData): AchievementEarned[] {
+  const clientId = match.location;
+  const userStatsForClient = user.stats?.[clientId];
+  const { matches } = userStatsForClient;
+
+  if (matches?.length === 4) {
     return [{key: '5-matches-played', repeatable: false }]
-  } else if (user.matches?.length === 9) {
+  } else if (matches?.length === 9) {
     return [{key: '10-matches-played', repeatable: false }]
-  } else if (user.matches?.length === 19) {
+  } else if (matches?.length === 19) {
     return [{key: '20-matches-played', repeatable: false }]
-  } else if (user.matches?.length === 49) {
+  } else if (matches?.length === 49) {
     return [{key: '50-matches-played', repeatable: false }]
-  } else if (user.matches?.length === 99) {
+  } else if (matches?.length === 99) {
     return [{key: 'century-club', repeatable: false }]
   }
   return [];
@@ -78,6 +93,11 @@ function matchesPlayed(user: IUser): AchievementEarned[] {
 
 function pointsWon(user: IUser, match: MatchData): AchievementEarned[] {
   const userIdStr = user._id.toString();
+  const clientId = match.location;
+  const userStatsForClient = user.stats?.[clientId];
+  const { pointsWon } = userStatsForClient;
+  const { achievements } = userStatsForClient;
+
   const isOnTeam1 = match.team1Ids.includes(userIdStr);
   const isOnTeam2 = match.team2Ids.includes(userIdStr);
 
@@ -87,13 +107,13 @@ function pointsWon(user: IUser, match: MatchData): AchievementEarned[] {
     ? match.team2Score
     : 0;
 
-    const totalPointsWon = (user.pointsWon || 0) + teamScore;
+    const totalPointsWon = (pointsWon || 0) + teamScore;
 
     const milestones = [50, 100, 200, 300, 400, 500];
   
     for (const threshold of milestones) {
       const key = `${threshold}-points-won`;
-      const alreadyHas = user.achievements?.[key];
+      const alreadyHas = achievements?.[key];
   
       if (totalPointsWon >= threshold && !alreadyHas) {
         return [{ key, repeatable: false }];
@@ -158,15 +178,28 @@ export async function updateUserAndAchievements(
 
     const achievementChecks: AchievementCheckFn[] = [firstWin, winStreak, matchesPlayed, pickle, pointsWon];
 
+    const client = await Client.findById(location).lean<IClient>();
+
+    if (!client) {
+      throw new Error(`Client with id ${location} not found`);
+    }
+
     // Prepare bulk update operations.
     const bulkOperations = users.reduce<
       Array<{ updateOne: { filter: { _id: Types.ObjectId }; update: UpdateQuery<IUser> } }>
     >((ops, user) => {
-      let updateOps: UpdateQuery<IUser> = {};
       const userIdStr = user._id.toString();
       const isWinner = winners.includes(userIdStr);
       const isOnTeam1 = team1Ids.includes(userIdStr);
       const isOnTeam2 = team2Ids.includes(userIdStr);
+      const clientId = location; // location === clientId
+      const statsPrefix = `stats.${clientId}`;
+
+      const updateOps: UpdateQuery<IUser> = {
+        $setOnInsert: {
+          [`${statsPrefix}`]: {} // ensure this path exists if missing
+        }
+      };
 
       const teamScore = isOnTeam1
         ? matchData.team1Score
@@ -177,44 +210,62 @@ export async function updateUserAndAchievements(
       // If the user is in the winners array, increment wins and streak.
       if (isWinner) {
         updateOps.$inc = {
-          wins: 1,
-          winStreak: 1,
-          pointsWon: teamScore,
+          [`${statsPrefix}.wins`]: 1,
+          [`${statsPrefix}.winStreak`]: 1,
+          [`${statsPrefix}.pointsWon`]: teamScore
         };
       } else {
         updateOps.$inc = {
-          losses: 1,
-          pointsWon: teamScore,
+          [`${statsPrefix}.losses`]: 1,
+          [`${statsPrefix}.pointsWon`]: teamScore
         };
-        updateOps.$set = { winStreak: 0 };
+        updateOps.$set = {
+          [`${statsPrefix}.winStreak`]: 0
+        };
       }
 
       // Add matchId to the user's match history
-      if (!updateOps.$addToSet) updateOps.$addToSet = {};
-      updateOps.$addToSet.matches = new Types.ObjectId(matchId);
-
+      updateOps.$addToSet = {
+        [`${statsPrefix}.matches`]: new Types.ObjectId(matchId)
+      };
 
       // Run achievement checks
       const earnedAchievements = achievementChecks.flatMap((check) => check(user, matchData));
 
+      const earnedRewardIds = earnedAchievements
+        .map((a) => client.rewardsPerAchievement?.[a.key])
+        .filter(Boolean) as Types.ObjectId[];
+
       for (const { key, repeatable } of earnedAchievements) {
-        const baseField = `achievements.${key}`;
+        const base = `${statsPrefix}.achievements.${key}`;
 
         if (repeatable) {
-          if (!updateOps.$inc) updateOps.$inc = {};
-          if (!updateOps.$push) updateOps.$push = {};
+          updateOps.$inc ??= {};
+          updateOps.$push ??= {};
 
-          updateOps.$inc[`${baseField}.count`] = 1;
-          updateOps.$push[`${baseField}.earnedAt`] = new Date();
+          updateOps.$inc[`${base}.count`] = 1;
+          updateOps.$push[`${base}.earnedAt`] = new Date();
         } else {
           // Only set it if the user doesn't already have it
-          const alreadyHas = user.achievements?.[key];
+          const alreadyHas = user.stats?.[clientId]?.achievements?.[key];
           if (!alreadyHas) {
-            if (!updateOps.$set) updateOps.$set = {};
-            updateOps.$set[baseField] = {
-              earnedAt: [new Date()],
+            updateOps.$set ??= {};
+            updateOps.$set[base] = {
+              earnedAt: [new Date()]
             };
           }
+        }
+      }
+
+      for (const rewardId of earnedRewardIds) {
+        const rewardPath = `${statsPrefix}.rewards.${rewardId}`;
+        const alreadyHasReward = user.stats?.[clientId]?.rewards?.[rewardId.toString()];
+        
+        if (!alreadyHasReward) {
+          updateOps.$set ??= {};
+          updateOps.$set[rewardPath] = {
+            redeemed: false
+          };
         }
       }
 
@@ -229,9 +280,6 @@ export async function updateUserAndAchievements(
 
       return ops;
     }, []);
-
-
-
 
     // If no updates are needed, return early.
     if (bulkOperations.length === 0) {

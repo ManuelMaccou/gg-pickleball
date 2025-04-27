@@ -5,7 +5,6 @@ import { Badge, Box, Button, Dialog, Flex, RadioCards, Separator, Spinner, Text,
 import Image from "next/image";
 import lightGguprLogo from '../../../public/logos/ggupr_logo_white_transparent.png'
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Cookies from 'js-cookie';
 import { useParams, usePathname, useSearchParams } from 'next/navigation';
 import { 
   disconnectSocket,
@@ -23,6 +22,7 @@ import { useRouter } from "next/navigation";
 import QrCodeDialog from "@/app/components/QrCodeDialog";
 import { useMediaQuery } from "react-responsive";
 import { useUserContext } from "@/app/contexts/UserContext";
+import { IClient } from "@/app/types/databaseTypes";
 
 
 type Player = {
@@ -57,7 +57,8 @@ export default function GguprMatchPage() {
   const [opponentsScore, setOpponentsScore] = useState<number | null>(null);
   const [waitingForScores, setWaitingForScores] = useState(true);
   const [scoreMatch, setScoreMatch] = useState<string | null>(null);
-  const [selectedLocation, setSelectedLocation] = useState<string>("");
+  const [selectedLocation, setSelectedLocation] = useState<IClient | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
   const [showLogNewMatch, setShowLogNewMatch] = useState<boolean>(false);
   const [showDialog, setShowDialog] = useState<boolean>(false);
   const [scoreError, setScoreError] = useState<string | null>(null);
@@ -93,7 +94,7 @@ export default function GguprMatchPage() {
     const team2 = ["Jules", "Billy"];
     const yourScore = 11;
     const opponentsScore = 9;
-    const locationToSend = selectedLocation || "Demo Location";
+    const locationToSend = selectedLocation?._id.toString() || "Demo Location";
   
     const allPlayers = [...team1, ...team2];
   
@@ -114,9 +115,21 @@ export default function GguprMatchPage() {
   };
   
 
+  // set selected location
   useEffect(() => {
+    console.log('fetching location')
+    const fetchClientById = async () => {
+      const response = await fetch(`/api/client?id=${locationParam}`)
+      if (response.ok) {
+        const { client }: { client: IClient } = await response.json()
+        setSelectedLocation(client);
+      } else {
+        setLocationError("There was an error loading the court location. We've logged the error. Please try again later.");
+      }
+    }
+
     if (locationParam) {
-      setSelectedLocation(locationParam)
+      fetchClientById();
     }
   }, [locationParam])
 
@@ -125,17 +138,16 @@ export default function GguprMatchPage() {
     if (!tempName.trim()) return;
 
     try {
-      const gguprResponse = await fetch('/api/user', {
+      const gguprResponse = await fetch('/api/user/guest', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: tempName })
+        body: JSON.stringify({ guestName: tempName })
       });
 
       const gguprData = await gguprResponse.json();
 
       if (gguprResponse.ok) {
-        Cookies.set('userName', tempName, { sameSite: 'strict' });
- 
+        
         setUser({
           id: gguprData.user._id,
           name: tempName,
@@ -167,6 +179,7 @@ export default function GguprMatchPage() {
       setError('An unexpected error occurred');
     } finally {
       setSubmittingName(false);
+      router.refresh()
     }
   };
   
@@ -182,7 +195,7 @@ export default function GguprMatchPage() {
         team2, 
         yourScore, 
         opponentsScore,
-        location: selectedLocation
+        location: selectedLocation?.name || ""
       });
     }
   }, [matchId, user?.name, team1, team2, yourScore, opponentsScore, selectedLocation]); 
@@ -202,9 +215,12 @@ export default function GguprMatchPage() {
     return () => debouncedSubmitScores.cancel();
   }, [yourScore, opponentsScore, team1, team2, debouncedSubmitScores, matchId, user?.name]);
 
-  // Guest user
+  // Was for guest users. Trying to remove this and just use the one useEffect
+  // below. We should only need on to setPlayers using "user" since getResolvedUser
+  // assigns the values the "user" for both guests and authenticated.
+  /*
   useEffect(() => {
-    if (user && user?.isGuest) {
+    if (user && user.isGuest) {
       const newPlayer = { userName: user.name, userId: user.id, socketId: '' };
 
       setPlayers(prevPlayers => {
@@ -217,72 +233,22 @@ export default function GguprMatchPage() {
     }
     setIsCheckingUser(false)
   },[user])
+  */
 
-  // User is authenticated but may still have a cookie set. If they do, update their record
-  // with the auth0Id and delete cookie. If they don't have a cookie, set the player 
-  // with the existing user context
+  // Set players as they join
   useEffect(() => {
-    if (!authIsLoading && auth0User && user && !user.isGuest) {
-        const storedName = Cookies.get('userName');
-        if (storedName) {
-          const addAuth0IdToGguprUser = async () => {
-            try {
-
-              const updatedUserResponse = await fetch(`/api/user`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  findBy: 'userName',
-                  upsertValue: true,
-                  userName: storedName,
-                  auth0Id: auth0User.sub
-                })
-              });
-      
-              if (!updatedUserResponse.ok) {
-                throw new Error('Failed to create user from guest account.');
-              }
-      
-              const updatedUser = await updatedUserResponse.json();
-              if (updatedUser) {
-                setUser({
-                  id: updatedUser._id,
-                  name: storedName,
-                  isGuest: false,
-                })
-
-                const newPlayer = { userName: storedName, userId: updatedUser._id, socketId: '' };
-                
-                setPlayers(prevPlayers => {
-                  const playerExists = prevPlayers.some(player => player.userName === storedName);
-                  if (playerExists) {
-                    return prevPlayers;
-                  }
-                  return [...prevPlayers, newPlayer];
-                });
-
-                Cookies.remove('userName')
-              } else {
-                console.warn("No user found for the stored name.");
-              }
-            } catch (error) {
-              console.error("Error fetching user from cookie:", error);
-            }
-          };
-          addAuth0IdToGguprUser()
-        } else {
-          const newPlayer = { userName: user.name, userId: user.id, socketId: '' };
-          setPlayers(prevPlayers => {
-            const playerExists = prevPlayers.some(player => player.userName === user.name);
-            if (playerExists) {
-              return prevPlayers;
-            }
-            return [...prevPlayers, newPlayer];
-          });
-        }
+    if (!authIsLoading && user) {
+      const newPlayer = { userName: user.name, userId: user.id, socketId: '' }
+  
+      setPlayers(prevPlayers => {
+        const playerExists = prevPlayers.some(player => player.userName === user.name)
+        if (playerExists) return prevPlayers
+        return [...prevPlayers, newPlayer]
+      })
     }
+  
     setIsCheckingUser(false)
-  }, [authIsLoading, auth0User, user, setUser])
+  }, [authIsLoading, user])
 
   // Initiating socket connection
   useEffect(() => {  
@@ -396,6 +362,34 @@ export default function GguprMatchPage() {
     )
   }
 
+  if (locationError) {
+    return (
+    <Flex direction={'column'} minHeight={'100dvh'} p={'4'} justify={'center'} align={'center'} gap={'7'}>
+      <Flex direction={'column'} position={'relative'} align={'center'} mt={'-9'} p={'7'}>
+        <Image
+          src={lightGguprLogo}
+          alt="GG Pickleball dark logo"
+          priority
+          height={540}
+          width={960}
+          style={{
+            width: 'auto',
+            maxHeight: '170px',
+          }}
+        />
+        <Text mt={'4'} size={'5'} weight={'bold'}>DUPR for recreational players</Text>
+        <Text size={'5'} weight={'bold'}>A GG Pickleball experiment</Text>
+      </Flex>
+
+      {locationError && (
+        <Badge color="red" size={'3'}>
+          <Text align={'center'} wrap={'wrap'}>{locationError}</Text>
+        </Badge>
+      )}
+
+    </Flex>
+    )
+  }
 
   if (!user) {
     return (
@@ -415,7 +409,6 @@ export default function GguprMatchPage() {
             <Text mt={'4'} size={'5'} weight={'bold'}>DUPR for recreational players</Text>
             <Text size={'5'} weight={'bold'}>A GG Pickleball experiment</Text>
           </Flex>
-
 
         {!isCheckingUser && !user ? (
           <Flex direction={'column'} gap={'4'} mt={'4'}>
@@ -474,9 +467,6 @@ export default function GguprMatchPage() {
                   : `${String(user.name).includes('@') ? String(user.name).split('@')[0] : user.name} (guest)`
               ) : ''}
             </Text>
-
-          
-      
           </Flex>
         )}
       </Flex>
@@ -486,7 +476,7 @@ export default function GguprMatchPage() {
       <Flex direction={'row'} mt={'5'} justify={'between'}>
         {matchId && (
           <Flex direction={'column'}>
-            <QrCodeDialog matchId={matchId} selectedLocation={selectedLocation} />
+            <QrCodeDialog matchId={matchId} selectedLocation={selectedLocation?.name || ""} />
           </Flex>
         )}
         <Dialog.Root>

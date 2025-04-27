@@ -6,12 +6,12 @@ import Image from 'next/image'
 import { IReward } from '@/app/types/databaseTypes'
 
 type Props = {
-  earnedAchievements: string[]
+  unlockedRewardIds: string[]
   variant?: 'preview' | 'full'
   maxCount?: number
 }
 
-export default function RewardGrid({ earnedAchievements, maxCount }: Props) {
+export default function RewardGrid({ unlockedRewardIds, maxCount }: Props) {
   const [allRewards, setAllRewards] = useState<IReward[]>([])
 
   useEffect(() => {
@@ -35,13 +35,9 @@ export default function RewardGrid({ earnedAchievements, maxCount }: Props) {
   )
 
   return (
-    <Flex
-      direction={'column'}
-      gap="4"
-      
-    >
+    <Flex direction={'column'} gap="4">
       {displayedRewards.map((reward) => {
-        const isUnlocked = earnedAchievements.includes(reward.achievement)
+       const isUnlocked = unlockedRewardIds.includes(reward._id.toString());
 
         return (
           <Flex direction={'column'} key={reward._id.toString()}>
@@ -59,7 +55,7 @@ export default function RewardGrid({ earnedAchievements, maxCount }: Props) {
             <Flex direction={'row'} gap={'6'}>
               <Box position={'relative'}>
                 <Image
-                  src={'/partnerLogos/PiklLa_Icon.png'}
+                  src={'/partnerLogos/PowerPlay_icon.png'}
                   alt={''}
                   height={150}
                   width={150}

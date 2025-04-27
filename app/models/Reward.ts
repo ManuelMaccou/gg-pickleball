@@ -4,10 +4,9 @@ import { IReward } from "../types/databaseTypes";
 
 const RewardSchema = new Schema<IReward>(
   {
-    discount: { type: String },
-    product: { type: String },
     name: { type: String },
-    achievement: { type: String }
+    product: { type: String },
+    discount: { type: String },
   }
 );
 

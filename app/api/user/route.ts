@@ -3,7 +3,6 @@ import connectToDatabase from '@/lib/mongodb';
 import User from '@/app/models/User';
 import { escapeRegex } from '@/utils/escapeRegex';
 
-// Connect to the database
 await connectToDatabase();
 
 export async function POST(request: Request) {
@@ -32,7 +31,6 @@ export async function POST(request: Request) {
 
     await newUser.save();
 
-    // Just return the new user, no cookies here
     return NextResponse.json({ message: 'User created successfully', user: newUser }, { status: 201 });
 
   } catch (error) {

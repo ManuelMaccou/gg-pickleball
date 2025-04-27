@@ -9,13 +9,13 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
 
-    const { discount, product, name, achievement } = body as IReward;
+    const { discount, product, name } = body as IReward;
 
-    if (!discount || !product || !name || !achievement) {
+    if (!discount || !product || !name) {
       return NextResponse.json({ error: 'Required fields are missing' }, { status: 400 });
     }
 
-    const newReward = new Reward({ discount, product, name, achievement });
+    const newReward = new Reward({ discount, product, name });
     await newReward.save();
 
     return NextResponse.json({ message: 'Reward created', reward: newReward }, { status: 201 });

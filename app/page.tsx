@@ -1,7 +1,7 @@
 'use client'
 
 import { useMediaQuery } from 'react-responsive';
-import { Box, Button, Flex, Text } from "@radix-ui/themes";
+import { Box, Button, ChevronDownIcon, Flex, Text } from "@radix-ui/themes";
 import Image from "next/image";
 import lightGguprLogo from '../public/logos/ggupr_logo_white_transparent.png'
 import Link from 'next/link';
@@ -9,7 +9,7 @@ import { useUser as useAuth0User } from '@auth0/nextjs-auth0';
 import { useUserContext } from './contexts/UserContext';
 import { useEffect, useState } from 'react';
 import AchievementsGrid from '@/components/sections/AchievementsGrid';
-import { IUser } from './types/databaseTypes';
+import { IClient, IUser } from './types/databaseTypes';
 import RewardsGrid from '@/components/sections/RewardsGrid';
 
 export default function Ggupr() {
@@ -18,6 +18,9 @@ export default function Ggupr() {
   const { user } = useUserContext(); 
   const userName = user?.name
 
+  const [allClients, setAllClients] = useState<IClient[]>([])
+  const [primaryClient, setPrimaryClient] = useState<IClient | null>(null)
+  const [currentClient, setCurrentClient] = useState<IClient | null>(null)
   const [dbUser, setDbUser] = useState<IUser | null>(null)
   const [achievementsVariant, setAchievementsVariant] = useState<'full' | 'preview'>('preview')
   const [rewardsVariant, setRewardsVariant] = useState<'full' | 'preview'>('preview')
@@ -33,13 +36,15 @@ export default function Ggupr() {
     earnedAt: Date[]
   }
 
+  const clientId = currentClient?._id?.toString();
+
   const earnedAchievements: EarnedAchievement[] = Object.entries(
-    dbUser?.achievements || {}
+    dbUser?.stats?.[currentClient?._id.toString() || '']?.achievements || {}
   ).map(([name, details]: [string, AchievementDetails]) => ({
     name,
     count: details.count,
     earnedAt: details.earnedAt,
-  }))
+  }));
 
   const handleAchievementsVariantChange = () => {
     setAchievementsVariant((prev) => (prev === 'preview' ? 'full' : 'preview'))
@@ -48,6 +53,17 @@ export default function Ggupr() {
   const handleRewardsVariantChange = () => {
     setRewardsVariant((prev) => (prev === 'preview' ? 'full' : 'preview'))
   }
+
+  // Fetch all clients
+  useEffect(() => {
+    const fetchAchievements = async () => {
+      const res = await fetch('/api/client')
+      const data = await res.json()
+      setAllClients(data.clients || [])
+    }
+
+    fetchAchievements()
+  }, [])
 
   // Fetch user details
   useEffect(() => {
@@ -71,6 +87,7 @@ export default function Ggupr() {
         }
   
         setDbUser(data.user)
+        setPrimaryClient(data.user.lastLocation)
       } catch (err) {
         console.error('Error fetching user:', err)
       }
@@ -78,6 +95,17 @@ export default function Ggupr() {
   
     fetchUser()
   }, [user, auth0User])
+
+  // Set current client
+  useEffect(() => {
+    if (primaryClient) {
+      setCurrentClient(primaryClient)
+    } else if (allClients.length === 1) {
+      setCurrentClient(allClients[0])
+    }
+  }, [primaryClient, allClients])
+
+  //* set the current client when the user selects a new client from the drawer when there are multiple clients available
   
 
   if (!isMobile) {
@@ -134,17 +162,32 @@ export default function Ggupr() {
       </Flex>
       
       <Flex direction={'column'}>
-        <Box position={'relative'} style={{alignSelf: 'center'}}>
+      {allClients.length > 1 ? (
+        <Flex direction={'row'} justify={'between'} align={'center'} mx={'4'}>
+          <Box position={'relative'} height={'70px'} width={'200px'}>
+            <Image
+              src={primaryClient?.logo || allClients[0]?.logo} 
+              alt={primaryClient?.name || allClients[0]?.name || "Location logo"}
+              fill
+              style={{objectFit: 'contain'}}
+            />
+          </Box>
+          <ChevronDownIcon height={'20px'} width={'20px'} />
+        </Flex>
+         ) : allClients.length === 1 ? (
+          <Box position={'relative'} height={'70px'} width={'200px'} style={{alignSelf: 'center'}}>
           <Image
-            src={'/partnerLogos/Piklla_logo.png'} 
-            alt={''}
-            height={131}
-            width={300}
+            src={primaryClient?.logo || allClients[0]?.logo}
+            alt={primaryClient?.name || allClients[0]?.name || "Location logo"}
+            fill
+            style={{objectFit: 'contain'}}
           />
         </Box>
+         ) : null}
+       
         <Flex direction={'column'} mt={'7'}>
           <Flex direction={'column'} mx={'9'} mb={'7'}>
-            <Link href={'/new?location=PIKL'}>
+            <Link href={`/new${currentClient ? `?location=${currentClient._id}` : ''}`}>
               <Button size={'3'} style={{width: '100%'}}>Log match</Button>
             </Link>
           </Flex>
@@ -158,31 +201,36 @@ export default function Ggupr() {
                {achievementsVariant === 'preview' ? "View all" : "View less"}
             </Button>
           </Flex>
-          <AchievementsGrid
-            earnedAchievements={earnedAchievements}
-            variant={achievementsVariant}
-            maxCount={achievementsVariant === 'preview' ? 3 : undefined}
-          />
+
+          {dbUser && currentClient && (
+            <AchievementsGrid
+              earnedAchievements={earnedAchievements}
+              variant={achievementsVariant}
+              maxCount={achievementsVariant === 'preview' ? 3 : undefined}
+            />
+          )}
+          
         </Flex>
         <Flex direction={'row'} width={'100%'} justify={'between'} mb={'5'} mt={'9'}>
-            <Text size={'6'} weight={'bold'}>Rewards</Text>
-            <Button size={'3'} color={rewardsVariant === 'preview' ? 'green' : 'amber'}
-              variant='soft'
-              style={{width: "fit-content"}}
-              onClick={handleRewardsVariantChange}
-            >
-              {rewardsVariant === 'preview' ? "View all" : "View less"}
-            </Button>
-          </Flex>
-          <RewardsGrid
-            earnedAchievements={earnedAchievements.map(a => a.name)}
-            variant={rewardsVariant}
-            maxCount={rewardsVariant === 'preview' ? 3 : undefined}
-          />
-       
+          <Text size={'6'} weight={'bold'}>Rewards</Text>
+          <Button size={'3'} color={rewardsVariant === 'preview' ? 'green' : 'amber'}
+            variant='soft'
+            style={{width: "fit-content"}}
+            onClick={handleRewardsVariantChange}
+          >
+            {rewardsVariant === 'preview' ? "View all" : "View less"}
+          </Button>
+        </Flex>
+        <RewardsGrid
+          unlockedRewardIds={
+            clientId && dbUser?.stats?.[clientId]?.rewards
+              ? Object.keys(dbUser.stats[clientId].rewards)
+              : []
+          }
+          variant={rewardsVariant}
+          maxCount={rewardsVariant === 'preview' ? 3 : undefined}
+        />
       </Flex>
-      
-  
     </Flex>
   )
 }

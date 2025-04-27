@@ -1,20 +1,49 @@
 import User from "@/app/models/User"
 import connectToDatabase from "../mongodb"
 import { SessionData } from "@auth0/nextjs-auth0/types";
+import { cookies } from "next/headers"
 
-export async function getOrCreateUserByAuth0Id(auth0Id: string, session: SessionData | null) {
-  await connectToDatabase();
+export async function getOrCreateAuthenticatedUser(
+  auth0Id: string,
+  session: SessionData | null,
+  guestUserName: string | null
+) {
+  await connectToDatabase()
+  const cookieStore = await cookies()
 
-  let user = await User.findOne({ auth0Id })
+  if (guestUserName) {
+    // Try to promote the guest account
+    const promotedUser = await User.findOneAndUpdate(
+      { name: guestUserName, auth0Id: { $exists: false } },
+      {
+        auth0Id,
+        name: session?.user.name,
+        email: session?.user.email,
+      },
+      {
+        new: true,
+        upsert: false, // Do not create if guest not found
+      }
+    )
 
-  if (!user){
-    user = await User.create({ 
-      auth0Id,
-      name: session?.user.name,
-      email: session?.user.email,
-    })
+    if (promotedUser) {
+      // ✅ Promotion successful — delete the guest token
+      cookieStore.set('guestToken', '', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 0,
+      })
+      return promotedUser
+    }
   }
-  return user
+
+  // No guest promotion — just fetch authenticated user if it exists
+  const existingUser = await User.findOne({ auth0Id })
+
+  // ✅ Return existing user or null (do not create one)
+  return existingUser
 }
 
 export async function getOrCreateGuestUser(name: string) {

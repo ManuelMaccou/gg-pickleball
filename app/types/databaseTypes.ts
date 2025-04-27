@@ -6,16 +6,27 @@ export interface IUser extends Document {
   auth0Id?: string;
   email?: string;
   profilePicture?: string;
-  wins?: number;
-  losses?: number;
-  winStreak?: number;
-  matches?: IMatch[];
-  pointsWon?: number;
-  achievements: {
-    [key: string]: {
-      count?: number; 
-      earnedAt: Date[];
-    };
+  lastLocation?: Types.ObjectId;
+  stats: {
+    [clientId: string]: {
+      wins?: number;
+      losses?: number;
+      winStreak?: number;
+      matches?: IMatch[];
+      pointsWon?: number;
+      achievements: {
+        [achievementName: string]: {
+          count?: number
+          earnedAt: Date[]
+        }
+      }
+      rewards: {
+        [rewardName: string]: {
+          redeemed: boolean
+          redemptionDate?: Date
+        }
+      }
+    }
   }
 }
 
@@ -31,7 +42,7 @@ export interface IMatch extends Document {
     score: number;
   };
   winners: Types.ObjectId[];
-  location: string
+  location: Types.ObjectId;
 }
 
 
@@ -45,8 +56,17 @@ export interface IAchievement extends Document {
 
 export interface IReward extends Document {
   _id: Types.ObjectId;
-  discount: string;
-  product: string;
   name: string;
-  achievement: string;
+  product: string;
+  discount: string;
+}
+
+export interface IClient extends Document {
+  _id: Types.ObjectId;
+  name: string;
+  logo: string;
+  achievements?: Types.ObjectId[];
+  rewardsPerAchievement?: {
+    [achievementId: string]: Types.ObjectId;
+  };
 }

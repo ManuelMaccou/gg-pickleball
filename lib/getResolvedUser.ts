@@ -1,6 +1,6 @@
 import { auth0 } from '@/lib/auth0'
 import { headers } from 'next/headers'
-import { getOrCreateGuestUser, getOrCreateUserByAuth0Id } from './db/users'
+import { getOrCreateGuestUser, getOrCreateAuthenticatedUser } from './db/users'
 
 
 export type ResolvedUser = {
@@ -20,7 +20,7 @@ export async function getResolvedUser(): Promise<ResolvedUser | null> {
     const auth0Id = session?.user?.sub
     if (!auth0Id) return null
 
-    const user = await getOrCreateUserByAuth0Id(auth0Id, session)
+    const user = await getOrCreateAuthenticatedUser(auth0Id, session, guestUsername)
     return {
       id: user._id.toString(),
       name: user.name,

@@ -2,16 +2,14 @@
 
 import { useMediaQuery } from 'react-responsive';
 import { v4 as uuidv4 } from 'uuid';
-import { Badge, Button, Flex, Heading, Spinner, Text, TextField } from "@radix-ui/themes";
+import { Badge, Button, Flex, Heading, Text, TextField } from "@radix-ui/themes";
 import Image from "next/image";
 import lightGguprLogo from '../../public/logos/ggupr_logo_white_transparent.png'
 import { useEffect, useState, useTransition } from "react";
 import QRCodeGenerator from '../components/QrCodeGenerator';
-import Cookies from 'js-cookie';
 import { useRouter, useSearchParams } from "next/navigation";
-import { useUser } from '@auth0/nextjs-auth0';
-import LocationSearch from '../components/LocationSearch';
 import { useUserContext } from '../contexts/UserContext';
+import { IClient } from '../types/databaseTypes';
 
 export default function NewMatch() {
   const isMobile = useMediaQuery({ maxWidth: 767 });
@@ -19,26 +17,34 @@ export default function NewMatch() {
   const router = useRouter();
   const searchParams = useSearchParams()
 
-  const { user, isLoading: authIsLoading } = useUser();
-    const { setUser } = useUserContext()
+  const { user, setUser } = useUserContext()
   const locationParam = searchParams.get('location')
-
-  const [isAuthenticatedUser, setIsAuthenticatedUser] = useState<boolean | null>(null);
 
   const [matchId, setMatchId] = useState<string | null>(null);
   const [submittingName, setSubmittingName] = useState<boolean>(false);
-  const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
-  const [preselectedLocation, setPreselectedLocation] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [selectedLocation, setSelectedLocation] = useState<IClient | null>(null);
+  const [preselectedLocation, setPreselectedLocation] = useState<IClient | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
   const [tempName, setTempName] = useState<string>('');
-  const [userActive, setUserActive] = useState<boolean>(false);
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null);
 
+  // set selected location
   useEffect(() => {
+    console.log('fetching location')
+    const fetchClientById = async () => {
+      const response = await fetch(`/api/client?id=${locationParam}`)
+      if (response.ok) {
+        const { client }: { client: IClient } = await response.json()
+        setPreselectedLocation(client);
+        setSelectedLocation(client);
+      } else {
+        setLocationError("There was an error loading the court location. We've logged the error. Please try again later.");
+      }
+    }
+
     if (locationParam) {
-      setPreselectedLocation(locationParam);
-      setSelectedLocation(locationParam);
+      fetchClientById();
     }
   }, [locationParam])
 
@@ -47,22 +53,21 @@ export default function NewMatch() {
     if (!tempName.trim()) return;
 
     try {
-      const response = await fetch('/api/user', {
+      const response = await fetch('/api/user/guest', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: tempName })
+        body: JSON.stringify({ guestName: tempName })
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        Cookies.set('userName', tempName, { sameSite: 'strict' });
+
         setUser({
           id: data.user._id,
           name: tempName,
           isGuest: true,
         })
-        setUserActive(true);
         setError(null);
       } else {
         setError(data.error || 'An error occurred');
@@ -72,6 +77,7 @@ export default function NewMatch() {
       setError('An unexpected error occurred');
     } finally {
       setSubmittingName(false);
+      router.refresh()
     }
   };
 
@@ -82,22 +88,8 @@ export default function NewMatch() {
 
   }, [matchId])
 
-  // Determining guest or authenticated user
-  useEffect(() => {
-    if (authIsLoading) return;
-
-    if (!user) {
-      const storedName = Cookies.get('userName');
-      if (storedName) {
-        setUserActive(true)
-      }
-      setIsAuthenticatedUser(false)
-    } else {
-      setIsAuthenticatedUser(true)
-    }
-  }, [authIsLoading, user])
-
-  // NEW
+  // Should be able to remove this now that getResolvedUser also creates users
+  /*
   useEffect(() => {
     setIsLoading(true)
 
@@ -183,13 +175,14 @@ export default function NewMatch() {
     setIsLoading(false);
 
   }, [authIsLoading, isAuthenticatedUser, user])
+  */
 
  
 const handleContinue = () => {
   if (!selectedLocation) return
 
   startTransition(() => {
-    const url = `/match/${matchId}?location=${encodeURIComponent(selectedLocation)}`
+    const url = `/match/${matchId}?location=${encodeURIComponent(selectedLocation._id.toString())}`
     router.push(url)
   })
 }
@@ -237,17 +230,18 @@ const handleContinue = () => {
             <Text mt={'4'} size={'5'} weight={'bold'}>DUPR for recreational players</Text>
             <Text size={'5'} weight={'bold'}>A GG Pickleball experiment</Text>
           </Flex>
+
+          {locationError && (
+            <Badge color="red" size={'3'}>
+              <Text align={'center'} wrap={'wrap'}>{locationError}</Text>
+            </Badge>
+          )}
       
-        {matchId && userActive ? (
+        {matchId && user ? (
           <Flex direction={'column'} mx={'9'}>
              <Flex direction={'column'} align={'center'} gap={'5'} mb={'5'}>
-              {preselectedLocation ? (
-                <Text align={'center'} size={'7'} weight={'bold'}>{preselectedLocation}</Text>
-              ) : (
-                <>
-                  <LocationSearch selectedLocation={selectedLocation} onLocationSelect={setSelectedLocation} />
-                  <Button variant='ghost' size={'3'} onClick={() => setSelectedLocation('Other')}>skip</Button>
-                </>
+              {preselectedLocation && (
+                <Text align={'center'} size={'7'} weight={'bold'}>{preselectedLocation.name}</Text>
               )}
             </Flex>
 
@@ -255,7 +249,7 @@ const handleContinue = () => {
             <>
               <Flex direction={'column'} align={'center'} gap={'4'}>
                 <Heading align={'center'}>Scan</Heading>
-                <QRCodeGenerator matchId={matchId} selectedLocation={selectedLocation} />
+                <QRCodeGenerator matchId={matchId} selectedLocation={selectedLocation.name} />
               </Flex>
 
               <Flex direction={'column'} mt={'4'} align={'center'}>
@@ -274,7 +268,7 @@ const handleContinue = () => {
             </Flex>
             
           </Flex>
-          ) : !userActive && !isLoading ? (
+          ) : !user ? (
             <Flex direction={'column'} gap={'4'}>
               <TextField.Root 
               size={'3'}
@@ -300,10 +294,6 @@ const handleContinue = () => {
             </Flex>
           </Flex>
             
-          ) : isLoading ? (
-            <Flex direction={'column'} justify={'center'} align={'center'}>
-              <Spinner />
-            </Flex>
           ) : null }
 
       </Flex>

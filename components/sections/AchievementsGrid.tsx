@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Badge, Flex, Spinner } from '@radix-ui/themes'
 import Image from 'next/image'
 
@@ -41,12 +41,13 @@ export default function AchievementsGrid({
     fetchAchievements()
   }, [])
 
+  const earnedAchievementMap = useMemo(() => {
+    return new Map(earnedAchievements.map((a) => [a.name, a]));
+  }, [earnedAchievements]);
+
   const displayedAchievements = maxCount
     ? allAchievements.slice(0, maxCount)
     : allAchievements
-
-    const userHasAchievement = (name: string) =>
-      earnedAchievements.some((a) => a.name === name)
 
   if (allAchievements.length === 0) return (
     <Flex direction={'row'} width={'100%'} align={'center'} justify={'center'}>
@@ -64,9 +65,9 @@ export default function AchievementsGrid({
       }}
     >
       {displayedAchievements.map((achievement) => {
-        const isEarned = userHasAchievement(achievement.name)
-        const earnedData = earnedAchievements.find((a) => a.name === achievement.name)
-        const earnedCount = earnedData?.count
+        const earnedData = earnedAchievementMap.get(achievement.name);
+        const isEarned = Boolean(earnedData);
+        const earnedCount = earnedData?.count;
 
         return (
           <div
@@ -80,7 +81,6 @@ export default function AchievementsGrid({
           >
             <div
               style={{
-               
                 filter: isEarned ? 'none' : 'grayscale(100%) brightness(0.6)',
                 borderRadius: '12px',
                 overflow: 'hidden',

@@ -13,7 +13,7 @@ const MatchSchema = new Schema<IMatch>(
       score: { type: Number},
     },
     winners: [{ type: Schema.Types.ObjectId, ref: "User" }],
-    location: { type: String },
+    location: { type: Schema.Types.ObjectId, ref: "Client" },
   },
   { timestamps: true }
 );

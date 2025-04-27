@@ -6,6 +6,7 @@ import "@radix-ui/themes/styles.css";
 import { Theme } from "@radix-ui/themes";
 import { getResolvedUser } from '@/lib/getResolvedUser'
 import { UserProvider } from "./contexts/UserContext";
+import { CookieWarning } from "./components/CookieWarning";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,6 +38,7 @@ export default async function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <Theme appearance="dark" accentColor="yellow">
           <UserProvider initialUser={resolvedUser}>
+            <CookieWarning />
             <div style={{ background: 'linear-gradient(135deg,rgb(4, 19, 86),rgb(1, 107, 245))' }}>
               {children}
             </div>

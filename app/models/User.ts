@@ -1,13 +1,33 @@
 import mongoose, { Schema } from "mongoose";
 import { IUser } from "../types/databaseTypes";
 
-const AchievementSchema = new Schema(
-  {
-    count: { type: Number },
-    earnedAt: { type: [Date], required: true },
+const AchievementSubSchema = new Schema({
+  count: { type: Number },
+  earnedAt: { type: [Date], required: true },
+}, { _id: false })
+
+const RewardSubSchema = new Schema({
+  redeemed: { type: Boolean, required: true },
+  redemptionDate: { type: Date },
+}, { _id: false })
+
+const ClientStatsSubSchema = new Schema({
+  wins: { type: Number },
+  losses: { type: Number },
+  winStreak: { type: Number },
+  pointsWon: { type: Number },
+  matches: [{ type: Schema.Types.ObjectId, ref: "Match" }],
+  achievements: {
+    type: Map,
+    of: AchievementSubSchema,
+    default: {}
   },
-  { _id: false }
-);
+  rewards: {
+    type: Map,
+    of: RewardSubSchema,
+    default: {}
+  }
+}, { _id: false })
 
 
 const UserSchema = new Schema<IUser>(
@@ -16,18 +36,13 @@ const UserSchema = new Schema<IUser>(
     email: { type: String },
     auth0Id: { type: String },
     profilePicture: { type: String },
-    wins: { type: Number },
-    losses: { type: Number },
-    winStreak: { type: Number },
-    pointsWon: { types: Number },
-    matches: [{ type: Schema.Types.ObjectId, ref: "Match" }],
-    achievements: {
+    lastLocation: { type: Schema.Types.ObjectId, ref: "Client" },
+    stats: {
       type: Map,
-      of: AchievementSchema,
-      default: {},
-    },
-  },
-  { timestamps: true }
+      of: ClientStatsSubSchema,
+      default: {}
+    }
+  }, { timestamps: true }
 );
 
 UserSchema.index({ auth0Id: 1 });
