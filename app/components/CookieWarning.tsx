@@ -13,7 +13,6 @@ export function CookieWarning() {
       try {
         document.cookie = "cookietest=1; SameSite=Lax";
         const cookiesEnabled = document.cookie.includes("cookietest=");
-        // Cleanup test cookie if possible
         document.cookie = "cookietest=1; Max-Age=0";
         return cookiesEnabled;
       } catch (err) {
@@ -27,11 +26,9 @@ export function CookieWarning() {
     }
   }, []);
 
-  if (!cookiesBlocked) return null;
-
   return (
     <Dialog.Root open={cookiesBlocked}>
-      <Dialog.Content>
+      <Dialog.Content forceMount>
         <Dialog.Title>Cookies are disabled</Dialog.Title>
         <Dialog.Description size="3" mb="4">
           ⚠️ Cookies are blocked or disabled. Guest accounts and certain features may not work correctly. Please enable cookies or create a full account.
