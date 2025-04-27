@@ -20,7 +20,6 @@ export default function NewMatch() {
   const { user, setUser } = useUserContext()
   const locationParam = searchParams.get('location')
 
-  const [isClient, setIsClient] = useState(false);
   const [matchId, setMatchId] = useState<string | null>(null);
   const [submittingName, setSubmittingName] = useState<boolean>(false);
   const [selectedLocation, setSelectedLocation] = useState<IClient | null>(null);
@@ -48,10 +47,6 @@ export default function NewMatch() {
       fetchClientById();
     }
   }, [locationParam])
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
 
   const handleNameSubmit = async () => {
     setSubmittingName(true);
@@ -192,9 +187,7 @@ const handleContinue = () => {
   })
 }
 
-  if (!isClient) return null;
-
-  if (!isMobile && isClient) {
+  if (!isMobile) {
     return (
       <Flex direction={'column'} minHeight={'100vh'} p={'4'} justify={'center'} gap={'7'} pb={'9'}>
         <Flex direction={'column'} position={'relative'} align={'center'} p={'7'}>
@@ -220,8 +213,7 @@ const handleContinue = () => {
     )
   }
 
-  if (!isMobile && isClient) {
-    return (
+  return (
       <Flex direction={'column'} minHeight={'100vh'} p={'4'} justify={'center'} gap={'7'} pb={'9'}>
         <Flex direction={'column'} position={'relative'} align={'center'} p={'7'}>
             <Image
@@ -307,7 +299,5 @@ const handleContinue = () => {
       </Flex>
 
    
-    )
-  }
- 
+  )
 }
