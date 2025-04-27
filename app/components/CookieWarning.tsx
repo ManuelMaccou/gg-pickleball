@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 export function CookieWarning() {
   const router = useRouter();
   const [cookiesBlocked, setCookiesBlocked] = useState(false);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     const checkCookies = () => {
@@ -27,13 +28,14 @@ export function CookieWarning() {
 
     if (!checkCookies()) {
       setCookiesBlocked(true);
+      setOpen(true); // Open the dialog
     }
   }, []);
 
   if (!cookiesBlocked) return null;
 
   return (
-    <Dialog.Root open={cookiesBlocked}>
+    <Dialog.Root open={open} onOpenChange={setOpen}>
       <Dialog.Content>
         <Dialog.Title>Cookies are disabled</Dialog.Title>
         <Dialog.Description size="3" mb="4">
