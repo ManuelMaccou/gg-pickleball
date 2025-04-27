@@ -1,6 +1,6 @@
 'use client'
 
-// import { useMediaQuery } from 'react-responsive';
+import { useMediaQuery } from 'react-responsive';
 import { v4 as uuidv4 } from 'uuid';
 import { Badge, Button, Flex, Heading, Text, TextField } from "@radix-ui/themes";
 import Image from "next/image";
@@ -12,7 +12,7 @@ import { useUserContext } from '../contexts/UserContext';
 import { IClient } from '../types/databaseTypes';
 
 export default function NewMatch() {
-  // const isMobile = useMediaQuery({ maxWidth: 767 });
+  const isMobile = useMediaQuery({ maxWidth: 767 });
 
   const router = useRouter();
   const searchParams = useSearchParams()
@@ -20,6 +20,7 @@ export default function NewMatch() {
   const { user, setUser } = useUserContext()
   const locationParam = searchParams.get('location')
 
+  const [isClient, setIsClient] = useState(false);
   const [matchId, setMatchId] = useState<string | null>(null);
   const [submittingName, setSubmittingName] = useState<boolean>(false);
   const [selectedLocation, setSelectedLocation] = useState<IClient | null>(null);
@@ -47,6 +48,10 @@ export default function NewMatch() {
       fetchClientById();
     }
   }, [locationParam])
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const handleNameSubmit = async () => {
     setSubmittingName(true);
@@ -187,9 +192,36 @@ const handleContinue = () => {
   })
 }
 
+  if (!isClient) return null;
 
+  if (!isMobile && isClient) {
+    return (
+      <Flex direction={'column'} minHeight={'100vh'} p={'4'} justify={'center'} gap={'7'} pb={'9'}>
+        <Flex direction={'column'} position={'relative'} align={'center'} p={'7'}>
+          <Image
+            src={lightGguprLogo}
+            alt="GG Pickleball dark logo"
+            priority
+            height={540}
+            width={960}
+            style={{
+              width: 'auto',
+              maxHeight: '170px',
+            }}
+          />
+          <Text mt={'4'} size={'5'} weight={'bold'}>DUPR for recreational players</Text>
+          <Text size={'5'} weight={'bold'}>A GG Pickleball experiment</Text>
+        </Flex>
 
-  return (
+        <Flex direction={'column'} justify={'center'} align={'center'}>
+          <Text size={'6'} align={'center'}>This app is optimized for mobile devices only.</Text>
+        </Flex>
+      </Flex>
+    )
+  }
+
+  if (!isMobile && isClient) {
+    return (
       <Flex direction={'column'} minHeight={'100vh'} p={'4'} justify={'center'} gap={'7'} pb={'9'}>
         <Flex direction={'column'} position={'relative'} align={'center'} p={'7'}>
             <Image
@@ -275,5 +307,7 @@ const handleContinue = () => {
       </Flex>
 
    
-  )
+    )
+  }
+ 
 }

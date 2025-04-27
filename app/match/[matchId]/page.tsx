@@ -43,6 +43,7 @@ export default function GguprMatchPage() {
   const pathname = usePathname();
   const searchParams = useSearchParams()
 
+  const [isClient, setIsClient] = useState(false);
   const [isCheckingUser, setIsCheckingUser] = useState<boolean>(true);
 
   const [tempName, setTempName] = useState<string>('');
@@ -69,6 +70,10 @@ export default function GguprMatchPage() {
   const params = useParams<{ matchId: string }>()
   const matchId = params.matchId;
   const locationParam = searchParams.get('location')
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const simulatePlayersJoining = () => {
     if (!user?.name || !user?.id) return;
@@ -335,6 +340,8 @@ export default function GguprMatchPage() {
       }
     };
   }, [pathname]);
+
+  if (!isClient) return null;
 
   if (!isMobile) {
     return (

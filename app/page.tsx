@@ -18,6 +18,7 @@ export default function Ggupr() {
   const { user } = useUserContext(); 
   const userName = user?.name
 
+  const [isClient, setIsClient] = useState(false);
   const [allClients, setAllClients] = useState<IClient[]>([])
   const [primaryClient, setPrimaryClient] = useState<IClient | null>(null)
   const [currentClient, setCurrentClient] = useState<IClient | null>(null)
@@ -35,6 +36,10 @@ export default function Ggupr() {
     count?: number
     earnedAt: Date[]
   }
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const clientId = currentClient?._id?.toString();
 
@@ -107,6 +112,7 @@ export default function Ggupr() {
 
   //* set the current client when the user selects a new client from the drawer when there are multiple clients available
   
+  if (!isClient) return null;
 
   if (!isMobile) {
     return (
