@@ -1,6 +1,6 @@
 'use client'
 
-import { useMediaQuery } from 'react-responsive';
+// import { useMediaQuery } from 'react-responsive';
 import { v4 as uuidv4 } from 'uuid';
 import { Badge, Button, Flex, Heading, Text, TextField } from "@radix-ui/themes";
 import Image from "next/image";
@@ -12,7 +12,7 @@ import { useUserContext } from '../contexts/UserContext';
 import { IClient } from '../types/databaseTypes';
 
 export default function NewMatch() {
-  const isMobile = useMediaQuery({ maxWidth: 767 });
+  // const isMobile = useMediaQuery({ maxWidth: 767 });
 
   const router = useRouter();
   const searchParams = useSearchParams()
