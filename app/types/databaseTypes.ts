@@ -79,6 +79,7 @@ export interface IClient extends Document {
   latitude: string;
   longitude: string;
   logo: string;
+  icon: string;
   achievements?: Types.ObjectId[];
   rewardsPerAchievement?: {
     [achievementId: string]: IReward;

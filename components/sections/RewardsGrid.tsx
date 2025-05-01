@@ -3,15 +3,16 @@
 import { useEffect, useState } from 'react'
 import { Card, Text, Flex, Box, Badge, Spinner } from '@radix-ui/themes'
 import Image from 'next/image'
-import { IReward } from '@/app/types/databaseTypes'
+import { IClient, IReward } from '@/app/types/databaseTypes'
 
 type Props = {
+  location: IClient
   unlockedRewardIds: string[]
   variant?: 'preview' | 'full'
   maxCount?: number
 }
 
-export default function RewardGrid({ unlockedRewardIds, maxCount }: Props) {
+export default function RewardGrid({ location, unlockedRewardIds, maxCount }: Props) {
   const [allRewards, setAllRewards] = useState<IReward[]>([])
 
   useEffect(() => {
@@ -55,10 +56,10 @@ export default function RewardGrid({ unlockedRewardIds, maxCount }: Props) {
             <Flex direction={'row'} gap={'6'}>
               <Box position={'relative'}>
                 <Image
-                  src={'/partnerLogos/PowerPlay_icon.png'}
+                  src={location.icon}
                   alt={''}
-                  height={150}
-                  width={150}
+                  height={200}
+                  width={200}
                   style={{maxWidth: '50px', height: 'auto'}}
                   />
               </Box>

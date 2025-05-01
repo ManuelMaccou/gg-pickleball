@@ -251,15 +251,18 @@ export default function Ggupr() {
             {rewardsVariant === 'preview' ? "View all" : "View less"}
           </Button>
         </Flex>
-        <RewardsGrid
-          unlockedRewardIds={
-            userStatsForClient?.rewards
-              ? Object.keys(userStatsForClient.rewards)
-              : []
-          }
-          variant={rewardsVariant}
-          maxCount={rewardsVariant === 'preview' ? 3 : undefined}
+        {dbUser && currentClient && (
+          <RewardsGrid
+            location={currentClient}
+            unlockedRewardIds={
+              userStatsForClient?.rewards
+                ? Object.keys(userStatsForClient.rewards)
+                : []
+            }
+            variant={rewardsVariant}
+            maxCount={rewardsVariant === 'preview' ? 3 : undefined}
           />
+        )}
       </Flex>
     </Flex>
   )
