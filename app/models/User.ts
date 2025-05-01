@@ -7,7 +7,8 @@ const AchievementSubSchema = new Schema({
 }, { _id: false })
 
 const RewardSubSchema = new Schema({
-  redeemed: { type: Boolean, required: true },
+  code: { type: String },
+  redeemed: { type: Boolean, default: false, required: true },
   redemptionDate: { type: Date },
 }, { _id: false })
 

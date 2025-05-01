@@ -4,16 +4,20 @@ import { useEffect, useState } from 'react'
 import { Card, Text, Flex, Box, Badge, Spinner } from '@radix-ui/themes'
 import Image from 'next/image'
 import { IClient, IReward } from '@/app/types/databaseTypes'
+import RedeemRewardsDialog from '../RedeemRewardsDialog'
+import { FrontendUser } from '@/app/types/frontendTypes'
 
 type Props = {
+  user: FrontendUser
   location: IClient
   unlockedRewardIds: string[]
   variant?: 'preview' | 'full'
   maxCount?: number
 }
 
-export default function RewardGrid({ location, unlockedRewardIds, maxCount }: Props) {
+export default function RewardGrid({ user, location, unlockedRewardIds, maxCount }: Props) {
   const [allRewards, setAllRewards] = useState<IReward[]>([])
+  const [selectedReward, setSelectedReward] = useState<IReward | null>(null)
 
   useEffect(() => {
     const fetchRewards = async () => {
@@ -39,9 +43,7 @@ export default function RewardGrid({ location, unlockedRewardIds, maxCount }: Pr
     <Flex direction={'column'} gap="4">
       {displayedRewards.map((reward) => {
        const isUnlocked = unlockedRewardIds.includes(reward._id.toString());
-
-        return (
-          <Flex direction={'column'} key={reward._id.toString()}>
+        const cardContent = (
           <Card
             style={{
               filter: isUnlocked ? 'none' : 'grayscale(100%) brightness(0.6)',
@@ -80,18 +82,32 @@ export default function RewardGrid({ location, unlockedRewardIds, maxCount }: Pr
                   <Badge variant='solid'>Activated</Badge>
                 </Flex>
               )}
-              
             </Flex>
-            
-             
-            
-
-            
-            
           </Card>
+        )
+
+        return (
+          <Flex direction="column" key={reward._id.toString()}>
+            {isUnlocked ? (
+              <div onClick={() => setSelectedReward(reward)}>{cardContent}</div>
+            ) : (
+              cardContent
+            )}
           </Flex>
         )
       })}
+
+      {selectedReward && (
+        <RedeemRewardsDialog
+          showRedeemRewardsDialog={true}
+          setShowRedeemRewardsDialog={(open) => {
+            if (!open) setSelectedReward(null)
+          }}
+          reward={selectedReward}
+          location={location}
+          user={user}
+        />
+      )}
     </Flex>
   )
 }

@@ -200,10 +200,7 @@ export default function Ggupr() {
         {currentClient && (
           <Flex direction={'row'} justify={'center'} align={'center'} gap={'6'} mx={'4'}>
             {allClients.length > 1 ? (
-          
-            
-                <LocationDrawer allClients={allClients} currentClient={currentClient} onLocationChange={setCurrentClient}/>
-              
+              <LocationDrawer allClients={allClients} currentClient={currentClient} onLocationChange={setCurrentClient}/>
             ) : (
               <Box position={'relative'} height={'70px'} width={'200px'}>
               <Image
@@ -254,8 +251,9 @@ export default function Ggupr() {
             {rewardsVariant === 'preview' ? "View all" : "View less"}
           </Button>
         </Flex>
-        {currentClient && (
+        {currentClient && dbUser && (
           <RewardsGrid
+            user={dbUser}
             location={currentClient}
             unlockedRewardIds={
               userStatsForClient?.rewards

@@ -11,6 +11,7 @@ export interface AchievementData {
 }
 
 export interface RewardData {
+  code: string;
   redeemed: boolean;
   redemptionDate?: Date;
 }

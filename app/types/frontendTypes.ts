@@ -6,7 +6,7 @@ export interface FrontendClientStats {
   pointsWon?: number;
   matches?: string[]; // object ids are strings on frontend
   achievements: Record<string, { count?: number; earnedAt: Date[] }>;
-  rewards: Record<string, { redeemed: boolean; redemptionDate?: Date }>;
+  rewards: Record<string, { code: string; redeemed: boolean; redemptionDate?: Date }>;
 }
 
 export interface FrontendUser {

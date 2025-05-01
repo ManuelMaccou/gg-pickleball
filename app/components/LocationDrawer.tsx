@@ -10,7 +10,7 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer"
-import { Box, Button, Card, ChevronDownIcon, Flex, VisuallyHidden } from "@radix-ui/themes"
+import { Box, Card, ChevronDownIcon, Flex, VisuallyHidden } from "@radix-ui/themes"
 import { IClient } from "../types/databaseTypes";
 import Image from "next/image";
 
@@ -40,9 +40,7 @@ export default function LocationDrawer({ allClients, currentClient, onLocationCh
               style={{objectFit: 'contain'}}
             />
           </Box>
-          <Button variant="ghost">
-            <ChevronDownIcon width={'20px'} height={'20px'}/>
-          </Button>
+          <ChevronDownIcon width={'20px'} height={'20px'}/>
         </Flex>
       </DrawerTrigger>
       <DrawerContent className="bg-gray-800 shadow-[0_-2px_8px_rgba(0,0,0,0.5)] border-t-0 data-[vaul-drawer-direction=bottom]:border-t-0 data-[vaul-drawer-direction=bottom]:rounded-t-lg [&>div.bg-muted]:hidden">
