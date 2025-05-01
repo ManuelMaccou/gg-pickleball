@@ -46,7 +46,11 @@ export default function RedeemRewardsDialog({
               />
             </Box>
             <Flex direction={'row'} align={'center'} justify={'center'} flexGrow={'1'} width={'100%'}>
-              <Text align={'center'} size={'8'} weight={'bold'}>{reward.product}</Text>
+              <Text align={'center'} size={'8'} weight={'bold'}
+                style={{textTransform: "uppercase"}}
+              >
+                {reward.product}
+              </Text>
             </Flex>
             
           </Flex>
@@ -54,7 +58,7 @@ export default function RedeemRewardsDialog({
             <Text size={'9'} weight={'bold'} align={'center'}>{reward.discount}</Text>
           </Flex>
           <Flex direction={'column'} mt={'4'} gap={'4'}>
-            <Text size={'4'} align={'center'}><Strong>To redeem: </Strong>Show this screen at the front desk to call to make a reservation or order.</Text>
+            <Text size={'4'} align={'center'}><Strong>To redeem: </Strong>Show this screen at the front desk, or call to make a reservation or order.</Text>
             <Text size={'4'} align={'right'}><Strong>Code: </Strong>{rewardCode}</Text>
           </Flex>
         </Flex>
