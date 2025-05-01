@@ -3,7 +3,7 @@
 import { useMediaQuery } from 'react-responsive';
 import { Box, Button, Flex, Text } from "@radix-ui/themes";
 import Image from "next/image";
-import lightGguprLogo from '../public/logos/ggupr_logo_white_transparent.png'
+import lightGgLogo from '../public/logos/gg_logo_white_transparent.png'
 import Link from 'next/link';
 import { useUser as useAuth0User } from '@auth0/nextjs-auth0';
 import { useUserContext } from './contexts/UserContext';
@@ -148,7 +148,7 @@ export default function Ggupr() {
       <Flex direction={'column'} minHeight={'100vh'} p={'4'} justify={'center'} gap={'7'}>
         <Flex direction={'column'} position={'relative'} align={'center'} p={'7'}>
           <Image
-            src={lightGguprLogo}
+            src={lightGgLogo}
             alt="GG Pickleball dark logo"
             priority
             height={540}
@@ -173,9 +173,9 @@ export default function Ggupr() {
   return (
     <Flex direction={'column'} minHeight={'100vh'} p={'4'} style={{paddingBottom: '150px'}}>
       <Flex justify={"between"} align={'center'} direction={"row"} pt={"2"} pb={"5"} px={'2'}>
-        <Flex direction={'column'} position={'relative'} maxWidth={'120px'}>
+        <Flex direction={'column'} position={'relative'} maxWidth={'80px'}>
           <Image
-            src={lightGguprLogo}
+            src={lightGgLogo}
             alt="ggupr dark logo"
             priority
             height={540}
@@ -199,7 +199,13 @@ export default function Ggupr() {
       <Flex direction={'column'}>
         {currentClient && (
           <Flex direction={'row'} justify={'center'} align={'center'} gap={'6'} mx={'4'}>
-            <Box position={'relative'} height={'70px'} width={'200px'}>
+            {allClients.length > 1 ? (
+          
+            
+                <LocationDrawer allClients={allClients} currentClient={currentClient} onLocationChange={setCurrentClient}/>
+              
+            ) : (
+              <Box position={'relative'} height={'70px'} width={'200px'}>
               <Image
                 src={currentClient.logo} 
                 alt={currentClient.name || "Location logo"}
@@ -207,8 +213,6 @@ export default function Ggupr() {
                 style={{objectFit: 'contain'}}
               />
             </Box>
-            {allClients.length > 1 && (
-              <LocationDrawer allClients={allClients} onLocationChange={setCurrentClient}/>
             )}
           </Flex>
         )}
@@ -230,7 +234,7 @@ export default function Ggupr() {
             </Button>
           </Flex>
 
-          {dbUser && currentClient && (
+          {currentClient && (
             <AchievementsGrid
               clientId={currentClient._id.toString()}
               earnedAchievements={earnedAchievements}
@@ -250,7 +254,7 @@ export default function Ggupr() {
             {rewardsVariant === 'preview' ? "View all" : "View less"}
           </Button>
         </Flex>
-        {dbUser && currentClient && (
+        {currentClient && (
           <RewardsGrid
             location={currentClient}
             unlockedRewardIds={

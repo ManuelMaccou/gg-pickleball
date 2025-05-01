@@ -3,7 +3,7 @@
 import { useUser as useAuth0User } from "@auth0/nextjs-auth0"
 import { Badge, Box, Button, Dialog, Flex, RadioCards, Separator, Spinner, Text, TextField } from "@radix-ui/themes";
 import Image from "next/image";
-import lightGguprLogo from '../../../public/logos/ggupr_logo_white_transparent.png'
+import lightGgLogo from '../../../public/logos/gg_logo_white_transparent.png'
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, usePathname, useSearchParams } from 'next/navigation';
 import { 
@@ -374,7 +374,7 @@ export default function GguprMatchPage() {
       <Flex direction={'column'} minHeight={'100dvh'} p={'4'} justify={'center'} gap={'7'}>
       <Flex direction={'column'} position={'relative'} align={'center'} mt={'-9'} p={'7'}>
           <Image
-            src={lightGguprLogo}
+            src={lightGgLogo}
             alt="GG Pickleball dark logo"
             priority
             height={540}
@@ -400,7 +400,7 @@ export default function GguprMatchPage() {
     <Flex direction={'column'} minHeight={'100dvh'} p={'4'} justify={'center'} align={'center'} gap={'7'}>
       <Flex direction={'column'} position={'relative'} align={'center'} mt={'-9'} p={'7'}>
         <Image
-          src={lightGguprLogo}
+          src={lightGgLogo}
           alt="GG Pickleball dark logo"
           priority
           height={540}
@@ -429,7 +429,7 @@ export default function GguprMatchPage() {
       <Flex direction={'column'} minHeight={'100dvh'} p={'4'} justify={'center'} gap={'7'}>
         <Flex direction={'column'} position={'relative'} align={'center'} mt={'-9'} p={'7'}>
             <Image
-              src={lightGguprLogo}
+              src={lightGgLogo}
               alt="GG Pickleball dark logo"
               priority
               height={540}
@@ -481,9 +481,9 @@ export default function GguprMatchPage() {
   return (
     <Flex direction={'column'} minHeight={'100vh'} p={'4'} style={{paddingBottom: '150px'}}>
       <Flex justify={"between"} align={'center'} direction={"row"} pt={"2"} pb={"5"} px={'2'}>
-        <Flex direction={'column'} position={'relative'} maxWidth={'120px'}>
+        <Flex direction={'column'} position={'relative'} maxWidth={'80px'}>
           <Image
-            src={lightGguprLogo}
+            src={lightGgLogo}
             alt="ggupr dark logo"
             priority
             height={540}

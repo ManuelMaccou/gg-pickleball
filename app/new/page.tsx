@@ -4,7 +4,7 @@ import { useMediaQuery } from 'react-responsive';
 import { v4 as uuidv4 } from 'uuid';
 import { Badge, Button, Flex, Heading, Text, TextField } from "@radix-ui/themes";
 import Image from "next/image";
-import lightGguprLogo from '../../public/logos/ggupr_logo_white_transparent.png'
+import lightGgLogo from '../../public/logos/gg_logo_white_transparent.png'
 import { useEffect, useState, useTransition } from "react";
 import QRCodeGenerator from '../components/QrCodeGenerator';
 import { useRouter, useSearchParams } from "next/navigation";
@@ -102,7 +102,7 @@ const handleContinue = () => {
       <Flex direction={'column'} minHeight={'100vh'} p={'4'} justify={'center'} gap={'7'} pb={'9'}>
         <Flex direction={'column'} position={'relative'} align={'center'} p={'7'}>
           <Image
-            src={lightGguprLogo}
+            src={lightGgLogo}
             alt="GG Pickleball dark logo"
             priority
             height={540}
@@ -127,7 +127,7 @@ const handleContinue = () => {
       <Flex direction={'column'} minHeight={'100vh'} p={'4'} justify={'center'} gap={'7'} pb={'9'}>
         <Flex direction={'column'} position={'relative'} align={'center'} p={'7'}>
             <Image
-              src={lightGguprLogo}
+              src={lightGgLogo}
               alt="GG Pickleball dark logo"
               priority
               height={540}

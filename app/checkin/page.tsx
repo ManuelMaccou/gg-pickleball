@@ -8,7 +8,7 @@ import { useUserContext } from '../contexts/UserContext';
 import { IClient } from '../types/databaseTypes';
 import { Badge, Box, Button, Flex, Progress, Spinner, Text, TextField } from '@radix-ui/themes';
 import Image from 'next/image';
-import lightGguprLogo from '../../public/logos/ggupr_logo_white_transparent.png'
+import lightGgLogo from '../../public/logos/gg_logo_white_transparent.png'
 import Link from 'next/link';
 
 export default function CheckinPage() {
@@ -210,9 +210,9 @@ export default function CheckinPage() {
     return (
     <Flex direction={'column'} minHeight={'100dvh'} p={'4'} justify={'center'} align={'center'} gap={'7'}>
       <Flex justify={"between"} align={'center'} direction={"row"} pt={"2"} pb={"5"} px={'2'}>
-        <Flex direction={'column'} position={'relative'} maxWidth={'120px'}>
+        <Flex direction={'column'} position={'relative'} maxWidth={'80px'}>
           <Image
-            src={lightGguprLogo}
+            src={lightGgLogo}
             alt="ggupr dark logo"
             priority
             height={540}
@@ -232,9 +232,9 @@ export default function CheckinPage() {
     return (
       <Flex direction={'column'} minHeight={'100dvh'} p={'4'} gap={'7'}>
         <Flex justify={"between"} align={'center'} direction={"row"} pt={"2"} pb={"5"} px={'2'}>
-          <Flex direction={'column'} position={'relative'} maxWidth={'120px'}>
+          <Flex direction={'column'} position={'relative'} maxWidth={'80px'}>
             <Image
-              src={lightGguprLogo}
+              src={lightGgLogo}
               alt="ggupr dark logo"
               priority
               height={540}
@@ -268,9 +268,9 @@ export default function CheckinPage() {
     return (
       <Flex direction={'column'} minHeight={'100dvh'} p={'4'} gap={'7'}>
         <Flex justify={"between"} align={'center'} direction={"row"} pt={"2"} pb={"5"} px={'2'}>
-          <Flex direction={'column'} position={'relative'} maxWidth={'120px'}>
+          <Flex direction={'column'} position={'relative'} maxWidth={'80px'}>
             <Image
-              src={lightGguprLogo}
+              src={lightGgLogo}
               alt="ggupr dark logo"
               priority
               height={540}
@@ -295,11 +295,12 @@ export default function CheckinPage() {
           <Flex direction={'column'} align={'center'}>
             {currentLocation && (
               <Flex direction={'row'} justify={'between'} align={'center'} mx={'4'}>
-                <Box position={'relative'} height={'70px'} width={'200px'}>
+                <Box position={'relative'} height={'100px'} width={'300px'}>
                   <Image
                     src={currentLocation.logo} 
                     alt={currentLocation.name || "Location logo"}
                     fill
+                    priority
                     style={{objectFit: 'contain'}}
                   />
                 </Box>
@@ -337,9 +338,9 @@ export default function CheckinPage() {
   return (
     <Flex direction={'column'} minHeight={'100vh'} p={'4'} style={{paddingBottom: '150px'}}>
       <Flex justify={"between"} align={'center'} direction={"row"} pt={"2"} pb={"5"} px={'2'}>
-        <Flex direction={'column'} position={'relative'} maxWidth={'120px'}>
+        <Flex direction={'column'} position={'relative'} maxWidth={'80px'}>
           <Image
-            src={lightGguprLogo}
+            src={lightGgLogo}
             alt="ggupr dark logo"
             priority
             height={540}
