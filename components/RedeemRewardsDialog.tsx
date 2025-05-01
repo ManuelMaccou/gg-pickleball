@@ -46,7 +46,7 @@ export default function RedeemRewardsDialog({
               />
             </Box>
             <Flex direction={'row'} align={'center'} justify={'center'} flexGrow={'1'} width={'100%'}>
-              <Text align={'center'} size={'8'} weight={'bold'}
+              <Text align={'center'} size={'7'} weight={'bold'}
                 style={{textTransform: "uppercase"}}
               >
                 {reward.product}
