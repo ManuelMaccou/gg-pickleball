@@ -68,7 +68,7 @@ function checkin(user: IUser, match: MatchData): AchievementEarned[] {
     return [];
   }
 
-  const totalCheckinsAfterToday = checkins.length + 1; // simulate today's check-in
+  const totalCheckinsAfterToday = checkins.length + 1;
 
   for (const milestone of CHECKIN_MILESTONES) {
     if (totalCheckinsAfterToday === milestone) {
@@ -83,7 +83,6 @@ function checkin(user: IUser, match: MatchData): AchievementEarned[] {
 function firstWin(user: IUser, match: MatchData): AchievementEarned[] {
   const userIdStr = user._id.toString();
   const clientId = match.location;
-  console.log('clientId:', clientId);
 
   const userStatsForClient = ensureClientStats(user, clientId);
   const { wins } = userStatsForClient;

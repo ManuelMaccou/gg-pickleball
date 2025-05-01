@@ -78,6 +78,7 @@ export default function GguprMatchPage() {
   const matchId = params.matchId;
   const locationParam = searchParams.get('location')
 
+  /*
   const simulatePlayersJoining = () => {
     if (!user?.name || !user?.id) return;
   
@@ -121,6 +122,7 @@ export default function GguprMatchPage() {
       socket.emit("submit-score", payload);
     });
   };
+  */
   
 
   // set selected location
@@ -538,7 +540,8 @@ export default function GguprMatchPage() {
         </Flex>
       )}
 
-      {players.length < 4 ? (
+{/**
+ {players.length < 4 ? (
           <Button
           size="3"
           variant="solid"
@@ -557,8 +560,7 @@ export default function GguprMatchPage() {
           Simulate Scores
         </Button>
       )}
-    
-
+ */}
       
 
       <Flex direction={'column'} mt={isWaiting ? '0' : '4'}>
