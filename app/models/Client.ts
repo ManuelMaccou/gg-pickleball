@@ -4,6 +4,8 @@ import { IClient } from "../types/databaseTypes";
 const ClientSchema = new Schema<IClient>({
   name: { type: String, required: true, unique: true },
   logo: { type: String },
+  latitude: { type: String },
+  longitude: { type: String },
   achievements: [
     { type: Schema.Types.ObjectId, ref: 'Achievement', required: true }
   ],

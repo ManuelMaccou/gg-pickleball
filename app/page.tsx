@@ -1,27 +1,30 @@
 'use client'
 
 import { useMediaQuery } from 'react-responsive';
-import { Box, Button, ChevronDownIcon, Flex, Text } from "@radix-ui/themes";
+import { Box, Button, Flex, Text } from "@radix-ui/themes";
 import Image from "next/image";
 import lightGguprLogo from '../public/logos/ggupr_logo_white_transparent.png'
 import Link from 'next/link';
 import { useUser as useAuth0User } from '@auth0/nextjs-auth0';
 import { useUserContext } from './contexts/UserContext';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import AchievementsGrid from '@/components/sections/AchievementsGrid';
-import { IClient, IUser } from './types/databaseTypes';
+import { IClient } from './types/databaseTypes';
 import RewardsGrid from '@/components/sections/RewardsGrid';
+import LocationDrawer from './components/LocationDrawer';
+import { toFrontendUser } from '@/utils/converters';
+import { FrontendUser } from './types/frontendTypes';
 
 export default function Ggupr() {
+
   const isMobile = useMediaQuery({ maxWidth: 767 });
   const { user: auth0User, isLoading } = useAuth0User();
   const { user } = useUserContext(); 
   const userName = user?.name
 
   const [allClients, setAllClients] = useState<IClient[]>([])
-  const [primaryClient, setPrimaryClient] = useState<IClient | null>(null)
   const [currentClient, setCurrentClient] = useState<IClient | null>(null)
-  const [dbUser, setDbUser] = useState<IUser | null>(null)
+  const [dbUser, setDbUser] = useState<FrontendUser | null>(null)
   const [achievementsVariant, setAchievementsVariant] = useState<'full' | 'preview'>('preview')
   const [rewardsVariant, setRewardsVariant] = useState<'full' | 'preview'>('preview')
 
@@ -31,20 +34,19 @@ export default function Ggupr() {
     earnedAt: Date[]
   }
 
-  type AchievementDetails = {
-    count?: number
-    earnedAt: Date[]
-  }
-
   const clientId = currentClient?._id?.toString();
 
-  const earnedAchievements: EarnedAchievement[] = Object.entries(
-    dbUser?.stats?.[currentClient?._id.toString() || '']?.achievements || {}
-  ).map(([name, details]: [string, AchievementDetails]) => ({
-    name,
-    count: details.count,
-    earnedAt: details.earnedAt,
-  }));
+  const earnedAchievements: EarnedAchievement[] = useMemo(() => {
+    const clientStats = dbUser?.stats?.[currentClient?._id.toString() || ''];
+  
+    if (!clientStats?.achievements) return [];
+  
+    return Object.entries(clientStats.achievements).map(([name, details]) => ({
+      name,
+      count: details.count,
+      earnedAt: details.earnedAt,
+    }));
+  }, [dbUser, currentClient]);
 
   const handleAchievementsVariantChange = () => {
     setAchievementsVariant((prev) => (prev === 'preview' ? 'full' : 'preview'))
@@ -56,14 +58,56 @@ export default function Ggupr() {
 
   // Fetch all clients
   useEffect(() => {
-    const fetchAchievements = async () => {
-      const res = await fetch('/api/client')
-      const data = await res.json()
-      setAllClients(data.clients || [])
+    const fetchClients = async () => {
+      try {
+        const res = await fetch('/api/client')
+        if (!res.ok) {
+          throw new Error('Failed to fetch clients')
+        }
+        const data = await res.json()
+        setAllClients(data.clients || [])
+      } catch (error) {
+        console.error('Error fetching clients:', error)
+      }
     }
 
-    fetchAchievements()
+    fetchClients()
   }, [])
+
+  // Set lastLocation cookie
+  useEffect(() => {
+    if (allClients.length === 0) return
+
+    const setClientFromCookie = async () => {
+      try {
+        if (allClients.length === 1) {
+          setCurrentClient(allClients[0])
+          return
+        }
+
+        const lastLocationCookie = document.cookie
+          .split('; ')
+          .find((row) => row.startsWith('lastLocation='))
+          ?.split('=')[1]
+
+        if (lastLocationCookie) {
+          const lastLocation = allClients.find((client) => client._id.toString() === lastLocationCookie)
+          if (lastLocation) {
+            setCurrentClient(lastLocation)
+          } else {
+            console.warn('No matching client found for cookie value.')
+          }
+        } else {
+          document.cookie = `lastLocation=${allClients[0]._id}; path=/; max-age=${60 * 60 * 24 * 30}`;
+          setCurrentClient(allClients[0])
+        }
+      } catch (error) {
+        console.error('Error setting client from cookie:', error)
+      }
+    }
+
+    setClientFromCookie()
+  }, [allClients])
 
   // Fetch user details
   useEffect(() => {
@@ -86,27 +130,18 @@ export default function Ggupr() {
           return
         }
   
-        setDbUser(data.user)
-        setPrimaryClient(data.user.lastLocation)
+        const frontendUser = toFrontendUser(data.user);
+        setDbUser(frontendUser);
+       
       } catch (err) {
         console.error('Error fetching user:', err)
       }
     }
   
     fetchUser()
-  }, [user, auth0User])
+  }, [user, auth0User])  
 
-  // Set current client
-  useEffect(() => {
-    if (primaryClient) {
-      setCurrentClient(primaryClient)
-    } else if (allClients.length === 1) {
-      setCurrentClient(allClients[0])
-    }
-  }, [primaryClient, allClients])
-
-  //* set the current client when the user selects a new client from the drawer when there are multiple clients available
-  
+  const userStatsForClient = clientId ? dbUser?.stats?.[clientId] : undefined;
 
   if (!isMobile) {
     return (
@@ -162,28 +197,22 @@ export default function Ggupr() {
       </Flex>
       
       <Flex direction={'column'}>
-      {allClients.length > 1 ? (
+      {currentClient && (
         <Flex direction={'row'} justify={'between'} align={'center'} mx={'4'}>
           <Box position={'relative'} height={'70px'} width={'200px'}>
             <Image
-              src={primaryClient?.logo || allClients[0]?.logo} 
-              alt={primaryClient?.name || allClients[0]?.name || "Location logo"}
+              src={currentClient.logo} 
+              alt={currentClient.name || "Location logo"}
               fill
               style={{objectFit: 'contain'}}
             />
           </Box>
-          <ChevronDownIcon height={'20px'} width={'20px'} />
+          {allClients.length > 1 && (
+            <LocationDrawer allClients={allClients} />
+          )}
+          
         </Flex>
-         ) : allClients.length === 1 ? (
-          <Box position={'relative'} height={'70px'} width={'200px'} style={{alignSelf: 'center'}}>
-          <Image
-            src={primaryClient?.logo || allClients[0]?.logo}
-            alt={primaryClient?.name || allClients[0]?.name || "Location logo"}
-            fill
-            style={{objectFit: 'contain'}}
-          />
-        </Box>
-         ) : null}
+         )}
        
         <Flex direction={'column'} mt={'7'}>
           <Flex direction={'column'} mx={'9'} mb={'7'}>
@@ -204,6 +233,7 @@ export default function Ggupr() {
 
           {dbUser && currentClient && (
             <AchievementsGrid
+              clientId={currentClient._id.toString()}
               earnedAchievements={earnedAchievements}
               variant={achievementsVariant}
               maxCount={achievementsVariant === 'preview' ? 3 : undefined}
@@ -223,13 +253,13 @@ export default function Ggupr() {
         </Flex>
         <RewardsGrid
           unlockedRewardIds={
-            clientId && dbUser?.stats?.[clientId]?.rewards
-              ? Object.keys(dbUser.stats[clientId].rewards)
+            userStatsForClient?.rewards
+              ? Object.keys(userStatsForClient.rewards)
               : []
           }
           variant={rewardsVariant}
           maxCount={rewardsVariant === 'preview' ? 3 : undefined}
-        />
+          />
       </Flex>
     </Flex>
   )

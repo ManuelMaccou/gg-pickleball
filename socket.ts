@@ -1,6 +1,7 @@
 import { io } from "socket.io-client";
 import { GguprSocket, SaveMatchData } from "./app/types/socketTypes";
 import { updateUserAndAchievements } from "./utils/achievementFunctions/updateUserAndAchievements";
+import { SerializedAchievement } from "./app/types/databaseTypes";
 
 let socket: GguprSocket | null = null;
 
@@ -59,7 +60,9 @@ export const handleSaveMatch = async (data: SaveMatchData, players: Player[]) =>
   console.log("📥 Received 'save-match' event from server:", data);
   console.log("📍 Location received:", data.location);
   if (data.success) {
-    console.log("✅ Scores validated successfully. Triggering save to database.");
+
+    let earnedAchievements: { userId: string; achievements: SerializedAchievement[] }[] = [];
+
     try {
       console.log("📝 Sending POST request to /api/match...");
 
@@ -93,14 +96,33 @@ export const handleSaveMatch = async (data: SaveMatchData, players: Player[]) =>
       const matchId = result._id
 
        // Update users and their achievements
-       updateUserAndAchievements(team1Ids, team2Ids, winners, location, matchId, team1Score, team2Score)
+       try {
+        const achievementsResult = await updateUserAndAchievements(
+          team1Ids,
+          team2Ids,
+          winners,
+          location,
+          matchId,
+          team1Score,
+          team2Score
+        );
+
+        earnedAchievements = achievementsResult.earnedAchievements || [];
+      
+      } catch (error) {
+        console.error('❌ Failed to update achievements after match:', error);
+      }
 
       console.log("📬 Received response from /api/match:", result);
       console.log("📬 Data received from /api/match:", data);
 
       if (matchResponse.ok) {
-        console.log("Match successfully saved to database!", result);
-        socket?.emit("match-saved", { matchId: data.matchId });
+        console.log(`Match successfully saved to database! Earned Achievements:`, earnedAchievements);
+        socket?.emit("match-saved", {
+          success: true,
+          matchId: data.matchId,
+          earnedAchievements: earnedAchievements || []
+        });
         
         socket?.emit("clear-scores", { matchId: data.matchId });
         console.log(`Requested score clearance for match: ${data.matchId}`);
@@ -154,7 +176,12 @@ export const subscribeToSaveMatch = (callback: (data: SaveMatchData) => void) =>
   socket.on("save-match", (data) => callback(data));
 };
 
-export const subscribeToMatchSaved = (callback: (data: { success: boolean; message: string }) => void) => {
+export const subscribeToMatchSaved = (callback: (data: { 
+  success: boolean;
+  matchId: string;
+  message: string;
+  earnedAchievements: { userId: string; achievements: SerializedAchievement[] }[];
+}) => void) => {
   if (!socket) return;
   socket.off("match-saved");
   socket.on("match-saved", (data) => callback(data));

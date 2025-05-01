@@ -12,6 +12,10 @@ const RewardSubSchema = new Schema({
 }, { _id: false })
 
 const ClientStatsSubSchema = new Schema({
+  checkins: {
+    type: [Date],
+    default: [],
+  },
   wins: { type: Number },
   losses: { type: Number },
   winStreak: { type: Number },

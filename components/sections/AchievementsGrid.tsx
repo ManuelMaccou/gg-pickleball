@@ -18,38 +18,50 @@ type Achievement = {
 }
 
 type Props = {
+  clientId: string
   earnedAchievements: EarnedAchievement[]
   variant?: 'full' | 'preview'
   maxCount?: number
 }
 
 export default function AchievementsGrid({
+  clientId,
   earnedAchievements,
   variant = 'full',
   maxCount,
 }: Props) {
-  const [allAchievements, setAllAchievements] = useState<Achievement[]>([])
+  const [allClientAchievements, setAllClientAchievements] = useState<Achievement[]>([])
 
-  useEffect(() => {
-    
-    const fetchAchievements = async () => {
-      const res = await fetch('/api/achievement')
-      const data = await res.json()
-      setAllAchievements(data.achievements || [])
+useEffect(() => {
+  const fetchClientAchievements = async () => {
+    if (!clientId) return;
+
+    try {
+      const res = await fetch(`/api/client/achievements?clientId=${clientId}`);
+      if (!res.ok) {
+        console.error('Failed to fetch client achievements:', res.statusText);
+        return;
+      }
+
+      const data = await res.json();
+      setAllClientAchievements(data.achievements || []);
+    } catch (error) {
+      console.error('Error fetching client achievements:', error);
     }
+  };
 
-    fetchAchievements()
-  }, [])
+  fetchClientAchievements();
+}, [clientId]);
 
   const earnedAchievementMap = useMemo(() => {
     return new Map(earnedAchievements.map((a) => [a.name, a]));
   }, [earnedAchievements]);
 
   const displayedAchievements = maxCount
-    ? allAchievements.slice(0, maxCount)
-    : allAchievements
+    ? allClientAchievements.slice(0, maxCount)
+    : allClientAchievements
 
-  if (allAchievements.length === 0) return (
+  if (allClientAchievements.length === 0) return (
     <Flex direction={'row'} width={'100%'} align={'center'} justify={'center'}>
        <Spinner size={'3'} style={{color: 'white'}} />
     </Flex>

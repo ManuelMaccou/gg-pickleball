@@ -4,7 +4,7 @@ import { useUser as useAuth0User } from "@auth0/nextjs-auth0"
 import { Badge, Box, Button, Dialog, Flex, RadioCards, Separator, Spinner, Text, TextField } from "@radix-ui/themes";
 import Image from "next/image";
 import lightGguprLogo from '../../../public/logos/ggupr_logo_white_transparent.png'
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, usePathname, useSearchParams } from 'next/navigation';
 import { 
   disconnectSocket,
@@ -17,12 +17,12 @@ import {
   subscribeToScoreValidation
 } from '../../../socket';
 import { debounce } from 'lodash';
-import GuestDialog from "@/app/components/GuestDialog";
+import SuccessDialog from "@/app/components/SuccessDialog";
 import { useRouter } from "next/navigation";
 import QrCodeDialog from "@/app/components/QrCodeDialog";
 import { useMediaQuery } from "react-responsive";
 import { useUserContext } from "@/app/contexts/UserContext";
-import { IClient } from "@/app/types/databaseTypes";
+import { IClient, IReward, SerializedAchievement } from "@/app/types/databaseTypes";
 
 
 type Player = {
@@ -31,10 +31,19 @@ type Player = {
   socketId: string;
 };
 
+interface UserEarnedData {
+  userId: string;
+  achievements: SerializedAchievement[];
+  rewards: {
+    rewardId: string;
+    name: string;
+    product: string;
+    discount: string;
+  }[];
+}
+
 export default function GguprMatchPage() {
   const isMobile = useMediaQuery({ maxWidth: 767 });
-  
-  const bottomRef = useRef<HTMLDivElement | null>(null);
   
   const { user: auth0User, isLoading: authIsLoading } = useAuth0User();
   const { user, setUser } = useUserContext()
@@ -47,7 +56,6 @@ export default function GguprMatchPage() {
 
   const [tempName, setTempName] = useState<string>('');
   const [submittingName, setSubmittingName] = useState<boolean>(false);
-
   const [players, setPlayers] = useState<Player[]>([]);
   const [teammate, setTeammate] = useState<string | null>(null);
   const [isWaiting, setIsWaiting] = useState<boolean>(true);
@@ -59,12 +67,12 @@ export default function GguprMatchPage() {
   const [scoreMatch, setScoreMatch] = useState<string | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<IClient | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
-  const [showLogNewMatch, setShowLogNewMatch] = useState<boolean>(false);
   const [showDialog, setShowDialog] = useState<boolean>(false);
   const [scoreError, setScoreError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
+  const [userEarnedData, setUserEarnedData] = useState<UserEarnedData | null>(null);
 
   const params = useParams<{ matchId: string }>()
   const matchId = params.matchId;
@@ -133,6 +141,13 @@ export default function GguprMatchPage() {
     }
   }, [locationParam])
 
+  // set last location cookie
+  useEffect(() => {
+    if (!locationParam) return
+    document.cookie = `lastLocation=${locationParam}; path=/; max-age=${60 * 60 * 24 * 30}`;
+
+  }, [locationParam])
+
   const handleNameSubmit = async () => {
     setSubmittingName(true);
     if (!tempName.trim()) return;
@@ -195,7 +210,7 @@ export default function GguprMatchPage() {
         team2, 
         yourScore, 
         opponentsScore,
-        location: selectedLocation?.name || ""
+        location: selectedLocation?._id.toString() || ""
       });
     }
   }, [matchId, user?.name, team1, team2, yourScore, opponentsScore, selectedLocation]); 
@@ -306,17 +321,33 @@ export default function GguprMatchPage() {
   
       subscribeToMatchSaved((data) => {
         if (data.success) {
+
+          console.log('Achievements earned:', data.earnedAchievements);
+
+          const currentUserAchievements = data.earnedAchievements.find(e => e.userId === user?.id);
+          if (currentUserAchievements && selectedLocation) {
+            const rewards = currentUserAchievements.achievements
+            .map(a => selectedLocation.rewardsPerAchievement?.[a.name])
+            .filter((r): r is IReward => !!r)
+            .map((reward) => ({
+              rewardId: reward._id.toString(),
+              name: reward.name,
+              product: reward.product,
+              discount: reward.discount,
+            }));
+          
+            setUserEarnedData({
+              userId: currentUserAchievements.userId,
+              achievements: currentUserAchievements.achievements,
+              rewards
+            });
+          }
+            
           setSaveSuccessMessage(data.message);
-          setShowLogNewMatch(true);
           setSaveErrorMessage(null);
   
-          if (!authIsLoading && !auth0User) {
-            setShowDialog(true);
-          }
+          setShowDialog(true);
 
-          if (bottomRef.current) {
-            bottomRef.current.scrollIntoView({ behavior: "smooth" });
-          }
         } else {
           setSaveErrorMessage("An unexpected error occurred.");
           setSaveSuccessMessage(null);
@@ -324,7 +355,7 @@ export default function GguprMatchPage() {
       });
   
     } 
-  }, [user?.name, matchId, players, authIsLoading, auth0User]);
+  }, [user?.name, user?.id, matchId, players, authIsLoading, auth0User, selectedLocation]);
 
   // Leave rooms when they leave the page
   useEffect(() => {
@@ -471,8 +502,12 @@ export default function GguprMatchPage() {
         )}
       </Flex>
       
-      <GuestDialog showDialog={showDialog} setShowDialog={setShowDialog} />
-
+        <SuccessDialog 
+          showDialog={showDialog}
+          setShowDialog={setShowDialog}
+          userEarnedData={userEarnedData}
+        />
+      
       <Flex direction={'row'} mt={'5'} justify={'between'}>
         {matchId && (
           <Flex direction={'column'}>
@@ -642,12 +677,6 @@ export default function GguprMatchPage() {
                   placeholder="Enter opponent's score"
                 />
               </Flex>
-              {showLogNewMatch && (
-              <Flex direction={'column'} gap={'4'} ref={bottomRef}>
-                <Button size={'3'} onClick={() => router.push('/new')}>Log new match</Button>
-              </Flex>
-              )}
-              
             </Flex>
           )}
         </>

@@ -1,4 +1,5 @@
 import { Socket } from "socket.io-client";
+import { SerializedAchievement } from "./databaseTypes";
 
 // Define all the events your socket is handling
 
@@ -23,7 +24,14 @@ export interface ClientToServerEvents {
     winners: string[]; 
     location: string;
   }) => void;
-  "match-saved": (data: { matchId: string }) => void;
+  "match-saved": (data: { 
+    success: boolean;
+    matchId: string;
+    earnedAchievements: {
+      userId: string;
+      achievements: SerializedAchievement[];
+    }[];
+  }) => void;
   "clear-scores": (data: { matchId: string }) => void;
 }
 
@@ -32,7 +40,15 @@ export interface ServerToClientEvents {
   "scores-validated": (data: { success: boolean; message?: string }) => void;
   "teams-set": (data: { team1: string[]; team2: string[] }) => void;
   "save-match": (data: SaveMatchData) => void;
-  "match-saved": (data: { success: boolean; message: string }) => void;
+  "match-saved": (data: {
+    success: boolean;
+    matchId: string;
+    message: string;
+    earnedAchievements: {
+      userId: string;
+      achievements: SerializedAchievement[];
+    }[];
+  }) => void;
   "room-expired": (data: { matchId: string }) => void;
 }
 

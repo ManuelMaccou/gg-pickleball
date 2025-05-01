@@ -25,13 +25,27 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function GET() {
+
+export async function GET(request: NextRequest) {
   try {
-    await connectToDatabase()
-    const achievements = await Achievement.find()
-    return NextResponse.json({ achievements })
+    await connectToDatabase();
+
+    const { searchParams } = new URL(request.url);
+    const name = searchParams.get('name');
+
+    if (name) {
+      const achievement = await Achievement.findOne({ name });
+      if (!achievement) {
+        return NextResponse.json({ error: 'Achievement not found' }, { status: 404 });
+      }
+      return NextResponse.json({ achievement });
+    }
+
+    const achievements = await Achievement.find();
+    return NextResponse.json({ achievements });
+
   } catch (error) {
-    console.error('Failed to fetch achievements:', error)
-    return NextResponse.json({ error: 'Server error' }, { status: 500 })
+    console.error('Failed to fetch achievements:', error);
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

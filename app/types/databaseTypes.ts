@@ -1,5 +1,31 @@
 import { Types, Document } from 'mongoose';
 
+export interface AchievementEarned {
+  key: string;
+  repeatable: boolean;
+};
+
+export interface AchievementData {
+  count?: number | null;
+  earnedAt: Date[];
+}
+
+export interface RewardData {
+  redeemed: boolean;
+  redemptionDate?: Date;
+}
+
+export interface ClientStats {
+  checkins?: Date[];
+  wins?: number;
+  losses?: number;
+  winStreak?: number;
+  pointsWon?: number;
+  matches?: Types.ObjectId[];
+  achievements: Map<string, AchievementData>;
+  rewards: Map<string, RewardData>;  
+}
+
 export interface IUser extends Document {
   _id: Types.ObjectId;
   name: string;
@@ -7,27 +33,7 @@ export interface IUser extends Document {
   email?: string;
   profilePicture?: string;
   lastLocation?: Types.ObjectId;
-  stats: {
-    [clientId: string]: {
-      wins?: number;
-      losses?: number;
-      winStreak?: number;
-      matches?: IMatch[];
-      pointsWon?: number;
-      achievements: {
-        [achievementName: string]: {
-          count?: number
-          earnedAt: Date[]
-        }
-      }
-      rewards: {
-        [rewardName: string]: {
-          redeemed: boolean
-          redemptionDate?: Date
-        }
-      }
-    }
-  }
+  stats: Map<string, ClientStats>;
 }
 
 export interface IMatch extends Document {
@@ -45,6 +51,12 @@ export interface IMatch extends Document {
   location: Types.ObjectId;
 }
 
+export type SerializedAchievement = {
+  _id: string;
+  name: string;
+  friendlyName: string;
+  badge: string;
+};
 
 export interface IAchievement extends Document {
   _id: Types.ObjectId;
@@ -64,9 +76,11 @@ export interface IReward extends Document {
 export interface IClient extends Document {
   _id: Types.ObjectId;
   name: string;
+  latitude: string;
+  longitude: string;
   logo: string;
   achievements?: Types.ObjectId[];
   rewardsPerAchievement?: {
-    [achievementId: string]: Types.ObjectId;
+    [achievementId: string]: IReward;
   };
 }
