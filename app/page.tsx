@@ -198,7 +198,7 @@ export default function Ggupr() {
       
       <Flex direction={'column'}>
       {currentClient && (
-        <Flex direction={'row'} justify={'between'} align={'center'} mx={'4'}>
+        <Flex direction={'row'} justify={'center'} align={'center'} gap={'6'} mx={'4'}>
           <Box position={'relative'} height={'70px'} width={'200px'}>
             <Image
               src={currentClient.logo} 
