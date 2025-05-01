@@ -3,6 +3,7 @@
 import * as React from "react"
 import {
   Drawer,
+  DrawerClose,
   DrawerContent,
   DrawerDescription,
   DrawerHeader,
@@ -15,9 +16,15 @@ import Image from "next/image";
 
 interface LocationDrawerProps {
   allClients: IClient[];
+  onLocationChange: (client: IClient) => void;
 }
 
-export default function LocationDrawer({ allClients }: LocationDrawerProps) {
+export default function LocationDrawer({ allClients, onLocationChange }: LocationDrawerProps) {
+
+  const handleSelectLocation = async(client: IClient) => {
+    document.cookie = `lastLocation=${client._id.toString()}; path=/; max-age=${60 * 60 * 24 * 30}`;
+    onLocationChange(client);
+  }
 
 
   return (
@@ -38,18 +45,20 @@ export default function LocationDrawer({ allClients }: LocationDrawerProps) {
 
           <Flex direction="column" gap="4" mt={'5'} style={{marginTop: '30px'}}>
             {allClients.map((client: IClient) => (
-              <Card key={client._id.toString()}>
+              <DrawerClose asChild key={client._id.toString()}>
+                <Card onClick={() => handleSelectLocation(client)}>
                   <Flex direction={'column'} align="center" style={{marginBottom: '30px'}}>
-                  <Box position={'relative'} height={'70px'} width={'200px'}>
-                    <Image
-                      src={client.logo}
-                      alt={`${client.name} logo`}
-                      fill
-                      style={{objectFit: 'contain'}}
-                    />
+                    <Box position={'relative'} height={'70px'} width={'200px'}>
+                      <Image
+                        src={client.logo}
+                        alt={`${client.name} logo`}
+                        fill
+                        style={{objectFit: 'contain'}}
+                      />
                     </Box>
                   </Flex>
-              </Card>
+                </Card>
+              </DrawerClose>
             ))}
           </Flex>
 

@@ -197,22 +197,21 @@ export default function Ggupr() {
       </Flex>
       
       <Flex direction={'column'}>
-      {currentClient && (
-        <Flex direction={'row'} justify={'center'} align={'center'} gap={'6'} mx={'4'}>
-          <Box position={'relative'} height={'70px'} width={'200px'}>
-            <Image
-              src={currentClient.logo} 
-              alt={currentClient.name || "Location logo"}
-              fill
-              style={{objectFit: 'contain'}}
-            />
-          </Box>
-          {allClients.length > 1 && (
-            <LocationDrawer allClients={allClients} />
-          )}
-          
-        </Flex>
-         )}
+        {currentClient && (
+          <Flex direction={'row'} justify={'center'} align={'center'} gap={'6'} mx={'4'}>
+            <Box position={'relative'} height={'70px'} width={'200px'}>
+              <Image
+                src={currentClient.logo} 
+                alt={currentClient.name || "Location logo"}
+                fill
+                style={{objectFit: 'contain'}}
+              />
+            </Box>
+            {allClients.length > 1 && (
+              <LocationDrawer allClients={allClients} onLocationChange={setCurrentClient}/>
+            )}
+          </Flex>
+        )}
        
         <Flex direction={'column'} mt={'7'}>
           <Flex direction={'column'} mx={'9'} mb={'7'}>
