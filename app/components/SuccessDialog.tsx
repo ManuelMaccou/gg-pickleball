@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  Button,
-  Dialog,
-  Flex,
-  Text,
-  Progress,
-  VisuallyHidden,
-} from "@radix-ui/themes";
+import { Button, Flex, Text, Progress, VisuallyHidden, AlertDialog } from "@radix-ui/themes";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useUserContext } from "@/app/contexts/UserContext";
@@ -81,11 +74,11 @@ export default function SuccessDialog({
   }, [currentIndex, steps]);
 
   return (
-    <Dialog.Root open={showDialog} onOpenChange={setShowDialog}>
-      <Dialog.Content maxWidth="450px">
+    <AlertDialog.Root open={showDialog} onOpenChange={setShowDialog}>
+      <AlertDialog.Content maxWidth="450px">
         <VisuallyHidden>
-          <Dialog.Title>Post-match summary</Dialog.Title>
-          <Dialog.Description>Post-match summary</Dialog.Description>
+          <AlertDialog.Title>Post-match summary</AlertDialog.Title>
+          <AlertDialog.Description>Post-match summary</AlertDialog.Description>
         </VisuallyHidden>
         <Flex direction={'column'} gap={'5'}>
           <AnimatePresence mode="wait">
@@ -176,17 +169,13 @@ export default function SuccessDialog({
                   Create account
                 </Button>
               </>
-             
             )}
-        
             <Button variant={user?.isGuest ? 'outline' : 'solid'} asChild>
               <Link href="/">Continue</Link>
             </Button>
-           
           </Flex>
         </Flex>
-        
-      </Dialog.Content>
-    </Dialog.Root>
+      </AlertDialog.Content>
+    </AlertDialog.Root>
   );
 }

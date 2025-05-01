@@ -73,6 +73,7 @@ export default function GguprMatchPage() {
   const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
   const [userEarnedData, setUserEarnedData] = useState<UserEarnedData | null>(null);
+  const [matchSaved, setMatchSaved] = useState<boolean>(false);
 
   const params = useParams<{ matchId: string }>()
   const matchId = params.matchId;
@@ -347,7 +348,7 @@ export default function GguprMatchPage() {
             
           setSaveSuccessMessage(data.message);
           setSaveErrorMessage(null);
-  
+          setMatchSaved(true);
           setShowDialog(true);
 
         } else {
@@ -516,22 +517,24 @@ export default function GguprMatchPage() {
             <QrCodeDialog matchId={matchId} selectedLocation={selectedLocation?.name || ""} />
           </Flex>
         )}
-        <Dialog.Root>
-          <Dialog.Trigger>
-            <Button variant="soft" color="red">Cancel match</Button>
-          </Dialog.Trigger>
-          <Dialog.Content>
-            <Dialog.Title>Cancel match</Dialog.Title>
-            <Dialog.Description>Are you sure? You will lose data for this match.</Dialog.Description>
-            <Dialog.Close>
-              <Flex direction={'row'} align={'stretch'} justify={'between'} mt={'5'}>
-                <Button size={'3'} variant="outline">Go back</Button>
-                <Button size={'3'} onClick={() => router.push("/")}>Yes</Button>
-              </Flex>
-            </Dialog.Close>
-           
-          </Dialog.Content>
-        </Dialog.Root>
+        {!matchSaved && (
+          <Dialog.Root>
+            <Dialog.Trigger>
+              <Button variant="soft" color="red">Cancel match</Button>
+            </Dialog.Trigger>
+            <Dialog.Content>
+              <Dialog.Title>Cancel match</Dialog.Title>
+              <Dialog.Description>Are you sure? You will lose data for this match.</Dialog.Description>
+              <Dialog.Close>
+                <Flex direction={'row'} align={'stretch'} justify={'between'} mt={'5'}>
+                  <Button size={'3'} variant="outline">Go back</Button>
+                  <Button size={'3'} onClick={() => router.push("/")}>Yes</Button>
+                </Flex>
+              </Dialog.Close>
+            </Dialog.Content>
+          </Dialog.Root>
+        )}
+       
       </Flex>
 
       {isWaiting && (
@@ -682,6 +685,12 @@ export default function GguprMatchPage() {
             </Flex>
           )}
         </>
+      )}
+
+      {matchSaved && (
+        <Flex direction={'column'} mt={'6'}>
+          <Button size={'3'} onClick={() => router.push('/')}>Log new match</Button>
+        </Flex>
       )}
       
     </Flex>
