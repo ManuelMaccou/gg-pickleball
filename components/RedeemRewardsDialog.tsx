@@ -7,7 +7,7 @@ import Image from "next/image";
 
 interface RedeemRewardsDialogProps {
   reward: IReward
-  user: FrontendUser
+  user: FrontendUser | null
   location: IClient;
   showRedeemRewardsDialog: boolean;
   setShowRedeemRewardsDialog: (value: boolean) => void;
@@ -24,7 +24,7 @@ export default function RedeemRewardsDialog({
   const rewardId = reward._id.toString();
   const clientId = location._id.toString(); 
 
-  const rewardData = user.stats?.[clientId]?.rewards?.[rewardId];
+  const rewardData = user?.stats?.[clientId]?.rewards?.[rewardId];
   const rewardCode = rewardData?.code;
 
   return (

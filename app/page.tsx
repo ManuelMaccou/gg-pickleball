@@ -249,7 +249,7 @@ export default function Ggupr() {
             {rewardsVariant === 'preview' ? "View all" : "View less"}
           </Button>
         </Flex>
-        {currentClient && dbUser && (
+        {currentClient && (
           <RewardsGrid
             user={dbUser}
             location={currentClient}

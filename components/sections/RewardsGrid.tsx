@@ -8,7 +8,7 @@ import RedeemRewardsDialog from '../RedeemRewardsDialog'
 import { FrontendUser } from '@/app/types/frontendTypes'
 
 type Props = {
-  user: FrontendUser
+  user: FrontendUser | null
   location: IClient
   unlockedRewardIds: string[]
   variant?: 'preview' | 'full'
