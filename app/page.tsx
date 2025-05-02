@@ -158,8 +158,6 @@ export default function Ggupr() {
               maxHeight: '170px',
             }}
           />
-          <Text mt={'4'} size={'5'} weight={'bold'}>DUPR for recreational players</Text>
-          <Text size={'5'} weight={'bold'}>A GG Pickleball experiment</Text>
         </Flex>
 
         <Flex direction={'column'} justify={'center'} align={'center'}>

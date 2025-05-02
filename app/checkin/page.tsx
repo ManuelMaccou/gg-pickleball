@@ -260,6 +260,7 @@ export default function CheckinPage() {
             <Text size={'4'} align={'center'} wrap={'wrap'}>{locationError}</Text>
           </Badge>
         )}
+        <Button mt={'5'} onClick={() => router.push('/')}>Go back</Button>
       </Flex>
     )
   }

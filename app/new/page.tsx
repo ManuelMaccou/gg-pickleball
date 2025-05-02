@@ -10,6 +10,7 @@ import QRCodeGenerator from '../components/QrCodeGenerator';
 import { useRouter, useSearchParams } from "next/navigation";
 import { useUserContext } from '../contexts/UserContext';
 import { IClient } from '../types/databaseTypes';
+import { ArrowLeft } from 'lucide-react';
 
 export default function NewMatch() {
   const isMobile = useMediaQuery({ maxWidth: 767 });
@@ -36,7 +37,6 @@ export default function NewMatch() {
       const response = await fetch(`/api/client?id=${locationParam}`)
       if (response.ok) {
         const { client }: { client: IClient } = await response.json()
-        setPreselectedLocation(client);
         setSelectedLocation(client);
       } else {
         setLocationError("There was an error loading the court location. We've logged the error. Please try again later.");
@@ -125,55 +125,52 @@ const handleContinue = () => {
 
   return (
       <Flex direction={'column'} minHeight={'100vh'} p={'4'} justify={'center'} gap={'7'} pb={'9'}>
-        <Flex direction={'column'} position={'relative'} align={'center'} p={'7'}>
+        <Flex position={'relative'} justify={'center'} align={'center'} height={'100px'}>
+          {selectedLocation && (
             <Image
-              src={lightGgLogo}
-              alt="GG Pickleball dark logo"
+              src={selectedLocation.logo}
+              alt="Location logo"
               priority
-              height={540}
-              width={960}
-              style={{
-                width: 'auto',
-                maxHeight: '170px',
-              }}
+              fill
+              style={{objectFit: 'contain'}}
             />
-            <Text mt={'4'} size={'5'} weight={'bold'}>DUPR for recreational players</Text>
-            <Text size={'5'} weight={'bold'}>A GG Pickleball experiment</Text>
-          </Flex>
-
-          {locationError && (
-            <Badge color="red" size={'3'}>
-              <Text align={'center'} wrap={'wrap'}>{locationError}</Text>
-            </Badge>
           )}
+        </Flex>
+
+        {locationError && (
+          <Badge color="red" size={'3'}>
+            <Text align={'center'} wrap={'wrap'}>{locationError}</Text>
+          </Badge>
+        )}
       
         {matchId && user ? (
           <Flex direction={'column'} mx={'9'}>
-             <Flex direction={'column'} align={'center'} gap={'5'} mb={'5'}>
-              {preselectedLocation && (
-                <Text align={'center'} size={'7'} weight={'bold'}>{preselectedLocation.name}</Text>
-              )}
-            </Flex>
+            {selectedLocation && (
+              <>
+                <Flex direction={'column'} align={'center'} gap={'4'}>
+                  <Flex direction={'column'} mt={'4'} align={'center'}>
+                    <Text size={'4'} align={'center'}>All players must scan the same QR code. Once scanned, click continue.</Text>
+                  </Flex>
+                  <QRCodeGenerator matchId={matchId} selectedLocation={selectedLocation._id.toString()} />
+                </Flex>
 
-          {selectedLocation && (
-            <>
-              <Flex direction={'column'} align={'center'} gap={'4'}>
-                <Heading align={'center'}>Scan</Heading>
-                <QRCodeGenerator matchId={matchId} selectedLocation={selectedLocation.name} />
-              </Flex>
-
-              <Flex direction={'column'} mt={'4'} align={'center'}>
-              <Text>All players must scan the same QR code. Once scanned, click continue.</Text>
-              </Flex>
-            </>
-          )}
-            <Flex direction={'column'} mt={'9'}>
+                
+              </>
+            )}
+            <Flex direction={'column'} mt={'9'} gap={'7'}>
               <Button size={'3'}
                 disabled={!selectedLocation || isPending}
                 loading={isPending}
                 onClick={handleContinue}
               >
                Continue
+              </Button>
+              <Button variant='ghost'
+                size={'3'}
+                onClick={() => router.back()}
+                style={{ outline: "none", boxShadow: "none" }}
+              >
+                <ArrowLeft />Go back
               </Button>
             </Flex>
             

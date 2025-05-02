@@ -399,20 +399,16 @@ export default function GguprMatchPage() {
   if (locationError) {
     return (
     <Flex direction={'column'} minHeight={'100dvh'} p={'4'} justify={'center'} align={'center'} gap={'7'}>
-      <Flex direction={'column'} position={'relative'} align={'center'} mt={'-9'} p={'7'}>
-        <Image
-          src={lightGgLogo}
-          alt="GG Pickleball dark logo"
-          priority
-          height={540}
-          width={960}
-          style={{
-            width: 'auto',
-            maxHeight: '170px',
-          }}
-        />
-        <Text mt={'4'} size={'5'} weight={'bold'}>DUPR for recreational players</Text>
-        <Text size={'5'} weight={'bold'}>A GG Pickleball experiment</Text>
+      <Flex position={'relative'} justify={'center'} align={'center'} height={'100px'}>
+        {selectedLocation && (
+          <Image
+            src={selectedLocation.logo}
+            alt="Location logo"
+            priority
+            fill
+            style={{objectFit: 'contain'}}
+          />
+        )}
       </Flex>
 
       {locationError && (
@@ -420,7 +416,7 @@ export default function GguprMatchPage() {
           <Text align={'center'} wrap={'wrap'}>{locationError}</Text>
         </Badge>
       )}
-
+      <Button mt={'5'} onClick={() => router.push('/')}>Go back</Button>
     </Flex>
     )
   }
@@ -428,21 +424,17 @@ export default function GguprMatchPage() {
   if (!user) {
     return (
       <Flex direction={'column'} minHeight={'100dvh'} p={'4'} justify={'center'} gap={'7'}>
-        <Flex direction={'column'} position={'relative'} align={'center'} mt={'-9'} p={'7'}>
+        <Flex position={'relative'} justify={'center'} align={'center'} height={'100px'}>
+          {selectedLocation && (
             <Image
-              src={lightGgLogo}
-              alt="GG Pickleball dark logo"
+              src={selectedLocation.logo}
+              alt="Location logo"
               priority
-              height={540}
-              width={960}
-              style={{
-                width: 'auto',
-                maxHeight: '170px',
-              }}
+              fill
+              style={{objectFit: 'contain'}}
             />
-            <Text mt={'4'} size={'5'} weight={'bold'}>DUPR for recreational players</Text>
-            <Text size={'5'} weight={'bold'}>A GG Pickleball experiment</Text>
-          </Flex>
+          )}
+        </Flex>
 
         {!isCheckingUser && !user ? (
           <Flex direction={'column'} gap={'4'} mt={'4'}>
@@ -482,14 +474,16 @@ export default function GguprMatchPage() {
   return (
     <Flex direction={'column'} minHeight={'100vh'} p={'4'} style={{paddingBottom: '150px'}}>
       <Flex justify={"between"} align={'center'} direction={"row"} pt={"2"} pb={"5"} px={'2'}>
-        <Flex direction={'column'} position={'relative'} maxWidth={'80px'}>
-          <Image
-            src={lightGgLogo}
-            alt="ggupr dark logo"
-            priority
-            height={540}
-            width={960}
-          />
+        <Flex position={'relative'} justify={'center'} align={'center'} height={'100px'}>
+          {selectedLocation && (
+            <Image
+              src={selectedLocation.logo}
+              alt="Location logo"
+              priority
+              fill
+              style={{objectFit: 'contain'}}
+            />
+          )}
         </Flex>
 
         {!authIsLoading && (
@@ -514,7 +508,7 @@ export default function GguprMatchPage() {
       <Flex direction={'row'} mt={'5'} justify={'between'}>
         {matchId && (
           <Flex direction={'column'}>
-            <QrCodeDialog matchId={matchId} selectedLocation={selectedLocation?.name || ""} />
+            <QrCodeDialog matchId={matchId} selectedLocation={selectedLocation?._id.toString() || ""} />
           </Flex>
         )}
         {!matchSaved && (
