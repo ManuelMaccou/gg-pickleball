@@ -104,7 +104,7 @@ export default function CheckinPage() {
           throw new Error('Failed to fetch achievement details');
         }
         const data = await res.json();
-        return data.achievement; // Assuming your API returns { achievement: {...} }
+        return data.achievement;
       } catch (error) {
         console.error('Error fetching achievement details:', error);
         return null;

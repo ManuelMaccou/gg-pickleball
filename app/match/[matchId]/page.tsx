@@ -474,16 +474,14 @@ export default function GguprMatchPage() {
   return (
     <Flex direction={'column'} minHeight={'100vh'} p={'4'} style={{paddingBottom: '150px'}}>
       <Flex justify={"between"} align={'center'} direction={"row"} pt={"2"} pb={"5"} px={'2'}>
-        <Flex position={'relative'} justify={'center'} align={'center'} height={'100px'}>
-          {selectedLocation && (
+        <Flex direction={'column'} position={'relative'} maxWidth={'80px'}>
             <Image
-              src={selectedLocation.logo}
-              alt="Location logo"
+            src={lightGgLogo}
+            alt="ggupr dark logo"
               priority
-              fill
-              style={{objectFit: 'contain'}}
+            height={540}
+            width={960}
             />
-          )}
         </Flex>
 
         {!authIsLoading && (

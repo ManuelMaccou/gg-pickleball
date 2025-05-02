@@ -23,6 +23,12 @@ type AchievementEarned = {
   repeatable: boolean;
 };
 
+type CheckinResult = {
+  achievements: AchievementEarned[];
+  didCheckIn: boolean;
+  checkinDate?: Date;
+};
+
 type AchievementCheckFn = (user: IUser, match: MatchData) => AchievementEarned[];
 
 function ensureClientStats(user: IUser, clientId: string): ClientStats {
@@ -45,39 +51,41 @@ function ensureClientStats(user: IUser, clientId: string): ClientStats {
   return clientStats;
 }
 
-function checkin(user: IUser, match: MatchData): AchievementEarned[] {
+function checkin(user: IUser, match: MatchData): CheckinResult {
   const CHECKIN_MILESTONES = [1, 5, 10, 20, 50, 100];
   const LA_TIMEZONE = "America/Los_Angeles";
-
-  const userStatsForClient = ensureClientStats(user, match.location);
-
-  const checkins = userStatsForClient.checkins ?? [];
-
   const now = new Date();
+
   const nowInLA = DateTime.fromJSDate(now).setZone(LA_TIMEZONE);
   const todayStartInLA = nowInLA.startOf('day');
   const todayEndInLA = nowInLA.endOf('day');
 
-  const alreadyCheckedInToday = checkins.some((checkin) => {
-    if (!checkin) return false;
+  const userStatsForClient = ensureClientStats(user, match.location);
+  userStatsForClient.checkins ??= [];
+
+  const alreadyCheckedInToday = userStatsForClient.checkins.some((checkin) => {
     const checkinDate = DateTime.fromJSDate(checkin).setZone(LA_TIMEZONE);
     return checkinDate >= todayStartInLA && checkinDate <= todayEndInLA;
   });
 
   if (alreadyCheckedInToday) {
-    return [];
+    return { achievements: [], didCheckIn: false };
   }
 
-  const totalCheckinsAfterToday = checkins.length + 1;
+  userStatsForClient.checkins.push(now);
 
+  const totalCheckinsAfterToday = userStatsForClient.checkins.length;
   for (const milestone of CHECKIN_MILESTONES) {
     if (totalCheckinsAfterToday === milestone) {
-      return [{ key: `checkin_${milestone}`, repeatable: false }];
+      return {
+        achievements: [{ key: `checkin_${milestone}`, repeatable: false }],
+        didCheckIn: true,
+        checkinDate: now,
+      };
     }
   }
 
-  // No milestone hit
-  return [];
+  return { achievements: [], didCheckIn: true, checkinDate: now };
 }
 
 function firstWin(user: IUser, match: MatchData): AchievementEarned[] {
@@ -234,7 +242,7 @@ export async function updateUserAndAchievements(
       team2Score,
     };
 
-    const achievementChecks: AchievementCheckFn[] = [checkin, firstWin, winStreak, matchesPlayed, pickle, pointsWon];
+    const achievementChecks= [checkin, firstWin, winStreak, matchesPlayed, pickle, pointsWon] as const;
     const client = await Client.findById(location);
 
     if (!client) {
@@ -244,15 +252,32 @@ export async function updateUserAndAchievements(
     const newAchievementsPerUser: {
       user: IUser;
       newAchievements: AchievementEarned[];
+      didCheckIn: boolean;
+      checkinDate?: Date;
     }[] = [];
 
     for (const user of users) {
       const clientStats = ensureClientStats(user, location);
-      const allAchievements = achievementChecks.flatMap(check => check(user, matchData));
+      
+      let didCheckIn = false;
+      let checkinDate: Date | undefined = undefined;
+      const allAchievements: AchievementEarned[] = [];
+
+      for (const check of achievementChecks) {
+        if (check === checkin) {
+          const result = (check as typeof checkin)(user, matchData);
+          allAchievements.push(...result.achievements);
+          didCheckIn = result.didCheckIn;
+          checkinDate = result.checkinDate;
+        } else {
+          const result = (check as AchievementCheckFn)(user, matchData);
+          allAchievements.push(...result);
+        }
+      }
 
       const newAchievements = allAchievements.filter(a => !clientStats.achievements?.has(a.key));
-      if (newAchievements.length > 0) {
-        newAchievementsPerUser.push({ user, newAchievements });
+      if (newAchievements.length > 0 || didCheckIn) {
+        newAchievementsPerUser.push({ user, newAchievements, didCheckIn, checkinDate });
       }
     }
 
@@ -268,7 +293,7 @@ export async function updateUserAndAchievements(
     // Prepare bulk update operations.
     const bulkOperations: { updateOne: { filter: { _id: Types.ObjectId }, update: UpdateQuery<IUser> } }[] = [];
 
-    for (const { user, newAchievements } of newAchievementsPerUser) {
+    for (const { user, newAchievements, didCheckIn, checkinDate } of newAchievementsPerUser) {
       const userIdStr = user._id.toString();
       const isWinner = winners.includes(userIdStr);
       const isOnTeam1 = team1Ids.includes(userIdStr);
@@ -281,6 +306,11 @@ export async function updateUserAndAchievements(
         : isOnTeam2
         ? matchData.team2Score
         : 0;
+
+      if (didCheckIn && checkinDate) {
+        updateOps.$push ??= {};
+        updateOps.$push[`${statsPrefix}.checkins`] = checkinDate;
+      }
 
       // If the user is in the winners array, increment wins and streak.
       updateOps.$inc = {
@@ -336,9 +366,15 @@ export async function updateUserAndAchievements(
         });
       }
 
-      const fullAchievements = newAchievements
-        .map(a => achievementMap.get(a.key))
-        .filter((a): a is SerializedAchievement => !!a);
+      const fullAchievements: SerializedAchievement[] = newAchievements
+      .map(a => achievementMap.get(a.key))
+      .filter((a): a is IAchievement => !!a)
+      .map(a => ({
+        _id: a._id.toString(),
+        name: a.name,
+        friendlyName: a.friendlyName,
+        badge: a.badge,
+      }));
 
       earnedAchievementsList.push({
         userId: user._id.toString(),
