@@ -29,7 +29,33 @@ type CheckinResult = {
   checkinDate?: Date;
 };
 
-type AchievementCheckFn = (user: IUser, match: MatchData) => AchievementEarned[];
+type CheckFunction = (user: IUser, match: MatchData) => AchievementEarned[] | CheckinResult;
+
+const achievementFunctionMap: Record<string, CheckFunction> = {
+  'checkin_1': checkin,
+  'checkin_5': checkin,
+  'checkin_10': checkin,
+  'checkin_20': checkin,
+  'checkin_50': checkin,
+  'checkin_100': checkin,
+  'first-win': firstWin,
+  '2-win-streak': winStreak,
+  '5-win-streak': winStreak,
+  '10-win-streak': winStreak,
+  '5-matches-played': matchesPlayed,
+  '10-matches-played': matchesPlayed,
+  '20-matches-played': matchesPlayed,
+  '50-matches-played': matchesPlayed,
+  'century-club': matchesPlayed,
+  'pickle': pickle,
+  '50-points-won': pointsWon,
+  '100-points-won': pointsWon,
+  '200-points-won': pointsWon,
+  '300-points-won': pointsWon,
+  '400-points-won': pointsWon,
+  '500-points-won': pointsWon,
+};
+
 
 function ensureClientStats(user: IUser, clientId: string): ClientStats {
   let clientStats = user.stats?.get(clientId);
@@ -231,6 +257,20 @@ export async function updateUserAndAchievements(
       throw new Error('No user documents found for the given participants.');
     }
 
+    const client = await Client.findById(location);
+    if (!client) {
+      throw new Error(`Client with id ${location} not found`);
+    }
+
+    const achievementDocs = await Achievement.find({ _id: { $in: client.achievements } });
+    const enabledAchievementNames = achievementDocs.map((a) => a.name);
+
+    const enabledCheckFns = new Set<CheckFunction>();
+    for (const name of enabledAchievementNames) {
+      const fn = achievementFunctionMap[name];
+      if (fn) enabledCheckFns.add(fn);
+    }
+
     // Build match data to be passed into each achievement function.
     const matchData: MatchData = {
       team1Ids,
@@ -242,13 +282,6 @@ export async function updateUserAndAchievements(
       team2Score,
     };
 
-    const achievementChecks= [checkin, firstWin, winStreak, matchesPlayed, pickle, pointsWon] as const;
-    const client = await Client.findById(location);
-
-    if (!client) {
-      throw new Error(`Client with id ${location} not found`);
-    }
-
     const newAchievementsPerUser: {
       user: IUser;
       newAchievements: AchievementEarned[];
@@ -258,20 +291,26 @@ export async function updateUserAndAchievements(
 
     for (const user of users) {
       const clientStats = ensureClientStats(user, location);
+      const allAchievements: AchievementEarned[] = [];
       
       let didCheckIn = false;
       let checkinDate: Date | undefined = undefined;
-      const allAchievements: AchievementEarned[] = [];
+      
+      function isCheckinFn(fn: CheckFunction): fn is typeof checkin {
+        return fn === checkin;
+      }
 
-      for (const check of achievementChecks) {
-        if (check === checkin) {
-          const result = (check as typeof checkin)(user, matchData);
+      for (const check of enabledCheckFns) {
+        if (isCheckinFn(check)) {
+          const result = check(user, matchData);
           allAchievements.push(...result.achievements);
           didCheckIn = result.didCheckIn;
           checkinDate = result.checkinDate;
         } else {
-          const result = (check as AchievementCheckFn)(user, matchData);
-          allAchievements.push(...result);
+          const result = check(user, matchData);
+          if (Array.isArray(result)) {
+            allAchievements.push(...result);
+          }
         }
       }
 
@@ -282,16 +321,21 @@ export async function updateUserAndAchievements(
     }
 
     const allNewKeys = [
-      ...new Set(newAchievementsPerUser.flatMap(entry => entry.newAchievements.map(a => a.key))),
+      ...new Set(newAchievementsPerUser.flatMap((u) => u.newAchievements.map((a) => a.key))),
     ];
+    const achievementMap = new Map(
+      (await Achievement.find({ name: { $in: allNewKeys } })).map((a) => [a.name, a])
+    );
 
-    const achievementDocs = await Achievement.find({ name: { $in: allNewKeys } });
-    const achievementMap = new Map(achievementDocs.map(a => [a.name, a]));
-
-    const earnedAchievementsList: { userId: string; achievements: SerializedAchievement[] }[] = [];
+    const earnedAchievementsList: {
+      userId: string;
+      achievements: SerializedAchievement[];
+    }[] = [];
 
     // Prepare bulk update operations.
-    const bulkOperations: { updateOne: { filter: { _id: Types.ObjectId }, update: UpdateQuery<IUser> } }[] = [];
+    const bulkOperations: {
+      updateOne: { filter: { _id: Types.ObjectId }; update: UpdateQuery<IUser> };
+    }[] = [];
 
     for (const { user, newAchievements, didCheckIn, checkinDate } of newAchievementsPerUser) {
       const userIdStr = user._id.toString();

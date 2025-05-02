@@ -12,9 +12,9 @@ export function LocationHelpDialog({ open, onOpenChange }: LocationHelpDialogPro
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Content>
-        <Dialog.Title>Enable location access to check in</Dialog.Title>
+        <Dialog.Title>Enable location permissions to check in</Dialog.Title>
         <Dialog.Description size="3" mb="4">
-          Location permissions have been denied. You won&apos;t be able to check in. You can enable location permissions later in your browser&apos;s settings
+          Location permissions have been denied or are blocked in your settings. You won&apos;t be able to check in. You can enable location permissions in your browser&apos;s settings.
         </Dialog.Description>
         <Flex direction={'row'} gap={'9'} justify={'between'} mt={'6'}>
           <Button variant="outline" asChild><Link href={'/'}>Close</Link></Button>
