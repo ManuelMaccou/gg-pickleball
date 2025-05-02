@@ -87,10 +87,6 @@ export default function CheckinPage() {
           setShowLocationHelp(true);
           setError('Location access required to check in.');
         }
-
-        permissionStatus.onchange = () => {
-          console.log('Permission changed:', permissionStatus.state);
-        };
       } catch (error) {
         console.error('Permissions API error:', error);
         setError('Unable to verify location permissions.');
@@ -124,7 +120,6 @@ export default function CheckinPage() {
 
           const data = await res.json();
           if (res.ok) {
-            console.log('Check-in success!', data);
             setAchievementKey(data.achievementKey);
             setCheckinCount(data.checkinCount)
             setSuccess(true);

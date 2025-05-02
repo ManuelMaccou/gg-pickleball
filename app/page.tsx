@@ -1,6 +1,5 @@
 'use client'
 
-import { useMediaQuery } from 'react-responsive';
 import { Box, Button, Flex, Text } from "@radix-ui/themes";
 import Image from "next/image";
 import lightGgLogo from '../public/logos/gg_logo_white_transparent.png'
@@ -14,10 +13,10 @@ import RewardsGrid from '@/components/sections/RewardsGrid';
 import LocationDrawer from './components/LocationDrawer';
 import { toFrontendUser } from '@/utils/converters';
 import { FrontendUser } from './types/frontendTypes';
+import { useIsMobile } from './hooks/useIsMobile';
 
 export default function Ggupr() {
-
-  const isMobile = useMediaQuery({ maxWidth: 767 });
+  const isMobile = useIsMobile();
   const { user: auth0User, isLoading } = useAuth0User();
   const { user } = useUserContext(); 
   const userName = user?.name
@@ -142,6 +141,10 @@ export default function Ggupr() {
   }, [user, auth0User])  
 
   const userStatsForClient = clientId ? dbUser?.stats?.[clientId] : undefined;
+
+  if (isMobile === null) {
+    return null;
+  }
 
   if (!isMobile) {
     return (

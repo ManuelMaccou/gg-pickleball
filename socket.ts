@@ -17,7 +17,6 @@ export const initiateSocketConnection = (matchId: string, userName: string, curr
   players = currentPlayers; 
 
   if (!socket || socket.disconnected) {  // Ensure socket isn't recreated unnecessarily
-    console.log("Attempting to connect to socket server...");
 
     socket = io(process.env.NEXT_PUBLIC_SOCKET_URL, { 
       path: '/socket.io',
@@ -27,11 +26,6 @@ export const initiateSocketConnection = (matchId: string, userName: string, curr
     socket.on("connect", () => {
       const currentPlayer = players.find(player => player.userName === userName);
 
-      console.log("Players passed to initiateSocketConnection:", currentPlayers);
-      console.log("Current Player:", currentPlayer);
-
-      console.log(`Connected to socket server with ID: ${socket?.id}`);
-
       if (currentPlayer) {
         socket?.emit("join-match", { matchId, userName, userId: currentPlayer.userId });
       } else {
@@ -39,7 +33,6 @@ export const initiateSocketConnection = (matchId: string, userName: string, curr
       }
 
       socket?.on("save-match", (data: SaveMatchData) => {
-        console.log("📥 Received 'save-match' event from server:", data);
         handleSaveMatch(data, currentPlayers);
       });
     });
@@ -57,15 +50,11 @@ export const initiateSocketConnection = (matchId: string, userName: string, curr
 };
 
 export const handleSaveMatch = async (data: SaveMatchData, players: Player[]) => {
-  console.log("📥 Received 'save-match' event from server:", data);
-  console.log("📍 Location received:", data.location);
   if (data.success) {
 
     let earnedAchievements: { userId: string; achievements: SerializedAchievement[] }[] = [];
 
     try {
-      console.log("📝 Sending POST request to /api/match...");
-
       const getPlayerIds = (playerNames: string[]) => {
         return players
           .filter(player => playerNames.includes(player.userName))
@@ -113,11 +102,7 @@ export const handleSaveMatch = async (data: SaveMatchData, players: Player[]) =>
         console.error('❌ Failed to update achievements after match:', error);
       }
 
-      console.log("📬 Received response from /api/match:", result);
-      console.log("📬 Data received from /api/match:", data);
-
       if (matchResponse.ok) {
-        console.log(`Match successfully saved to database! Earned Achievements:`, earnedAchievements);
         socket?.emit("match-saved", {
           success: true,
           matchId: data.matchId,
@@ -125,7 +110,6 @@ export const handleSaveMatch = async (data: SaveMatchData, players: Player[]) =>
         });
         
         socket?.emit("clear-scores", { matchId: data.matchId });
-        console.log(`Requested score clearance for match: ${data.matchId}`);
       } else {
         console.error("Failed to save match:", result.error);
       }
@@ -137,7 +121,6 @@ export const handleSaveMatch = async (data: SaveMatchData, players: Player[]) =>
 
 export const disconnectSocket = () => {
   if (socket) {
-    console.log('Disconnecting socket...');
     socket.disconnect();
     cleanupSocketListeners();
   }
@@ -157,7 +140,6 @@ export const subscribeToPlayerJoined = (callback: (players: Player[]) => void) =
   if (!socket) return;
   socket.off("player-list");
   socket.on("player-list", (updatedPlayers: Player[]) => {  // Always expect an array of Player objects
-    console.log("Updated player list received from backend:", updatedPlayers);
     callback(updatedPlayers);  // Properly passing updated players to the callback
   });
 };

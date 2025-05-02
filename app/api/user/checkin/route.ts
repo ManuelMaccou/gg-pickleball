@@ -33,8 +33,6 @@ export async function POST(req: Request) {
       { latitude: client.latitude, longitude: client.longitude }
     );
 
-    console.log(`User is ${distanceMeters.toFixed(2)} meters from client.`);
-
     const allowedDistance = 300; // meters
 
     if (distanceMeters > allowedDistance) {

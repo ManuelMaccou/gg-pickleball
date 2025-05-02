@@ -1,6 +1,5 @@
 'use client'
 
-import { useMediaQuery } from 'react-responsive';
 import { v4 as uuidv4 } from 'uuid';
 import { Badge, Button, Flex, Text, TextField } from "@radix-ui/themes";
 import Image from "next/image";
@@ -11,9 +10,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useUserContext } from '../contexts/UserContext';
 import { IClient } from '../types/databaseTypes';
 import { ArrowLeft } from 'lucide-react';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 export default function NewMatch() {
-  const isMobile = useMediaQuery({ maxWidth: 767 });
+  const isMobile = useIsMobile();
 
   const router = useRouter();
   const searchParams = useSearchParams()
@@ -31,7 +31,6 @@ export default function NewMatch() {
 
   // set selected location
   useEffect(() => {
-    console.log('fetching location')
     const fetchClientById = async () => {
       const response = await fetch(`/api/client?id=${locationParam}`)
       if (response.ok) {
@@ -94,6 +93,10 @@ const handleContinue = () => {
     const url = `/match/${matchId}?location=${encodeURIComponent(selectedLocation._id.toString())}`
     router.push(url)
   })
+}
+
+if (isMobile === null) {
+  return null;
 }
 
   if (!isMobile) {

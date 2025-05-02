@@ -20,10 +20,9 @@ import { debounce } from 'lodash';
 import SuccessDialog from "@/app/components/SuccessDialog";
 import { useRouter } from "next/navigation";
 import QrCodeDialog from "@/app/components/QrCodeDialog";
-import { useMediaQuery } from "react-responsive";
 import { useUserContext } from "@/app/contexts/UserContext";
 import { IClient, IReward, SerializedAchievement } from "@/app/types/databaseTypes";
-
+import { useIsMobile } from "@/app/hooks/useIsMobile";
 
 type Player = {
   userName: string;
@@ -43,7 +42,7 @@ interface UserEarnedData {
 }
 
 export default function GguprMatchPage() {
-  const isMobile = useMediaQuery({ maxWidth: 767 });
+  const isMobile =useIsMobile();
   
   const { user: auth0User, isLoading: authIsLoading } = useAuth0User();
   const { user, setUser } = useUserContext()
@@ -128,7 +127,6 @@ export default function GguprMatchPage() {
 
   // set selected location
   useEffect(() => {
-    console.log('fetching location')
     const fetchClientById = async () => {
       const response = await fetch(`/api/client?id=${locationParam}`)
       if (response.ok) {
@@ -325,8 +323,6 @@ export default function GguprMatchPage() {
       subscribeToMatchSaved((data) => {
         if (data.success) {
 
-          console.log('Achievements earned:', data.earnedAchievements);
-
           const currentUserAchievements = data.earnedAchievements.find(e => e.userId === user?.id);
           if (currentUserAchievements && selectedLocation) {
             const rewards = currentUserAchievements.achievements
@@ -369,6 +365,10 @@ export default function GguprMatchPage() {
       }
     };
   }, [pathname]);
+
+  if (isMobile === null) {
+    return null;
+  }
 
   if (!isMobile) {
     return (
