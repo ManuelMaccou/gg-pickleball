@@ -2,7 +2,7 @@ import Image from 'next/image'
 import lightGGLogo from '../../../public/gg_logo_white_transparent.png'
 import { Box, Dialog, Flex, Separator,  Text, VisuallyHidden } from '@radix-ui/themes'
 import { HamburgerMenuIcon } from '@radix-ui/react-icons';
-import { CalendarDays, Gift, User, X, Zap } from 'lucide-react';
+import { CalendarDays, User, X, Zap } from 'lucide-react';
 import Link from 'next/link';
 import React from 'react';
 
@@ -58,7 +58,6 @@ export default function TopBanner() {
                 { label: 'Profile', icon: <User />, link: '/profile' },
                 { label: 'Schedule', icon: <CalendarDays />, link: '/schedule' },
                 { label: 'Challenge', icon: <Zap />, link: '/challenge' },
-                { label: 'Perks', icon: <Gift />, link: '/perks' },
               ].map((item) => (
                 <React.Fragment key={item.link}>
                   

@@ -1,7 +1,7 @@
 import { Box, Button, Flex, Text } from "@radix-ui/themes"
 import Image from 'next/image'
 import lightGGLogo from '../../../public/gg_logo_white_transparent.png'
-import { CalendarDays, Gift, User, Zap } from "lucide-react"
+import { CalendarDays, User, Zap } from "lucide-react"
 import Link from "next/link"
 
 export default function DesktopSidebar() {
@@ -37,12 +37,6 @@ export default function DesktopSidebar() {
           <Button variant="ghost" size={'4'} style={{color: 'white'}}>
             <Zap style={{marginRight: '6px'}}/>
             <Link href={'/challenge'}>Challenge</Link>
-          </Button>
-        </Flex>
-        <Flex direction={'row'} gap={'3'}>
-          <Button variant="ghost" size={'4'} style={{color: 'white'}}>
-            <Gift style={{marginRight: '6px'}}/>
-            <Link href={'/perks'}>Perks</Link>
           </Button>
         </Flex>
         <Link href="/auth/logout">
