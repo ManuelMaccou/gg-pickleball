@@ -2,7 +2,7 @@
 
 import { useMediaQuery } from 'react-responsive';
 import { v4 as uuidv4 } from 'uuid';
-import { Badge, Button, Flex, Heading, Text, TextField } from "@radix-ui/themes";
+import { Badge, Button, Flex, Text, TextField } from "@radix-ui/themes";
 import Image from "next/image";
 import lightGgLogo from '../../public/logos/gg_logo_white_transparent.png'
 import { useEffect, useState, useTransition } from "react";
@@ -24,7 +24,6 @@ export default function NewMatch() {
   const [matchId, setMatchId] = useState<string | null>(null);
   const [submittingName, setSubmittingName] = useState<boolean>(false);
   const [selectedLocation, setSelectedLocation] = useState<IClient | null>(null);
-  const [preselectedLocation, setPreselectedLocation] = useState<IClient | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [tempName, setTempName] = useState<string>('');
   const [isPending, startTransition] = useTransition()
