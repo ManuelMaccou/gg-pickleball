@@ -139,7 +139,7 @@ export default function Ggupr() {
   
     const fetchClientAchievementsAndRewards = async () => {
       try {
-        const res = await fetch(`/api/client/achievements-and-rewards?clientId=${location._id}`);
+        const res = await fetch(`/api/client/achievements?clientId=${location._id}`);
         const data = await res.json();
   
         if (!res.ok) {
