@@ -14,15 +14,20 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid or missing clientId' }, { status: 400 });
     }
 
-    const client = await Client.findById(clientId).populate('achievements');
+    const client = await Client.findById(clientId)
+    .populate('achievements')
+    .populate("rewardsPerAchievement");
 
     if (!client) {
       return NextResponse.json({ error: 'Client not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ achievements: client.achievements });
+    return NextResponse.json({
+      achievements: client.achievements,
+      rewardsPerAchievement: Object.fromEntries(client.rewardsPerAchievement.entries()),
+    });
   } catch (error) {
-    console.error('[GET /api/client/achievements] Error:', error);
+    console.error("Error fetching client achievements & rewards:", error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

@@ -152,7 +152,7 @@ export default function Ggupr() {
         <Flex direction={'column'} position={'relative'} align={'center'} p={'7'}>
           <Image
             src={lightGgLogo}
-            alt="GG Pickleball dark logo"
+            alt="GG Pickleball logo"
             priority
             height={540}
             width={960}

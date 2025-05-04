@@ -86,3 +86,10 @@ export interface IClient extends Document {
     [achievementId: string]: IReward;
   };
 }
+
+export interface IAdmin extends Document {
+  _id: Types.ObjectId;
+  user: Types.ObjectId;
+  location: Types.ObjectId;
+  bannerColor: string;
+}

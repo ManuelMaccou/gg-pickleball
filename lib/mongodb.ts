@@ -3,6 +3,9 @@ import mongoose from "mongoose";
 import "../app/models/Match";
 import "../app/models/User";
 import "../app/models/Achievement";
+import "../app/models/Reward";
+import "../app/models/Admin";
+import "../app/models/Client";
 
 
 const MONGODB_URI = process.env.MONGODB_URI as string;
