@@ -314,9 +314,17 @@ export async function updateUserAndAchievements(
         }
       }
 
-      const newAchievements = allAchievements.filter(a => !clientStats.achievements?.has(a.key));
+      const newAchievements = allAchievements.filter(a => {
+        const existing = clientStats.achievements?.get(a.key);
+        return a.repeatable || !existing;
+      });
       if (newAchievements.length > 0 || didCheckIn) {
-        newAchievementsPerUser.push({ user, newAchievements, didCheckIn, checkinDate });
+        newAchievementsPerUser.push({
+          user,
+          newAchievements,
+          didCheckIn,
+          checkinDate
+        });
       }
     }
 
