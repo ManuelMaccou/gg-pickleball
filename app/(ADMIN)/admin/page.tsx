@@ -183,12 +183,12 @@ export default function Ggupr() {
   useEffect(() => {
     if (matches.length === 0) return;
   
-    const playerSet = new Set<IUser>();
+    const playerMap = new Map<string, IUser>();
     const winCounts = new Map<string, { name: string; count: number }>();
   
     matches.forEach(match => {
       [...match.team1.players, ...match.team2.players].forEach(player => {
-        playerSet.add(player);
+        playerMap.set(player._id.toString(), player);
       });
   
       match.winners.forEach(player => {
@@ -202,10 +202,12 @@ export default function Ggupr() {
       .slice(0, 5)
       .map(({ name, count }) => ({ name, winCount: count }));
   
-    setAllPlayers(
-      Array.from(playerSet).sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
-    );
-    setUniquePlayerCount(playerSet.size);
+      setAllPlayers(
+        Array.from(playerMap.values()).sort((a, b) =>
+          a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+        )
+      );
+    setUniquePlayerCount(playerMap.size);
     setTop5PlayersByWins(top5);
     setIsAnalyzingPlayers(false);
   }, [matches]);
