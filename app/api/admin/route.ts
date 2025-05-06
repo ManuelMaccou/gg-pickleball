@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     const admin = await Admin.findOne({ user: userId }).populate("location");
 
     if (!admin) {
-      return NextResponse.json({ error: "Admin not found." }, { status: 404 });
+      return new Response(null, { status: 204 });
     }
 
     return NextResponse.json({ admin });

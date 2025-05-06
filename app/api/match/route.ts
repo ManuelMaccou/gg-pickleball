@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Save match details
-    const match = await Match.create({
+    const match = new Match({
       matchId,
       team1,
       team2,
@@ -21,7 +21,18 @@ export async function POST(req: NextRequest) {
       location,
     });
 
-    return NextResponse.json({ success: true, match });
+    await match.save();
+
+    console.log('saved match:', match)
+
+    return NextResponse.json({ 
+      success: true,
+      match: {
+        ...match.toObject(),
+        _id: match._id.toString(),
+      }
+    });
+
   } catch (error) {
     console.error('Failed to save match:', error);
     return NextResponse.json({ success: false, error: 'Failed to save match.' }, { status: 500 });

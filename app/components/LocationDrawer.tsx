@@ -37,6 +37,7 @@ export default function LocationDrawer({ allClients, currentClient, onLocationCh
               src={currentClient.logo} 
               alt={currentClient.name || "Location logo"}
               fill
+              priority
               style={{objectFit: 'contain'}}
             />
           </Box>

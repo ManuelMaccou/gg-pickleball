@@ -242,6 +242,9 @@ export async function updateUserAndAchievements(
   earnedAchievements: { userId: string; achievements: SerializedAchievement[] }[];
   message: string; updatedUsers: string[]
 }> {
+
+  console.log('mongo match ID in update achievements:', matchId)
+
   await connectToDatabase();
   try {
     if (team1Ids.length !== 2 || team2Ids.length !== 2) {
@@ -318,14 +321,13 @@ export async function updateUserAndAchievements(
         const existing = clientStats.achievements?.get(a.key);
         return a.repeatable || !existing;
       });
-      if (newAchievements.length > 0 || didCheckIn) {
-        newAchievementsPerUser.push({
-          user,
-          newAchievements,
-          didCheckIn,
-          checkinDate
-        });
-      }
+
+      newAchievementsPerUser.push({
+        user,
+        newAchievements,
+        didCheckIn,
+        checkinDate
+      });
     }
 
     const allNewKeys = [
@@ -353,6 +355,8 @@ export async function updateUserAndAchievements(
       const statsPrefix = `stats.${location}`;
       const updateOps: UpdateQuery<IUser> = {};
 
+      console.log('updating for user:', userIdStr)
+
       const teamScore = isOnTeam1
         ? matchData.team1Score
         : isOnTeam2
@@ -379,6 +383,8 @@ export async function updateUserAndAchievements(
       updateOps.$addToSet = {
         [`${statsPrefix}.matches`]: new Types.ObjectId(matchId)
       };
+
+      console.log('mongo match ID in update achievements 2:', matchId)
 
       for (const a of newAchievements) {
         const base = `${statsPrefix}.achievements.${a.key}`;

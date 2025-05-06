@@ -50,71 +50,93 @@ export const initiateSocketConnection = (matchId: string, userName: string, curr
 };
 
 export const handleSaveMatch = async (data: SaveMatchData, players: Player[]) => {
-  if (data.success) {
+  if (!data.success) return
 
-    let earnedAchievements: { userId: string; achievements: SerializedAchievement[] }[] = [];
+  console.log('saving match with data:', data)
 
-    try {
-      const getPlayerIds = (playerNames: string[]) => {
-        return players
-          .filter(player => playerNames.includes(player.userName))
-          .map(player => player.userId);
-      };
+  let earnedAchievements: { userId: string; achievements: SerializedAchievement[] }[] = [];
+  let matchResponse: Response | undefined;
 
-      const team1Ids = getPlayerIds(data.team1);
-      const team2Ids = getPlayerIds(data.team2);
-      const winners = data.team1Score > data.team2Score ? team1Ids : team2Ids;
-      const location = data.location;
-      const team1Score = data.team1Score;
-      const team2Score = data.team2Score;
+  try {
+    const getPlayerIds = (playerNames: string[]) => {
+      return players
+        .filter(player => playerNames.includes(player.userName))
+        .map(player => player.userId);
+    };
 
-      // Save match
-      const matchResponse = await fetch('/api/match', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          matchId: data.matchId,
-          team1: { players: team1Ids, score: team1Score },
-          team2: { players: team2Ids, score: team2Score },
-          winners,
-          location
-        }),
-      });
+    const team1Ids = getPlayerIds(data.team1);
+    const team2Ids = getPlayerIds(data.team2);
+    const winners = data.team1Score > data.team2Score ? team1Ids : team2Ids;
+    const location = data.location;
+    const team1Score = data.team1Score;
+    const team2Score = data.team2Score;
 
-      const result = await matchResponse.json();
-      const matchId = result._id
+    // Save match
+    matchResponse = await fetch('/api/match', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        matchId: data.matchId,
+        team1: { players: team1Ids, score: team1Score },
+        team2: { players: team2Ids, score: team2Score },
+        winners,
+        location
+      }),
+    });
 
-       // Update users and their achievements
-       try {
-        const achievementsResult = await updateUserAndAchievements(
-          team1Ids,
-          team2Ids,
-          winners,
-          location,
-          matchId,
-          team1Score,
-          team2Score
-        );
+    const result = await matchResponse.json();
+    const newMatchId = result?.match._id
 
-        earnedAchievements = achievementsResult.earnedAchievements || [];
-      
-      } catch (error) {
-        console.error('❌ Failed to update achievements after match:', error);
-      }
+    if (!newMatchId) {
+      console.error('❌ matchId is undefined! Full result:', result);
+      return;
+    }
 
-      if (matchResponse.ok) {
-        socket?.emit("match-saved", {
-          success: true,
-          matchId: data.matchId,
-          earnedAchievements: earnedAchievements || []
-        });
-        
-        socket?.emit("clear-scores", { matchId: data.matchId });
-      } else {
-        console.error("Failed to save match:", result.error);
-      }
+      // Update users and their achievements
+      try {
+      const achievementsResult = await updateUserAndAchievements(
+        team1Ids,
+        team2Ids,
+        winners,
+        location,
+        newMatchId,
+        team1Score,
+        team2Score
+      );
+
+      earnedAchievements = achievementsResult.earnedAchievements || [];
+    
     } catch (error) {
-      console.error("Error saving match to database:", error);
+      console.error('❌ Failed to update achievements after match:', error);
+    }
+
+    if (matchResponse.ok) {
+      socket?.emit("match-saved", {
+        success: true,
+        matchId: data.matchId,
+        earnedAchievements: earnedAchievements
+      });
+      
+      socket?.emit("clear-scores", { matchId: data.matchId });
+    } else {
+      console.error("Failed to save match:", result.error);
+    }
+  } catch (error) {
+    console.error("❌ Failed to handle match saving:", error);
+  
+    if (error instanceof Error) {
+      console.error("Error message:", error.message);
+    }
+  
+    if (matchResponse) {
+      try {
+        const errorText = await matchResponse.text();
+        console.error("💬 Raw response body:", errorText);
+      } catch (parseError) {
+        console.error("❌ Failed to parse raw error response body:", parseError);
+      }
+    } else {
+      console.error("⚠️ matchResponse is undefined — fetch likely never ran.");
     }
   }
 };

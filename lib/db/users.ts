@@ -1,7 +1,6 @@
 import User from "@/app/models/User"
 import connectToDatabase from "../mongodb"
 import { SessionData } from "@auth0/nextjs-auth0/types";
-import { cookies } from "next/headers"
 
 export async function getOrCreateAuthenticatedUser(
   auth0Id: string,
@@ -9,15 +8,15 @@ export async function getOrCreateAuthenticatedUser(
   guestUserName: string | null
 ) {
   await connectToDatabase()
-  const cookieStore = await cookies()
 
   if (guestUserName) {
+    console.log('guest user name in auth flow:', guestUserName)
     // Try to promote the guest account
     const promotedUser = await User.findOneAndUpdate(
       { name: guestUserName, auth0Id: { $exists: false } },
       {
         auth0Id,
-        name: session?.user.name,
+        name: guestUserName ?? session?.user.name,
         email: session?.user.email,
       },
       {
@@ -27,14 +26,6 @@ export async function getOrCreateAuthenticatedUser(
     )
 
     if (promotedUser) {
-      // ✅ Promotion successful — delete the guest token
-      cookieStore.set('guestToken', '', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/',
-        maxAge: 0,
-      })
       return promotedUser
     }
   }

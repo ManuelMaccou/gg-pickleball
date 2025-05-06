@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useUserContext } from "@/app/contexts/UserContext";
-import { Badge, Card, Flex, Spinner, Table, Text } from "@radix-ui/themes";
+import { Button, Callout, Card, Flex, Spinner, Table, Text } from "@radix-ui/themes";
+import { InfoCircledIcon } from "@radix-ui/react-icons"
 import * as Accordion from '@radix-ui/react-accordion';
 import Image from "next/image";
 import darkGgLogo from '../../../public/logos/gg_logo_black_transparent.png'
@@ -73,14 +74,17 @@ export default function Ggupr() {
       setAdminError(null);
       try {
         const response = await fetch(`/api/admin?userId=${userId}`);
+
+        if (response.status === 204) {
+          setAdmin(null);
+          setAdminError("You don't have permission to access this page.");
+          return;
+        }
+
         const data = await response.json();
   
         if (!response.ok) {
-          if (response.status === 404) {
-            throw new Error("You don't have permissions to view this page");
-          } else {
-            throw new Error(data.error || "Failed to fetch admin data");
-          }
+          throw new Error(data.error || "Failed to fetch admin data");
         }
   
         setAdmin(data.admin);
@@ -225,18 +229,16 @@ export default function Ggupr() {
     <Flex direction={'column'} minHeight={'100vh'} pt={'4'}>
 
       {/* GG Pickleball Logo */}
-      <Flex direction={'column'} py={'5'}>
-        <Flex direction={'column'} position={'relative'} px={'4'} align={'start'}>
-          <Image
-            src={darkGgLogo}
-            alt="GG Picklebal Logo"
-            height={540}
-            width={960}
-            style={{objectFit: 'contain', height: '40px', width: 'auto'}}
-          />
-        </Flex>
+      <Flex direction={'column'} position={'relative'} px={'4'} py={'5'} align={'start'}>
+        <Image
+          src={darkGgLogo}
+          alt="GG Picklebal Logo"
+          height={540}
+          width={960}
+          style={{objectFit: 'contain', height: '40px', width: 'auto'}}
+        />
       </Flex>
-
+       
       {/* Location Logo */}
       {location && (
         <Flex direction={'column'} style={{backgroundColor: admin?.bannerColor}}>
@@ -254,16 +256,34 @@ export default function Ggupr() {
 
       {/* Dashboard */}
       <Flex direction={'column'} p={{initial:'3', md: '5'}} height={'600px'} width={'100vw'} maxWidth={'1500px'} style={{alignSelf: 'center'}}>
-        {matchError ?? adminError ? (
-          <Flex direction={'column'} justify={'center'} align={'center'} gap={'4'}>
-            <Badge size={'3'} color="red" style={{display: matchError ? "block" : 'none'}}>{matchError}</Badge>
-            <Badge size={'3'} color="red" style={{display: adminError ? "block" : 'none'}}>{adminError}</Badge>
+        {!user ? (
+          <Flex direction={'column'} justify={'center'} align={'center'} gap={'4'} mt={'9'}>
+            <Button size={'3'} variant='ghost'>Please log in</Button>
+          </Flex>
+        ) : matchError ?? adminError ? (
+          <Flex direction={'column'} justify={'center'} gap={'4'}>
+            <Callout.Root size={'3'} color="red" >
+              <Callout.Icon>
+                <InfoCircledIcon />
+              </Callout.Icon>
+              <Callout.Text>
+                {adminError}
+              </Callout.Text>
+            </Callout.Root>
+            <Callout.Root color="red" style={{display: matchError ? "block" : 'none'}}>
+              <Callout.Icon>
+                <InfoCircledIcon />
+              </Callout.Icon>
+              <Callout.Text>
+                {matchError}
+              </Callout.Text>
+            </Callout.Root>
           </Flex>
         ) : isLoading ? (
           <Flex direction={'column'} justify={'center'} align={'center'} mt={'9'}>
             <Spinner size={'3'} style={{color: 'black'}} />
           </Flex>
-        ) : matches ? (
+          ) : matches ? (
           <Flex direction={'row'} height={'100%'} gap={'4'} wrap={'wrap'}>
 
             {/* Total players and matches */}
@@ -276,7 +296,7 @@ export default function Ggupr() {
                   </Flex>
                 </Card>
               </Flex>
-             
+              
               <Flex direction={'column'} flexGrow={'1'} minWidth={'150px'}>
                 <Card variant="classic" style={{height: '100%', alignContent: 'end'}}>
                   <Flex direction={'column'} gap={'4'}>
@@ -287,7 +307,7 @@ export default function Ggupr() {
               </Flex>
             </Flex>
 
-             {/* Top players */}
+              {/* Top players */}
             <Flex direction={'column'} flexGrow={'1'} height={'100%'} maxHeight={{initial: "fit-content", md: '80%'}} minWidth={"150px"} maxWidth={{initial: '100%', md: '20%'}} gap={'4'}>
               <Card variant="classic" style={{flexGrow: 'inherit'}}>
                 <Flex direction={'column'} gap={'4'}>
@@ -315,7 +335,7 @@ export default function Ggupr() {
             {/* All players */}
             {location && (
               <Flex direction={'column'} pb={'9'} flexGrow={'1'} height={{md: '100%'}} maxWidth={{md: '100%'}} overflow={{initial: 'visible', md: 'scroll'}}>
-               <Text size={'4'} style={{color: 'grey'}} mb={'4'}>All players</Text>
+                <Text size={'4'} style={{color: 'grey'}} mb={'4'}>All players</Text>
                 <Accordion.Root type="multiple" value={openAccordion} onValueChange={setOpenAccordion}>
                   <Flex direction={'column'} gap={'1'}>
                     {allPlayers.map(player => {
@@ -339,7 +359,7 @@ export default function Ggupr() {
                               <Accordion.Trigger style={{width: '100%'}}>
                                 <Flex direction={'row'} justify={'between'} align={'stretch'} py={'2'} maxWidth={{initial: '100%', md: '500px'}} wrap={'wrap'}>
                                   <Text size="2" weight="bold">{player.name}</Text>
-                                  <Text size="2">Last check-in: {lastCheckin}</Text>
+                                  <Text size="2">Last visit: {lastCheckin}</Text>
                                 </Flex>
                               </Accordion.Trigger>
                             </Accordion.Header>
@@ -373,7 +393,7 @@ export default function Ggupr() {
                                   </Table.Body>
                                 </Table.Root>
                               </Flex>
-                             
+                              
 
                               {/* Rewards Table */}
                               <Flex direction={'column'} my={'5'}>

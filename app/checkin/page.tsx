@@ -246,6 +246,7 @@ export default function CheckinPage() {
                     : `${String(userName).includes('@') ? String(userName).split('@')[0] : userName} (guest)`
                 ) : ''}
               </Text>
+              <Button size={'2'} variant="outline" mt={'1'} hidden={!!auth0User}>Create account</Button>
             </Flex>
           )}
         </Flex>
@@ -283,6 +284,7 @@ export default function CheckinPage() {
                     : `${String(userName).includes('@') ? String(userName).split('@')[0] : userName} (guest)`
                 ) : ''}
               </Text>
+              <Button size={'2'} variant="outline" mt={'1'} hidden={!!auth0User}>Create account</Button>
             </Flex>
           )}
         </Flex>
@@ -353,6 +355,7 @@ export default function CheckinPage() {
                   : `${String(user.name).includes('@') ? String(user.name).split('@')[0] : user.name} (guest)`
               ) : ''}
             </Text>
+            <Button size={'2'} variant="outline" mt={'1'} hidden={!!auth0User}>Create account</Button>
           </Flex>
         )}
       </Flex>

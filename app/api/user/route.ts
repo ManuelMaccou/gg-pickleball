@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import connectToDatabase from '@/lib/mongodb';
 import User from '@/app/models/User';
 import { escapeRegex } from '@/utils/escapeRegex';
@@ -60,6 +61,12 @@ export async function GET(request: Request) {
     if (!user) {
       return NextResponse.json({ error: "User not found." }, { status: 404 });
     }
+
+    if (user.auth0Id) {
+      const cookieStore = await cookies();
+      cookieStore.delete('guestToken');
+    }
+
     return NextResponse.json({ user });
   } catch (error) {
     console.error("Failed to save user:", error);

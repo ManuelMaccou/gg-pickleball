@@ -2,6 +2,7 @@
 
 import { Box, Button, Flex, Text } from "@radix-ui/themes";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import lightGgLogo from '../public/logos/gg_logo_white_transparent.png'
 import Link from 'next/link';
 import { useUser as useAuth0User } from '@auth0/nextjs-auth0';
@@ -17,6 +18,7 @@ import { useIsMobile } from './hooks/useIsMobile';
 
 export default function Ggupr() {
   const isMobile = useIsMobile();
+  const router = useRouter();
   const { user: auth0User, isLoading } = useAuth0User();
   const { user } = useUserContext(); 
   const userName = user?.name
@@ -111,15 +113,17 @@ export default function Ggupr() {
   // Fetch user details
   useEffect(() => {
     const fetchUser = async () => {
-      if (!user) return
+      if (!user?.isGuest && !auth0User?.sub) return
   
       try {
         let query = ''
-        if (user.isGuest) {
+        if (user?.isGuest) {
           query = `?name=${encodeURIComponent(user.name)}`
-        } else if (auth0User?.sub) {
+        } else if (auth0User && auth0User.sub) {
           query = `?auth0Id=${encodeURIComponent(auth0User.sub)}`
         }
+
+        if (!query) return
   
         const res = await fetch(`/api/user${query}`)
         const data = await res.json()
@@ -193,6 +197,15 @@ export default function Ggupr() {
                   : `${String(userName).includes('@') ? String(userName).split('@')[0] : userName} (guest)`
               ) : ''}
             </Text>
+            <Button
+              size={'2'}
+              variant="outline"
+              mt={'1'}
+              hidden={!!auth0User}
+              onClick={() => router.push(`/auth/login?screen_hint=signup&returnTo=/`)}
+            >
+              Create account
+            </Button>
           </Flex>
         )}
       </Flex>
