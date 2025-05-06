@@ -4,7 +4,7 @@ import { useUser as useAuth0User } from "@auth0/nextjs-auth0"
 import { Badge, Box, Button, Dialog, Flex, RadioCards, Separator, Spinner, Text, TextField } from "@radix-ui/themes";
 import Image from "next/image";
 import lightGgLogo from '../../../public/logos/gg_logo_white_transparent.png'
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, usePathname, useSearchParams } from 'next/navigation';
 import { 
   disconnectSocket,
@@ -41,7 +41,7 @@ interface UserEarnedData {
   }[];
 }
 
-export default function GguprMatchPage() {
+function GguprMatchPage() {
   const isMobile =useIsMobile();
   
   const { user: auth0User, isLoading: authIsLoading } = useAuth0User();
@@ -686,5 +686,13 @@ export default function GguprMatchPage() {
       )}
       
     </Flex>
+  )
+}
+
+export default function GguprMatch() {
+  return (
+    <Suspense>
+      <GguprMatchPage />
+    </Suspense>
   )
 }

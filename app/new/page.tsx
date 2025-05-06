@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Badge, Button, Flex, Text, TextField } from "@radix-ui/themes";
 import Image from "next/image";
 import lightGgLogo from '../../public/logos/gg_logo_white_transparent.png'
-import { useEffect, useState, useTransition } from "react";
+import { Suspense, useEffect, useState, useTransition } from "react";
 import QRCodeGenerator from '../components/QrCodeGenerator';
 import { useRouter, useSearchParams } from "next/navigation";
 import { useUserContext } from '../contexts/UserContext';
@@ -12,7 +12,7 @@ import { IClient } from '../types/databaseTypes';
 import { ArrowLeft } from 'lucide-react';
 import { useIsMobile } from '../hooks/useIsMobile';
 
-export default function NewMatch() {
+function NewMatchPage() {
   const isMobile = useIsMobile();
 
   const router = useRouter();
@@ -197,16 +197,17 @@ if (isMobile === null) {
               )}
               <Text align={'center'}>----- or -----</Text>
               <Button size={'3'} variant='outline' onClick={() => router.push('/auth/login?screen_hint=signup&returnTo=/new')}>Create account / Log in</Button>
-
-             
-             
             </Flex>
           </Flex>
-            
           ) : null }
-
       </Flex>
+  )
+}
 
-   
+export default function NewMatch() {
+  return (
+    <Suspense>
+      <NewMatchPage />
+    </Suspense>
   )
 }
