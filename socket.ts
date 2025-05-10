@@ -44,15 +44,11 @@ export const initiateSocketConnection = (matchId: string, userName: string, curr
     socket.on("disconnect", () => {
       console.log("Disconnected from socket server.");
     });
-  } else {
-    console.log('Socket already connected:', socket.id);
   }
 };
 
 export const handleSaveMatch = async (data: SaveMatchData, players: Player[]) => {
   if (!data.success) return
-
-  console.log('saving match with data:', data)
 
   let earnedAchievements: { userId: string; achievements: SerializedAchievement[] }[] = [];
   let matchResponse: Response | undefined;

@@ -13,6 +13,7 @@ import { ArrowLeft } from 'lucide-react';
 import { useIsMobile } from '../hooks/useIsMobile';
 
 function NewMatchPage() {
+
   const isMobile = useIsMobile();
 
   const router = useRouter();

@@ -1,7 +1,7 @@
 "use client"
 
 import { IClient, IReward } from "@/app/types/databaseTypes";
-import { FrontendUser } from "@/app/types/frontendTypes";
+import { FrontendClientStats, FrontendUser } from "@/app/types/frontendTypes";
 import { Box, Dialog, Flex, Strong, Text, VisuallyHidden } from "@radix-ui/themes";
 import Image from "next/image";
 
@@ -23,8 +23,9 @@ export default function RedeemRewardsDialog({
 
   const rewardId = reward._id.toString();
   const clientId = location._id.toString(); 
-
-  const rewardData = user?.stats?.[clientId]?.rewards?.[rewardId];
+  
+  const stats: FrontendClientStats | undefined = user?.stats?.[clientId];
+  const rewardData = stats?.rewards.find(r => r.rewardId.toString() === rewardId);
   const rewardCode = rewardData?.code;
 
   return (

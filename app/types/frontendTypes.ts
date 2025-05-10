@@ -1,3 +1,5 @@
+import { Types } from "mongoose";
+
 export interface FrontendClientStats {
   checkins?: Date[];
   wins?: number;
@@ -5,8 +7,19 @@ export interface FrontendClientStats {
   winStreak?: number;
   pointsWon?: number;
   matches?: string[]; // object ids are strings on frontend
-  achievements: Record<string, { count?: number; earnedAt: Date[] }>;
-  rewards: Record<string, { code: string; redeemed: boolean; redemptionDate?: Date }>;
+  achievements: {
+    achievementId: Types.ObjectId;
+    name: string;
+    earnedAt: Date;
+    count?: number;
+  }[];
+  rewards: {
+      rewardId: Types.ObjectId;
+      earnedAt: Date;
+      redeemed: boolean;
+      redemptionDate?: Date;
+      code?: string;
+    }[];
 }
 
 export interface FrontendUser {

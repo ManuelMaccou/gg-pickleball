@@ -2,15 +2,18 @@ import mongoose, { Schema } from "mongoose";
 import { IUser } from "../types/databaseTypes";
 
 const AchievementSubSchema = new Schema({
-  count: { type: Number },
-  earnedAt: { type: [Date], required: true },
-}, { _id: false })
+  achievementId: { type: Schema.Types.ObjectId, ref: "Achievement", required: true },
+  name: { type: String },
+  earnedAt: { type: Date, required: true },
+});
 
 const RewardSubSchema = new Schema({
-  code: { type: String },
+  rewardId: { type: Schema.Types.ObjectId, ref: "Reward", required: true },
+  earnedAt: { type: Date, required: true },
   redeemed: { type: Boolean, default: false, required: true },
   redemptionDate: { type: Date },
-}, { _id: false })
+  code: { type: String }
+});
 
 const ClientStatsSubSchema = new Schema({
   checkins: {
@@ -23,14 +26,12 @@ const ClientStatsSubSchema = new Schema({
   pointsWon: { type: Number },
   matches: [{ type: Schema.Types.ObjectId, ref: "Match" }],
   achievements: {
-    type: Map,
-    of: AchievementSubSchema,
-    default: {}
+    type: [AchievementSubSchema],
+    default: []
   },
   rewards: {
-    type: Map,
-    of: RewardSubSchema,
-    default: {}
+    type: [RewardSubSchema],
+    default: []
   }
 }, { _id: false })
 

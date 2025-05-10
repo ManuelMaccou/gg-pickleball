@@ -11,11 +11,12 @@ type Props = {
   user: FrontendUser | null
   location: IClient
   unlockedRewardIds: string[]
+  earnedRewards: { rewardId: string; redeemed: boolean }[]
   variant?: 'preview' | 'full'
   maxCount?: number
 }
 
-export default function RewardGrid({ user, location, unlockedRewardIds, maxCount }: Props) {
+export default function RewardGrid({ user, location, unlockedRewardIds, earnedRewards, maxCount }: Props) {
   const [allRewards, setAllRewards] = useState<IReward[]>([])
   const [selectedReward, setSelectedReward] = useState<IReward | null>(null)
 
@@ -42,7 +43,12 @@ export default function RewardGrid({ user, location, unlockedRewardIds, maxCount
   return (
     <Flex direction={'column'} gap="4">
       {displayedRewards.map((reward) => {
-       const isUnlocked = unlockedRewardIds.includes(reward._id.toString());
+        const isUnlocked = unlockedRewardIds.includes(reward._id.toString());
+        const rewardIdStr = reward._id.toString();
+        const unredeemedCount = earnedRewards.filter(
+          r => r.rewardId === rewardIdStr && !r.redeemed
+        ).length;
+
         const cardContent = (
           <Card
             style={{
@@ -79,7 +85,9 @@ export default function RewardGrid({ user, location, unlockedRewardIds, maxCount
               </Flex>
               {isUnlocked && (
                 <Flex direction={'row'} justify={'end'} align={'center'} flexGrow={'1'}>
-                  <Badge variant='solid'>Activated</Badge>
+                  <Badge variant='solid' size={'3'}>
+                    Activated{unredeemedCount > 1 ? ` x${unredeemedCount}` : ""}
+                  </Badge>
                 </Flex>
               )}
             </Flex>

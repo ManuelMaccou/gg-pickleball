@@ -10,7 +10,6 @@ export async function getOrCreateAuthenticatedUser(
   await connectToDatabase()
 
   if (guestUserName) {
-    console.log('guest user name in auth flow:', guestUserName)
     // Try to promote the guest account
     const promotedUser = await User.findOneAndUpdate(
       { name: guestUserName, auth0Id: { $exists: false } },

@@ -17,8 +17,20 @@ interface ClientStats {
   winStreak?: number;
   pointsWon?: number;
   matches?: Types.ObjectId[];
-  achievements?: Record<string, { count?: number; earnedAt: Date[] }>;
-  rewards?: Record<string, { code?: string; redeemed: boolean; redemptionDate?: Date }>;
+  achievements: {
+    _id: Types.ObjectId;
+    achievementId: Types.ObjectId;
+    name: string;
+    earnedAt: Date;
+    count?: number;
+  }[];
+  rewards?: {
+    rewardId: Types.ObjectId;
+    earnedAt: Date;
+    redeemed: boolean;
+    redemptionDate?: Date;
+    code?: string;
+  }[];
 }
 
 interface IPopulatedMatch {
@@ -44,6 +56,7 @@ type TopPlayer = {
 };
 
 export default function Ggupr() {
+
   const { user } = useUserContext();
   const userId = user?.id
 
@@ -178,10 +191,6 @@ export default function Ggupr() {
     });
     return map;
   }, [rewardsPerAchievement]);
-
-  useEffect(() => {
-    console.log('achievement map:', achievementMap);
-  }, [achievementMap])
   
   // Get total player count and top 5 players for this location
   useEffect(() => {
@@ -261,24 +270,28 @@ export default function Ggupr() {
             <Button size={'3'} variant='ghost'>Please log in</Button>
           </Flex>
         ) : matchError ?? adminError ? (
-          <Flex direction={'column'} justify={'center'} gap={'4'}>
-            <Callout.Root size={'3'} color="red" >
-              <Callout.Icon>
-                <InfoCircledIcon />
-              </Callout.Icon>
-              <Callout.Text>
-                {adminError}
-              </Callout.Text>
-            </Callout.Root>
-            <Callout.Root color="red" style={{display: matchError ? "block" : 'none'}}>
-              <Callout.Icon>
-                <InfoCircledIcon />
-              </Callout.Icon>
-              <Callout.Text>
-                {matchError}
-              </Callout.Text>
-            </Callout.Root>
-          </Flex>
+          <>
+            <Flex direction={'column'} justify={'center'} gap={'4'} display={adminError ? 'flex' : 'none'}>
+              <Callout.Root size={'3'} color="red" >
+                <Callout.Icon>
+                  <InfoCircledIcon />
+                </Callout.Icon>
+                <Callout.Text>
+                  {adminError}
+                </Callout.Text>
+              </Callout.Root>
+            </Flex>
+            <Flex direction={'column'} justify={'center'} gap={'4'} display={matchError ? 'flex' : 'none'}>
+              <Callout.Root color="red">
+                <Callout.Icon>
+                  <InfoCircledIcon />
+                </Callout.Icon>
+                <Callout.Text>
+                  {matchError}
+                </Callout.Text>
+              </Callout.Root>
+            </Flex>
+          </>
         ) : isLoading ? (
           <Flex direction={'column'} justify={'center'} align={'center'} mt={'9'}>
             <Spinner size={'3'} style={{color: 'black'}} />
@@ -308,7 +321,7 @@ export default function Ggupr() {
             </Flex>
 
               {/* Top players */}
-            <Flex direction={'column'} flexGrow={'1'} height={'100%'} maxHeight={{initial: "fit-content", md: '80%'}} minWidth={"150px"} maxWidth={{initial: '100%', md: '20%'}} gap={'4'}>
+            <Flex direction={'column'} flexGrow={'1'} height={'100%'} maxHeight={{initial: "fit-content", md: '80%'}} minWidth={"300px"} maxWidth={{initial: '100%', md: '20%'}} gap={'4'}>
               <Card variant="classic" style={{flexGrow: 'inherit'}}>
                 <Flex direction={'column'} gap={'4'}>
                   <Text size={'4'} align={'center'} style={{color: 'grey'}}>Top players by wins</Text>
@@ -371,25 +384,23 @@ export default function Ggupr() {
                                   <Table.Header>
                                     <Table.Row>
                                       <Table.ColumnHeaderCell>Name</Table.ColumnHeaderCell>
-                                      <Table.ColumnHeaderCell>Last Earned</Table.ColumnHeaderCell>
-                                      <Table.ColumnHeaderCell>Times Earned</Table.ColumnHeaderCell>
+                                      <Table.ColumnHeaderCell>Earned on</Table.ColumnHeaderCell>
                                     </Table.Row>
                                   </Table.Header>
                                   <Table.Body>
-                                    {Object.entries(clientStats?.achievements ?? {}).map(([achName, achData]) => {
-                                      const achievement = achievementMap.get(achName);
-                                      return (
-                                        <Table.Row key={achName}>
-                                          <Table.RowHeaderCell>{achievement?.friendlyName || achName}</Table.RowHeaderCell>
-                                          <Table.Cell>
-                                            {achData.earnedAt?.[0]
-                                              ? new Date(achData.earnedAt[0]).toLocaleDateString()
-                                              : '—'}
-                                          </Table.Cell>
-                                          <Table.Cell>{achData.count ?? achData.earnedAt?.length ?? 1}</Table.Cell>
-                                        </Table.Row>
-                                      );
-                                    })}
+                                  {clientStats?.achievements?.map((ach) => {
+                                    const achievement = achievementMap.get(ach.name);
+                                    return (
+                                      <Table.Row key={ach._id.toString()}>
+                                        <Table.RowHeaderCell>{achievement?.friendlyName || ach.name}</Table.RowHeaderCell>
+                                        <Table.Cell>
+                                          {ach.earnedAt
+                                            ? new Date(ach.earnedAt).toLocaleDateString()
+                                            : '—'}
+                                        </Table.Cell>
+                                      </Table.Row>
+                                    );
+                                  })}
                                   </Table.Body>
                                 </Table.Root>
                               </Flex>
@@ -407,16 +418,16 @@ export default function Ggupr() {
                                     </Table.Row>
                                   </Table.Header>
                                   <Table.Body>
-                                    {Object.entries(clientStats?.rewards ?? {}).map(([rewardId, rewardData]) => {
-                                      const reward = rewardMap.get(rewardId);
-                                      return (
-                                        <Table.Row key={rewardId}>
-                                          <Table.RowHeaderCell>{`${reward?.discount} ${reward?.product}`}</Table.RowHeaderCell>
-                                          <Table.Cell>{rewardData.code ?? '—'}</Table.Cell>
-                                          <Table.Cell>{rewardData.redeemed ? 'Yes' : 'No'}</Table.Cell>
-                                        </Table.Row>
-                                      );
-                                    })}
+                                  {clientStats?.rewards?.map((rewardEntry, index) => {
+                                    const reward = rewardMap.get(rewardEntry.rewardId.toString());
+                                    return (
+                                      <Table.Row key={`${rewardEntry.rewardId}-${index}`}>
+                                        <Table.RowHeaderCell>{`${reward?.discount} ${reward?.product}`}</Table.RowHeaderCell>
+                                        <Table.Cell>{rewardEntry.code ?? '—'}</Table.Cell>
+                                        <Table.Cell>{rewardEntry.redeemed ? 'Yes' : 'No'}</Table.Cell>
+                                      </Table.Row>
+                                    );
+                                  })}
                                   </Table.Body>
                                 </Table.Root>
                               </Flex>

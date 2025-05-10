@@ -58,6 +58,10 @@ const achievementFunctionMap: Record<string, CheckFunction> = {
 
 
 function ensureClientStats(user: IUser, clientId: string): ClientStats {
+  if (!user.stats || !(user.stats instanceof Map)) {
+    user.stats = new Map<string, ClientStats>();
+  }
+
   let clientStats = user.stats?.get(clientId);
 
   if (!clientStats) {
@@ -68,10 +72,10 @@ function ensureClientStats(user: IUser, clientId: string): ClientStats {
       winStreak: 0,
       pointsWon: 0,
       matches: [],
-      achievements: new Map(),
-      rewards: new Map(),
+      achievements: [],
+      rewards: [],
     };
-    user.stats.set(clientId, clientStats);
+     user.stats.set(clientId, clientStats);
   }
 
   return clientStats;
@@ -203,7 +207,7 @@ function pointsWon(user: IUser, match: MatchData): AchievementEarned[] {
   
     for (const threshold of milestones) {
       const achievementKey = `${threshold}-points-won`;
-      const alreadyHas = achievements?.has(achievementKey);
+      const alreadyHas = achievements?.some(ach => ach.name === achievementKey);
   
       if (totalPointsWon >= threshold && !alreadyHas) {
         return [{ key: achievementKey, repeatable: false }];
@@ -242,8 +246,6 @@ export async function updateUserAndAchievements(
   earnedAchievements: { userId: string; achievements: SerializedAchievement[] }[];
   message: string; updatedUsers: string[]
 }> {
-
-  console.log('mongo match ID in update achievements:', matchId)
 
   await connectToDatabase();
   try {
@@ -318,7 +320,7 @@ export async function updateUserAndAchievements(
       }
 
       const newAchievements = allAchievements.filter(a => {
-        const existing = clientStats.achievements?.get(a.key);
+        const existing = clientStats.achievements?.some(ach => ach.name === a.key);
         return a.repeatable || !existing;
       });
 
@@ -352,10 +354,9 @@ export async function updateUserAndAchievements(
       const isWinner = winners.includes(userIdStr);
       const isOnTeam1 = team1Ids.includes(userIdStr);
       const isOnTeam2 = team2Ids.includes(userIdStr);
+      
       const statsPrefix = `stats.${location}`;
       const updateOps: UpdateQuery<IUser> = {};
-
-      console.log('updating for user:', userIdStr)
 
       const teamScore = isOnTeam1
         ? matchData.team1Score
@@ -384,36 +385,55 @@ export async function updateUserAndAchievements(
         [`${statsPrefix}.matches`]: new Types.ObjectId(matchId)
       };
 
-      console.log('mongo match ID in update achievements 2:', matchId)
+      const existingAchievementsRaw = user.stats?.get(location)?.achievements;
+      const existingAchievements = Array.isArray(existingAchievementsRaw) ? existingAchievementsRaw : [];
 
-      for (const a of newAchievements) {
-        const base = `${statsPrefix}.achievements.${a.key}`;
 
-        if (a.repeatable) {
-          updateOps.$inc ??= {};
-          updateOps.$push ??= {};
-          updateOps.$inc[`${base}.count`] = 1;
-          updateOps.$push[`${base}.earnedAt`] = new Date();
-        } else {
-          updateOps.$set ??= {};
-          updateOps.$set[base] = { earnedAt: [new Date()] };
-        }
+      const achievementEntries = newAchievements
+        .map(a => {
+          const achievementDoc = achievementMap.get(a.key);
+          if (!achievementDoc) return null;
+
+          const alreadyEarned = existingAchievements.some(
+            entry => entry.name === a.key
+          );
+
+          if (!a.repeatable && alreadyEarned) {
+            return null; // skip non-repeatables already earned
+          }
+
+          return {
+            achievementId: achievementDoc._id,
+            name: achievementDoc.name,
+            earnedAt: new Date()
+          };
+        })
+        .filter((entry): entry is {
+          achievementId: Types.ObjectId;
+          name: string;
+          earnedAt: Date;
+        } => !!entry);
+
+      if (achievementEntries.length > 0) {
+        updateOps.$push ??= {};
+        updateOps.$push[`${statsPrefix}.achievements`] = { $each: achievementEntries };
       }
+
 
       const earnedRewardIds = newAchievements
         .map(a => client.rewardsPerAchievement?.get?.(a.key))
         .filter(Boolean) as Types.ObjectId[];
 
-      for (const rewardId of earnedRewardIds) {
-        const rewardPath = `${statsPrefix}.rewards.${rewardId}`;
-        const clientStats = ensureClientStats(user, location);
-        const alreadyHas = clientStats.rewards?.has(rewardId.toString());
-
-        if (!alreadyHas) {
-          updateOps.$set ??= {};
-          updateOps.$set[rewardPath] = { redeemed: false };
+        const rewardEntries = earnedRewardIds.map(rewardId => ({
+          rewardId,
+          earnedAt: new Date(),
+          redeemed: false
+        }));
+        
+        if (rewardEntries.length > 0) {
+          updateOps.$push ??= {};
+          updateOps.$push[`${statsPrefix}.rewards`] = { $each: rewardEntries };
         }
-      }
 
       if (Object.keys(updateOps).length > 0) {
         bulkOperations.push({

@@ -9,14 +9,15 @@ import { useUser as useAuth0User } from '@auth0/nextjs-auth0';
 import { useUserContext } from './contexts/UserContext';
 import { useEffect, useMemo, useState } from 'react';
 import AchievementsGrid from '@/components/sections/AchievementsGrid';
-import { IClient } from './types/databaseTypes';
+import { AchievementData, IClient } from './types/databaseTypes';
 import RewardsGrid from '@/components/sections/RewardsGrid';
 import LocationDrawer from './components/LocationDrawer';
-import { toFrontendUser } from '@/utils/converters';
 import { FrontendUser } from './types/frontendTypes';
 import { useIsMobile } from './hooks/useIsMobile';
+import { Types } from "mongoose";
 
 export default function Ggupr() {
+
   const isMobile = useIsMobile();
   const router = useRouter();
   const { user: auth0User, isLoading } = useAuth0User();
@@ -29,25 +30,40 @@ export default function Ggupr() {
   const [achievementsVariant, setAchievementsVariant] = useState<'full' | 'preview'>('preview')
   const [rewardsVariant, setRewardsVariant] = useState<'full' | 'preview'>('preview')
 
-  type EarnedAchievement = {
-    name: string
-    count?: number
-    earnedAt: Date[]
-  }
+  const clientId: string | undefined = currentClient?._id?.toString();
 
-  const clientId = currentClient?._id?.toString();
+  const rawAchievements = clientId ? dbUser?.stats?.[clientId]?.achievements : [];
 
-  const earnedAchievements: EarnedAchievement[] = useMemo(() => {
-    const clientStats = dbUser?.stats?.[currentClient?._id.toString() || ''];
+  const achievementsRaw: AchievementData[] = Array.isArray(rawAchievements)
+    ? rawAchievements
+    : Object.values(rawAchievements ?? {});
+
+
+    const earnedAchievements = useMemo(() => {
+      const grouped = new Map<string, { count: number; lastEarned: Date }>();
+    
+      for (const entry of achievementsRaw) {
+        const entryDate = new Date(entry.earnedAt); // ⬅ added here
+    
+        if (!grouped.has(entry.name)) {
+          grouped.set(entry.name, { count: 1, lastEarned: entryDate });
+        } else {
+          const group = grouped.get(entry.name)!;
+          group.count += 1;
+          group.lastEarned = entryDate > group.lastEarned ? entryDate : group.lastEarned; // ⬅ updated here
+        }
+      }
+    
+      return Array.from(grouped.entries()).map(([name, { count, lastEarned }]) => ({
+        name,
+        earnedAt: lastEarned,
+        achievementId: new Types.ObjectId(),
+        count,
+      }));
+    }, [achievementsRaw]);
+    
+    
   
-    if (!clientStats?.achievements) return [];
-  
-    return Object.entries(clientStats.achievements).map(([name, details]) => ({
-      name,
-      count: details.count,
-      earnedAt: details.earnedAt,
-    }));
-  }, [dbUser, currentClient]);
 
   const handleAchievementsVariantChange = () => {
     setAchievementsVariant((prev) => (prev === 'preview' ? 'full' : 'preview'))
@@ -133,8 +149,8 @@ export default function Ggupr() {
           return
         }
   
-        const frontendUser = toFrontendUser(data.user);
-        setDbUser(frontendUser);
+        // const frontendUser = toFrontendUser(data.user);
+        setDbUser(data.user);
        
       } catch (err) {
         console.error('Error fetching user:', err)
@@ -143,8 +159,11 @@ export default function Ggupr() {
   
     fetchUser()
   }, [user, auth0User])  
-
+  
   const userStatsForClient = clientId ? dbUser?.stats?.[clientId] : undefined;
+  if (userStatsForClient && !Array.isArray(userStatsForClient.rewards)) {
+    userStatsForClient.rewards = Object.values(userStatsForClient.rewards ?? {});
+  }
 
   if (isMobile === null) {
     return null;
@@ -271,7 +290,15 @@ export default function Ggupr() {
             location={currentClient}
             unlockedRewardIds={
               userStatsForClient?.rewards
-                ? Object.keys(userStatsForClient.rewards)
+                ? userStatsForClient.rewards.map(r => r.rewardId.toString())
+                : []
+            }
+            earnedRewards={
+              Array.isArray(userStatsForClient?.rewards)
+                ? userStatsForClient.rewards.map(r => ({
+                    rewardId: r.rewardId.toString(),
+                    redeemed: r.redeemed
+                  }))
                 : []
             }
             variant={rewardsVariant}

@@ -3,12 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Badge, Flex, Spinner } from '@radix-ui/themes'
 import Image from 'next/image'
-
-type EarnedAchievement = {
-  name: string
-  count?: number
-  earnedAt: Date[]
-}
+import { AchievementData } from '@/app/types/databaseTypes'
 
 type Achievement = {
   _id: string
@@ -19,7 +14,7 @@ type Achievement = {
 
 type Props = {
   clientId: string
-  earnedAchievements: EarnedAchievement[]
+  earnedAchievements: AchievementData[]
   variant?: 'full' | 'preview'
   maxCount?: number
 }
@@ -32,29 +27,33 @@ export default function AchievementsGrid({
 }: Props) {
   const [allClientAchievements, setAllClientAchievements] = useState<Achievement[]>([])
 
-useEffect(() => {
-  const fetchClientAchievements = async () => {
-    if (!clientId) return;
+  useEffect(() => {
+    const fetchClientAchievements = async () => {
+      if (!clientId) return;
 
-    try {
-      const res = await fetch(`/api/client/achievements?clientId=${clientId}`);
-      if (!res.ok) {
-        console.error('Failed to fetch client achievements:', res.statusText);
-        return;
+      try {
+        const res = await fetch(`/api/client/achievements?clientId=${clientId}`);
+        if (!res.ok) {
+          console.error('Failed to fetch client achievements:', res.statusText);
+          return;
+        }
+
+        const data = await res.json();
+        setAllClientAchievements(data.achievements || []);
+      } catch (error) {
+        console.error('Error fetching client achievements:', error);
       }
+    };
 
-      const data = await res.json();
-      setAllClientAchievements(data.achievements || []);
-    } catch (error) {
-      console.error('Error fetching client achievements:', error);
-    }
-  };
-
-  fetchClientAchievements();
-}, [clientId]);
+    fetchClientAchievements();
+  }, [clientId]);
 
   const earnedAchievementMap = useMemo(() => {
-    return new Map(earnedAchievements.map((a) => [a.name, a]));
+    const map = new Map<string, { count: number }>();
+    for (const a of earnedAchievements) {
+      map.set(a.name, { count: a.count ?? 1 });
+    }
+    return map;
   }, [earnedAchievements]);
 
   const displayedAchievements = maxCount
@@ -111,7 +110,7 @@ useEffect(() => {
                 }}
               />
             </div>
-            {earnedCount && (
+            {earnedCount && earnedCount > 1 && (
                 <Badge 
                 size={'3'}
                 radius='full'

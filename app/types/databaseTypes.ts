@@ -6,14 +6,18 @@ export interface AchievementEarned {
 };
 
 export interface AchievementData {
-  count?: number | null;
-  earnedAt: Date[];
+  achievementId: Types.ObjectId;
+  name: string;
+  earnedAt: Date;
+  count?: number;
 }
 
 export interface RewardData {
-  code: string;
+  rewardId: Types.ObjectId;
+  earnedAt: Date;
   redeemed: boolean;
   redemptionDate?: Date;
+  code?: string;
 }
 
 export interface ClientStats {
@@ -23,8 +27,8 @@ export interface ClientStats {
   winStreak?: number;
   pointsWon?: number;
   matches?: Types.ObjectId[];
-  achievements: Map<string, AchievementData>;
-  rewards: Map<string, RewardData>;  
+  achievements: AchievementData[];
+  rewards: RewardData[];
 }
 
 export interface IUser extends Document {
@@ -34,7 +38,7 @@ export interface IUser extends Document {
   email?: string;
   profilePicture?: string;
   lastLocation?: Types.ObjectId;
-  stats: Map<string, ClientStats>;
+  stats: Map<string,ClientStats>;
 }
 
 export interface IMatch extends Document {

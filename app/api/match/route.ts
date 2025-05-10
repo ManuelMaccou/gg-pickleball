@@ -23,8 +23,6 @@ export async function POST(req: NextRequest) {
 
     await match.save();
 
-    console.log('saved match:', match)
-
     return NextResponse.json({ 
       success: true,
       match: {

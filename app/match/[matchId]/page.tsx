@@ -42,6 +42,7 @@ interface UserEarnedData {
 }
 
 function GguprMatchPage() {
+
   const isMobile =useIsMobile();
   
   const { user: auth0User, isLoading: authIsLoading } = useAuth0User();
@@ -365,6 +366,15 @@ function GguprMatchPage() {
       }
     };
   }, [pathname]);
+
+  useEffect(() => {
+    if (showDialog) {
+      // Blur all active elements outside the dialog
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    }
+  }, [showDialog]);
 
   if (isMobile === null) {
     return null;
