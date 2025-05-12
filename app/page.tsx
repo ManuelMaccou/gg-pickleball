@@ -297,9 +297,11 @@ export default function Ggupr() {
               Array.isArray(userStatsForClient?.rewards)
                 ? userStatsForClient.rewards.map(r => ({
                     rewardId: r.rewardId.toString(),
-                    redeemed: r.redeemed
+                    redeemed: r.redeemed,
+                    earnedAt: new Date(r.earnedAt),
+                    _id: r._id.toString(),
                   }))
-                : []
+              : []
             }
             variant={rewardsVariant}
             maxCount={rewardsVariant === 'preview' ? 3 : undefined}

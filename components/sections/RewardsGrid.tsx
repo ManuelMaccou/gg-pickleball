@@ -11,14 +11,17 @@ type Props = {
   user: FrontendUser | null
   location: IClient
   unlockedRewardIds: string[]
-  earnedRewards: { rewardId: string; redeemed: boolean }[]
+  earnedRewards: { rewardId: string; redeemed: boolean; earnedAt: Date; _id: string }[]
   variant?: 'preview' | 'full'
   maxCount?: number
 }
 
 export default function RewardGrid({ user, location, unlockedRewardIds, earnedRewards, maxCount }: Props) {
   const [allRewards, setAllRewards] = useState<IReward[]>([])
-  const [selectedReward, setSelectedReward] = useState<IReward | null>(null)
+  const [selectedReward, setSelectedReward] = useState<{
+    reward: IReward;
+    instance: { rewardId: string; redeemed: boolean; earnedAt: Date; _id: string };
+  } | null>(null);
 
   useEffect(() => {
     const fetchRewards = async () => {
@@ -97,7 +100,18 @@ export default function RewardGrid({ user, location, unlockedRewardIds, earnedRe
         return (
           <Flex direction="column" key={reward._id.toString()}>
             {isUnlocked ? (
-              <div onClick={() => setSelectedReward(reward)}>{cardContent}</div>
+              <div
+                onClick={() => {
+                  const earnedInstances = earnedRewards
+                  .filter(r => r.rewardId === reward._id.toString() && !r.redeemed)
+                  .sort((a, b) => a.earnedAt.getTime() - b.earnedAt.getTime())
+                  if (earnedInstances.length > 0) {
+                    setSelectedReward({ reward, instance: earnedInstances[0] });
+                  }
+                }}
+              >
+                {cardContent}
+              </div>
             ) : (
               cardContent
             )}
@@ -111,7 +125,8 @@ export default function RewardGrid({ user, location, unlockedRewardIds, earnedRe
           setShowRedeemRewardsDialog={(open) => {
             if (!open) setSelectedReward(null)
           }}
-          reward={selectedReward}
+          reward={selectedReward.reward}
+          earnedInstance={selectedReward.instance}
           location={location}
           user={user}
         />

@@ -383,7 +383,7 @@ function GguprMatchPage() {
   if (!isMobile) {
     return (
       <Flex direction={'column'} minHeight={'100dvh'} p={'4'} justify={'center'} gap={'7'}>
-      <Flex direction={'column'} position={'relative'} align={'center'} mt={'-9'} p={'7'}>
+        <Flex direction={'column'} position={'relative'} align={'center'} mt={'-9'} p={'7'}>
           <Image
             src={lightGgLogo}
             alt="GG Pickleball dark logo"
@@ -395,8 +395,6 @@ function GguprMatchPage() {
               maxHeight: '170px',
             }}
           />
-          <Text mt={'4'} size={'5'} weight={'bold'}>DUPR for recreational players</Text>
-          <Text size={'5'} weight={'bold'}>A GG Pickleball experiment</Text>
         </Flex>
 
         <Flex direction={'column'} justify={'center'} align={'center'}>

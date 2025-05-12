@@ -14,12 +14,13 @@ export interface FrontendClientStats {
     count?: number;
   }[];
   rewards: {
-      rewardId: Types.ObjectId;
-      earnedAt: Date;
-      redeemed: boolean;
-      redemptionDate?: Date;
-      code?: string;
-    }[];
+    _id: string;
+    rewardId: Types.ObjectId;
+    earnedAt: Date;
+    redeemed: boolean;
+    redemptionDate?: Date;
+    code?: string;
+  }[];
 }
 
 export interface FrontendUser {

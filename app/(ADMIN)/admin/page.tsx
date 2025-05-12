@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useMemo, useState } from "react";
+import { useUser as useAuth0User } from '@auth0/nextjs-auth0';
 import { useUserContext } from "@/app/contexts/UserContext";
+import { useRouter } from "next/navigation";
 import { Button, Callout, Card, Flex, Spinner, Table, Text } from "@radix-ui/themes";
 import { InfoCircledIcon } from "@radix-ui/react-icons"
 import * as Accordion from '@radix-ui/react-accordion';
@@ -58,8 +60,11 @@ type TopPlayer = {
 export default function Ggupr() {
 
   const { user } = useUserContext();
+  const router = useRouter();
   const userId = user?.id
-
+  const userName = user?.name
+  
+  const { user: auth0User, isLoading: auth0IsLoading } = useAuth0User();
   const [admin, setAdmin] = useState<IAdmin | null>(null);
   const [location, setLocation] = useState<IClient | null>(null);
   const [isGettingAdmin, setIsGettingAdmin] = useState<boolean>(true);
@@ -237,15 +242,29 @@ export default function Ggupr() {
   return (
     <Flex direction={'column'} minHeight={'100vh'} pt={'4'}>
 
-      {/* GG Pickleball Logo */}
-      <Flex direction={'column'} position={'relative'} px={'4'} py={'5'} align={'start'}>
-        <Image
-          src={darkGgLogo}
-          alt="GG Picklebal Logo"
-          height={540}
-          width={960}
-          style={{objectFit: 'contain', height: '40px', width: 'auto'}}
-        />
+      {/* Header */}
+      <Flex justify={"between"} align={'center'} direction={"row"} pt={"2"} pb={"5"} px={{initial: '3', md: '9'}}>
+        <Flex direction={'column'} position={'relative'} maxWidth={'80px'}>
+          <Image
+            src={darkGgLogo}
+            alt="ggupr dark logo"
+            priority
+            height={540}
+            width={960}
+          />
+        </Flex>
+
+        {!isLoading && (
+          <Flex direction={'column'} justify={'center'}>
+            <Text size={'3'} weight={'bold'} align={'right'}>
+              {userName ? (
+                auth0User 
+                  ? `Welcome ${String(userName).includes('@') ? String(userName).split('@')[0] : userName}`
+                  : `${String(userName).includes('@') ? String(userName).split('@')[0] : userName} (guest)`
+              ) : ''}
+            </Text>
+          </Flex>
+        )}
       </Flex>
        
       {/* Location Logo */}
@@ -267,7 +286,13 @@ export default function Ggupr() {
       <Flex direction={'column'} p={{initial:'3', md: '5'}} height={'600px'} width={'100vw'} maxWidth={'1500px'} style={{alignSelf: 'center'}}>
         {!user ? (
           <Flex direction={'column'} justify={'center'} align={'center'} gap={'4'} mt={'9'}>
-            <Button size={'3'} variant='ghost'>Please log in</Button>
+            <Button
+              size={'3'}
+              variant='ghost'
+              onClick={() => router.push(`/auth/login?returnTo=/admin`)}
+            >
+              Please log in
+            </Button>
           </Flex>
         ) : matchError ?? adminError ? (
           <>
