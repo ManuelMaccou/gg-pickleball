@@ -254,7 +254,7 @@ export default function Ggupr() {
           />
         </Flex>
 
-        {!isLoading && (
+        {!auth0IsLoading && (
           <Flex direction={'column'} justify={'center'}>
             <Text size={'3'} weight={'bold'} align={'right'}>
               {userName ? (

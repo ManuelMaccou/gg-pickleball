@@ -23,7 +23,6 @@ export default function RedeemRewardsDialog({
   setShowRedeemRewardsDialog,
 }: RedeemRewardsDialogProps) {
 
-  const rewardId = reward._id.toString();
   const clientId = location._id.toString(); 
   
   const stats: FrontendClientStats | undefined = user?.stats?.[clientId];
