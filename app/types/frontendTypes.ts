@@ -1,7 +1,7 @@
 import { Types } from "mongoose";
 
 export interface FrontendClientStats {
-  checkins?: Date[];
+  visits?: Date[];
   wins?: number;
   losses?: number;
   winStreak?: number;

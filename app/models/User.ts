@@ -16,7 +16,7 @@ const RewardSubSchema = new Schema({
 });
 
 const ClientStatsSubSchema = new Schema({
-  checkins: {
+  visits: {
     type: [Date],
     default: [],
   },

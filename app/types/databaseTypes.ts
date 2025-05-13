@@ -21,7 +21,7 @@ export interface RewardData {
 }
 
 export interface ClientStats {
-  checkins?: Date[];
+  visits?: Date[];
   wins?: number;
   losses?: number;
   winStreak?: number;

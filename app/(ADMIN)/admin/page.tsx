@@ -13,7 +13,7 @@ import { IAchievement, IAdmin, IClient, IReward, IUser } from "@/app/types/datab
 import { Types } from "mongoose";
 
 interface ClientStats {
-  checkins?: Date[];
+  visits?: Date[];
   wins?: number;
   losses?: number;
   winStreak?: number;
@@ -378,9 +378,9 @@ export default function Ggupr() {
                   <Flex direction={'column'} gap={'1'}>
                     {allPlayers.map(player => {
                       const clientStats = (player.stats as unknown as Record<string, ClientStats>)?.[location._id.toString()];
-                      const checkins = clientStats?.checkins ?? [];
-                      const lastCheckin = checkins.length
-                        ? new Date(checkins[checkins.length - 1]).toLocaleDateString()
+                      const visits = clientStats?.visits ?? [];
+                      const lastVisit = visits.length
+                        ? new Date(visits[visits.length - 1]).toLocaleDateString()
                         : '—';
                       // const isOpen = openAccordion === player._id.toString(); // If type = single
                       const isOpen = openAccordion.includes(player._id.toString()); // If type = multiple
@@ -397,7 +397,7 @@ export default function Ggupr() {
                               <Accordion.Trigger style={{width: '100%'}}>
                                 <Flex direction={'row'} justify={'between'} align={'stretch'} py={'2'} maxWidth={{initial: '100%', md: '500px'}} wrap={'wrap'}>
                                   <Text size="2" weight="bold">{player.name}</Text>
-                                  <Text size="2">Last visit: {lastCheckin}</Text>
+                                  <Text size="2">Last visit: {lastVisit}</Text>
                                 </Flex>
                               </Accordion.Trigger>
                             </Accordion.Header>

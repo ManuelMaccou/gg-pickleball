@@ -23,21 +23,21 @@ type AchievementEarned = {
   repeatable: boolean;
 };
 
-type CheckinResult = {
+type VisitResult = {
   achievements: AchievementEarned[];
-  didCheckIn: boolean;
-  checkinDate?: Date;
+  didVisit: boolean;
+  visitDate?: Date;
 };
 
-type CheckFunction = (user: IUser, match: MatchData) => AchievementEarned[] | CheckinResult;
+type CheckFunction = (user: IUser, match: MatchData) => AchievementEarned[] | VisitResult;
 
 const achievementFunctionMap: Record<string, CheckFunction> = {
-  'checkin_1': checkin,
-  'checkin_5': checkin,
-  'checkin_10': checkin,
-  'checkin_20': checkin,
-  'checkin_50': checkin,
-  'checkin_100': checkin,
+  'visit_1': visit,
+  'visit_5': visit,
+  'visit_10': visit,
+  'visit_20': visit,
+  'visit_50': visit,
+  'visit_100': visit,
   'first-win': firstWin,
   '2-win-streak': winStreak,
   '5-win-streak': winStreak,
@@ -66,7 +66,7 @@ function ensureClientStats(user: IUser, clientId: string): ClientStats {
 
   if (!clientStats) {
     clientStats = {
-      checkins: [],
+      visits: [],
       wins: 0,
       losses: 0,
       winStreak: 0,
@@ -81,8 +81,8 @@ function ensureClientStats(user: IUser, clientId: string): ClientStats {
   return clientStats;
 }
 
-function checkin(user: IUser, match: MatchData): CheckinResult {
-  const CHECKIN_MILESTONES = [1, 5, 10, 20, 50, 100];
+function visit(user: IUser, match: MatchData): VisitResult {
+  const VISIT_MILESTONES = [1, 5, 10, 20, 50, 100];
   const LA_TIMEZONE = "America/Los_Angeles";
   const now = new Date();
 
@@ -91,31 +91,31 @@ function checkin(user: IUser, match: MatchData): CheckinResult {
   const todayEndInLA = nowInLA.endOf('day');
 
   const userStatsForClient = ensureClientStats(user, match.location);
-  userStatsForClient.checkins ??= [];
+  userStatsForClient.visits ??= [];
 
-  const alreadyCheckedInToday = userStatsForClient.checkins.some((checkin) => {
-    const checkinDate = DateTime.fromJSDate(checkin).setZone(LA_TIMEZONE);
-    return checkinDate >= todayStartInLA && checkinDate <= todayEndInLA;
+  const alreadyCheckedInToday = userStatsForClient.visits.some((visit) => {
+    const visitDate = DateTime.fromJSDate(visit).setZone(LA_TIMEZONE);
+    return visitDate >= todayStartInLA && visitDate <= todayEndInLA;
   });
 
   if (alreadyCheckedInToday) {
-    return { achievements: [], didCheckIn: false };
+    return { achievements: [], didVisit: false };
   }
 
-  userStatsForClient.checkins.push(now);
+  userStatsForClient.visits.push(now);
 
-  const totalCheckinsAfterToday = userStatsForClient.checkins.length;
-  for (const milestone of CHECKIN_MILESTONES) {
-    if (totalCheckinsAfterToday === milestone) {
+  const totalVisitsAfterToday = userStatsForClient.visits.length;
+  for (const milestone of VISIT_MILESTONES) {
+    if (totalVisitsAfterToday === milestone) {
       return {
-        achievements: [{ key: `checkin_${milestone}`, repeatable: false }],
-        didCheckIn: true,
-        checkinDate: now,
+        achievements: [{ key: `visit_${milestone}`, repeatable: false }],
+        didVisit: true,
+        visitDate: now,
       };
     }
   }
 
-  return { achievements: [], didCheckIn: true, checkinDate: now };
+  return { achievements: [], didVisit: true, visitDate: now };
 }
 
 function firstWin(user: IUser, match: MatchData): AchievementEarned[] {
@@ -290,27 +290,27 @@ export async function updateUserAndAchievements(
     const newAchievementsPerUser: {
       user: IUser;
       newAchievements: AchievementEarned[];
-      didCheckIn: boolean;
-      checkinDate?: Date;
+      didVisit: boolean;
+      visitDate?: Date;
     }[] = [];
 
     for (const user of users) {
       const clientStats = ensureClientStats(user, location);
       const allAchievements: AchievementEarned[] = [];
       
-      let didCheckIn = false;
-      let checkinDate: Date | undefined = undefined;
+      let didVisit = false;
+      let visitDate: Date | undefined = undefined;
       
-      function isCheckinFn(fn: CheckFunction): fn is typeof checkin {
-        return fn === checkin;
+      function isVisitFn(fn: CheckFunction): fn is typeof visit {
+        return fn === visit;
       }
 
       for (const check of enabledCheckFns) {
-        if (isCheckinFn(check)) {
+        if (isVisitFn(check)) {
           const result = check(user, matchData);
           allAchievements.push(...result.achievements);
-          didCheckIn = result.didCheckIn;
-          checkinDate = result.checkinDate;
+          didVisit = result.didVisit;
+          visitDate = result.visitDate;
         } else {
           const result = check(user, matchData);
           if (Array.isArray(result)) {
@@ -327,8 +327,8 @@ export async function updateUserAndAchievements(
       newAchievementsPerUser.push({
         user,
         newAchievements,
-        didCheckIn,
-        checkinDate
+        didVisit,
+        visitDate
       });
     }
 
@@ -349,7 +349,7 @@ export async function updateUserAndAchievements(
       updateOne: { filter: { _id: Types.ObjectId }; update: UpdateQuery<IUser> };
     }[] = [];
 
-    for (const { user, newAchievements, didCheckIn, checkinDate } of newAchievementsPerUser) {
+    for (const { user, newAchievements, didVisit, visitDate } of newAchievementsPerUser) {
       const userIdStr = user._id.toString();
       const isWinner = winners.includes(userIdStr);
       const isOnTeam1 = team1Ids.includes(userIdStr);
@@ -364,9 +364,9 @@ export async function updateUserAndAchievements(
         ? matchData.team2Score
         : 0;
 
-      if (didCheckIn && checkinDate) {
+      if (didVisit && visitDate) {
         updateOps.$push ??= {};
-        updateOps.$push[`${statsPrefix}.checkins`] = checkinDate;
+        updateOps.$push[`${statsPrefix}.visits`] = visitDate;
       }
 
       // If the user is in the winners array, increment wins and streak.
