@@ -15,6 +15,7 @@ import LocationDrawer from './components/LocationDrawer';
 import { FrontendUser } from './types/frontendTypes';
 import { useIsMobile } from './hooks/useIsMobile';
 import { Types } from "mongoose";
+import MatchHistory from "@/components/sections/MatchHistory";
 
 export default function Ggupr() {
 
@@ -221,15 +222,17 @@ export default function Ggupr() {
               variant="outline"
               mt={'1'}
               hidden={!!auth0User}
-              onClick={() => router.push(`/auth/login?screen_hint=signup&returnTo=/`)}
+              onClick={() => router.push(user?.isGuest ? `/auth/login?screen_hint=signup&returnTo=/` : `/auth/login?returnTo=/`)}
             >
-              Create account
+              {user?.isGuest ? `Create account` : `Log in`}
             </Button>
           </Flex>
         )}
       </Flex>
       
       <Flex direction={'column'}>
+
+        {/* Select location dropdown */}
         {currentClient && (
           <Flex direction={'row'} justify={'center'} align={'center'} gap={'6'} mx={'4'}>
             {allClients.length > 1 ? (
@@ -264,6 +267,7 @@ export default function Ggupr() {
             </Button>
           </Flex>
 
+          {/* Acheivements */}
           {currentClient && (
             <AchievementsGrid
               clientId={currentClient._id.toString()}
@@ -274,6 +278,8 @@ export default function Ggupr() {
           )}
           
         </Flex>
+
+         {/* Rewards */}
         <Flex direction={'row'} width={'100%'} justify={'between'} mb={'5'} mt={'9'}>
           <Text size={'6'} weight={'bold'}>Rewards</Text>
           <Button size={'3'} color={rewardsVariant === 'preview' ? 'green' : 'amber'}
@@ -307,6 +313,15 @@ export default function Ggupr() {
             maxCount={rewardsVariant === 'preview' ? 3 : undefined}
           />
         )}
+
+        {/* Match history */}
+        {user && currentClient && (
+          <Flex direction={'column'} mb={'5'} mt={'9'}>
+            <Text size={'6'} weight={'bold'}>Match history</Text>
+            <MatchHistory userId={user.id} userName={user.name} locationId={currentClient._id.toString()}/>
+          </Flex>
+        )}
+         
       </Flex>
     </Flex>
   )

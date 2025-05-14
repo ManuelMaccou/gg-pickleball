@@ -1,4 +1,5 @@
 import { Types } from "mongoose";
+import { IMatch } from "./databaseTypes";
 
 export interface FrontendClientStats {
   visits?: Date[];
@@ -32,3 +33,12 @@ export interface FrontendUser {
   lastLocation?: string;
   stats: Record<string, FrontendClientStats>;
 }
+
+type PopulatedPlayer = { _id: string; name: string };
+
+export type PopulatedMatch = Omit<IMatch, "team1" | "team2"> & {
+  team1: { players: PopulatedPlayer[]; score: number };
+  team2: { players: PopulatedPlayer[]; score: number };
+  winners: { _id: string }[]; 
+  createdAt: Date;
+};

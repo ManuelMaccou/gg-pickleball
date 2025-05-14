@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUser as useAuth0User } from '@auth0/nextjs-auth0';
 import { useUserContext } from "@/app/contexts/UserContext";
 import { useRouter } from "next/navigation";
@@ -61,6 +61,7 @@ export default function Ggupr() {
 
   const { user } = useUserContext();
   const router = useRouter();
+  const observerRef = useRef<HTMLDivElement | null>(null);
   const userId = user?.id
   const userName = user?.name
   
@@ -70,7 +71,10 @@ export default function Ggupr() {
   const [isGettingAdmin, setIsGettingAdmin] = useState<boolean>(true);
   const [isGettingMatches, setIsGettingMatches] = useState<boolean>(true);
   const [isGettingAchievementsAndRewards, setIsGettingAchievementsAndRewards] = useState<boolean>(true);
-  const [matches, setMatches] = useState<IPopulatedMatch[] | []>([]);
+  const [matches, setMatches] = useState<IPopulatedMatch[]>([]);
+  const [cursor, setCursor] = useState<{ after: string; lastId: string } | null>(null);
+  const [hasNextPage, setHasNextPage] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [allClientAchievements, setAllClientAchievements] = useState<IAchievement[]>([]);
   const [rewardsPerAchievement, setRewardsPerAchievement] = useState<Record<string, IReward>>({});
   const [allPlayers, setAllPlayers] = useState<IUser[]>([]);
@@ -126,34 +130,75 @@ export default function Ggupr() {
   }, [userId]);
 
   // Get all matches from admin's location
-  useEffect(() => {
-    if (!location) return;
+  const fetchMatchesByLocation = useCallback(async () => {
+    if (!location || loading || !hasNextPage) return;
   
-    const getMatchesByLocation = async () => {
-      setMatchError(null);
-      try {
-        const response = await fetch(`/api/match/location?locationId=${location._id}`);
-        const data = await response.json();
+    setLoading(true);
+    try {
+      const url = new URL(`/api/match/location`, window.location.origin);
+      url.searchParams.set("locationId", location._id.toString());
+      url.searchParams.set("limit", "10");
   
-        if (!response.ok) {
-          throw new Error(data.error || "Failed to fetch match data");
-        }
-
-        if (data.matches.length === 0) {
-          setMatchError('No matches were found.')
-        } else {
-          setMatches(data.matches);
-        }
-      } catch (error) {
-        console.error("Error fetching admin data:", error);
-        setMatchError((error as Error).message);
-      } finally {
-        setIsGettingMatches(false);
+      if (cursor) {
+        url.searchParams.set("after", cursor.after);
+        url.searchParams.set("lastId", cursor.lastId);
       }
-    };
   
-    getMatchesByLocation();
-  }, [location]);
+      const response = await fetch(url.toString());
+      const data = await response.json();
+  
+      if (!response.ok) throw new Error(data.error || "Failed to fetch matches");
+  
+      setMatches((prev) => {
+        const existing = new Set(prev.map((m) => m.matchId));
+        const deduped = data.matches.filter((m: IPopulatedMatch) => !existing.has(m.matchId));
+        return [...prev, ...deduped];
+      });
+  
+      if (data.matches.length > 0) {
+        const last = data.matches[data.matches.length - 1];
+        setCursor({
+          after: last.createdAt,
+          lastId: last._id,
+        });
+      }
+  
+      setHasNextPage(data.hasNextPage);
+    } catch (error) {
+      console.error("Error fetching matches by location:", error);
+      setMatchError((error as Error).message);
+    } finally {
+      setLoading(false);
+      setIsGettingMatches(false);
+    }
+  }, [location, cursor, loading, hasNextPage]);
+  
+  // Initial load of matches
+  useEffect(() => {
+    if (location) {
+      fetchMatchesByLocation();
+    }
+  }, [location, fetchMatchesByLocation]);
+
+  // Infinite scroll
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const first = entries[0];
+        if (first.isIntersecting && hasNextPage && !loading) {
+          fetchMatchesByLocation();
+        }
+      },
+      { threshold: 1 }
+    );
+  
+    const current = observerRef.current;
+    if (current) observer.observe(current);
+  
+    return () => {
+      if (current) observer.unobserve(current);
+    };
+  }, [hasNextPage, loading, fetchMatchesByLocation]);
 
   // Get all achievements and rewards for this location
   useEffect(() => {
@@ -229,6 +274,10 @@ export default function Ggupr() {
     setTop5PlayersByWins(top5);
     setIsAnalyzingPlayers(false);
   }, [matches]);
+
+  useEffect(() => {
+    console.log("all players:", allPlayers)
+  }, [allPlayers])
   
   
   // Final loading status
@@ -378,7 +427,13 @@ export default function Ggupr() {
                   <Flex direction={'column'} gap={'1'}>
                     {allPlayers.map(player => {
                       const clientStats = (player.stats as unknown as Record<string, ClientStats>)?.[location._id.toString()];
+                      console.log('client stats:', clientStats)
+                      console.log('location:', location._id)
+                      console.log('player stats:', player.stats)
+
                       const visits = clientStats?.visits ?? [];
+                      console.log('visits:', visits)
+
                       const lastVisit = visits.length
                         ? new Date(visits[visits.length - 1]).toLocaleDateString()
                         : '—';
