@@ -1,17 +1,13 @@
 import { NextResponse } from "next/server";
-import { FilterQuery, Types } from "mongoose";
+import { Types } from "mongoose";
 import connectToDatabase from "@/lib/mongodb";
 import Match from "@/app/models/Match";
-import { IMatch } from "@/app/types/databaseTypes";
 
 export async function GET(request: Request) {
   try {
     await connectToDatabase();
     const { searchParams } = new URL(request.url);
     const locationId = searchParams.get("locationId");
-    const after = searchParams.get("after");
-    const lastId = searchParams.get("lastId");
-    const limit = parseInt(searchParams.get("limit") || "10", 10);
 
     if (!locationId) {
       return NextResponse.json({ error: "locationId is required." }, { status: 400 });
