@@ -57,11 +57,14 @@ export async function GET(request: Request) {
       .populate("team2.players", "name _id")
       .populate("winners", "_id")
       .sort({ createdAt: -1, _id: -1 })
-      .limit(limit);
+      .limit(limit + 1);
+
+    const hasNextPage = matches.length > limit;
+    const trimmedMatches = hasNextPage ? matches.slice(0, limit) : matches;
 
     return NextResponse.json({
-      matches,
-      hasNextPage: matches.length === limit,
+      matches: trimmedMatches,
+      hasNextPage,
     });
   } catch (error) {
     console.error("Error fetching user matches by location:", error);

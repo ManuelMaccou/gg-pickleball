@@ -21,30 +21,13 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Invalid locationId format." }, { status: 400 });
     }
 
-    const query: FilterQuery<IMatch> = { location: new Types.ObjectId(locationId) };
-
-    if (after && lastId && Types.ObjectId.isValid(lastId)) {
-      query.$or = [
-        { createdAt: { $lt: new Date(after) } },
-        {
-          createdAt: { $eq: new Date(after) },
-          _id: { $lt: new Types.ObjectId(lastId) },
-        },
-      ];
-    }
-
-    const matches = await Match.find(query)
+    const matches = await Match.find({ location: locationId })
       .populate("team1.players")
       .populate("team2.players")
       .populate("winners")
-      .populate("location")
-      .sort({ createdAt: -1, _id: -1 })
-      .limit(limit);
+      .populate("location");
 
-    return NextResponse.json({
-      matches,
-      hasNextPage: matches.length === limit,
-    });
+    return NextResponse.json({ matches }, { status: 200 });
   } catch (error) {
     console.error("Error fetching matches by location:", error);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
