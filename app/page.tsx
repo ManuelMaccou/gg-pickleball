@@ -27,12 +27,9 @@ export default function GGPickleball() {
               }}
             />
           </Flex>
-          <Flex direction={{initial: 'column', md: 'row'}} gap={'5'}>
+          <Flex direction={'column'} justify={'center'}>
             <Button asChild color="gray" highContrast radius="full" style={{paddingLeft: '20px', paddingRight: '20px'}}>
               <Link href="/play" style={{textDecoration: 'none'}}>Go to app</Link>
-            </Button>
-            <Button asChild color="gray" highContrast radius="full" variant="outline" style={{paddingLeft: '20px', paddingRight: '20px'}}>
-              <Link target="_blank" href="mailto:play@ggpickleball.co?subject=Partner%20Facility%20Inquiry" style={{textDecoration: 'none'}}>Work with us</Link>
             </Button>
           </Flex>
         </Flex>
@@ -58,11 +55,14 @@ export default function GGPickleball() {
       </Flex>
 
       {/* Help text */}
-      <Flex direction={'column'} maxWidth={'800px'} align={'center'} justify={'center'} my={'7'} mx={'4'}>
+      <Flex direction={'column'} gap={'5'} maxWidth={'800px'} align={'center'} justify={'center'} my={'7'} mx={'4'}>
         <Text align={'center'} size={'6'}>
         GG Pickleball allows facilities to reward and celebrate the progress of their players. 
         It&apos;s a fun way to recognize improvements and encourage play.
         </Text>
+        <Button asChild size={'4'} color="gray" highContrast radius="full" style={{paddingLeft: '40px', paddingRight: '40px'}}>
+          <Link target="_blank" href="mailto:play@ggpickleball.co?subject=Partner%20Facility%20Inquiry" style={{textDecoration: 'none'}}>Work with us</Link>
+        </Button>
       </Flex>
 
       {/* Grid */}
@@ -72,8 +72,8 @@ export default function GGPickleball() {
         >
           <Flex direction={'column'} flexGrow={'1'} maxWidth={'33.3%'} minWidth={"300px"}>
             <Card m={'4'} size="2" variant="ghost" style={{backgroundColor: "#313538"}}>
-              <Flex direction={'column'} height={'80px'} maxWidth={'200px'} justify={'center'} style={{justifySelf: 'center'}}>
-                <Text as="p" size="5" my={'3'} weight={'bold'} align={'center'} style={{color: 'white'}}>
+              <Flex direction={'column'} height={'80px'} flexGrow={'1'} align={'center'} justify={'center'}>
+                <Text as="p" size="5" my={'3'} weight={'bold'} align={'center'} style={{color: 'white', maxWidth: '200px'}}>
                   Visit a partnering facility
                 </Text>
               </Flex>
@@ -94,8 +94,8 @@ export default function GGPickleball() {
 
           <Flex direction={'column'} flexGrow={'1'} maxWidth={'33.3%'} minWidth={"300px"}>
             <Card m={'4'} size="2" variant="ghost" style={{backgroundColor: "#313538"}}>
-              <Flex direction={'column'} height={'80px'} maxWidth={'200px'} justify={'center'} style={{justifySelf: 'center'}}>
-                <Text as="p" size="5" my={'3'} weight={'bold'} align={'center'} style={{color: 'white'}}>
+              <Flex direction={'column'} height={'80px'} flexGrow={'1'} align={'center'} justify={'center'}>
+                <Text as="p" size="5" my={'3'} weight={'bold'} align={'center'} style={{color: 'white', maxWidth: '200px'}}>
                   Log your score after each match
                 </Text>
               </Flex>
@@ -116,8 +116,8 @@ export default function GGPickleball() {
 
           <Flex direction={'column'} flexGrow={'1'} maxWidth={'33.3%'} minWidth={"300px"}>
             <Card m={'4'} size="2" variant="ghost" style={{backgroundColor: "#313538"}}>
-              <Flex direction={'column'} height={'80px'} maxWidth={'200px'} justify={'center'} style={{justifySelf: 'center'}}>
-                <Text as="p" size="5" my={'3'} weight={'bold'} align={'center'} style={{color: 'white'}}>
+              <Flex direction={'column'} height={'80px'} flexGrow={'1'} align={'center'} justify={'center'}>
+                <Text as="p" size="5" my={'3'} weight={'bold'} align={'center'} style={{color: 'white', maxWidth: '200px'}}>
                   Unlock achievements and earn rewards
                 </Text>
               </Flex>
