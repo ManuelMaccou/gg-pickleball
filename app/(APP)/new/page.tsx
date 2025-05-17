@@ -3,14 +3,14 @@
 import { v4 as uuidv4 } from 'uuid';
 import { Badge, Button, Flex, Text, TextField } from "@radix-ui/themes";
 import Image from "next/image";
-import lightGgLogo from '../../public/logos/gg_logo_white_transparent.png'
+import lightGgLogo from '../../../public/logos/gg_logo_white_transparent.png'
 import { Suspense, useEffect, useState, useTransition } from "react";
-import QRCodeGenerator from '../components/QrCodeGenerator';
+import QRCodeGenerator from '@/app/components/QrCodeGenerator';
 import { useRouter, useSearchParams } from "next/navigation";
-import { useUserContext } from '../contexts/UserContext';
-import { IClient } from '../types/databaseTypes';
+import { useUserContext } from '@/app/contexts/UserContext';
+import { IClient } from '@/app/types/databaseTypes';
 import { ArrowLeft } from 'lucide-react';
-import { useIsMobile } from '../hooks/useIsMobile';
+import { useIsMobile } from '@/app/hooks/useIsMobile';
 
 function NewMatchPage() {
 

@@ -17,7 +17,7 @@ export function LocationHelpDialog({ open, onOpenChange }: LocationHelpDialogPro
           Location permissions have been denied or are blocked in your settings. You won&apos;t be able to check in. You can enable location permissions in your browser&apos;s settings.
         </Dialog.Description>
         <Flex direction={'row'} gap={'9'} justify={'between'} mt={'6'}>
-          <Button variant="outline" asChild><Link href={'/'}>Close</Link></Button>
+          <Button variant="outline" asChild><Link href={'/play'}>Close</Link></Button>
         </Flex>
       </Dialog.Content>
     </Dialog.Root>

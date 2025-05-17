@@ -171,7 +171,7 @@ export default function SuccessDialog({
               </>
             )}
             <Button variant={user?.isGuest ? 'outline' : 'solid'} asChild>
-              <Link href="/">Continue</Link>
+              <Link href="/play">Continue</Link>
             </Button>
           </Flex>
         </Flex>

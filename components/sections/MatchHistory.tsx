@@ -141,55 +141,67 @@ export default function MatchHistory({ userId, userName, locationId }: MatchHist
           </Table.Header>
 
           <Table.Body>
-            {matches.map((match) => {
-              const matchDate = new Date(match.createdAt);
-              const isTeam1 = match.team1.players.some((p) => p._id.toString() === userId);
-              const userTeam = isTeam1 ? match.team1 : match.team2;
-              const opponentTeam = isTeam1 ? match.team2 : match.team1;
-              const didWin = match.winners.some((w) => w._id.toString() === userId);
+            {(() => {
+              let lastRenderedDate: string | null = null;
 
-              const partner = userTeam.players.find((p) => p._id.toString() !== userId);
-              const partnerName = partner?.name ?? "[Partner]";
-              const oppNames = opponentTeam.players.map((p) => p.name);
+              return matches.map((match) => {
+                const matchDate = new Date(match.createdAt);
+                const matchDateString = matchDate.toLocaleDateString();
 
-              return (
-                <React.Fragment key={match.matchId}>
-                  <Table.Row>
-                    <Table.Cell colSpan={4}>
-                      <Text color="gray">{matchDate.toLocaleDateString()}</Text>
-                    </Table.Cell>
-                  </Table.Row>
+                const showDate = matchDateString !== lastRenderedDate;
+                if (showDate) lastRenderedDate = matchDateString;
 
-                  <Table.Row>
-                    <Table.Cell>
-                      <Flex direction="row" align="center" gap="6">
-                        <Flex direction="column">
-                          <Text>{userName}</Text>
-                          <Text>{partnerName}</Text>
+                const isTeam1 = match.team1.players.some((p) => p._id.toString() === userId);
+                const userTeam = isTeam1 ? match.team1 : match.team2;
+                const opponentTeam = isTeam1 ? match.team2 : match.team1;
+                const didWin = match.winners.some((w) => w._id.toString() === userId);
+
+                const partner = userTeam.players.find((p) => p._id.toString() !== userId);
+                const partnerName = partner?.name ?? "[Partner]";
+                const oppNames = opponentTeam.players.map((p) => p.name);
+
+                return (
+                  <React.Fragment key={match.matchId}>
+                    {showDate && (
+                      <Table.Row>
+                        <Table.Cell colSpan={4}>
+                          <Text color="gray">{matchDateString}</Text>
+                        </Table.Cell>
+                      </Table.Row>
+                    )}
+
+                    <Table.Row>
+                      <Table.Cell>
+                        <Flex direction="row" align="center" gap="6">
+                          <Flex direction="column">
+                            <Text>{userName}</Text>
+                            <Text>{partnerName}</Text>
+                          </Flex>
+                          <Text>{userTeam.score}</Text>
                         </Flex>
-                        <Text>{userTeam.score}</Text>
-                      </Flex>
-                    </Table.Cell>
+                      </Table.Cell>
 
-                    <Table.Cell>
-                      <Flex direction="row" align="center" gap="6">
-                        <Flex direction="column">
-                          <Text>{oppNames[0]}</Text>
-                          <Text>{oppNames[1]}</Text>
+                      <Table.Cell>
+                        <Flex direction="row" align="center" gap="6">
+                          <Flex direction="column">
+                            <Text>{oppNames[0]}</Text>
+                            <Text>{oppNames[1]}</Text>
+                          </Flex>
+                          <Text>{opponentTeam.score}</Text>
                         </Flex>
-                        <Text>{opponentTeam.score}</Text>
-                      </Flex>
-                    </Table.Cell>
+                      </Table.Cell>
 
-                    <Table.Cell>
-                      <Flex direction="column" justify="center" height="100%">
-                        <Text>{didWin ? "Won" : "Lost"}</Text>
-                      </Flex>
-                    </Table.Cell>
-                  </Table.Row>
-                </React.Fragment>
-              );
-            })}
+                      <Table.Cell>
+                        <Flex direction="column" justify="center" height="100%">
+                          <Text>{didWin ? "Won" : "Lost"}</Text>
+                        </Flex>
+                      </Table.Cell>
+                    </Table.Row>
+                  </React.Fragment>
+                );
+              });
+            })()}
+
           </Table.Body>
         </Table.Root>
       ) : (

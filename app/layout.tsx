@@ -36,10 +36,10 @@ export default async function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        <Theme appearance="dark" accentColor="yellow">
+        <Theme appearance="light">
           <UserProvider initialUser={resolvedUser}>
             <CookieWarning />
-            <div style={{ background: 'linear-gradient(135deg,rgb(4, 19, 86),rgb(1, 107, 245))' }}>
+            <div style={{ backgroundColor: "#FFFFFF", minHeight: "100vh" }}>
               {children}
             </div>
           </UserProvider>

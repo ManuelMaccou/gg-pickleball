@@ -3,7 +3,7 @@
 import { useUser as useAuth0User } from "@auth0/nextjs-auth0"
 import { Badge, Box, Button, Dialog, Flex, RadioCards, Separator, Spinner, Text, TextField } from "@radix-ui/themes";
 import Image from "next/image";
-import lightGgLogo from '../../../public/logos/gg_logo_white_transparent.png'
+import lightGgLogo from '../../../../public/logos/gg_logo_white_transparent.png'
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, usePathname, useSearchParams } from 'next/navigation';
 import { 
@@ -15,7 +15,7 @@ import {
   subscribeToPlayerJoined,
   subscribeToSaveMatch,
   subscribeToScoreValidation
-} from '../../../socket';
+} from '../../../../socket';
 import { debounce } from 'lodash';
 import SuccessDialog from "@/app/components/SuccessDialog";
 import { useRouter } from "next/navigation";
@@ -424,7 +424,7 @@ function GguprMatchPage() {
           <Text align={'center'} wrap={'wrap'}>{locationError}</Text>
         </Badge>
       )}
-      <Button mt={'5'} onClick={() => router.push('/')}>Go back</Button>
+      <Button mt={'5'} onClick={() => router.push('/play')}>Go back</Button>
     </Flex>
     )
   }
@@ -528,7 +528,7 @@ function GguprMatchPage() {
               <Dialog.Close>
                 <Flex direction={'row'} align={'stretch'} justify={'between'} mt={'5'}>
                   <Button size={'3'} variant="outline">Go back</Button>
-                  <Button size={'3'} onClick={() => router.push("/")}>Yes</Button>
+                  <Button size={'3'} onClick={() => router.push("/play")}>Yes</Button>
                 </Flex>
               </Dialog.Close>
             </Dialog.Content>
@@ -689,7 +689,7 @@ function GguprMatchPage() {
 
       {matchSaved && (
         <Flex direction={'column'} mt={'6'}>
-          <Button size={'3'} onClick={() => router.push('/')}>Log new match</Button>
+          <Button size={'3'} onClick={() => router.push('/play')}>Log new match</Button>
         </Flex>
       )}
       
