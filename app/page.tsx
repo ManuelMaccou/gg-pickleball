@@ -116,7 +116,7 @@ export default function GGPickleball() {
                 textShadow: '2px 2px 8px rgba(0, 0, 0, 0.6)',
               }}
             >
-              Celebrate your progress
+              Celebrate your progress.
             </Text>
             <Text
               weight="bold"
@@ -127,7 +127,7 @@ export default function GGPickleball() {
                 textShadow: '2px 2px 8px rgba(0, 0, 0, 0.6)',
               }}
             >
-              Earn rewards
+              Earn rewards.
             </Text>
 
             <Flex
@@ -143,6 +143,7 @@ export default function GGPickleball() {
                 marginTop: '2rem',
               }}
             >
+              <Text align={'center'} weight={'bold'} size={'7'} style={{color: 'white'}}>A new dimension of pickleball</Text>
               <Text
                 align="center"
                 size="6"
@@ -154,23 +155,38 @@ export default function GGPickleball() {
                 GG Pickleball allows facilities to reward and celebrate the progress of their players.
                 It&apos;s a fun way to recognize improvements and encourage play.
               </Text>
-              <Button
+              <Flex direction={'row'} width={'100%'} justify={'center'} gap={'5'} mt={'4'}>
+                <Button
+                  asChild
+                  size="4"
+                  highContrast
+                  radius="full"
+                  mb={'8'}
+                  style={{width: '250px'}}
+                >
+                  <Link
+                    target="_blank"
+                    href="mailto:play@ggpickleball.co?subject=Partner%20Facility%20Inquiry"
+                    style={{ textDecoration: 'none', backgroundColor: 'white', color: '#1F2D5C' }}
+                  >
+                    Work with us
+                  </Link>
+                </Button>
+               <Button
                 asChild
                 size="4"
-                color="gray"
                 highContrast
+                variant="outline"
                 radius="full"
                 mb={'8'}
-                style={{ paddingLeft: '40px', paddingRight: '40px' }}
+                style={{ width: '250px', borderColor: 'white', borderStyle: 'solid', borderWidth: '1px', color: 'white' }}
               >
-                <Link
-                  target="_blank"
-                  href="mailto:play@ggpickleball.co?subject=Partner%20Facility%20Inquiry"
-                  style={{ textDecoration: 'none' }}
-                >
-                  Work with us
+                <Link href="/play" style={{ textDecoration: 'none' }}>
+                  Go to app
                 </Link>
               </Button>
+
+              </Flex>
             </Flex>
           </Flex>
         </Flex>
@@ -179,13 +195,42 @@ export default function GGPickleball() {
 
       {/* Help text */}
       <Flex direction={'column'} gap={'5'} maxWidth={'800px'} align={'center'} justify={'center'} my={'7'} mx={'4'} display={{initial: 'flex', md: 'none'}}>
-        <Text align={'center'} size={'6'}>
+        <Text align={'center'} weight={'bold'} size={'7'}>A new dimension of pickleball</Text>
+        <Text align={'center'} size={'4'} wrap={'pretty'}>
           GG Pickleball allows facilities to reward and celebrate the progress of their players. 
           It&apos;s a fun way to recognize improvements and encourage play.
         </Text>
-        <Button asChild size={'4'} color="gray" highContrast radius="full" style={{paddingLeft: '40px', paddingRight: '40px'}}>
-          <Link target="_blank" href="mailto:play@ggpickleball.co?subject=Partner%20Facility%20Inquiry" style={{textDecoration: 'none'}}>Work with us</Link>
-        </Button>
+        <Flex direction={'row'} width={'100%'} justify={'center'} gap={'5'} mx={'4'}>
+          <Button
+            asChild
+            size="4"
+            highContrast
+            radius="full"
+            mb={'8'}
+            style={{width: '40%'}}
+          >
+            <Link
+              target="_blank"
+              href="mailto:play@ggpickleball.co?subject=Partner%20Facility%20Inquiry"
+              style={{ textDecoration: 'none', backgroundColor: 'white', borderColor: '#1F2D5C', borderStyle: 'solid', borderWidth: '1px', color: '#1F2D5C' }}
+            >
+              Work with us
+            </Link>
+          </Button>
+          <Button
+            asChild
+            size="4"
+            highContrast
+            variant="outline"
+            radius="full"
+            mb={'8'}
+            style={{ width: '40%', backgroundColor: '#1F2D5C', color: 'white' }}
+          >
+            <Link href="/play" style={{ textDecoration: 'none' }}>
+              Go to app
+            </Link>
+          </Button>
+        </Flex>
       </Flex>
 
       {/* Grid */}
