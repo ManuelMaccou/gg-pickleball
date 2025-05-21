@@ -12,7 +12,7 @@ const RewardSubSchema = new Schema({
   earnedAt: { type: Date, required: true },
   redeemed: { type: Boolean, default: false, required: true },
   redemptionDate: { type: Date },
-  code: { type: String }
+  rewardCodeId: { type: Schema.Types.ObjectId, ref: "RewardCode" },
 });
 
 const ClientStatsSubSchema = new Schema({

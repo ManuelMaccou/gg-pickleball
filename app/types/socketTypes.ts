@@ -26,6 +26,7 @@ export interface ClientToServerEvents {
   }) => void;
   "match-saved": (data: { 
     success: boolean;
+    message: string;
     matchId: string;
     earnedAchievements: {
       userId: string;
@@ -54,6 +55,7 @@ export interface ServerToClientEvents {
 
 export interface SaveMatchData {
   success: boolean;
+  message: string
   matchId: string;
   team1: string[];
   team2: string[];

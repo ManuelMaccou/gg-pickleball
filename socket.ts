@@ -80,16 +80,39 @@ export const handleSaveMatch = async (data: SaveMatchData, players: Player[]) =>
       }),
     });
 
-    const result = await matchResponse.json();
-    const newMatchId = result?.match._id
+    let result: any;
+    try {
+      result = await matchResponse.json();
+    } catch (jsonError) {
+      const rawText = await matchResponse.text();
+      console.error("❌ Failed to parse match response as JSON:", rawText);
 
-    if (!newMatchId) {
-      console.error('❌ matchId is undefined! Full result:', result);
+      socket?.emit("match-saved", {
+        success: false,
+        message: "Server error: invalid response format. We've received the error and are fixing it.",
+        matchId: "",
+        earnedAchievements: []
+      });
       return;
     }
 
+    if (!matchResponse.ok || !result?.match?._id) {
+      const errorMessage = result?.error || "A server error occurred while saving the match. We're investigating the issue.";
+      console.error("❌ Match save failed:", errorMessage);
+
+      socket?.emit("match-saved", {
+        success: false,
+        message: errorMessage,
+        matchId: "",
+        earnedAchievements: []
+      });
+      return;
+    }
+
+    const newMatchId = result?.match._id
+
       // Update users and their achievements
-      try {
+    try {
       const achievementsResult = await updateUserAndAchievements(
         team1Ids,
         team2Ids,
@@ -104,22 +127,30 @@ export const handleSaveMatch = async (data: SaveMatchData, players: Player[]) =>
     
     } catch (error) {
       console.error('❌ Failed to update achievements after match:', error);
+
+      socket?.emit("match-saved", {
+        success: false,
+        message: "Match saved, but failed to update achievements. We're investigating the issue.",
+        matchId: "",
+        earnedAchievements: []
+      });
+      return;
     }
 
-    if (matchResponse.ok) {
-      socket?.emit("match-saved", {
-        success: true,
-        matchId: data.matchId,
-        earnedAchievements: earnedAchievements
-      });
-      
-      socket?.emit("clear-scores", { matchId: data.matchId });
-    } else {
-      console.error("Failed to save match:", result.error);
-    }
+    socket?.emit("match-saved", {
+      success: true,
+      message: "Match successfully saved!",
+      matchId: data.matchId,
+      earnedAchievements
+    });
+
+    socket?.emit("clear-scores", { matchId: data.matchId });
+    
   } catch (error) {
     console.error("❌ Failed to handle match saving:", error);
   
+    let message = "Unexpected error while saving the match.";
+
     if (error instanceof Error) {
       console.error("Error message:", error.message);
     }
@@ -128,11 +159,16 @@ export const handleSaveMatch = async (data: SaveMatchData, players: Player[]) =>
       try {
         const errorText = await matchResponse.text();
         console.error("💬 Raw response body:", errorText);
+        message += ` — ${errorText}`;
       } catch (parseError) {
         console.error("❌ Failed to parse raw error response body:", parseError);
       }
-    } else {
-      console.error("⚠️ matchResponse is undefined — fetch likely never ran.");
+      socket?.emit("match-saved", {
+        success: false,
+        message,
+        matchId: "",
+        earnedAchievements: []
+      });
     }
   }
 };

@@ -317,7 +317,8 @@ function GguprMatchPage() {
           }
         } catch (error) {
           console.error("Error handling save-match event:", error);
-          setSaveErrorMessage("An unexpected error occurred. Please try again.");
+          setSaveErrorMessage(data.message ?? "An unexpected error occurred.");
+          setSaveSuccessMessage(null);
         }
       });
   

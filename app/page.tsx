@@ -37,7 +37,7 @@ export default function GGPickleball() {
 
       {/* Hero */}
       <Flex direction={'column'} my={'7'} width={'100vw'} maxWidth={'1500px'}>
-        <Flex direction={'column'} position={'relative'} height={'500px'} width={{initial: '95vw', md: '80vw'}} style={{margin: 'auto'}}>
+        <Flex direction={'column'} position={'relative'} height={'90vh'} width={{initial: '95vw', md: '80vw'}} style={{margin: 'auto'}}>
           <Image
             src={hero}
             alt="Pickleball players"

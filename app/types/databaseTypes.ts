@@ -17,7 +17,7 @@ export interface RewardData {
   earnedAt: Date;
   redeemed: boolean;
   redemptionDate?: Date;
-  code?: string;
+  rewardCodeId?: Types.ObjectId;
 }
 
 export interface ClientStats {
@@ -74,8 +74,16 @@ export interface IAchievement extends Document {
 export interface IReward extends Document {
   _id: Types.ObjectId;
   name: string;
+  friendlyName: string;
   product: string;
   discount: string;
+  type: "dollar" | "percent"
+}
+
+export interface ShopifyData {
+  shopDomain: string;
+  accessToken: string;
+  secret: string;
 }
 
 export interface IClient extends Document {
@@ -89,6 +97,7 @@ export interface IClient extends Document {
   rewardsPerAchievement?: {
     [achievementId: string]: IReward;
   };
+  shopify?: ShopifyData;
 }
 
 export interface IAdmin extends Document {
@@ -96,4 +105,13 @@ export interface IAdmin extends Document {
   user: Types.ObjectId;
   location: Types.ObjectId;
   bannerColor: string;
+}
+
+export interface IRewardCode {
+  code: string;
+  userId: Types.ObjectId;
+  clientId: Types.ObjectId;
+  rewardId: Types.ObjectId;
+  redeemed: boolean;
+  redemptionDate?: Date;
 }

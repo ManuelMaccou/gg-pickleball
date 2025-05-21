@@ -222,7 +222,7 @@ export default function Play() {
               variant="outline"
               mt={'1'}
               hidden={!!auth0User}
-              onClick={() => router.push(user?.isGuest ? `/auth/login?screen_hint=signup&returnTo=/` : `/auth/login?returnTo=/`)}
+              onClick={() => router.push(user?.isGuest ? `/auth/login?screen_hint=signup&returnTo=/play` : `/auth/login?returnTo=/play`)}
             >
               {user?.isGuest ? `Create account` : `Log in`}
             </Button>

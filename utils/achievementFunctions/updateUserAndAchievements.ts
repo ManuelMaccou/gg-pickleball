@@ -7,6 +7,7 @@ import connectToDatabase from '@/lib/mongodb';
 import Client from '@/app/models/Client';
 import { DateTime } from 'luxon';
 import Achievement from '@/app/models/Achievement';
+import { generateAndSaveShopifyDiscountCodes } from '@/lib/rewards/generateAndSaveShopifyDiscountCodes';
 
 interface MatchData {
   team1Ids: string[];
@@ -350,6 +351,8 @@ export async function updateUserAndAchievements(
     }[] = [];
 
     for (const { user, newAchievements, didVisit, visitDate } of newAchievementsPerUser) {
+      console.log('new achievements:', newAchievements, 'for user:', user.name);
+
       const userIdStr = user._id.toString();
       const isWinner = winners.includes(userIdStr);
       const isOnTeam1 = team1Ids.includes(userIdStr);
@@ -419,15 +422,26 @@ export async function updateUserAndAchievements(
         updateOps.$push[`${statsPrefix}.achievements`] = { $each: achievementEntries };
       }
 
-
+      const clientId = new Types.ObjectId(location);
       const earnedRewardIds = newAchievements
         .map(a => client.rewardsPerAchievement?.get?.(a.key))
         .filter(Boolean) as Types.ObjectId[];
 
+        const rewardCodeTasks = earnedRewardIds.map(rewardId => ({
+          rewardId,
+          userId: user._id,
+          clientId
+        }));
+
+        console.log('sending tasks to generate shopify codes:', rewardCodeTasks)
+        
+        const rewardCodeIdMap = await generateAndSaveShopifyDiscountCodes(rewardCodeTasks, clientId);
+        
         const rewardEntries = earnedRewardIds.map(rewardId => ({
           rewardId,
           earnedAt: new Date(),
-          redeemed: false
+          redeemed: false,
+          rewardCodeId: rewardCodeIdMap.get(rewardId)
         }));
         
         if (rewardEntries.length > 0) {
