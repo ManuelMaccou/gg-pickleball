@@ -116,7 +116,7 @@ export default function GGPickleball() {
                 textShadow: '2px 2px 8px rgba(0, 0, 0, 0.6)',
               }}
             >
-              Celebrate your accomplishments
+              Celebrate your progress
             </Text>
             <Text
               weight="bold"
