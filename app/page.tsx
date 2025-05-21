@@ -3,62 +3,185 @@ import Image from "next/image";
 import darkGgLogo from "../public/logos/gg_logo_black_transparent.png"
 import lightGgLogo from "../public/logos/gg_logo_white_transparent.png"
 import powerPlayLogo from "../public/partnerLogos/PowerPlay_logo.png"
-import hero from "../public/home/hero.jpg"
+import hero1 from "../public/home/hero1.jpg"
 import { Copyright } from "lucide-react";
 
 export default function GGPickleball() {
 
   return (
     <Flex direction={'column'} align={'center'} justify={'center'}>
+      {/* Header + Hero Container with background image */}
+      <Flex
+        direction="column"
+        position="relative"
+        width="100vw"
+        maxHeight={'100vh'}
+        style={{ overflow: 'hidden'}}
+      >
+        {/* Background image behind both Header and Hero */}
+        <Image
+          src={hero1}
+          alt="Pickleball background"
+          priority
+          fill
+          style={{
+            objectFit: 'cover',
+            objectPosition: 'top',
+          }}
+        />
 
-      {/* Header */}
-      <Flex direction={'column'} width={'100vw'} style={{borderBottom: '1px solid lightgray' }} maxWidth={'1500px'}>
-        <Flex direction={'row'} justify={'between'} px={{initial: '4', md: '9'}} pt={'5'} pb={'4'}>
-          <Flex direction={'column'} position={'relative'} justify={'center'} align={'center'}>
-            <Image
-              src={darkGgLogo}
-              alt="GG Pickleball logo"
-              priority
-              height={540}
-              width={960}
+        {/* Header */}
+        <Flex
+          direction="column"
+          width="100vw"
+          maxWidth="1500px"
+          style={{
+            position: 'relative',
+            zIndex: 1,
+          }}
+        >
+          <Flex
+            direction="row"
+            justify="between"
+            px={{ initial: '4', md: '9' }}
+            pt="5"
+            pb="4"
+          >
+            <Flex
+              direction="column"
+              position="relative"
+              justify="center"
+              align="center"
+            >
+              <Image
+                src={darkGgLogo}
+                alt="GG Pickleball logo"
+                height={540}
+                width={960}
+                style={{
+                  width: 'auto',
+                  maxHeight: 'clamp(40px, 6vw, 60px)',
+                }}
+              />
+            </Flex>
+            <Flex direction="column" justify="center">
+              <Button
+                asChild
+                color="gray"
+                highContrast
+                radius="full"
+                style={{ paddingLeft: '20px', paddingRight: '20px' }}
+              >
+                <Link href="/play" style={{ textDecoration: 'none' }}>
+                  Go to app
+                </Link>
+              </Button>
+            </Flex>
+          </Flex>
+        </Flex>
+
+        {/* Hero */}
+        <Flex
+          direction="column"
+          height={{
+            initial: '400px',
+            sm: '400px',
+            md: '800px',
+            lg: '800px',
+          }}
+          width="100vw"
+          maxWidth="1500px"
+          style={{
+            position: 'relative',
+            zIndex: 1,
+            justifyContent: 'flex-end', // This moves children to bottom
+          }}
+        >
+          {/* Hero text container pinned to bottom */}
+          <Flex
+            direction="column"
+            align="center"
+            width="100vw"
+            maxWidth="1500px"
+            pb={{initial: '5', md: '0'}}
+            
+          >
+            <Text
+              weight="bold"
+              align="center"
               style={{
-                width: 'auto',
-                maxHeight: '60px',
+                color: 'white',
+                fontSize: 'clamp(3rem, 6vw, 80px)',
+                lineHeight: '1',
+                textShadow: '2px 2px 8px rgba(0, 0, 0, 0.6)',
               }}
-            />
-          </Flex>
-          <Flex direction={'column'} justify={'center'}>
-            <Button asChild color="gray" highContrast radius="full" style={{paddingLeft: '20px', paddingRight: '20px'}}>
-              <Link href="/play" style={{textDecoration: 'none'}}>Go to app</Link>
-            </Button>
-          </Flex>
-        </Flex>
-      </Flex>
+            >
+              Celebrate your accomplishments
+            </Text>
+            <Text
+              weight="bold"
+              align="center"
+              style={{
+                color: 'white',
+                fontSize: 'clamp(3rem, 6vw, 80px)',
+                textShadow: '2px 2px 8px rgba(0, 0, 0, 0.6)',
+              }}
+            >
+              Earn rewards
+            </Text>
 
-      {/* Hero */}
-      <Flex direction={'column'} my={'7'} width={'100vw'} maxWidth={'1500px'}>
-        <Flex direction={'column'} position={'relative'} height={'90vh'} width={{initial: '95vw', md: '80vw'}} style={{margin: 'auto'}}>
-          <Image
-            src={hero}
-            alt="Pickleball players"
-            priority
-            fill
-            style={{
-              maxWidth: '1200px',
-              borderRadius: '20px',
-              objectFit: 'cover',
-              objectPosition: 'top',
-              margin: 'auto'
-            }}
-          />
+            <Flex
+              direction="column"
+              gap="5"
+              align="center"
+              width="100vw"
+              maxWidth="1500px"
+              display={{initial: 'none', md: 'flex'}}
+              style={{
+                backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                padding: '2rem 1rem',
+                marginTop: '2rem',
+              }}
+            >
+              <Text
+                align="center"
+                size="6"
+                style={{
+                  color: 'white',
+                  maxWidth: '800px',
+                }}
+              >
+                GG Pickleball allows facilities to reward and celebrate the progress of their players.
+                It&apos;s a fun way to recognize improvements and encourage play.
+              </Text>
+              <Button
+                asChild
+                size="4"
+                color="gray"
+                highContrast
+                radius="full"
+                mb={'8'}
+                style={{ paddingLeft: '40px', paddingRight: '40px' }}
+              >
+                <Link
+                  target="_blank"
+                  href="mailto:play@ggpickleball.co?subject=Partner%20Facility%20Inquiry"
+                  style={{ textDecoration: 'none' }}
+                >
+                  Work with us
+                </Link>
+              </Button>
+            </Flex>
+          </Flex>
         </Flex>
+
       </Flex>
 
       {/* Help text */}
-      <Flex direction={'column'} gap={'5'} maxWidth={'800px'} align={'center'} justify={'center'} my={'7'} mx={'4'}>
+      <Flex direction={'column'} gap={'5'} maxWidth={'800px'} align={'center'} justify={'center'} my={'7'} mx={'4'} display={{initial: 'flex', md: 'none'}}>
         <Text align={'center'} size={'6'}>
-        GG Pickleball allows facilities to reward and celebrate the progress of their players. 
-        It&apos;s a fun way to recognize improvements and encourage play.
+          GG Pickleball allows facilities to reward and celebrate the progress of their players. 
+          It&apos;s a fun way to recognize improvements and encourage play.
         </Text>
         <Button asChild size={'4'} color="gray" highContrast radius="full" style={{paddingLeft: '40px', paddingRight: '40px'}}>
           <Link target="_blank" href="mailto:play@ggpickleball.co?subject=Partner%20Facility%20Inquiry" style={{textDecoration: 'none'}}>Work with us</Link>
@@ -151,7 +274,6 @@ export default function GGPickleball() {
             <Image
               src={powerPlayLogo}
               alt="PowerPlay Pickleball Logo"
-              priority
               height={94}
               width={306}
               style={{
@@ -171,7 +293,6 @@ export default function GGPickleball() {
             <Image
               src={lightGgLogo}
               alt="GG Pickleball logo"
-              priority
               height={540}
               width={960}
               style={{
