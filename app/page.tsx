@@ -195,19 +195,18 @@ export default function GGPickleball() {
 
       {/* Help text */}
       <Flex direction={'column'} gap={'5'} maxWidth={'800px'} align={'center'} justify={'center'} my={'7'} mx={'4'} display={{initial: 'flex', md: 'none'}}>
-        <Text align={'center'} weight={'bold'} size={'7'}>A new dimension of pickleball</Text>
+        <Text align={'center'} weight={'bold'} size={'6'}>A new dimension of pickleball</Text>
         <Text align={'center'} size={'4'} wrap={'pretty'}>
           GG Pickleball allows facilities to reward and celebrate the progress of their players. 
           It&apos;s a fun way to recognize improvements and encourage play.
         </Text>
-        <Flex direction={'row'} width={'100%'} justify={'center'} gap={'5'} mx={'4'}>
+        <Flex direction={'column'} width={'100%'} align={'center'} justify={'center'} gap={'4'} mx={'4'}>
           <Button
             asChild
             size="4"
             highContrast
             radius="full"
-            mb={'8'}
-            style={{width: '40%'}}
+            style={{width: '70%'}}
           >
             <Link
               target="_blank"
@@ -223,8 +222,7 @@ export default function GGPickleball() {
             highContrast
             variant="outline"
             radius="full"
-            mb={'8'}
-            style={{ width: '40%', backgroundColor: '#1F2D5C', color: 'white' }}
+            style={{ width: '70%', backgroundColor: '#1F2D5C', color: 'white' }}
           >
             <Link href="/play" style={{ textDecoration: 'none' }}>
               Go to app
