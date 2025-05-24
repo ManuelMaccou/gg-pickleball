@@ -10,8 +10,6 @@ const AchievementSubSchema = new Schema({
 const RewardSubSchema = new Schema({
   rewardId: { type: Schema.Types.ObjectId, ref: "Reward", required: true },
   earnedAt: { type: Date, required: true },
-  redeemed: { type: Boolean, default: false, required: true },
-  redemptionDate: { type: Date },
   rewardCodeId: { type: Schema.Types.ObjectId, ref: "RewardCode" },
 });
 

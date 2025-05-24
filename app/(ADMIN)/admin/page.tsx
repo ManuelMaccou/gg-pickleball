@@ -447,7 +447,7 @@ export default function Ggupr() {
                                     const reward = rewardMap.get(rewardEntry.rewardId.toString());
                                     return (
                                       <Table.Row key={`${rewardEntry.rewardId}-${index}`}>
-                                        <Table.RowHeaderCell>{`${reward?.discount} ${reward?.product}`}</Table.RowHeaderCell>
+                                        <Table.RowHeaderCell>{`${reward?.friendlyName} ${reward?.product}`}</Table.RowHeaderCell>
                                         <Table.Cell>{rewardEntry.code ?? '—'}</Table.Cell>
                                         <Table.Cell>{rewardEntry.redeemed ? 'Yes' : 'No'}</Table.Cell>
                                       </Table.Row>

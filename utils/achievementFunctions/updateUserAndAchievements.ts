@@ -2,12 +2,14 @@
 
 import { Types, UpdateQuery } from 'mongoose';
 import User from '@/app/models/User';
-import { ClientStats, IAchievement, IUser, SerializedAchievement } from '@/app/types/databaseTypes';
+import { ClientStats, IAchievement, IReward, IUser, SerializedAchievement } from '@/app/types/databaseTypes';
 import connectToDatabase from '@/lib/mongodb';
 import Client from '@/app/models/Client';
 import { DateTime } from 'luxon';
 import Achievement from '@/app/models/Achievement';
 import { generateAndSaveShopifyDiscountCodes } from '@/lib/rewards/generateAndSaveShopifyDiscountCodes';
+import Reward from '@/app/models/Reward';
+import { getRewardCodeGenerator } from '@/lib/rewards/rewardCodeGenerators';
 
 interface MatchData {
   team1Ids: string[];
@@ -423,30 +425,64 @@ export async function updateUserAndAchievements(
       }
 
       const clientId = new Types.ObjectId(location);
+
       const earnedRewardIds = newAchievements
         .map(a => client.rewardsPerAchievement?.get?.(a.key))
         .filter(Boolean) as Types.ObjectId[];
 
-        const rewardCodeTasks = earnedRewardIds.map(rewardId => ({
-          rewardId,
-          userId: user._id,
-          clientId
-        }));
+      const rewards = await Reward.find({ _id: { $in: earnedRewardIds } });
 
-        console.log('sending tasks to generate shopify codes:', rewardCodeTasks)
-        
-        const rewardCodeIdMap = await generateAndSaveShopifyDiscountCodes(rewardCodeTasks, clientId);
-        
-        const rewardEntries = earnedRewardIds.map(rewardId => ({
-          rewardId,
-          earnedAt: new Date(),
-          redeemed: false,
-          rewardCodeId: rewardCodeIdMap.get(rewardId)
-        }));
-        
-        if (rewardEntries.length > 0) {
-          updateOps.$push ??= {};
-          updateOps.$push[`${statsPrefix}.rewards`] = { $each: rewardEntries };
+      // Group rewards by category (retail, programming, etc.)
+      const rewardsByCategory = new Map<string, IReward[]>();
+      for (const reward of rewards) {
+        if (!rewardsByCategory.has(reward.category)) {
+          rewardsByCategory.set(reward.category, []);
+        }
+        rewardsByCategory.get(reward.category)!.push(reward);
+      }
+
+      let rewardCodeIdMap: Map<string, Types.ObjectId> = new Map();
+
+      for (const [category, rewardsInCategory] of rewardsByCategory.entries()) {
+        const software =
+          category === 'retail'
+            ? client.retailSoftware
+            : client.reservationSoftware;
+
+        const generator = getRewardCodeGenerator(category, software);
+
+        if (generator && rewardsInCategory.length > 0) {
+          const tasks = rewardsInCategory.map(reward => ({
+            rewardId: reward._id,
+            userId: user._id,
+            clientId,
+          }));
+
+          console.log(`Generating ${category} codes using ${software}`, tasks);
+
+          const map = await generator(tasks, clientId);
+
+          // Merge results into one map
+          for (const [rewardId, codeId] of map.entries()) {
+            rewardCodeIdMap.set(rewardId.toString(), codeId);
+          }
+        } else {
+          console.warn(`No generator found for ${category}:${software}`);
+        }
+      }
+
+      console.log('reward code IDs:', rewardCodeIdMap)
+      
+      const rewardEntries = earnedRewardIds.map(rewardId => ({
+        rewardId,
+        earnedAt: new Date(),
+        redeemed: false,
+        rewardCodeId: rewardCodeIdMap.get(rewardId.toString())
+      }));
+      
+      if (rewardEntries.length > 0) {
+        updateOps.$push ??= {};
+        updateOps.$push[`${statsPrefix}.rewards`] = { $each: rewardEntries };
         }
 
       if (Object.keys(updateOps).length > 0) {

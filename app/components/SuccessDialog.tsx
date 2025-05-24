@@ -16,8 +16,9 @@ interface UserEarnedData {
   rewards: {
     rewardId: string;
     name: string;
-    product: string;
-    discount: string;
+    friendlyName: string;
+    product: "open play" | "reservation" | "shop gear";
+    discount: number;
   }[];
 }
 
@@ -29,8 +30,9 @@ type Step =
       data: {
         rewardId: string;
         name: string;
-        product: string;
-        discount: string;
+        friendlyName: string;
+        product: "open play" | "reservation" | "shop gear";
+        discount: number;
       };
     };
 
@@ -119,7 +121,7 @@ export default function SuccessDialog({
                   <Flex direction="column" align="center">
                     <Text size="5" weight="bold" mb={'3'}>You&apos;ve earned a reward!</Text>
                     <Text size="6" weight={'bold'} style={{textTransform: "uppercase"}}>
-                      {currentStep.data.discount}
+                      {currentStep.data.friendlyName}
                     </Text>
                     <Text size="6" weight={'bold'} style={{textTransform: "uppercase"}}>
                       {currentStep.data.product}

@@ -10,8 +10,15 @@ const RewardSchema = new Schema<IReward>(
       type: String,
       enum: ['dollar', 'percent'],
     },
-    product: { type: String },
-    discount: { type: String },
+    category: {
+      type: String,
+      enum: ['retail', 'programming'],
+    },
+    product: {
+      type: String,
+      enum: ['open play', 'reservation', 'shop gear'],
+    },
+    discount: { type: Number },
   }
 );
 

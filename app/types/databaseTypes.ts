@@ -75,15 +75,20 @@ export interface IReward extends Document {
   _id: Types.ObjectId;
   name: string;
   friendlyName: string;
-  product: string;
-  discount: string;
-  type: "dollar" | "percent"
+  product: "open play" | "reservation" | "shop gear";
+  discount: number;
+  type: "dollar" | "percent";
+  category: "retail" | "programming";
 }
 
 export interface ShopifyData {
   shopDomain: string;
   accessToken: string;
   secret: string;
+}
+
+export interface PodplayData {
+  accessToken: string;
 }
 
 export interface IClient extends Document {
@@ -97,7 +102,10 @@ export interface IClient extends Document {
   rewardsPerAchievement?: {
     [achievementId: string]: IReward;
   };
+  retailSoftware: "shopify" | "playbypoint";
+  reservationSoftware: "playbypoint" | "podplay" | "courtreserve";
   shopify?: ShopifyData;
+  podplay?: PodplayData;
 }
 
 export interface IAdmin extends Document {
@@ -108,10 +116,12 @@ export interface IAdmin extends Document {
 }
 
 export interface IRewardCode {
+  _id: Types.ObjectId;
   code: string;
   userId: Types.ObjectId;
   clientId: Types.ObjectId;
   rewardId: Types.ObjectId;
   redeemed: boolean;
   redemptionDate?: Date;
+  createdAt: Date;
 }

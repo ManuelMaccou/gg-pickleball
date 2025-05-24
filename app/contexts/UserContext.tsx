@@ -25,18 +25,9 @@ export const UserProvider = ({ children, initialUser }: { children: React.ReactN
   )
 }
 
-/*
-export const useUserContext = (): UserContextType => {
-  const context = useContext(UserContext)
-  if (!context) throw new Error('useUserContext must be used inside UserProvider')
-  return context
-}
-  */
-
 export const useUserContext = (): UserContextType => {
   const context = useContext(UserContext)
   if (!context) {
-    // **DEBUG Fallback** – so the app doesn’t blow up when you remove the real provider
     return {
       user: { id: '', name: '', isGuest: false },
       setUser: () => {},

@@ -1,6 +1,6 @@
 import RewardCode from '@/app/models/RewardCode';
 import { Types } from 'mongoose';
-import { createShopifyDiscountCode } from '../shopify/createShopifyDiscountCode';
+import { createPodPlayDiscountCode } from '../podplay/createPodPlayDiscountCode';
 
 export interface RewardCodeTask {
   userId: Types.ObjectId;
@@ -8,8 +8,7 @@ export interface RewardCodeTask {
   clientId: Types.ObjectId;
 }
 
-// Map rewardId → rewardCodeId
-export async function generateAndSaveShopifyDiscountCodes(
+export async function generateAndSavePodPlayDiscountCodes(
   tasks: RewardCodeTask[],
   clientId: Types.ObjectId
 ): Promise<Map<string, Types.ObjectId>> {
@@ -18,7 +17,7 @@ export async function generateAndSaveShopifyDiscountCodes(
   for (const task of tasks) {
     console.log('creating shopify code for task:', task)
     try {
-      const code = await createShopifyDiscountCode(task.rewardId, clientId);
+      const code = await createPodPlayDiscountCode(task.rewardId);
       const rewardCodeDoc = await RewardCode.create({
         code,
         userId: task.userId,

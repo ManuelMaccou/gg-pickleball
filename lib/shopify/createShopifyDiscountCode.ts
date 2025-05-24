@@ -5,7 +5,7 @@ import crypto from 'crypto';
 
 const SHOPIFY_API_VERSION = '2025-04';
 
-export async function createShopifyDiscountCode(rewardId: Types.ObjectId, clientId: Types.ObjectId): Promise<string> {
+export async function createShopifyDiscountCode(rewardId: Types.ObjectId, clientId: Types.ObjectId): Promise<string | null> {
   const reward = await Reward.findById(rewardId);
   if (!reward) {
     throw new Error(`Reward not found for ID: ${rewardId}`);
@@ -22,9 +22,13 @@ export async function createShopifyDiscountCode(rewardId: Types.ObjectId, client
   .substring(0, 6)
   .toUpperCase();
 
+  const discountTitle =
+    (reward.friendlyName?.trim() || '') + ' ' + (reward.product?.trim() || '');
+  const cleanTitle = discountTitle.trim() || 'Discount Reward';
+
   const input = {
     basicCodeDiscount: {
-      title: reward.friendlyName ?? 'Discount Reward',
+      title: cleanTitle,
       code,
       startsAt: new Date().toISOString(),
       customerSelection: {

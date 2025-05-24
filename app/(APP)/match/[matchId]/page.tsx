@@ -36,8 +36,9 @@ interface UserEarnedData {
   rewards: {
     rewardId: string;
     name: string;
-    product: string;
-    discount: string;
+    friendlyName: string;
+    product: "open play" | "reservation" | "shop gear";
+    discount: number;
   }[];
 }
 
@@ -73,58 +74,12 @@ function GguprMatchPage() {
   const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
   const [userEarnedData, setUserEarnedData] = useState<UserEarnedData | null>(null);
+  const [isSavingMatch, setIsSavingMatch] = useState<boolean>(false);
   const [matchSaved, setMatchSaved] = useState<boolean>(false);
 
   const params = useParams<{ matchId: string }>()
   const matchId = params.matchId;
-  const locationParam = searchParams.get('location')
-
-  /*
-  const simulatePlayersJoining = () => {
-    if (!user?.name || !user?.id) return;
-  
-    const simulatedPlayers: Player[] = [
-      { userName: user.name, userId: user.id, socketId: '' }, // yourself
-      { userName: 'Howard', userId: '680039e3b66a0b2253e33d31', socketId: '' },
-      { userName: 'Jules', userId: '680039edb66a0b2253e33d34', socketId: '' },
-      { userName: 'Billy', userId: '680039fdb66a0b2253e33d37', socketId: '' },
-    ];
-  
-    setPlayers(simulatedPlayers);
-    setIsWaiting(false);
-  };
-
-  const simulateScoreSubmissions = () => {
-    if (!matchId || !user?.name) return;
-  
-    const socket = getSocket();
-    if (!socket || !socket.connected) return;
-  
-    const team1 = [user.name, "Howard"];
-    const team2 = ["Jules", "Billy"];
-    const yourScore = 11;
-    const opponentsScore = 9;
-    const locationToSend = selectedLocation?._id.toString() || "Demo Location";
-  
-    const allPlayers = [...team1, ...team2];
-  
-    allPlayers.forEach((playerName) => {
-      const isTeam1 = team1.includes(playerName);
-      const payload = {
-        matchId,
-        userName: playerName,
-        team1,
-        team2,
-        yourScore: isTeam1 ? yourScore : opponentsScore,
-        opponentsScore: isTeam1 ? opponentsScore : yourScore,
-        location: locationToSend
-      };
-  
-      socket.emit("submit-score", payload);
-    });
-  };
-  */
-  
+  const locationParam = searchParams.get('location')  
 
   // set selected location
   useEffect(() => {
@@ -232,26 +187,6 @@ function GguprMatchPage() {
     return () => debouncedSubmitScores.cancel();
   }, [yourScore, opponentsScore, team1, team2, debouncedSubmitScores, matchId, user?.name]);
 
-  // Was for guest users. Trying to remove this and just use the one useEffect
-  // below. We should only need on to setPlayers using "user" since getResolvedUser
-  // assigns the values the "user" for both guests and authenticated.
-  /*
-  useEffect(() => {
-    if (user && user.isGuest) {
-      const newPlayer = { userName: user.name, userId: user.id, socketId: '' };
-
-      setPlayers(prevPlayers => {
-        const playerExists = prevPlayers.some(player => player.userName === user.name);
-        if (playerExists) {
-          return prevPlayers;
-        }
-        return [...prevPlayers, newPlayer];
-      });
-    }
-    setIsCheckingUser(false)
-  },[user])
-  */
-
   // Set players as they join
   useEffect(() => {
     if (!authIsLoading && user) {
@@ -286,8 +221,9 @@ function GguprMatchPage() {
   
       // Subscribe to score validation results - Fires when validation completes
       subscribeToScoreValidation((data) => {
-  
+        
         if (data.success) {
+          setIsSavingMatch(true)
           setScoreError(null);
           setScoreMatch("Scores successfully validated!");
           setIsWaiting(false); 
@@ -333,6 +269,7 @@ function GguprMatchPage() {
             .map((reward) => ({
               rewardId: reward._id.toString(),
               name: reward.name,
+              friendlyName: reward.friendlyName,
               product: reward.product,
               discount: reward.discount,
             }));
@@ -348,13 +285,14 @@ function GguprMatchPage() {
           setSaveErrorMessage(null);
           setMatchSaved(true);
           setShowDialog(true);
+          setIsSavingMatch(false)
 
         } else {
           setSaveErrorMessage("An unexpected error occurred.");
           setSaveSuccessMessage(null);
+          setIsSavingMatch(false)
         }
       });
-  
     } 
   }, [user?.name, user?.id, matchId, players, authIsLoading, auth0User, selectedLocation]);
 
@@ -641,6 +579,13 @@ function GguprMatchPage() {
             </Badge>
           )}
 
+          {isSavingMatch && !saveSuccessMessage && (
+            <Flex direction={'row'} align={'center'} gap={'2'} mt={'3'}>
+              <Spinner style={{color: 'white'}} />
+              <Text size={'3'}>saving match...</Text>
+            </Flex>
+          )}
+
           {scoreError && (
             <Badge color="red" size={'3'}>
               {scoreError}
@@ -670,6 +615,7 @@ function GguprMatchPage() {
                   onChange={(e) => setYourScore(e.target.value === '' ? null : parseInt(e.target.value, 10))}
                   onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}
                   placeholder="Enter your team's score"
+                  disabled={matchSaved || isSavingMatch}
                 />
               </Flex>
               <Flex direction={'column'} gap={'2'}>
@@ -681,7 +627,9 @@ function GguprMatchPage() {
                   onChange={(e) => setOpponentsScore(e.target.value === '' ? null : parseInt(e.target.value, 10))}
                   onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}
                   placeholder="Enter opponent's score"
+                  disabled={matchSaved || isSavingMatch}
                 />
+               
               </Flex>
             </Flex>
           )}
