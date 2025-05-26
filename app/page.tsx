@@ -302,8 +302,8 @@ export default function GGPickleball() {
           <Flex direction={'column'} flexGrow={'1'} maxWidth={'33.3%'} minWidth={"300px"}>
             <Card m={'4'} style={{boxShadow: "0 4px 16px rgba(0, 0, 0, 0.1)"}}>
               <Flex direction={'column'} height={'80px'} flexGrow={'1'} align={'center'} justify={'center'}>
-                <Text as="p" size="5" my={'3'} weight={'bold'} align={'center'} style={{maxWidth: '200px'}}>
-                  Unlock achievements and earn rewards
+                <Text as="p" size="5" my={'3'} weight={'bold'} align={'center'} style={{maxWidth: '250px'}}>
+                  Get discounts on reservations and gear
                 </Text>
               </Flex>
               <Inset clip="padding-box" side="bottom" pt={'current'}>

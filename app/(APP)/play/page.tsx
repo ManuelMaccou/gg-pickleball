@@ -67,8 +67,6 @@ export default function Play() {
     
     
   useEffect(() => {
-    if (!dbUser) return;
-
     const hasSeenLocally = localStorage.getItem('howto') === 'seen';
     const hasSeenViaStats = dbUser?.stats && Object.keys(dbUser.stats).length > 0;
 

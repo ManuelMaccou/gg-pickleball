@@ -35,7 +35,7 @@ export function HowToDialog({ open, onOpenChange }: HowToDialogProps) {
                 <Text size="4">Enter your scores.</Text>
               </li>
               <li>
-                <Text size="4">See which achievements you unlock.</Text>
+                <Text size="4">Unlock discounts on reservations, programming, and gear.</Text>
               </li>
             </ol>
           </Flex>
