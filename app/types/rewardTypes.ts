@@ -17,6 +17,7 @@ export interface IRewardCodeEntry {
 
 export interface IRewardWithCode {
   _id: Types.ObjectId;
+  index: number;
   name: string;
   friendlyName: string;
   product: "open play" | "reservation" | "shop gear";

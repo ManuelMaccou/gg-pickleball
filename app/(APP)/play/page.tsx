@@ -16,6 +16,7 @@ import { FrontendUser } from '@/app/types/frontendTypes';
 import { useIsMobile } from '@/app/hooks/useIsMobile';
 import { Types } from "mongoose";
 import MatchHistory from "@/components/sections/MatchHistory";
+import { HowToDialog } from "./components/HowToDialog";
 
 export default function Play() {
 
@@ -30,6 +31,7 @@ export default function Play() {
   const [dbUser, setDbUser] = useState<FrontendUser | null>(null)
   const [achievementsVariant, setAchievementsVariant] = useState<'full' | 'preview'>('preview')
   const [rewardsVariant, setRewardsVariant] = useState<'full' | 'preview'>('preview')
+   const [showHowToDialog, setShowHowToDialog] = useState<boolean>(false)
 
   const clientId: string | undefined = currentClient?._id?.toString();
 
@@ -64,7 +66,16 @@ export default function Play() {
     }, [achievementsRaw]);
     
     
-  
+  useEffect(() => {
+    if (!dbUser) return;
+
+    const hasSeenLocally = localStorage.getItem('howto') === 'seen';
+    const hasSeenViaStats = dbUser?.stats && Object.keys(dbUser.stats).length > 0;
+
+    if (!hasSeenLocally && !hasSeenViaStats) {
+      setShowHowToDialog(true);
+    }
+  }, [dbUser]);
 
   const handleAchievementsVariantChange = () => {
     setAchievementsVariant((prev) => (prev === 'preview' ? 'full' : 'preview'))
@@ -196,6 +207,7 @@ export default function Play() {
 
 
   return (
+
     <Flex direction={'column'} minHeight={'100vh'} p={'4'} style={{paddingBottom: '150px'}}>
       <Flex justify={"between"} align={'center'} direction={"row"} pt={"2"} pb={"5"} px={'2'}>
         <Flex direction={'column'} position={'relative'} maxWidth={'80px'}>
@@ -231,6 +243,8 @@ export default function Play() {
       </Flex>
       
       <Flex direction={'column'}>
+        {/* How To Dialog */}
+        <HowToDialog open={showHowToDialog} onOpenChange={setShowHowToDialog}/>
 
         {/* Select location dropdown */}
         {currentClient && (

@@ -58,6 +58,7 @@ export interface IMatch extends Document {
 
 export type SerializedAchievement = {
   _id: string;
+  index: number;
   name: string;
   friendlyName: string;
   badge: string;
@@ -65,6 +66,7 @@ export type SerializedAchievement = {
 
 export interface IAchievement extends Document {
   _id: Types.ObjectId;
+  index: number;
   friendlyName: string;
   name: string;
   badge: string;
@@ -73,6 +75,7 @@ export interface IAchievement extends Document {
 
 export interface IReward extends Document {
   _id: Types.ObjectId;
+  index: number;
   name: string;
   friendlyName: string;
   product: "open play" | "reservation" | "shop gear";

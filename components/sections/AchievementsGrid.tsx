@@ -3,14 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Badge, Flex, Spinner } from '@radix-ui/themes'
 import Image from 'next/image'
-import { AchievementData } from '@/app/types/databaseTypes'
-
-type Achievement = {
-  _id: string
-  name: string
-  friendlyName: string
-  badge: string
-}
+import { AchievementData, IAchievement } from '@/app/types/databaseTypes'
 
 type Props = {
   clientId: string
@@ -25,7 +18,7 @@ export default function AchievementsGrid({
   variant = 'full',
   maxCount,
 }: Props) {
-  const [allClientAchievements, setAllClientAchievements] = useState<Achievement[]>([])
+  const [allClientAchievements, setAllClientAchievements] = useState<IAchievement[]>([])
 
   useEffect(() => {
     const fetchClientAchievements = async () => {
@@ -39,7 +32,12 @@ export default function AchievementsGrid({
         }
 
         const data = await res.json();
-        setAllClientAchievements(data.achievements || []);
+
+        const sortedAchievements = (data.achievements || []).sort(
+          (a: IAchievement, b: IAchievement) => a.index - b.index
+        );
+
+        setAllClientAchievements(sortedAchievements);
       } catch (error) {
         console.error('Error fetching client achievements:', error);
       }
@@ -82,7 +80,7 @@ export default function AchievementsGrid({
 
         return (
           <div
-            key={achievement._id}
+            key={achievement._id.toString()}
             style={{
               position: 'relative',
               width: '25%',

@@ -52,6 +52,25 @@ export default function GGPickleball() {
               position="relative"
               justify="center"
               align="center"
+              display={{initial: "flex", md: "none"}}
+            >
+              <Image
+                src={lightGgLogo}
+                alt="GG Pickleball logo"
+                height={540}
+                width={960}
+                style={{
+                  width: 'auto',
+                  maxHeight: 'clamp(40px, 6vw, 60px)',
+                }}
+              />
+            </Flex>
+             <Flex
+              direction="column"
+              position="relative"
+              justify="center"
+              align="center"
+              display={{initial: "none", md: "flex"}}
             >
               <Image
                 src={darkGgLogo}
@@ -233,13 +252,13 @@ export default function GGPickleball() {
 
       {/* Grid */}
       <Flex direction={'column'} width={{initial: '100vw', md: '80vw'}} mt={'7'} mb={'5'} maxWidth={'1500px'}>
-        <Flex direction={'row'} gap={'5'} justify={'between'} wrap={'nowrap'} px={{initial: '3', md: '0'}}
+        <Flex direction={'row'} gap={'3'} justify={'between'} wrap={'nowrap'} 
           style={{overflowX: 'auto'}}
         >
           <Flex direction={'column'} flexGrow={'1'} maxWidth={'33.3%'} minWidth={"300px"}>
-            <Card m={'4'} size="2" variant="ghost" style={{backgroundColor: "#313538"}}>
+            <Card m={'4'} style={{boxShadow: "0 4px 16px rgba(0, 0, 0, 0.1)"}}>
               <Flex direction={'column'} height={'80px'} flexGrow={'1'} align={'center'} justify={'center'}>
-                <Text as="p" size="5" my={'3'} weight={'bold'} align={'center'} style={{color: 'white', maxWidth: '200px'}}>
+                <Text as="p" size="5" my={'3'} weight={'bold'} align={'center'} style={{maxWidth: '200px'}}>
                   Visit a partnering facility
                 </Text>
               </Flex>
@@ -259,9 +278,9 @@ export default function GGPickleball() {
           </Flex>
 
           <Flex direction={'column'} flexGrow={'1'} maxWidth={'33.3%'} minWidth={"300px"}>
-            <Card m={'4'} size="2" variant="ghost" style={{backgroundColor: "#313538"}}>
+            <Card m={'4'} style={{boxShadow: "0 4px 16px rgba(0, 0, 0, 0.1)"}}>
               <Flex direction={'column'} height={'80px'} flexGrow={'1'} align={'center'} justify={'center'}>
-                <Text as="p" size="5" my={'3'} weight={'bold'} align={'center'} style={{color: 'white', maxWidth: '200px'}}>
+                <Text as="p" size="5" my={'3'} weight={'bold'} align={'center'} style={{maxWidth: '200px'}}>
                   Log your score after each match
                 </Text>
               </Flex>
@@ -281,15 +300,15 @@ export default function GGPickleball() {
           </Flex>
 
           <Flex direction={'column'} flexGrow={'1'} maxWidth={'33.3%'} minWidth={"300px"}>
-            <Card m={'4'} size="2" variant="ghost" style={{backgroundColor: "#313538"}}>
+            <Card m={'4'} style={{boxShadow: "0 4px 16px rgba(0, 0, 0, 0.1)"}}>
               <Flex direction={'column'} height={'80px'} flexGrow={'1'} align={'center'} justify={'center'}>
-                <Text as="p" size="5" my={'3'} weight={'bold'} align={'center'} style={{color: 'white', maxWidth: '200px'}}>
+                <Text as="p" size="5" my={'3'} weight={'bold'} align={'center'} style={{maxWidth: '200px'}}>
                   Unlock achievements and earn rewards
                 </Text>
               </Flex>
               <Inset clip="padding-box" side="bottom" pt={'current'}>
                 <img
-                  src={'/home/end-match.jpg'}
+                  src={'/home/celebrate.jpg'}
                   alt="Pickleball players"
                   style={{
                     display: "block",
@@ -345,16 +364,18 @@ export default function GGPickleball() {
             />
           </Flex>
           <Flex direction={'column'}>
-            <Button size={'3'} radius="full" asChild style={{width: '300px', alignSelf: 'center'}}>
+            <Button variant="ghost" size={'3'} asChild style={{width: '300px', alignSelf: 'center', color: 'white'}}>
               <Link target="_blank" href="mailto:play@ggpickleball.co?subject=Partner%20Facility%20Inquiry">Work with us</Link>
             </Button>
           </Flex>
         </Flex>
-        <Flex direction={'row'} gap={'3'} flexGrow={'1'} justify={'center'} align={'center'} mt={'5'}>
-          <Copyright style={{color: 'white'}} />
-          <Text size={'2'} align={'center'} style={{color: 'white'}}>2025 <Strong>GG Pickleball</Strong> all rights reserved.</Text>
+        <Flex direction={'column'} gap={'4'}>
+          <Flex direction={'row'} gap={'3'} flexGrow={'1'} justify={'center'} align={'center'} mt={'5'}>
+            <Copyright style={{color: 'white'}} />
+            <Text size={'2'} align={'center'} style={{color: 'white'}}>2025 <Strong>GG Pickleball</Strong> all rights reserved.</Text>
+          </Flex>
+          <Link size={'2'} target="_blank" href="https://www.instagram.com/ocmedia.pb/" style={{alignSelf: 'center', textDecoration: 'underline', color: 'white'}}>Main image by OC Media</Link>
         </Flex>
-
       </Flex>
     </Flex>
   )

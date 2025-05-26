@@ -383,7 +383,7 @@ function GguprMatchPage() {
           )}
         </Flex>
 
-        {!isCheckingUser && !user ? (
+        {!isCheckingUser && !user && !authIsLoading ? (
           <Flex direction={'column'} gap={'4'} mt={'4'}>
             <TextField.Root 
               size={'3'}

@@ -4,6 +4,7 @@ import { IReward } from "../types/databaseTypes";
 
 const RewardSchema = new Schema<IReward>(
   {
+    index: { type: Number },
     name: { type: String },
     friendlyName: { type: String },
     type: {

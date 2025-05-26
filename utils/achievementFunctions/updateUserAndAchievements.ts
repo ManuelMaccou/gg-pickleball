@@ -499,6 +499,7 @@ export async function updateUserAndAchievements(
       .filter((a): a is IAchievement => !!a)
       .map(a => ({
         _id: a._id.toString(),
+        index: a.index,
         name: a.name,
         friendlyName: a.friendlyName,
         badge: a.badge,

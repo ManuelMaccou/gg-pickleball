@@ -29,69 +29,90 @@ type Props = {
 }
 
 export default function RewardGrid({ user, location, maxCount }: Props) {
+  const [fetchingRewards, setFetchingRewards] = useState<boolean>(false);
   const [allRewards, setAllRewards] = useState<RewardWithAchievementContext[]>([])
   const [selectedReward, setSelectedReward] = useState<{
     reward: RewardWithAchievementContext;
     instance: { rewardId: string; redeemed: boolean; earnedAt: Date; _id: string };
   } | null>(null);
 
-useEffect(() => {
-  const fetchRewardsAndCodes = async () => {
-    if (!user?._id || !location._id) return;
+  useEffect(() => {
+    const fetchRewardsAndCodes = async () => {
+      if (!location._id) return;
 
-    const [rewardsRes, codesRes] = await Promise.all([
-      fetch(`/api/reward/client-rewards-achievements?clientId=${location._id}`),
-      fetch(`/api/reward-code?userId=${user._id}&clientId=${location._id}`)
-    ])
+      setFetchingRewards(true);
 
-    const rewardsData = await rewardsRes.json()
-    console.log('rewards data:', rewardsData)
+      try {
+        const rewardsRes = await fetch(`/api/reward/client-rewards-achievements?clientId=${location._id}`);
+        const rewardsData = await rewardsRes.json();
 
-    const codesData = await codesRes.json()
-      console.log('codesData.codes sample:', codesData.codes?.[0]);
+        let codesData: { codes: IRewardCode[] } = { codes: [] };
 
-      (codesData.codes || []).forEach((code: IRewardCode, index: number) => {
-        if (typeof code.rewardId !== 'string' && typeof code.rewardId !== 'object') {
-          console.warn(`⚠️ Invalid rewardId at index ${index}:`, code.rewardId, code);
+        // Only fetch codes if a user exists
+        if (user?._id) {
+          const codesRes = await fetch(`/api/reward-code?userId=${user._id}&clientId=${location._id}`);
+          codesData = await codesRes.json();
+
+          (codesData.codes || []).forEach((code: IRewardCode, index: number) => {
+            if (typeof code.rewardId !== 'string' && typeof code.rewardId !== 'object') {
+              console.warn(`⚠️ Invalid rewardId at index ${index}:`, code.rewardId, code);
+            }
+          });
         }
-      });
 
-    // Combine codes into rewards by matching rewardId
-    const rewardsWithCodes: RewardWithAchievementContext[] = (rewardsData.rewards || []).map(
-      (entry: RewardApiResponseEntry) => {
-        const { reward, achievementId, achievementFriendlyName } = entry;
+        // Combine codes into rewards
+        const rewardsWithCodes: RewardWithAchievementContext[] = (rewardsData.rewards || []).map(
+          (entry: RewardApiResponseEntry) => {
+            const { reward, achievementId, achievementFriendlyName } = entry;
 
-        const matchingCodes = (codesData.codes || []).filter(
-          (code: IRewardCode) => code.rewardId.toString() === reward._id.toString()
+            const matchingCodes = (codesData.codes || []).filter(
+              (code: IRewardCode) => code.rewardId.toString() === reward._id.toString()
+            );
+
+            return {
+              ...reward,
+              achievementId,
+              achievementFriendlyName,
+              codes: matchingCodes.map((code: IRewardCode) => ({
+                _id: code._id.toString(),
+                rewardId: code.rewardId.toString(),
+                code: code.code,
+                redeemed: code.redeemed,
+                redemptionDate: code.redemptionDate,
+                earnedAt: code.createdAt,
+              })),
+            };
+          }
         );
 
-      return {
-        ...reward,
-        achievementId,
-        achievementFriendlyName,
-        codes: matchingCodes.map((code: IRewardCode) => ({
-          _id: code._id.toString(),
-          rewardId: code.rewardId.toString(),
-          code: code.code,
-          redeemed: code.redeemed,
-          redemptionDate: code.redemptionDate,
-          earnedAt: code.createdAt,
-        })),
-      };
-    });
+        const sortedRewards = rewardsWithCodes.sort((a, b) => {
+          const aUnlocked = a.codes?.some((c) => !c.redeemed) ?? false;
+          const bUnlocked = b.codes?.some((c) => !c.redeemed) ?? false;
 
-    setAllRewards(rewardsWithCodes)
-  }
+          if (aUnlocked && !bUnlocked) return -1;
+          if (!aUnlocked && bUnlocked) return 1;
 
-  fetchRewardsAndCodes()
-}, [user?._id, location._id])
+          return (a.index ?? Infinity) - (b.index ?? Infinity);
+        });
+
+        setAllRewards(sortedRewards);
+      } catch (err) {
+        console.error('Failed to fetch rewards or codes:', err);
+      } finally {
+        setFetchingRewards(false);
+      }
+    };
+
+    fetchRewardsAndCodes();
+  }, [user?._id, location._id]);
+
 
 
   const displayedRewards = maxCount
     ? allRewards.slice(0, maxCount)
     : allRewards
 
-  if (allRewards.length === 0) return (
+  if (fetchingRewards) return (
     <Flex direction={'row'} width={'100%'} align={'center'} justify={'center'}>
         <Spinner size={'3'} style={{color: 'white'}} />
     </Flex>
