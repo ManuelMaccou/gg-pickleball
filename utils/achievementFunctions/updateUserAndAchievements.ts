@@ -7,7 +7,6 @@ import connectToDatabase from '@/lib/mongodb';
 import Client from '@/app/models/Client';
 import { DateTime } from 'luxon';
 import Achievement from '@/app/models/Achievement';
-import { generateAndSaveShopifyDiscountCodes } from '@/lib/rewards/generateAndSaveShopifyDiscountCodes';
 import Reward from '@/app/models/Reward';
 import { getRewardCodeGenerator } from '@/lib/rewards/rewardCodeGenerators';
 
@@ -32,7 +31,7 @@ type VisitResult = {
   visitDate?: Date;
 };
 
-type CheckFunction = (user: IUser, match: MatchData) => AchievementEarned[] | VisitResult;
+type CheckFunction = (user: IUser, match: MatchData) => Promise<AchievementEarned[] | VisitResult> | AchievementEarned[] | VisitResult;
 
 const achievementFunctionMap: Record<string, CheckFunction> = {
   'visit_1': visit,
@@ -45,6 +44,7 @@ const achievementFunctionMap: Record<string, CheckFunction> = {
   '2-win-streak': winStreak,
   '5-win-streak': winStreak,
   '10-win-streak': winStreak,
+  'win-streak-breaker': winStreakBreaker,
   '5-matches-played': matchesPlayed,
   '10-matches-played': matchesPlayed,
   '20-matches-played': matchesPlayed,
@@ -58,7 +58,6 @@ const achievementFunctionMap: Record<string, CheckFunction> = {
   '400-points-won': pointsWon,
   '500-points-won': pointsWon,
 };
-
 
 function ensureClientStats(user: IUser, clientId: string): ClientStats {
   if (!user.stats || !(user.stats instanceof Map)) {
@@ -78,7 +77,7 @@ function ensureClientStats(user: IUser, clientId: string): ClientStats {
       achievements: [],
       rewards: [],
     };
-     user.stats.set(clientId, clientStats);
+    user.stats.set(clientId, clientStats);
   }
 
   return clientStats;
@@ -164,8 +163,54 @@ function winStreak(user: IUser, match: MatchData): AchievementEarned[] {
     else if (winStreak === 4) earned.push({ key: '5-win-streak', repeatable: true });
     else if (winStreak === 9) earned.push({ key: '10-win-streak', repeatable: true });
   }
-
+  console.log('win streak earned:', earned)
   return earned;
+}
+
+async function winStreakBreaker(user: IUser, match: MatchData): Promise<AchievementEarned[]> {
+  
+  const earned: AchievementEarned[] = [];
+  const userIdStr = user._id.toString();
+
+  if (!match.winners.includes(userIdStr)) return earned;
+
+  // Identify the losing team
+  const isTeam1Winner = match.team1Ids.every(id => match.winners.includes(id));
+  const losingTeam = isTeam1Winner ? match.team2Ids : match.team1Ids;
+  console.log('losing team:', losingTeam)
+
+  try {
+    const losingUsers = await User.find({
+      _id: { $in: losingTeam.map(id => new Types.ObjectId(id)) },
+    });
+
+    console.log('losing users:', losingUsers)
+
+    const streakBroken = losingUsers.some((loser) => {
+      const statsMap = loser.stats instanceof Map
+        ? loser.stats
+        : new Map(Object.entries(loser.stats ?? {}));
+
+      const stats = statsMap.get(match.location);
+      console.log(`loser stats for ${loser.name}:`, stats)
+      return stats?.winStreak >= 3;
+    });
+
+    console.log('win streak broken?:', streakBroken)
+
+    if (streakBroken) {
+      earned.push({
+        key: "win-streak-breaker",
+        repeatable: true,
+      });
+    }
+    console.log("winstreak broken earned, no error:", earned)
+    return earned;
+  } catch (err) {
+    console.error("Error checking win streaks:", err);
+    console.log("winstreak broken earned with error:", earned)
+    return earned;
+  }
 }
 
 function matchesPlayed(user: IUser, match: MatchData): AchievementEarned[] {
@@ -308,19 +353,25 @@ export async function updateUserAndAchievements(
         return fn === visit;
       }
 
+      function isVisitResult(val: unknown): val is VisitResult {
+        return typeof val === 'object' &&
+          val !== null &&
+          'achievements' in val &&
+          'didVisit' in val;
+      }
+
       for (const check of enabledCheckFns) {
-        if (isVisitFn(check)) {
-          const result = check(user, matchData);
+        const result = await check(user, matchData);
+
+        if (isVisitResult(result)) {
           allAchievements.push(...result.achievements);
           didVisit = result.didVisit;
           visitDate = result.visitDate;
         } else {
-          const result = check(user, matchData);
-          if (Array.isArray(result)) {
-            allAchievements.push(...result);
-          }
+          allAchievements.push(...result);
         }
       }
+
 
       const newAchievements = allAchievements.filter(a => {
         const existing = clientStats.achievements?.some(ach => ach.name === a.key);
@@ -338,9 +389,14 @@ export async function updateUserAndAchievements(
     const allNewKeys = [
       ...new Set(newAchievementsPerUser.flatMap((u) => u.newAchievements.map((a) => a.key))),
     ];
+
+    console.log('allNewKeys:', allNewKeys);
+
     const achievementMap = new Map(
       (await Achievement.find({ name: { $in: allNewKeys } })).map((a) => [a.name, a])
     );
+
+    console.log('achievementMap keys:', [...achievementMap.keys()]);
 
     const earnedAchievementsList: {
       userId: string;
@@ -470,8 +526,6 @@ export async function updateUserAndAchievements(
           console.warn(`No generator found for ${category}:${software}`);
         }
       }
-
-      console.log('reward code IDs:', rewardCodeIdMap)
       
       const rewardEntries = earnedRewardIds.map(rewardId => ({
         rewardId,

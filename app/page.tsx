@@ -171,40 +171,38 @@ export default function GGPickleball() {
                   maxWidth: '800px',
                 }}
               >
-                GG Pickleball allows facilities to reward and celebrate the progress of their players.
-                It&apos;s a fun way to recognize improvements and encourage play.
+                Win or lose, GG Pickleball allows you to be recognized for your achievements and be rewarded for them. 
+                Play to earn discounts on reservations, programming, and gear.
               </Text>
               <Flex direction={'row'} width={'100%'} justify={'center'} gap={'5'} mt={'4'}>
-                <Button
-                  asChild
-                  size="4"
-                  highContrast
-                  radius="full"
-                  mb={'8'}
-                  style={{width: '250px'}}
-                >
-                  <Link
-                    target="_blank"
-                    href="mailto:play@ggpickleball.co?subject=Partner%20Facility%20Inquiry"
-                    style={{ textDecoration: 'none', backgroundColor: 'white', color: '#1F2D5C' }}
-                  >
-                    Work with us
-                  </Link>
-                </Button>
                <Button
                 asChild
                 size="4"
                 highContrast
-                variant="outline"
                 radius="full"
                 mb={'8'}
-                style={{ width: '250px', borderColor: 'white', borderStyle: 'solid', borderWidth: '1px', color: 'white' }}
+                style={{width: '250px'}}
               >
                 <Link href="/play" style={{ textDecoration: 'none' }}>
                   Go to app
                 </Link>
               </Button>
-
+              <Button
+                asChild
+                size="4"
+                highContrast
+                radius="full"
+                mb={'8'}
+                style={{ width: '250px', backgroundColor: 'white', color: '#1F2D5C' }}
+              >
+                <Link
+                  target="_blank"
+                  href="mailto:play@ggpickleball.co?subject=Partner%20Facility%20Inquiry"
+                  style={{ textDecoration: 'none' }}
+                >
+                  Work with us
+                </Link>
+              </Button>
               </Flex>
             </Flex>
           </Flex>
@@ -216,10 +214,22 @@ export default function GGPickleball() {
       <Flex direction={'column'} gap={'5'} maxWidth={'800px'} align={'center'} justify={'center'} my={'7'} mx={'4'} display={{initial: 'flex', md: 'none'}}>
         <Text align={'center'} weight={'bold'} size={'6'}>A new dimension of pickleball</Text>
         <Text align={'center'} size={'4'} wrap={'pretty'}>
-          GG Pickleball allows facilities to reward and celebrate the progress of their players. 
-          It&apos;s a fun way to recognize improvements and encourage play.
+          Win or lose, GG Pickleball allows you to be recognized for your achievements and be rewarded for them. 
+          Play to earn discounts on reservations, programming, and gear.
         </Text>
         <Flex direction={'column'} width={'100%'} align={'center'} justify={'center'} gap={'4'} mx={'4'}>
+          <Button
+            asChild
+            size="4"
+            highContrast
+            variant="outline"
+            radius="full"
+            style={{ width: '70%', backgroundColor: '#1F2D5C', color: 'white' }}
+          >
+            <Link href="/play" style={{ textDecoration: 'none' }}>
+              Go to app
+            </Link>
+          </Button>
           <Button
             asChild
             size="4"
@@ -233,18 +243,6 @@ export default function GGPickleball() {
               style={{ textDecoration: 'none', backgroundColor: 'white', borderColor: '#1F2D5C', borderStyle: 'solid', borderWidth: '1px', color: '#1F2D5C' }}
             >
               Work with us
-            </Link>
-          </Button>
-          <Button
-            asChild
-            size="4"
-            highContrast
-            variant="outline"
-            radius="full"
-            style={{ width: '70%', backgroundColor: '#1F2D5C', color: 'white' }}
-          >
-            <Link href="/play" style={{ textDecoration: 'none' }}>
-              Go to app
             </Link>
           </Button>
         </Flex>

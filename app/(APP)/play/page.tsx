@@ -264,8 +264,8 @@ export default function Play() {
        
         <Flex direction={'column'} mt={'7'}>
           <Flex direction={'column'} mx={'9'} mb={'7'}>
-            <Link href={`/new${currentClient ? `?location=${currentClient._id}` : ''}`}>
-              <Button size={'3'} style={{width: '100%'}}>Log match</Button>
+            <Link href={`/new?location=${currentClient?._id}`}>
+              <Button loading={!currentClient} size={'3'} style={{width: '100%'}}>Log match</Button>
             </Link>
           </Flex>
           <Flex direction={'row'} width={'100%'} justify={'between'} mb={'5'}>
