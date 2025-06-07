@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
 import { IReward } from '@/app/types/databaseTypes';
 import Reward from '@/app/models/Reward';
+import { logError } from '@/lib/sentry/logger';
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,6 +11,11 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
 
     if (!Array.isArray(body)) {
+      logError(new Error('Expected the body to be an array of rewards'), {
+        endpoint: 'POST /api/reward/bulk',
+        task: 'Creating new rewards in bulk'
+      });
+
       return NextResponse.json({ error: 'Expected an array of rewards' }, { status: 400 });
     }
 
@@ -18,6 +24,11 @@ export async function POST(req: NextRequest) {
     );
 
     if (invalid) {
+      logError(new Error('All rewards must have name, friendlyName, and product'), {
+        endpoint: 'POST /api/reward/bulk',
+        task: 'Creating new rewards in bulk'
+      });
+
       return NextResponse.json({ error: 'All rewards must have name, friendlyName, and product' }, { status: 400 });
     }
 
@@ -25,7 +36,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ message: 'Bulk rewards created', inserted }, { status: 201 });
   } catch (error) {
-    console.error('[POST /api/reward/bulk] Error:', error);
+    logError(error, {
+      message: `Error creating rewards in bulk`,
+    });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

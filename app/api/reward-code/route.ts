@@ -1,15 +1,15 @@
-// app/api/reward-code/route.ts
 import connectToDatabase from '@/lib/mongodb'
 import RewardCode from '@/app/models/RewardCode'
 import { NextResponse } from 'next/server'
+import { logError } from '@/lib/sentry/logger'
 
 export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url)
+  const userId = searchParams.get('userId')
+  const clientId = searchParams.get('clientId')
+
   try {
     await connectToDatabase()
-
-    const { searchParams } = new URL(req.url)
-    const userId = searchParams.get('userId')
-    const clientId = searchParams.get('clientId')
 
     if (!userId || !clientId) {
       return NextResponse.json({ error: 'Missing userId or clientId' }, { status: 400 })
@@ -19,7 +19,12 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ codes })
   } catch (error) {
-    console.error('Failed to fetch reward codes:', error)
+    logError(error, {
+      message: `Error fetching reward codes`,
+      userId: userId,
+      clientId: clientId,
+    });
+
     return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 }

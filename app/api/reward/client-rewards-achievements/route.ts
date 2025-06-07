@@ -4,13 +4,14 @@ import Client from '@/app/models/Client'
 import Reward from '@/app/models/Reward'
 import Achievement from '@/app/models/Achievement'
 import { Types } from 'mongoose'
+import { logError } from '@/lib/sentry/logger'
 
 export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url)
+  const clientId = searchParams.get('clientId')
+
   try {
     await connectToDatabase()
-
-    const { searchParams } = new URL(req.url)
-    const clientId = searchParams.get('clientId')
 
     if (!clientId) {
       return NextResponse.json({ error: 'Missing clientId' }, { status: 400 })
@@ -51,8 +52,12 @@ export async function GET(req: Request) {
     }).filter(Boolean)
 
     return NextResponse.json({ rewards: result })
-  } catch (err) {
-    console.error('Error fetching client rewards:', err)
+  } catch (error) {
+    logError(error, {
+      message: `Error fetching client's configured rewards`,
+      clientId: clientId,
+    });
+    
     return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 }

@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
 import Client from '@/app/models/Client';
-import { IClient } from '@/app/types/databaseTypes';
+import { IClient, IReward } from '@/app/types/databaseTypes';
 import { Types } from 'mongoose'
 import { populateMapField } from '@/utils/populateMapField';
 import Reward from '@/app/models/Reward';
+import { logError } from '@/lib/sentry/logger';
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,6 +16,11 @@ export async function POST(req: NextRequest) {
     const { name, logo, latitude, longitude, achievements, rewardsPerAchievement } = body as Partial<IClient> & { name: string };
 
     if (!name) {
+      logError(new Error('Request body did not include name'), {
+        endpoint: 'POST /api/client',
+        task: 'Creating a client'
+      });
+
       return NextResponse.json({ error: 'Name is required' }, { status: 400 });
     }
 
@@ -33,26 +39,38 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ message: 'Client created', client: newClient }, { status: 201 });
   } catch (error) {
-    console.error('[POST /api/client] Error:', error);
+    logError(error, {
+      message: 'Error creating Client.'
+    });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 
 export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const clientId = searchParams.get('id');
+
   try {
     await connectToDatabase();
 
-    const { searchParams } = new URL(request.url);
-    const clientId = searchParams.get('id');
-
     if (clientId) {
       if (!Types.ObjectId.isValid(clientId)) {
+        logError(new Error('Client ID was not in the right format'), {
+          endpoint: 'GET /api/client',
+          task: 'Fetching a client'
+        });
+
         return NextResponse.json({ error: 'Invalid client ID' }, { status: 400 });
       }
 
       const client = await Client.findById(clientId);
       if (!client) {
+        logError(new Error('Client was not found'), {
+          endpoint: 'GET /api/client',
+          task: 'Fetching a client'
+        });
+
         return NextResponse.json({ error: 'Client not found' }, { status: 404 });
       }
 
@@ -71,34 +89,54 @@ export async function GET(request: Request) {
     const clients = await Client.find();
     return NextResponse.json({ clients });
   } catch (error) {
-    console.error('Failed to fetch client(s):', error);
+    logError(error, {
+      message: clientId ? `Failed to fetch client with clientId: ${clientId}` : 'Failed to fetch all clients',
+      clientId: clientId ?? 'null'
+    });
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
 
 export async function PATCH(req: NextRequest) {
+  let clientId: string | undefined,
+    achievements: string[] | undefined,
+    rewardsPerAchievement: Record<string, IReward> | undefined;
+
+
   try {
     await connectToDatabase();
 
     const body = await req.json();
-    const { clientId, achievements, rewardsPerAchievement } = body;
+
+    clientId = body.clientId;
+    achievements = body.achievements;
+    rewardsPerAchievement = body.rewardsPerAchievement;
 
     if (!clientId || !Types.ObjectId.isValid(clientId)) {
+      logError(new Error('Invalid or missing client ID'), {
+        endpoint: 'PATCH /api/client',
+        task: 'Updating a client'
+      });
+
       return NextResponse.json({ error: 'Invalid or missing client ID' }, { status: 400 });
     }
 
     const client = await Client.findById(clientId)
 
     if (!client) {
+      logError(new Error('Client not found'), {
+        endpoint: 'PATCH /api/client',
+        task: 'Updating a client'
+      });
+
       return NextResponse.json({ error: 'Client not found' }, { status: 404 });
     }
 
     if (achievements) {
-      client.achievements = achievements; // should be array of ObjectId strings
+      client.achievements = achievements;
     }
 
     if (rewardsPerAchievement) {
-      // Important: rewardsPerAchievement must be an object { achievementKey: rewardId }
       client.rewardsPerAchievement = new Map(Object.entries(rewardsPerAchievement));
     }
 
@@ -106,7 +144,10 @@ export async function PATCH(req: NextRequest) {
 
     return NextResponse.json({ message: 'Client updated successfully', client });
   } catch (error) {
-    console.error('[PATCH /api/client] Error:', error);
+    logError(error, {
+      message: `Failed to update client achievements for clientId: ${clientId}`,
+    });
+    
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

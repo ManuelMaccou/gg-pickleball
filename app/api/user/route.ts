@@ -3,12 +3,18 @@ import { cookies } from 'next/headers';
 import connectToDatabase from '@/lib/mongodb';
 import User from '@/app/models/User';
 import { escapeRegex } from '@/utils/escapeRegex';
+import { logError } from '@/lib/sentry/logger';
 
 await connectToDatabase();
 
 export async function POST(request: Request) {
+  let name: string | undefined,
+    auth0Id: string | undefined;
+
   try {
-    const { name, auth0Id } = await request.json();
+    const body = await request.json();
+    name = body.name;
+    auth0Id = body.auth0Id
 
     if (!name || name.trim() === "") {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 });
@@ -35,7 +41,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: 'User created successfully', user: newUser }, { status: 201 });
 
   } catch (error) {
-    console.error("Failed to save user:", error);
+    logError(error, {
+      message: `Failed to save user.`,
+      name: name ?? 'Undefined',
+      auth0Id: auth0Id ?? 'Undefined',
+    });
+
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
@@ -69,7 +80,11 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ user });
   } catch (error) {
-    console.error("Failed to save user:", error);
+    logError(error, {
+      message: `Failed to fetch user.`,
+      name: name ?? 'Undefined',
+      auth0Id: auth0Id ?? 'Undefined',
+    });
     return NextResponse.json({ error: "Failed to retrieve user." }, { status: 500 });
   }
 }
@@ -81,6 +96,11 @@ export async function PATCH(req: Request) {
     const { findBy, upsertValue, ...updateFields } = await req.json();
 
     if (!findBy || (!updateFields.userName && !updateFields.auth0Id && !updateFields.userId)) {
+      logError(new Error('Missing findBy key or corresponding user identifier'), {
+        endpoint: 'PATCH /api/user',
+        task: 'Update user record'
+      });
+
       return NextResponse.json({ error: "Missing findBy key or corresponding user identifier" }, { status: 400 });
     }
 
@@ -97,9 +117,13 @@ export async function PATCH(req: Request) {
 
 
     if (Object.keys(filter).length === 0) {
+      logError(new Error('Invalid request. No valid identifier provided.'), {
+        endpoint: 'PATCH /api/user',
+        task: 'Update user record'
+      });
+
       return NextResponse.json({ error: "Invalid request. No valid identifier provided." }, { status: 400 });
     }
-
 
     // Find user by ID and update with the provided fields
     const updatedUser = await User.findOneAndUpdate(
@@ -109,12 +133,20 @@ export async function PATCH(req: Request) {
     );
 
     if (!updatedUser) {
-      return NextResponse.json({ error: "ggupr user not found" }, { status: 404 });
+      logError(new Error('User not found when trying to update.'), {
+        endpoint: 'PATCH /api/user',
+        task: 'Update user record'
+      });
+
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     return NextResponse.json(updatedUser, { status: 200 });
   } catch (error) {
-    console.error("Error updating ggupr user:", error);
+    logError(error, {
+      message: `Error while updating user.`
+    });
+
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
