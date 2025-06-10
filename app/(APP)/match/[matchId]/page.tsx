@@ -7,13 +7,15 @@ import lightGgLogo from '../../../../public/logos/gg_logo_white_transparent.png'
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, usePathname, useSearchParams } from 'next/navigation';
 import { 
+  claimAchievementUpdateTask,
   disconnectSocket,
   getSocket,
-  handleSaveMatch,
   initiateSocketConnection,
+  notifyUpdatesFinished,
   subscribeToMatchSaved,
+  subscribeToMatchSaveSuccessful,
+  subscribeToPermissionGranted,
   subscribeToPlayerJoined,
-  subscribeToSaveMatch,
   subscribeToScoreValidation
 } from '../../../../socket';
 import { debounce } from 'lodash';
@@ -23,6 +25,7 @@ import QrCodeDialog from "@/app/components/QrCodeDialog";
 import { useUserContext } from "@/app/contexts/UserContext";
 import { IClient, IReward, SerializedAchievement } from "@/app/types/databaseTypes";
 import { useIsMobile } from "@/app/hooks/useIsMobile";
+import { updateUserAndAchievements } from "@/utils/achievementFunctions/updateUserAndAchievements";
 
 type Player = {
   userName: string;
@@ -221,18 +224,21 @@ function GguprMatchPage() {
   
       // Subscribe to score validation results - Fires when validation completes
       subscribeToScoreValidation((data) => {
-        
+        setWaitingForScores(false);
         if (data.success) {
           setIsSavingMatch(true)
           setScoreError(null);
-          setScoreMatch("Scores successfully validated!");
+          setScoreMatch("Scores successfully validated.");
           setIsWaiting(false); 
+
+          // --- TRIGGER THE SERVER-SIDE SAVE ---
+          // requestSaveMatch(matchId);
+          
         } else {
           setScoreError(data.message ?? "An unknown error occurred.");
           setScoreMatch(null);
           setIsWaiting(false); 
         }
-        setWaitingForScores(false); 
       });
     }
   }, [user?.name, matchId, players]);
@@ -240,25 +246,49 @@ function GguprMatchPage() {
   // Saving the match and broadcasting success/error message
   useEffect(() => {
     if (user?.name && matchId && players.length > 0) {
-  
-      subscribeToSaveMatch(async (data) => {
+
+      // --- NEW LOGIC: Step 1 ---
+      // ALL clients listen for this and start the race to claim the task.
+      subscribeToMatchSaveSuccessful((data) => {
+        console.log("Core match saved. Racing to claim the update task...");
+        // Immediately ask the server for permission to be the one to run the update.
+        claimAchievementUpdateTask(matchId, data);
+      });
+
+      // Listener 1: The server's core save was successful, now we do our part.
+      // --- NEW LOGIC: Step 2 ---
+      // ONLY ONE client will receive this private "permission granted" message.
+      subscribeToPermissionGranted(async (data) => {
         try {
-          await handleSaveMatch(data, players);
-          if (data.success) {
-            setSaveSuccessMessage("Match successfully saved");
-            setSaveErrorMessage(null);
-          } else {
-            setSaveErrorMessage("Match failed to save. Please refresh and try again.");
-            setSaveSuccessMessage(null);
-          }
+          console.log("✅ Permission granted! I will now update the achievements.");
+          setScoreMatch("Finalizing achievements...");
+
+          // --- CALL YOUR LOCAL COMPLEX FUNCTION ---
+          // This is now only run by the one "chosen" client.
+          const achievementsResult = await updateUserAndAchievements(
+            data.team1Ids,
+            data.team2Ids,
+            data.winners,
+            data.location,
+            data.newMatchId,
+            data.team1Score,
+            data.team2Score
+          );
+
+          // Tell the server we are done and what the result was.
+          notifyUpdatesFinished(matchId, { earnedAchievements: achievementsResult.earnedAchievements });
+
         } catch (error) {
-          console.error("Error handling save-match event:", error);
-          setSaveErrorMessage(data.message ?? "An unexpected error occurred.");
-          setSaveSuccessMessage(null);
+          console.error("Client-side error updating achievements:", error);
+          // Tell the server we are done, but that we failed.
+          notifyUpdatesFinished(matchId, { error: error as Error });
         }
       });
   
+      // Listener 2: The final result of the entire process (success or failure)
       subscribeToMatchSaved((data) => {
+        setIsSavingMatch(false);
+
         if (data.success) {
 
           const currentUserAchievements = data.earnedAchievements.find(e => e.userId === user?.id);
@@ -285,12 +315,10 @@ function GguprMatchPage() {
           setSaveErrorMessage(null);
           setMatchSaved(true);
           setShowDialog(true);
-          setIsSavingMatch(false)
 
         } else {
-          setSaveErrorMessage("An unexpected error occurred.");
+          setSaveErrorMessage(data.message ?? "An unknown error occurred."); 
           setSaveSuccessMessage(null);
-          setIsSavingMatch(false)
         }
       });
     } 

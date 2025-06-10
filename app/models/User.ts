@@ -33,6 +33,12 @@ const ClientStatsSubSchema = new Schema({
   }
 }, { _id: false })
 
+const DuprSchema = new Schema({
+  duprId: { type: String },
+  email: { type: String },
+  activated: { type: Boolean, default: false },
+})
+
 
 const UserSchema = new Schema<IUser>(
   {
@@ -40,6 +46,7 @@ const UserSchema = new Schema<IUser>(
     email: { type: String },
     auth0Id: { type: String },
     profilePicture: { type: String },
+    dupr: { type: DuprSchema },
     lastLocation: { type: Schema.Types.ObjectId, ref: "Client" },
     stats: {
       type: Map,

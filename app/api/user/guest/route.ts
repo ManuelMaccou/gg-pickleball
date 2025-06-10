@@ -49,7 +49,6 @@ export async function POST(request: Request) {
       maxAge: 60 * 60 * 24 * 365 // 1 year
     })
 
-    // Save user only if token and cookie succeeded
     await newUser.save()
 
     return NextResponse.json({ message: 'Guest user created', user: newUser }, { status: 201 })

@@ -31,11 +31,18 @@ export interface ClientStats {
   rewards: RewardData[];
 }
 
+export interface IDupr {
+  duprId: string;
+  email: string;
+  activated: boolean;
+}
+
 export interface IUser extends Document {
   _id: Types.ObjectId;
   name: string;
   auth0Id?: string;
   email?: string;
+  dupr?: IDupr;
   profilePicture?: string;
   lastLocation?: Types.ObjectId;
   stats: Map<string,ClientStats>;
@@ -54,6 +61,7 @@ export interface IMatch extends Document {
   };
   winners: Types.ObjectId[];
   location: Types.ObjectId;
+  logToDupr: boolean;
 }
 
 export type SerializedAchievement = {

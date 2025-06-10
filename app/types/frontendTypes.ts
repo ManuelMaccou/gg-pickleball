@@ -1,5 +1,5 @@
 import { Types } from "mongoose";
-import { IMatch } from "./databaseTypes";
+import { IDupr, IMatch } from "./databaseTypes";
 
 export interface FrontendClientStats {
   visits?: Date[];
@@ -29,6 +29,7 @@ export interface FrontendUser {
   name: string;
   auth0Id?: string;
   email?: string;
+  dupr?: IDupr;
   profilePicture?: string;
   lastLocation?: string;
   stats: Record<string, FrontendClientStats>;

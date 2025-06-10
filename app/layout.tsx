@@ -34,8 +34,8 @@ export default async function RootLayout({
 }>) {
   const resolvedUser = await getResolvedUser()
   return (
-    <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
+   <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
+      <body>
         <Theme appearance="light">
           <UserProvider initialUser={resolvedUser}>
             <CookieWarning />

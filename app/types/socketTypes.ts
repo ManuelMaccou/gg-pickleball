@@ -1,7 +1,15 @@
 import { Socket } from "socket.io-client";
 import { SerializedAchievement } from "./databaseTypes";
 
-// Define all the events your socket is handling
+export interface AchievementUpdateData {
+  team1Ids: string[];
+  team2Ids: string[];
+  winners: string[];
+  location: string;
+  newMatchId: string;
+  team1Score: number;
+  team2Score: number;
+}
 
 export interface ClientToServerEvents {
   "join-match": (data: { matchId: string; userName: string, userId: string }) => void;
@@ -14,6 +22,19 @@ export interface ClientToServerEvents {
     yourScore: number | null; 
     opponentsScore: number | null; 
     location: string;
+  }) => void;
+  "claim-achievement-update-task": (data: {
+    matchId: string;
+    data: AchievementUpdateData
+  }) => void;
+  "client-requests-save-match": (data: { matchId: string }) => void;
+  "client-finished-updates": (data: {
+    matchId: string;
+    earnedAchievements?: {
+      userId: string;
+      achievements: SerializedAchievement[];
+    }[];
+    errorMessage?: string;
   }) => void;
   "save-match": (data: { 
     matchId: string; 
@@ -51,6 +72,16 @@ export interface ServerToClientEvents {
     }[];
   }) => void;
   "room-expired": (data: { matchId: string }) => void;
+  "match-save-successful": (data: {
+    team1Ids: string[];
+    team2Ids: string[];
+    winners: string[];
+    location: string;
+    newMatchId: string;
+    team1Score: number;
+    team2Score: number;
+  }) => void;
+  "permission-granted-for-update": (data: AchievementUpdateData) => void;
 }
 
 export interface SaveMatchData {

@@ -17,6 +17,7 @@ import { useIsMobile } from '@/app/hooks/useIsMobile';
 import { Types } from "mongoose";
 import MatchHistory from "@/components/sections/MatchHistory";
 import { HowToDialog } from "./components/HowToDialog";
+import MenuDrawer from "@/app/components/MenuDrawer";
 
 export default function Play() {
 
@@ -31,7 +32,8 @@ export default function Play() {
   const [dbUser, setDbUser] = useState<FrontendUser | null>(null)
   const [achievementsVariant, setAchievementsVariant] = useState<'full' | 'preview'>('preview')
   const [rewardsVariant, setRewardsVariant] = useState<'full' | 'preview'>('preview')
-   const [showHowToDialog, setShowHowToDialog] = useState<boolean>(false)
+  const [showHowToDialog, setShowHowToDialog] = useState<boolean>(false)
+  const [isFetchingUser, setIsFetchingUser] = useState<boolean>(true)
 
   const clientId: string | undefined = currentClient?._id?.toString();
 
@@ -164,6 +166,8 @@ export default function Play() {
        
       } catch (err) {
         console.error('Error fetching user:', err)
+      } finally {
+        setIsFetchingUser(false);
       }
     }
   
@@ -219,7 +223,7 @@ export default function Play() {
         </Flex>
 
         {!isLoading && (
-          <Flex direction={'column'} justify={'center'}>
+          <Flex direction={'row'} justify={'center'} align={'center'}>
             <Text size={'3'} weight={'bold'} align={'right'}>
               {userName ? (
                 auth0User 
@@ -227,15 +231,20 @@ export default function Play() {
                   : `${String(userName).includes('@') ? String(userName).split('@')[0] : userName} (guest)`
               ) : ''}
             </Text>
-            <Button
+            {!user?.isGuest && (
+              <Button
               size={'2'}
               variant="outline"
               mt={'1'}
               hidden={!!auth0User}
-              onClick={() => router.push(user?.isGuest ? `/auth/login?screen_hint=signup&returnTo=/play` : `/auth/login?returnTo=/play`)}
+              onClick={() => router.push('/auth/login?returnTo=/play')}
             >
-              {user?.isGuest ? `Create account` : `Log in`}
+               Log in
             </Button>
+            )}
+            {user && !isFetchingUser && (
+              <MenuDrawer isAuthorized={!!auth0User} user={dbUser}/>
+            )}
           </Flex>
         )}
       </Flex>

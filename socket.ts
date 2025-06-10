@@ -1,6 +1,5 @@
 import { io } from "socket.io-client";
-import { GguprSocket, SaveMatchData } from "./app/types/socketTypes";
-import { updateUserAndAchievements } from "./utils/achievementFunctions/updateUserAndAchievements";
+import { GguprSocket } from "./app/types/socketTypes";
 import { SerializedAchievement } from "./app/types/databaseTypes";
 
 let socket: GguprSocket | null = null;
@@ -31,10 +30,6 @@ export const initiateSocketConnection = (matchId: string, userName: string, curr
       } else {
         console.error("Current player not found in the player list.");
       }
-
-      socket?.on("save-match", (data: SaveMatchData) => {
-        handleSaveMatch(data, currentPlayers);
-      });
     });
 
     socket.on("connect_error", (error) => {
@@ -44,132 +39,6 @@ export const initiateSocketConnection = (matchId: string, userName: string, curr
     socket.on("disconnect", () => {
       console.log("Disconnected from socket server.");
     });
-  }
-};
-
-export const handleSaveMatch = async (data: SaveMatchData, players: Player[]) => {
-  if (!data.success) return
-
-  let earnedAchievements: { userId: string; achievements: SerializedAchievement[] }[] = [];
-  let matchResponse: Response | undefined;
-
-  try {
-    const getPlayerIds = (playerNames: string[]) => {
-      return players
-        .filter(player => playerNames.includes(player.userName))
-        .map(player => player.userId);
-    };
-
-    const team1Ids = getPlayerIds(data.team1);
-    const team2Ids = getPlayerIds(data.team2);
-    const winners = data.team1Score > data.team2Score ? team1Ids : team2Ids;
-    const location = data.location;
-    const team1Score = data.team1Score;
-    const team2Score = data.team2Score;
-
-    // Save match
-    matchResponse = await fetch('/api/match', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        matchId: data.matchId,
-        team1: { players: team1Ids, score: team1Score },
-        team2: { players: team2Ids, score: team2Score },
-        winners,
-        location
-      }),
-    });
-
-    let result: any;
-    try {
-      result = await matchResponse.json();
-    } catch (jsonError) {
-      const rawText = await matchResponse.text();
-      console.error("❌ Failed to parse match response as JSON:", rawText);
-
-      socket?.emit("match-saved", {
-        success: false,
-        message: "Server error: invalid response format. We've received the error and are fixing it.",
-        matchId: "",
-        earnedAchievements: []
-      });
-      return;
-    }
-
-    if (!matchResponse.ok || !result?.match?._id) {
-      const errorMessage = result?.error || "A server error occurred while saving the match. We're investigating the issue.";
-      console.error("❌ Match save failed:", errorMessage);
-
-      socket?.emit("match-saved", {
-        success: false,
-        message: errorMessage,
-        matchId: "",
-        earnedAchievements: []
-      });
-      return;
-    }
-
-    const newMatchId = result?.match._id
-
-      // Update users and their achievements
-    try {
-      const achievementsResult = await updateUserAndAchievements(
-        team1Ids,
-        team2Ids,
-        winners,
-        location,
-        newMatchId,
-        team1Score,
-        team2Score
-      );
-
-      earnedAchievements = achievementsResult.earnedAchievements || [];
-    
-    } catch (error) {
-      console.error('❌ Failed to update achievements after match:', error);
-
-      socket?.emit("match-saved", {
-        success: false,
-        message: "Match saved, but failed to update achievements. We're investigating the issue.",
-        matchId: "",
-        earnedAchievements: []
-      });
-      return;
-    }
-
-    socket?.emit("match-saved", {
-      success: true,
-      message: "Match successfully saved!",
-      matchId: data.matchId,
-      earnedAchievements
-    });
-
-    socket?.emit("clear-scores", { matchId: data.matchId });
-    
-  } catch (error) {
-    console.error("❌ Failed to handle match saving:", error);
-  
-    let message = "Unexpected error while saving the match.";
-
-    if (error instanceof Error) {
-      console.error("Error message:", error.message);
-    }
-  
-    if (matchResponse) {
-      try {
-        const errorText = await matchResponse.text();
-        console.error("💬 Raw response body:", errorText);
-        message += ` — ${errorText}`;
-      } catch (parseError) {
-        console.error("❌ Failed to parse raw error response body:", parseError);
-      }
-      socket?.emit("match-saved", {
-        success: false,
-        message,
-        matchId: "",
-        earnedAchievements: []
-      });
-    }
   }
 };
 
@@ -206,10 +75,52 @@ export const subscribeToScoreValidation = (callback: (data: { success: boolean; 
   });
 };
 
-export const subscribeToSaveMatch = (callback: (data: SaveMatchData) => void) => {
+// --- NEW FUNCTION TO TRIGGER THE SAVE ON THE SERVER ---
+export const requestSaveMatch = (matchId: string) => {
+  if (socket) {
+    console.log(`🚀 Client requesting server to save match: ${matchId}`);
+    socket.emit("client-requests-save-match", { matchId });
+  }
+};
+
+// NEW: Add a subscription function for the intermediate success event
+export const subscribeToMatchSaveSuccessful = (callback: (data: {
+  team1Ids: string[];
+  team2Ids: string[];
+  winners: string[];
+  location: any; // Use your specific type
+  newMatchId: string;
+  team1Score: number;
+  team2Score: number;
+}) => void) => {
   if (!socket) return;
-  socket.off("save-match");
-  socket.on("save-match", (data) => callback(data));
+  socket.off("match-save-successful");
+  socket.on("match-save-successful", (data) => callback(data));
+};
+
+// A private message for ONLY the winner of the race.
+export const subscribeToPermissionGranted = (callback: (data: any) => void) => {
+  socket?.off("permission-granted-for-update").on("permission-granted-for-update", callback);
+};
+
+export const claimAchievementUpdateTask = (matchId: string, data: any) => {
+  if (socket) {
+    socket.emit("claim-achievement-update-task", { matchId, data });
+  }
+};
+
+// NEW: Add an emitter for when the client is done
+export const notifyUpdatesFinished = (
+    matchId: string, 
+    result: { earnedAchievements?: any[], error?: Error }
+) => {
+  if (socket) {
+    socket.emit("client-finished-updates", {
+      matchId,
+      earnedAchievements: result.earnedAchievements,
+      errorMessage: result.error?.message
+    });
+  }
 };
 
 export const subscribeToMatchSaved = (callback: (data: { 

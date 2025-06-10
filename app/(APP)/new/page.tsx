@@ -179,12 +179,12 @@ if (isMobile === null) {
           ) : !user ? (
             <Flex direction={'column'} gap={'4'}>
               <TextField.Root 
-              size={'3'}
-              type="text" 
-              value={tempName} 
-              onChange={(e) => setTempName(e.target.value)} 
-              placeholder="Enter your player name"
-            />
+                size={'3'}
+                type="text" 
+                value={tempName} 
+                onChange={(e) => setTempName(e.target.value)} 
+                placeholder="Enter your player name"
+              />
             <Flex direction={'column'} mb={'9'} gap={'5'}>
               <Button size={'3'} disabled={submittingName || !tempName} loading={submittingName} onClick={handleNameSubmit}>
                 Continue (quick)

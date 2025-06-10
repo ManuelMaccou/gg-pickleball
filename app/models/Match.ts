@@ -14,6 +14,7 @@ const MatchSchema = new Schema<IMatch>(
     },
     winners: [{ type: Schema.Types.ObjectId, ref: "User" }],
     location: { type: Schema.Types.ObjectId, ref: "Client" },
+    logToDupr: { type: Boolean },
   },
   { timestamps: true }
 );

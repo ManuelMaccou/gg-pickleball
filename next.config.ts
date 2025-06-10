@@ -2,7 +2,7 @@ import {withSentryConfig} from "@sentry/nextjs";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  allowedDevOrigins: ['https://gg-pickleball.sentry.io'],
 };
 
 export default withSentryConfig(nextConfig, {
