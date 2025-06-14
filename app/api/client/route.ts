@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
 import Client from '@/app/models/Client';
-import { IClient, IReward } from '@/app/types/databaseTypes';
+import { IClient } from '@/app/types/databaseTypes';
 import { Types } from 'mongoose'
 import { populateMapField } from '@/utils/populateMapField';
 import Reward from '@/app/models/Reward';

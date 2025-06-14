@@ -568,7 +568,7 @@ export default function Ggupr() {
                           )}
                           {rewardError && (
                             <Text mt={'3'} size={'2'} color="red">
-                              There was an error saving the reward. We're investigating.
+                              There was an error saving the reward. We&apos;re investigating.
                             </Text>
                           )}
                         </Flex>

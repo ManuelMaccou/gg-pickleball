@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     matchId: string | undefined,
     winners: Types.ObjectId[] | undefined,
     location: string | undefined,
-    logToDupr: Boolean | undefined;
+    logToDupr: boolean | undefined;
 
   try {
     const body = await req.json();
