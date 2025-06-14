@@ -100,7 +100,8 @@ export async function GET(request: Request) {
 export async function PATCH(req: NextRequest) {
   let clientId: string | undefined,
     achievements: string[] | undefined,
-    rewardsPerAchievement: Record<string, IReward> | undefined;
+    rewardsPerAchievement: Record<string, string> | undefined,
+    removeRewardForAchievement: string[] | undefined;
 
 
   try {
@@ -111,6 +112,7 @@ export async function PATCH(req: NextRequest) {
     clientId = body.clientId;
     achievements = body.achievements;
     rewardsPerAchievement = body.rewardsPerAchievement;
+    removeRewardForAchievement = body.removeRewardForAchievement;
 
     if (!clientId || !Types.ObjectId.isValid(clientId)) {
       logError(new Error('Invalid or missing client ID'), {
@@ -121,7 +123,7 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid or missing client ID' }, { status: 400 });
     }
 
-    const client = await Client.findById(clientId)
+    const client = await Client.findById(clientId);
 
     if (!client) {
       logError(new Error('Client not found'), {
@@ -132,17 +134,40 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'Client not found' }, { status: 404 });
     }
 
+    const removedRewardIds: string[] = [];
+
     if (achievements) {
       client.achievements = achievements;
     }
 
+    if (Array.isArray(removeRewardForAchievement)) {
+      for (const achievementKey of removeRewardForAchievement) {
+        const rewardId = client.rewardsPerAchievement.get(achievementKey);
+        if (rewardId) {
+          removedRewardIds.push(rewardId.toString());
+        }
+        client.rewardsPerAchievement.delete(achievementKey);
+      }
+    }
+
     if (rewardsPerAchievement) {
-      client.rewardsPerAchievement = new Map(Object.entries(rewardsPerAchievement));
+      for (const [achievementKey, rewardId] of Object.entries(rewardsPerAchievement)) {
+        if (Types.ObjectId.isValid(rewardId)) {
+          client.rewardsPerAchievement.set(achievementKey, new Types.ObjectId(rewardId));
+        } else {
+          console.warn(`Invalid rewardId for achievement "${achievementKey}": ${rewardId}`);
+        }
+      }
     }
 
     await client.save();
+    await client.populate('achievements');
 
-    return NextResponse.json({ message: 'Client updated successfully', client });
+    return NextResponse.json({
+      message: 'Client updated successfully',
+      client,
+      removedRewardIds,
+    });
   } catch (error) {
     logError(error, {
       message: `Failed to update client achievements for clientId: ${clientId}`,

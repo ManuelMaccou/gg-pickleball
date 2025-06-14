@@ -7,7 +7,7 @@ import Image from "next/image";
 
 interface RedeemRewardsDialogProps {
   reward: IRewardWithCode
-  earnedInstance: { _id: string; rewardId: string; redeemed: boolean };
+  earnedInstance: { _id: string; redeemed: boolean };
   location: IClient;
   showRedeemRewardsDialog: boolean;
   setShowRedeemRewardsDialog: (value: boolean) => void;

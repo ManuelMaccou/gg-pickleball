@@ -11,7 +11,8 @@ export async function POST(req: NextRequest) {
     team2: { players: Types.ObjectId[]; score: number } | undefined,
     matchId: string | undefined,
     winners: Types.ObjectId[] | undefined,
-    location: string | undefined;
+    location: string | undefined,
+    logToDupr: Boolean | undefined;
 
   try {
     const body = await req.json();
@@ -21,6 +22,7 @@ export async function POST(req: NextRequest) {
     team2 = body.team2;
     winners = body.winners;
     location = body.location;
+    logToDupr = body.logToDupr;
 
     if (!matchId || !team1 || !team2 || !winners) {
       logError(new Error('Missing required data in the request body'), {
@@ -31,6 +33,7 @@ export async function POST(req: NextRequest) {
         team2: team2 ?? "undefinded",
         winners: winners ?? "undefinded",
         lcoation: location ?? "undefinded",
+        logToDupr: logToDupr ?? "undefinded",
       });
 
       return NextResponse.json({ success: false, error: 'Missing required data.' }, { status: 400 });
@@ -43,6 +46,7 @@ export async function POST(req: NextRequest) {
       team2,
       winners,
       location,
+      logToDupr,
     });
 
     await match.save();

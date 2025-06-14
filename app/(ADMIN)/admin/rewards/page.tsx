@@ -1,0 +1,595 @@
+'use client'
+
+import { useEffect, useState } from "react";
+import { useUser as useAuth0User } from '@auth0/nextjs-auth0';
+import { useUserContext } from "@/app/contexts/UserContext";
+import { useRouter } from "next/navigation";
+import { AlertDialog, Badge, Button, Callout, Em, Flex, Heading, SegmentedControl, Select, Spinner, Text, TextField } from "@radix-ui/themes";
+import { InfoCircledIcon } from "@radix-ui/react-icons"
+import Image from "next/image";
+import darkGgLogo from '../../../../public/logos/gg_logo_black_transparent.png'
+import { IAchievement, IAdmin, IClient, IReward } from "@/app/types/databaseTypes";
+import Link from "next/link";
+
+export default function Ggupr() {
+
+  const { user } = useUserContext();
+  const router = useRouter();
+
+  const userId = user?.id
+  const userName = user?.name
+  
+  const { user: auth0User, isLoading: auth0IsLoading } = useAuth0User();
+  const [admin, setAdmin] = useState<IAdmin | null>(null);
+  const [location, setLocation] = useState<IClient | null>(null);
+  const [isGettingAdmin, setIsGettingAdmin] = useState<boolean>(true);
+  const [selectedAchievement, setSelectedAchievement] = useState<IAchievement | null>(null);
+  const [configuredClientAchievements, setConfiguredClientAchievements] = useState<IAchievement[]>([]);
+  const [configuredClientRewards, setConfiguredClientRewards] = useState<Record<string, IReward> | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [adminError, setAdminError] = useState<string | null>(null);
+  const [discountAmount, setDiscountAmount] = useState<number | null>(null);
+  const [discountType, setDiscountType] = useState<"percent" | "dollars">("percent");
+  const [discountProduct, setDiscountProduct] = useState<"open play" | "reservation" | "pro shop">("reservation");
+  const [rewardSuccess, setRewardSuccess] = useState<boolean>(false);
+  const [rewardError, setRewardError] = useState<boolean>(false);
+  const [isSavingReward, setIsSavingReward] = useState<boolean>(false);
+  const [isRemovingReward, setIsRemovingReward] = useState<boolean>(false);
+
+  // Get admin data
+  useEffect(() => {
+    if (!userId) return;
+  
+    const getAdminUser = async () => {
+      setAdminError(null);
+      try {
+        const response = await fetch(`/api/admin?userId=${userId}`);
+
+        if (response.status === 204) {
+          setAdmin(null);
+          setAdminError("You don't have permission to access this page.");
+          return;
+        }
+
+        const data = await response.json();
+  
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to fetch admin data");
+        }
+  
+        setAdmin(data.admin);
+        setLocation(data.admin.location);
+      } catch (error: unknown) {
+        console.error("Error fetching admin data:", error);
+      
+        if (error instanceof Error) {
+          setAdminError(error.message);
+        } else {
+          setAdminError("Unknown error occurred");
+        }
+      
+        setAdmin(null);
+      } finally {
+        setIsGettingAdmin(false);
+      }
+    };
+  
+    getAdminUser();
+  }, [userId]);
+
+  // Get current client details
+  useEffect(() => {
+    if (!location) return
+
+    const getClientAchievements = async () => {
+      try {
+        const response = await fetch(`/api/client/achievements?clientId=${location._id}`);
+        const data = await response.json();
+  
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to fetch updated client data");
+        }
+  
+        setConfiguredClientAchievements(data.achievements);
+        setConfiguredClientRewards(data.rewardsPerAchievement);
+      } catch (error: unknown) {
+        console.error("Error fetching updated client data:", error);
+        if (error instanceof Error) {
+          console.error(error.message);
+          setAdminError('An error occured. Please try again later.')
+        } else {
+          console.error("Unknown error occurred");
+          setAdminError('An error occured. Please try again later.')
+        }
+      }
+    };
+
+    getClientAchievements();
+  }, [location])
+
+  // Get existing rewards details for selected achievement
+  useEffect(() => {
+    const fetchRewardForSelectedAchievement = async () => {
+      if (!selectedAchievement || !configuredClientRewards) return;
+
+      const reward = configuredClientRewards[selectedAchievement.name];
+      const rewardId = reward?._id;
+      console.log('rewardId:', rewardId)
+
+      if (!rewardId) {
+        // Reset to defaults
+        setDiscountAmount(null);
+        setDiscountProduct("reservation");
+        setDiscountType("percent");
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/reward?id=${rewardId}`);
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.error || "Failed to fetch reward");
+        }
+
+        const reward: IReward = data.reward;
+
+        setDiscountAmount(reward.discount);
+        setDiscountProduct(reward.product as "open play" | "reservation" | "pro shop");
+        setDiscountType(reward.type as "percent" | "dollars");
+      } catch (err) {
+        console.error("Error loading reward for achievement:", err);
+      }
+    };
+
+    fetchRewardForSelectedAchievement();
+  }, [selectedAchievement, configuredClientRewards]);
+
+  const handleSaveReward = async () => {
+  if (!selectedAchievement) return;
+
+  setIsSavingReward(true);
+  setRewardSuccess(false);
+  setRewardError(false);
+
+  const discountPrefix = discountType === "dollars" ? `$${discountAmount}` : `${discountAmount}%`;
+  const discountName = `${discountPrefix}-off-${discountProduct}`.toLowerCase();
+  const friendlyName = `${discountPrefix} off`;
+
+  const rewardPayload = {
+    discount: discountAmount,
+    product: discountProduct,
+    name: discountName,
+    type: discountType,
+    friendlyName,
+    category: discountProduct === "pro shop" ? "retail" : "programming"
+  };
+
+  const existingReward = configuredClientRewards?.[selectedAchievement.name];
+  const existingRewardId = existingReward?._id
+  
+  try {
+    const rewardResponse = await fetch(
+      existingRewardId ? `/api/reward?id=${existingRewardId}` : `/api/reward`,
+      {
+        method: existingRewardId ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...(existingRewardId?.toString() && { id: existingRewardId.toString() }),
+          ...rewardPayload
+        }),
+      }
+    );
+
+    const rewardData = await rewardResponse.json();
+
+    if (!rewardResponse.ok) {
+      setRewardError(true);
+      throw new Error(rewardData.error || "Failed to save reward");
+    }
+
+    const rewardId = rewardData.reward._id;
+    if (!rewardId) {
+      setRewardError(true);
+      throw new Error(rewardData.error || "Reward save failed — no ID returned");
+    }
+
+    const reward = rewardData.reward;
+    console.log('reward:', reward)
+
+    setDiscountAmount(reward.discount);
+    setDiscountProduct(reward.product as "open play" | "reservation" | "pro shop");
+    setDiscountType(reward.type as "percent" | "dollars");
+
+    setConfiguredClientRewards(prev => ({
+      ...(prev || {}),
+      [selectedAchievement.name]: reward
+    }));
+
+
+    if (!existingRewardId) {
+      const patchResponse = await fetch('/api/client', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId: location?._id,
+          rewardsPerAchievement: {
+            [selectedAchievement.name]: rewardId,
+          },
+        }),
+      });
+  
+      const patchData = await patchResponse.json();
+
+      if (!patchResponse.ok) {
+        setRewardError(true);
+        throw new Error(patchData.error || "Failed to update client");
+      }
+
+      setConfiguredClientRewards(prev => ({
+        ...(prev || {}),
+        [selectedAchievement.name]: reward,
+      }));
+    }
+    setRewardSuccess(true);
+  } catch (error) {
+    setRewardError(true);
+    console.error("Error saving reward:", error);
+  } finally {
+      setIsSavingReward(false);
+    }
+  };
+
+  const handleRemoveReward = async () => {
+     if (!selectedAchievement || !configuredClientRewards) return;
+
+    setIsRemovingReward(true);
+    setRewardError(false);
+    setRewardSuccess(false);
+
+    const reward = configuredClientRewards[selectedAchievement.name];
+    const rewardId = reward?._id;
+
+    try {
+       // Delete the reward itself
+      if (rewardId) {
+        const deleteResponse = await fetch(`/api/reward?id=${rewardId}`, {
+          method: 'DELETE',
+        });
+
+        if (!deleteResponse.ok) {
+          const errorData = await deleteResponse.json();
+          throw new Error(errorData.error || 'Failed to delete reward');
+        }
+      }
+
+      // Remove reference from client
+      const patchResponse = await fetch('/api/client', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId: location?._id,
+          removeRewardForAchievement: [selectedAchievement.name],
+        }),
+      });
+
+      const patchData = await patchResponse.json();
+
+      if (!patchResponse.ok) {
+        setRewardError(true)
+        throw new Error(patchData.error || "Failed to remove reward for client");
+      }
+
+      setConfiguredClientRewards(prev => {
+        if (!prev) return null;
+        const updated = { ...prev };
+        delete updated[selectedAchievement.name];
+        return updated;
+      });
+      setDiscountAmount(null)
+      setDiscountProduct("reservation")
+      setDiscountType("percent")
+      setRewardSuccess(true)
+
+    } catch (error: unknown) {
+      setRewardError(true)
+      console.error("Error removing reward for client:", error);
+    } finally {
+      setIsRemovingReward(false);
+    }
+  };
+
+  // Final loading status
+  useEffect(() => {
+    if (!isGettingAdmin) {
+      setIsLoading(false)
+    }
+  }, [isGettingAdmin])
+
+  const isSelectedAchievementConfigured =
+    selectedAchievement?.name &&
+    configuredClientRewards &&
+    selectedAchievement.name in configuredClientRewards;
+  
+  return (
+    <Flex direction={'column'} minHeight={'100vh'} pt={'4'}>
+
+      {/* Header */}
+      <Flex justify={"between"} align={'center'} direction={"row"} pt={"2"} pb={"5"} px={{initial: '3', md: '9'}}>
+        <Flex direction={'column'} position={'relative'} maxWidth={'80px'}>
+          <Image
+            src={darkGgLogo}
+            alt="ggupr dark logo"
+            priority
+            height={540}
+            width={960}
+          />
+        </Flex>
+
+        {!auth0IsLoading && (
+          <Flex direction={'column'} justify={'center'}>
+            <Text size={'3'} weight={'bold'} align={'right'}>
+              {userName ? (
+                auth0User 
+                  ? `Welcome ${String(userName).includes('@') ? String(userName).split('@')[0] : userName}`
+                  : `${String(userName).includes('@') ? String(userName).split('@')[0] : userName} (guest)`
+              ) : ''}
+            </Text>
+          </Flex>
+        )}
+      </Flex>
+       
+      {/* Location Logo */}
+      {location && (
+        <Flex direction={'column'} style={{backgroundColor: admin?.bannerColor}}>
+          <Flex direction={'column'} position={'relative'} height={{initial: '60px', md: '80px'}} my={'5'}>
+            <Image
+              src={location.logo}
+              alt="Location logo"
+              priority
+              fill
+              style={{objectFit: 'contain'}}
+            />
+          </Flex>
+        </Flex>
+      )}
+
+      {/* Dashboard */}
+      <Flex direction={'column'} height={'600px'} width={'100vw'} maxWidth={'1500px'} style={{alignSelf: 'center'}}>
+        {!user ? (
+          <Flex direction={'column'} justify={'center'} align={'center'} gap={'4'} mt={'9'}>
+            <Button
+              size={'3'}
+              variant='ghost'
+              onClick={() => router.push(`/auth/login?returnTo=/admin`)}
+            >
+              Please log in
+            </Button>
+          </Flex>
+        ) : adminError ? (
+          <>
+            <Flex direction={'column'} justify={'center'} gap={'4'} display={'flex'}>
+              <Callout.Root size={'3'} color="red" >
+                <Callout.Icon>
+                  <InfoCircledIcon />
+                </Callout.Icon>
+                <Callout.Text>
+                  {adminError}
+                </Callout.Text>
+              </Callout.Root>
+            </Flex>
+          </>
+        ) : isLoading ? (
+          <Flex direction={'column'} justify={'center'} align={'center'} mt={'9'}>
+            <Spinner size={'3'} style={{color: 'black'}} />
+          </Flex>
+        ) : (
+          <Flex direction={'row'} height={'100%'}>
+            
+            {/* Left sidebar nav */}
+            <Flex direction={'column'} width={'250px'} py={'4'} px={'2'} style={{backgroundColor: '#F1F1F1', borderRight: '1px solid #d3d3d3'}}>
+              <Flex direction={'column'} gap={'3'} px={'2'}>
+                <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
+                  <Link href={'/admin'}>Dashboard</Link>
+                </Flex>
+                <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
+                  <Link href={'/admin/achievements'}>Set achievements</Link>
+                </Flex>
+                <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
+                  <Link href={'/admin/rewards'} style={{backgroundColor: 'white', borderRadius: '10px'}}>Configure rewards</Link>
+                </Flex>
+              </Flex>
+            </Flex>
+
+            {/* Container */}
+            <Flex direction={'column'} py={'4'} width={'100%'}>
+               <Heading mx={'6'} mb={'6'}>Configure Rewards</Heading>
+              <Flex direction={'row'} height={'100%'} width={'100%'}>
+
+                {/* Configured achievements */}
+                <Flex direction={'column'} width={'50%'} px={'6'} style={{borderRight: '1px solid #d3d3d3'}} overflow={'scroll'}>
+                  <Text size={'3'} mb={'3'}>Select an achievement</Text>
+
+                    {configuredClientAchievements
+                    .slice()
+                    .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
+                    .map((clientAchievement) => {
+                    const isConfigured = configuredClientRewards && clientAchievement.name in configuredClientRewards;
+
+                      return (
+                        <Flex
+                          key={clientAchievement._id.toString()}
+                          direction="row"
+                          justify={'between'}
+                          gap="1"
+                          onClick={() => {
+                            setSelectedAchievement(clientAchievement); 
+                          }}
+                          style={{
+                            cursor: 'pointer',
+                            border: '1px solid #e0e0e0',
+                            padding: '0.75rem',
+                            marginBottom: '0.5rem',
+                            borderRadius: '6px',
+                            background: selectedAchievement?._id.toString() === clientAchievement._id.toString() ? '#e6f7ff' : '#fafafa',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                            transition: 'background 0.2s ease',
+                          }}
+                        >
+                          <Text weight="bold">
+                            {clientAchievement.friendlyName.charAt(0).toUpperCase() +
+                              clientAchievement.friendlyName.slice(1)}
+                          </Text>
+
+                          {isConfigured && (
+                            <Badge color="green">
+                              Reward set
+                            </Badge>
+                          )}
+                          
+                        </Flex>
+                      );
+                    })}
+                  
+                </Flex>
+
+                {/* Associate reward to achievement */}
+                <Flex direction="column" width="50%" px="6" gap={'3'}>
+                  <Text size="3">Set reward</Text>
+
+                  {selectedAchievement ? (
+                    <Flex direction={'column'} gap={'5'}>
+                      <Flex direction={'column'}>
+                        <Text size="4" weight="bold">
+                          {selectedAchievement.friendlyName.charAt(0).toUpperCase() + selectedAchievement.friendlyName.slice(1)}
+                        </Text>
+                      </Flex>
+                      <Flex direction={'column'} gap={'5'} maxWidth={'80%'}>
+
+                        <Flex direction={'column'} gap={'2'}>
+                          <Text size={'3'}>Discount</Text>
+                          <Flex direction={'row'} gap={'3'} justify={'between'} width={'100%'} flexGrow={'1'}>
+                            <TextField.Root
+                              type="number"
+                              placeholder="Discount amount"
+                              value={discountAmount ?? ''}
+                              style={{flexGrow: '1'}}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                const numeric = Number(value);
+                                setDiscountAmount(value === '' || isNaN(numeric) ? null : numeric);
+                              }}
+                            />
+                            <SegmentedControl.Root
+                              value={discountType}
+                              onValueChange={(value) => {
+                                setDiscountType(value as "percent" | "dollars");
+                              }}
+                            >
+                              <SegmentedControl.Item value="percent">Percent</SegmentedControl.Item>
+                              <SegmentedControl.Item value="dollars">Dollars</SegmentedControl.Item>
+                            </SegmentedControl.Root>
+                          </Flex>
+                        </Flex>
+
+                        <Flex direction={'column'} gap={'2'}>
+                          <Text size={'3'}>Product</Text>
+                          <Text size={'1'} mt={'-2'}><Em> The product category to discount</Em></Text>
+                          <Select.Root
+                            size="2"
+                            value={discountProduct}
+                            onValueChange={(value) => {
+                              setDiscountProduct(value as "open play" | "reservation" | "pro shop");
+                            }}
+                          >
+                            <Select.Trigger />
+                            <Select.Content>
+                              <Select.Item value="reservation">Court reservation</Select.Item>
+                              <Select.Item value="open play">Open Play</Select.Item>
+                              <Select.Item value="pro shop">Pro shop</Select.Item>
+                            </Select.Content>
+                          </Select.Root>
+                        </Flex>
+                        <Flex direction={'column'} maxWidth={'300px'}>
+                          <Flex direction={'row'} justify={'between'} align={'center'}>
+                            <Button
+                              size={'2'}
+                              loading={isSavingReward}
+                              disabled={!discountAmount || !discountType || !discountProduct || !selectedAchievement}
+                              onClick={handleSaveReward}
+                              style={{width: '100px'}}
+                            >
+                              Save
+                            </Button>
+                            {isSelectedAchievementConfigured && (
+                              <AlertDialog.Root>
+                                <AlertDialog.Trigger>
+                                  <Button
+                                    loading={isRemovingReward}
+                                    variant="ghost"
+                                    color="red"
+                                  >
+                                    Remove Reward
+                                  </Button>
+                                </AlertDialog.Trigger>
+                                <AlertDialog.Content maxWidth="450px">
+                                  <AlertDialog.Title>Are you sure?</AlertDialog.Title>
+                                  <AlertDialog.Description>
+                                    Please confirm you no longer want this reward to be earned. 
+                                    Any player who has already earned it will still be able to redeem.
+                                  </AlertDialog.Description>
+
+                                  <Flex gap="4" mt="4" justify="end" align={'center'}>
+                                    <AlertDialog.Cancel>
+                                      <Button variant="soft" color="gray">
+                                        Cancel
+                                      </Button>
+                                    </AlertDialog.Cancel>
+                                    <AlertDialog.Action>
+                                      <Button
+                                      size={'2'}
+                                      color="red"
+                                      disabled={!selectedAchievement}
+                                      onClick={handleRemoveReward}
+                                    >
+                                      Remove reward
+                                    </Button>
+                                    </AlertDialog.Action>
+                                  </Flex>
+                                </AlertDialog.Content>
+                              </AlertDialog.Root>
+                            )}
+                          </Flex>
+
+                          {rewardSuccess && (
+                            <Text mt={'3'} size={'2'} color="green">
+                              Reward successfully updated
+                            </Text>
+                          )}
+                          {rewardError && (
+                            <Text mt={'3'} size={'2'} color="red">
+                              There was an error saving the reward. We're investigating.
+                            </Text>
+                          )}
+                        </Flex>
+
+                        <Flex direction={'row'} gap={'2'}>
+                          <Text size={'3'}>Create a custom reward</Text>
+                          <Link href={'mailto:manuel@ggpickleball.co'} target="blank" style={{color: 'blue', textDecoration: 'underline'}}>Contact us</Link>
+                        </Flex>
+                      </Flex>
+                    </Flex>
+                  ) : (
+                    <Text size="2" color="gray">
+                      Click an achievement to set a reward.
+                    </Text>
+                  )}
+                </Flex>
+              </Flex>
+            </Flex>
+          </Flex>
+        )}
+      </Flex>
+    </Flex>
+  )
+}

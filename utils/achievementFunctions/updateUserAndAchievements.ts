@@ -34,12 +34,12 @@ type VisitResult = {
 type CheckFunction = (user: IUser, match: MatchData) => Promise<AchievementEarned[] | VisitResult> | AchievementEarned[] | VisitResult;
 
 const achievementFunctionMap: Record<string, CheckFunction> = {
-  'visit_1': visit,
-  'visit_5': visit,
-  'visit_10': visit,
-  'visit_20': visit,
-  'visit_50': visit,
-  'visit_100': visit,
+  'visit-1': visit,
+  'visit-5': visit,
+  'visit-10': visit,
+  'visit-20': visit,
+  'visit-50': visit,
+  'visit-100': visit,
   'first-win': firstWin,
   '2-win-streak': winStreak,
   '5-win-streak': winStreak,
@@ -110,7 +110,7 @@ function visit(user: IUser, match: MatchData): VisitResult {
   for (const milestone of VISIT_MILESTONES) {
     if (totalVisitsAfterToday === milestone) {
       return {
-        achievements: [{ key: `visit_${milestone}`, repeatable: false }],
+        achievements: [{ key: `visit-${milestone}`, repeatable: false }],
         didVisit: true,
         visitDate: now,
       };
@@ -480,6 +480,17 @@ export async function updateUserAndAchievements(
         updateOps.$push[`${statsPrefix}.achievements`] = { $each: achievementEntries };
       }
 
+
+      const rewardToAchievementId = new Map<string, Types.ObjectId>();
+
+      for (const a of newAchievements) {
+        const rewardId = client.rewardsPerAchievement?.get?.(a.key);
+        const achievementDoc = achievementMap.get(a.key);
+        if (rewardId && achievementDoc) {
+          rewardToAchievementId.set(rewardId.toString(), achievementDoc._id);
+        }
+      }
+
       const clientId = new Types.ObjectId(location);
 
       const earnedRewardIds = newAchievements
@@ -508,11 +519,21 @@ export async function updateUserAndAchievements(
         const generator = getRewardCodeGenerator(category, software);
 
         if (generator && rewardsInCategory.length > 0) {
-          const tasks = rewardsInCategory.map(reward => ({
-            rewardId: reward._id,
-            userId: user._id,
-            clientId,
-          }));
+          const tasks = rewardsInCategory.map(reward => {
+            const achievementId = rewardToAchievementId.get(reward._id.toString());
+
+            if (!achievementId) {
+              throw new Error(`Missing achievementId for reward ${reward._id}`);
+            }
+
+            return {
+              rewardId: reward._id,
+              reward,
+              achievementId,
+              userId: user._id,
+              clientId,
+            };
+          });
 
           console.log(`Generating ${category} codes using ${software}`, tasks);
 

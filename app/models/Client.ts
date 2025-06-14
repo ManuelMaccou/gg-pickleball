@@ -18,7 +18,7 @@ const ClientSchema = new Schema<IClient>({
   latitude: { type: String },
   longitude: { type: String },
   achievements: [
-    { type: Schema.Types.ObjectId, ref: 'Achievement', required: true }
+    { type: Schema.Types.ObjectId, ref: 'Achievement', required: true,  default: [] },
   ],
   rewardsPerAchievement: {
     type: Map,

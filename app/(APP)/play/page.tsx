@@ -315,21 +315,6 @@ export default function Play() {
           <RewardsGrid
             user={dbUser}
             location={currentClient}
-            unlockedRewardIds={
-              userStatsForClient?.rewards
-                ? userStatsForClient.rewards.map(r => r.rewardId.toString())
-                : []
-            }
-            earnedRewards={
-              Array.isArray(userStatsForClient?.rewards)
-                ? userStatsForClient.rewards.map(r => ({
-                    rewardId: r.rewardId.toString(),
-                    redeemed: r.redeemed,
-                    earnedAt: new Date(r.earnedAt),
-                    _id: r._id.toString(),
-                  }))
-              : []
-            }
             variant={rewardsVariant}
             maxCount={rewardsVariant === 'preview' ? 3 : undefined}
           />

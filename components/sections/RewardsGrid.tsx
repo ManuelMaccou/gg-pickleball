@@ -11,106 +11,162 @@ import { IRewardWithCode } from '@/app/types/rewardTypes'
 type RewardWithAchievementContext = IRewardWithCode & {
   achievementId: string;
   achievementFriendlyName: string;
+  codes: {
+    _id: string;
+    code: string;
+    redeemed: boolean;
+    earnedAt: Date;
+    redemptionDate?: Date;
+  }[];
 };
 
-type RewardApiResponseEntry = {
+type ClientConfiguredReward = {
   achievementId: string;
   achievementFriendlyName: string;
   reward: IRewardWithCode;
 };
 
-type Props = {
-  user: FrontendUser | null
-  location: IClient
-  unlockedRewardIds: string[]
-  earnedRewards: { rewardId: string; redeemed: boolean; earnedAt: Date; _id: string }[]
-  variant?: 'preview' | 'full'
-  maxCount?: number
-}
+type PopulatedRewardCode = Omit<IRewardCode, 'rewardId' | 'achievementId'> & {
+  achievement: { _id: string; friendlyName: string };
+};
 
-export default function RewardGrid({ user, location, maxCount }: Props) {
+type Props = {
+  user: FrontendUser | null;
+  location: IClient;
+  variant?: 'preview' | 'full';
+  maxCount?: number;
+};
+
+export default function RewardsGrid({ user, location, maxCount }: Props) {
   const [fetchingRewards, setFetchingRewards] = useState<boolean>(false);
-  const [allRewards, setAllRewards] = useState<RewardWithAchievementContext[]>([])
+  const [allUserEarnedRewards, setAllUserEarnedRewards] = useState<RewardWithAchievementContext[]>([]);
+  const [clientConfiguredRewards, setClientConfiguredRewards] = useState<ClientConfiguredReward[]>([]);
+  const [allRewards, setAllRewards] = useState<RewardWithAchievementContext[]>([]);
   const [selectedReward, setSelectedReward] = useState<{
     reward: RewardWithAchievementContext;
-    instance: { rewardId: string; redeemed: boolean; earnedAt: Date; _id: string };
+    instance: { redeemed: boolean; earnedAt: Date; _id: string };
   } | null>(null);
 
+  // Get all earned reward codes for this user at this location
   useEffect(() => {
-    const fetchRewardsAndCodes = async () => {
-      if (!location._id) return;
+    const fetchUserRewardCodes = async () => {
+      if (!user?._id || !location._id) return;
 
       setFetchingRewards(true);
-
       try {
-        const rewardsRes = await fetch(`/api/reward/client-rewards-achievements?clientId=${location._id}`);
-        const rewardsData = await rewardsRes.json();
+        const res = await fetch(`/api/reward-code?userId=${user._id}&clientId=${location._id}`);
+        const data = await res.json();
+        const codes = data.codes as PopulatedRewardCode[];
 
-        let codesData: { codes: IRewardCode[] } = { codes: [] };
+        const rewardMap = new Map<string, RewardWithAchievementContext>();
 
-        // Only fetch codes if a user exists
-        if (user?._id) {
-          const codesRes = await fetch(`/api/reward-code?userId=${user._id}&clientId=${location._id}`);
-          codesData = await codesRes.json();
+        for (const code of codes) {
+          const rewardId = code.reward._id.toString();
+          const { _id: achievementId, friendlyName } = code.achievement;
+          const reward = code.reward;
 
-          (codesData.codes || []).forEach((code: IRewardCode, index: number) => {
-            if (typeof code.rewardId !== 'string' && typeof code.rewardId !== 'object') {
-              console.warn(`⚠️ Invalid rewardId at index ${index}:`, code.rewardId, code);
-            }
+          if (!rewardMap.has(rewardId)) {
+            rewardMap.set(rewardId, {
+              ...reward,
+              achievementId,
+              achievementFriendlyName: friendlyName,
+              codes: [],
+            });
+          }
+
+          rewardMap.get(rewardId)!.codes.push({
+            _id: code._id.toString(),
+            code: code.code,
+            redeemed: code.redeemed,
+            redemptionDate: code.redemptionDate,
+            earnedAt: code.createdAt,
           });
         }
 
-        // Combine codes into rewards
-        const rewardsWithCodes: RewardWithAchievementContext[] = (rewardsData.rewards || []).map(
-          (entry: RewardApiResponseEntry) => {
-            const { reward, achievementId, achievementFriendlyName } = entry;
-
-            const matchingCodes = (codesData.codes || []).filter(
-              (code: IRewardCode) => code.rewardId.toString() === reward._id.toString()
-            );
-
-            return {
-              ...reward,
-              achievementId,
-              achievementFriendlyName,
-              codes: matchingCodes.map((code: IRewardCode) => ({
-                _id: code._id.toString(),
-                rewardId: code.rewardId.toString(),
-                code: code.code,
-                redeemed: code.redeemed,
-                redemptionDate: code.redemptionDate,
-                earnedAt: code.createdAt,
-              })),
-            };
-          }
-        );
-
-        const sortedRewards = rewardsWithCodes.sort((a, b) => {
-          const aUnlocked = a.codes?.some((c) => !c.redeemed) ?? false;
-          const bUnlocked = b.codes?.some((c) => !c.redeemed) ?? false;
-
-          if (aUnlocked && !bUnlocked) return -1;
-          if (!aUnlocked && bUnlocked) return 1;
-
-          return (a.index ?? Infinity) - (b.index ?? Infinity);
-        });
-
-        setAllRewards(sortedRewards);
+        setAllUserEarnedRewards([...rewardMap.values()]);
       } catch (err) {
-        console.error('Failed to fetch rewards or codes:', err);
+        console.error('Error fetching user reward codes:', err);
       } finally {
         setFetchingRewards(false);
       }
     };
 
-    fetchRewardsAndCodes();
+    fetchUserRewardCodes();
   }, [user?._id, location._id]);
 
+  // Get all client configured rewards
+  useEffect(() => {
+    const fetchClientRewards = async () => {
+      if (!location._id) return;
 
+      try {
+        const res = await fetch(`/api/reward/client-rewards-achievements?clientId=${location._id}`);
+        const data = await res.json();
+
+        if (res.ok && Array.isArray(data.rewards)) {
+          setClientConfiguredRewards(data.rewards);
+
+          console.log('client config rewards:', data.rewards)
+
+        } else {
+          console.error('Error fetching client rewards:', data.error);
+        }
+      } catch (err) {
+        console.error('Error fetching client rewards:', err);
+      }
+    };
+
+    fetchClientRewards();
+  }, [location._id]);
+
+  // Merge configured + earned rewards
+  useEffect(() => {
+    const mergeRewards = () => {
+      const mergedMap = new Map<string, RewardWithAchievementContext>();
+
+      for (const item of clientConfiguredRewards) {
+        const reward = item.reward;
+        if (!reward || !reward._id) {
+          console.warn('Skipping invalid reward in clientConfiguredRewards:', item);
+          continue;
+        }
+
+        mergedMap.set(reward._id.toString(), {
+          ...reward,
+          achievementId: item.achievementId,
+          achievementFriendlyName: item.achievementFriendlyName,
+          codes: [],
+        });
+      }
+
+      for (const earned of allUserEarnedRewards) {
+        const key = earned._id.toString();
+        if (mergedMap.has(key)) {
+          mergedMap.get(key)!.codes = earned.codes;
+        } else {
+          mergedMap.set(key, earned);
+        }
+      }
+
+      const mergedList = [...mergedMap.values()].sort((a, b) => {
+        const aUnlocked = a.codes.some(c => !c.redeemed);
+        const bUnlocked = b.codes.some(c => !c.redeemed);
+        if (aUnlocked && !bUnlocked) return -1;
+        if (!aUnlocked && bUnlocked) return 1;
+        return (a.index ?? Infinity) - (b.index ?? Infinity);
+      });
+
+      setAllRewards(mergedList);
+    };
+
+    if (clientConfiguredRewards.length > 0 || allUserEarnedRewards.length > 0) {
+      mergeRewards();
+    }
+  }, [clientConfiguredRewards, allUserEarnedRewards]);
 
   const displayedRewards = maxCount
     ? allRewards.slice(0, maxCount)
-    : allRewards
+    : allRewards;
 
   if (fetchingRewards) return (
     <Flex direction={'row'} width={'100%'} align={'center'} justify={'center'}>
@@ -191,7 +247,6 @@ export default function RewardGrid({ user, location, maxCount }: Props) {
                     setSelectedReward({
                       reward,
                       instance: {
-                        rewardId: instance.rewardId,
                         redeemed: instance.redeemed,
                         earnedAt: instance.earnedAt,
                         _id: instance._id,

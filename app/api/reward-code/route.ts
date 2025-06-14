@@ -15,7 +15,13 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Missing userId or clientId' }, { status: 400 })
     }
 
-    const codes = await RewardCode.find({ userId, clientId })
+    const response = await RewardCode.find({ userId, clientId })
+    .populate('achievementId')
+
+    const codes = response.map(code => ({
+      ...code.toObject(),
+      achievement: code.achievementId,
+    }));
 
     return NextResponse.json({ codes })
   } catch (error) {

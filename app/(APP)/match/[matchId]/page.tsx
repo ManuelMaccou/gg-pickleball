@@ -40,7 +40,7 @@ interface UserEarnedData {
     rewardId: string;
     name: string;
     friendlyName: string;
-    product: "open play" | "reservation" | "shop gear";
+    product: "open play" | "reservation" | "pro shop";
     discount: number;
   }[];
 }

@@ -11,6 +11,7 @@ import Image from "next/image";
 import darkGgLogo from '../../../public/logos/gg_logo_black_transparent.png'
 import { IAchievement, IAdmin, IClient, IReward, IUser } from "@/app/types/databaseTypes";
 import { Types } from "mongoose";
+import Link from "next/link";
 
 interface ClientStats {
   visits?: Date[];
@@ -283,7 +284,7 @@ export default function Ggupr() {
       )}
 
       {/* Dashboard */}
-      <Flex direction={'column'} p={{initial:'3', md: '5'}} height={'600px'} width={'100vw'} maxWidth={'1500px'} style={{alignSelf: 'center'}}>
+      <Flex direction={'column'} height={'584px'} width={'100vw'} maxWidth={'1500px'} style={{alignSelf: 'center'}}>
         {!user ? (
           <Flex direction={'column'} justify={'center'} align={'center'} gap={'4'} mt={'9'}>
             <Button
@@ -323,9 +324,25 @@ export default function Ggupr() {
           </Flex>
           ) : matches ? (
           <Flex direction={'row'} height={'100%'} gap={'4'} wrap={'wrap'}>
+            
+            {/* Left sidebar nav */}
+            <Flex direction={'column'} width={'250px'} py={'4'} px={'2'} style={{backgroundColor: '#F1F1F1', borderRight: '1px solid #d3d3d3'}}>
+              <Flex direction={'column'} gap={'3'} px={'2'}>
+                <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
+                  <Link href={'/admin'} style={{backgroundColor: 'white', borderRadius: '10px'}}>Dashboard</Link>
+                </Flex>
+                <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
+                  <Link href={'/admin/achievements'}>Set achievements</Link>
+                </Flex>
+                <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
+                  <Link href={'/admin/rewards'}>Configure rewards</Link>
+                </Flex>
+              </Flex>
+            </Flex>
+
 
             {/* Total players and matches */}
-            <Flex direction={{initial: 'row', md: 'column'}} flexGrow={'1'} maxHeight={{initial: "200px", md: '80%'}} maxWidth={{initial: '100%', md: '20%'}} gap={'4'}>
+            <Flex direction={{initial: 'row', md: 'column'}} mt={'4'} flexGrow={'1'} maxHeight={{initial: "200px", md: '80%'}} maxWidth={{initial: '100%', md: '20%'}} gap={'4'}>
               <Flex direction={'column'} flexGrow={'1'} minWidth={'150px'}>
                 <Card variant="classic" style={{height: '100%', alignContent: 'end'}}>
                   <Flex direction={'column'} gap={'4'}>
@@ -346,10 +363,10 @@ export default function Ggupr() {
             </Flex>
 
               {/* Top players */}
-            <Flex direction={'column'} flexGrow={'1'} height={'100%'} maxHeight={{initial: "fit-content", md: '80%'}} minWidth={"300px"} maxWidth={{initial: '100%', md: '20%'}} gap={'4'}>
+            <Flex direction={'column'} mt={'4'} flexGrow={'1'} height={'100%'} maxHeight={{initial: "fit-content", md: '80%'}} minWidth={"300px"} maxWidth={{initial: '100%', md: '20%'}} gap={'4'}>
+              <Text size={'4'} align={'center'} style={{color: 'grey'}}>Top players by wins</Text>
               <Card variant="classic" style={{flexGrow: 'inherit'}}>
                 <Flex direction={'column'} gap={'4'}>
-                  <Text size={'4'} align={'center'} style={{color: 'grey'}}>Top players by wins</Text>
                   <Table.Root size="1">
                     <Table.Header>
                       <Table.Row>
@@ -372,7 +389,7 @@ export default function Ggupr() {
 
             {/* All players */}
             {location && (
-              <Flex direction={'column'} pb={'9'} flexGrow={'1'} height={{md: '100%'}} maxWidth={{md: '100%'}} overflow={{initial: 'visible', md: 'scroll'}}>
+              <Flex direction={'column'} mt={'4'} pb={'9'} flexGrow={'1'} height={{md: '100%'}} maxWidth={{md: '100%'}} overflow={{initial: 'visible', md: 'scroll'}}>
                 <Text size={'4'} style={{color: 'grey'}} mb={'4'}>All players</Text>
                 <Accordion.Root type="multiple" value={openAccordion} onValueChange={setOpenAccordion}>
                   <Flex direction={'column'} gap={'1'}>
@@ -394,7 +411,7 @@ export default function Ggupr() {
                         >
                           <Accordion.Item value={player._id.toString()}>
                             <Accordion.Header>
-                              <Accordion.Trigger style={{width: '100%'}}>
+                              <Accordion.Trigger style={{width: '100%', cursor: 'pointer',}}>
                                 <Flex direction={'row'} justify={'between'} align={'stretch'} py={'2'} maxWidth={{initial: '100%', md: '500px'}} wrap={'wrap'}>
                                   <Text size="2" weight="bold">{player.name}</Text>
                                   <Text size="2">Last visit: {lastVisit}</Text>

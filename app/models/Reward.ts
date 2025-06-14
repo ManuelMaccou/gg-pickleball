@@ -2,14 +2,14 @@ import mongoose, { Schema } from "mongoose";
 import { IReward } from "../types/databaseTypes";
 
 
-const RewardSchema = new Schema<IReward>(
+export const RewardSchema = new Schema<IReward>(
   {
     index: { type: Number },
     name: { type: String },
     friendlyName: { type: String },
     type: {
       type: String,
-      enum: ['dollar', 'percent'],
+      enum: ['dollars', 'percent'],
     },
     category: {
       type: String,
@@ -17,7 +17,7 @@ const RewardSchema = new Schema<IReward>(
     },
     product: {
       type: String,
-      enum: ['open play', 'reservation', 'shop gear'],
+      enum: ['open play', 'reservation', 'pro shop'],
     },
     discount: { type: Number },
   }

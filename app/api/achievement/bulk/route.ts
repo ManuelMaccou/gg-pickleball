@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     }
 
     const invalid = body.find(
-      (a: Partial<IAchievement>) => !a.name || !a.friendlyName || !a.badge
+      (a: Partial<IAchievement>) => !a.name || !a.friendlyName || !a.badge || !a.categoryId
     );
 
     if (invalid) {

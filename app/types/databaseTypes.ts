@@ -75,9 +75,17 @@ export type SerializedAchievement = {
 export interface IAchievement extends Document {
   _id: Types.ObjectId;
   index: number;
+  categoryId: Types.ObjectId;
   friendlyName: string;
   name: string;
   badge: string;
+}
+
+export interface IAchievementCategory extends Document {
+  _id: Types.ObjectId;
+  name: string;
+  description: string;
+  milestones?: string[];
 }
 
 
@@ -86,9 +94,9 @@ export interface IReward extends Document {
   index: number;
   name: string;
   friendlyName: string;
-  product: "open play" | "reservation" | "shop gear";
+  product: "open play" | "reservation" | "pro shop";
   discount: number;
-  type: "dollar" | "percent";
+  type: "dollars" | "percent";
   category: "retail" | "programming";
 }
 
@@ -131,7 +139,8 @@ export interface IRewardCode {
   code: string;
   userId: Types.ObjectId;
   clientId: Types.ObjectId;
-  rewardId: Types.ObjectId;
+  achievementId: Types.ObjectId;
+  reward: IReward;
   redeemed: boolean;
   redemptionDate?: Date;
   createdAt: Date;

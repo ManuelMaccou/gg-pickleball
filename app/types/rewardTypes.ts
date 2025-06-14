@@ -1,8 +1,10 @@
 import { Types } from "mongoose";
+import { IReward } from "./databaseTypes";
 
 export interface RewardCodeTask {
-  rewardId: Types.ObjectId;
   userId: Types.ObjectId;
+  achievementId: Types.ObjectId;
+  reward: IReward;
   clientId: Types.ObjectId;
 }
 
@@ -12,7 +14,6 @@ export interface IRewardCodeEntry {
   redeemed: boolean;
   redemptionDate?: Date;
   earnedAt: Date;
-  rewardId: string;
 }
 
 export interface IRewardWithCode {
@@ -20,9 +21,9 @@ export interface IRewardWithCode {
   index: number;
   name: string;
   friendlyName: string;
-  product: "open play" | "reservation" | "shop gear";
+  product: "open play" | "reservation" | "pro shop";
   discount: number;
-  type: "dollar" | "percent";
+  type: "dollars" | "percent";
   category: "retail" | "programming";
   codes?: IRewardCodeEntry[];
 }
