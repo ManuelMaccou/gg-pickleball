@@ -59,7 +59,7 @@ type TopPlayer = {
   winCount: number;
 };
 
-export default function Ggupr() {
+export default function GgpickleballAdmin() {
 
   const { user } = useUserContext();
   const router = useRouter();
@@ -251,7 +251,7 @@ export default function Ggupr() {
         <Flex direction={'column'} position={'relative'} maxWidth={'80px'}>
           <Image
             src={darkGgLogo}
-            alt="ggupr dark logo"
+            alt="GG Pickleball dark logo"
             priority
             height={540}
             width={960}

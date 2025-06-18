@@ -96,4 +96,4 @@ export interface SaveMatchData {
 }
 
 // Define your socket type
-export type GguprSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
+export type GgSocket = Socket<ServerToClientEvents, ClientToServerEvents>;

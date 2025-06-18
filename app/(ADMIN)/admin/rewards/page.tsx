@@ -11,7 +11,7 @@ import darkGgLogo from '../../../../public/logos/gg_logo_black_transparent.png'
 import { IAchievement, IAdmin, IClient, IReward } from "@/app/types/databaseTypes";
 import Link from "next/link";
 
-export default function Ggupr() {
+export default function GgpickleballAdminRewards() {
 
   const { user } = useUserContext();
   const router = useRouter();
@@ -319,7 +319,7 @@ export default function Ggupr() {
         <Flex direction={'column'} position={'relative'} maxWidth={'80px'}>
           <Image
             src={darkGgLogo}
-            alt="ggupr dark logo"
+            alt="GG Pickleball dark logo"
             priority
             height={540}
             width={960}

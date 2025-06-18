@@ -1,8 +1,8 @@
 import { io } from "socket.io-client";
-import { GguprSocket } from "./app/types/socketTypes";
+import { GgSocket } from "./app/types/socketTypes";
 import { SerializedAchievement } from "./app/types/databaseTypes";
 
-let socket: GguprSocket | null = null;
+let socket: GgSocket | null = null;
 
 type Player = {
   userName: string;

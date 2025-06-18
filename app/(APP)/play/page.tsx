@@ -215,7 +215,7 @@ export default function Play() {
         <Flex direction={'column'} position={'relative'} maxWidth={'80px'}>
           <Image
             src={lightGgLogo}
-            alt="ggupr dark logo"
+            alt="GG Pickleball light logo"
             priority
             height={540}
             width={960}

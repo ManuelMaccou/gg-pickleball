@@ -45,7 +45,7 @@ interface UserEarnedData {
   }[];
 }
 
-function GguprMatchPage() {
+function GgpickleballMatchPage() {
 
   const isMobile =useIsMobile();
   
@@ -113,25 +113,26 @@ function GguprMatchPage() {
     if (!tempName.trim()) return;
 
     try {
-      const gguprResponse = await fetch('/api/user/guest', {
+      const response = await fetch('/api/user/guest', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ guestName: tempName })
       });
 
-      const gguprData = await gguprResponse.json();
+      const newGuestUser = await response.json();
 
-      if (gguprResponse.ok) {
+      if (response.ok) {
+        const userId = newGuestUser.user._id;
         
         setUser({
-          id: gguprData.user._id,
+          id: userId,
           name: tempName,
           isGuest: true,
         })
       
         setError(null);
 
-        const userId = gguprData.user._id;
+       
 
         const newPlayer = { userName: tempName, userId, socketId: '' };
         setPlayers(prevPlayers => {
@@ -147,7 +148,7 @@ function GguprMatchPage() {
           initiateSocketConnection(matchId, tempName, players);
         }
       } else {
-        setError(gguprData.error || 'An error occurred');
+        setError(newGuestUser.error || 'An error occurred');
       }
     } catch (error) {
       console.error('Failed to save user:', error);
@@ -452,7 +453,7 @@ function GguprMatchPage() {
         <Flex direction={'column'} position={'relative'} maxWidth={'80px'}>
             <Image
             src={lightGgLogo}
-            alt="ggupr dark logo"
+            alt="GG Pickleball light logo"
               priority
             height={540}
             width={960}
@@ -674,10 +675,10 @@ function GguprMatchPage() {
   )
 }
 
-export default function GguprMatch() {
+export default function GgPickleballMatch() {
   return (
     <Suspense>
-      <GguprMatchPage />
+      <GgpickleballMatchPage />
     </Suspense>
   )
 }
