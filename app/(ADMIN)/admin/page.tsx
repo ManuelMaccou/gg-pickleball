@@ -15,6 +15,7 @@ import Link from "next/link";
 
 interface ClientStats {
   visits?: Date[];
+  lastVisit?: Date;
   wins?: number;
   losses?: number;
   winStreak?: number;
@@ -140,11 +141,8 @@ export default function Ggupr() {
           throw new Error(data.error || "Failed to fetch match data");
         }
 
-        if (data.matches.length === 0) {
-          setMatchError('No matches were found.')
-        } else {
-          setMatches(data.matches);
-        }
+        setMatches(data.matches);
+        
       } catch (error) {
         console.error("Error fetching admin data:", error);
         setMatchError((error as Error).message);
@@ -200,7 +198,11 @@ export default function Ggupr() {
   
   // Get total player count and top 5 players for this location
   useEffect(() => {
-    if (matches.length === 0) return;
+    if (matches.length === 0) {
+      setIsAnalyzingPlayers(false)
+      return;
+    }
+     
   
     const playerMap = new Map<string, IUser>();
     const winCounts = new Map<string, { name: string; count: number }>();
@@ -234,6 +236,7 @@ export default function Ggupr() {
   
   // Final loading status
   useEffect(() => {
+    console.log(isGettingAdmin, isGettingMatches, isAnalyzingPlayers, isGettingAchievementsAndRewards)
     if (!isGettingAdmin && !isGettingMatches && !isAnalyzingPlayers && !isGettingAchievementsAndRewards) {
       setIsLoading(false)
     }
@@ -241,10 +244,10 @@ export default function Ggupr() {
   
 
   return (
-    <Flex direction={'column'} minHeight={'100vh'} pt={'4'}>
+    <Flex direction={'column'} minHeight={'100vh'}>
 
       {/* Header */}
-      <Flex justify={"between"} align={'center'} direction={"row"} pt={"2"} pb={"5"} px={{initial: '3', md: '9'}}>
+      <Flex justify={"between"} align={'center'} direction={"row"} py={'4'} px={{initial: '3', md: '9'}}>
         <Flex direction={'column'} position={'relative'} maxWidth={'80px'}>
           <Image
             src={darkGgLogo}
@@ -273,7 +276,7 @@ export default function Ggupr() {
         <Flex direction={'column'} style={{backgroundColor: admin?.bannerColor}}>
           <Flex direction={'column'} position={'relative'} height={{initial: '60px', md: '80px'}} my={'5'}>
             <Image
-              src={location.logo}
+              src={location.admin_logo}
               alt="Location logo"
               priority
               fill
@@ -284,7 +287,7 @@ export default function Ggupr() {
       )}
 
       {/* Dashboard */}
-      <Flex direction={'column'} height={'584px'} width={'100vw'} maxWidth={'1500px'} style={{alignSelf: 'center'}}>
+      <Flex direction={'column'} height={'600px'} width={'100vw'} maxWidth={'1500px'} style={{alignSelf: 'center'}}>
         {!user ? (
           <Flex direction={'column'} justify={'center'} align={'center'} gap={'4'} mt={'9'}>
             <Button
@@ -395,9 +398,8 @@ export default function Ggupr() {
                   <Flex direction={'column'} gap={'1'}>
                     {allPlayers.map(player => {
                       const clientStats = (player.stats as unknown as Record<string, ClientStats>)?.[location._id.toString()];
-                      const visits = clientStats?.visits ?? [];
-                      const lastVisit = visits.length
-                        ? new Date(visits[visits.length - 1]).toLocaleDateString()
+                      const lastVisit = clientStats?.lastVisit
+                        ? new Date(clientStats?.lastVisit).toLocaleDateString()
                         : '—';
                       // const isOpen = openAccordion === player._id.toString(); // If type = single
                       const isOpen = openAccordion.includes(player._id.toString()); // If type = multiple

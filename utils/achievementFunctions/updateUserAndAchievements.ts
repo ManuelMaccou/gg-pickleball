@@ -120,6 +120,32 @@ function visit(user: IUser, match: MatchData): VisitResult {
   return { achievements: [], didVisit: true, visitDate: now };
 }
 
+function updateLastVisit(user: IUser, location: string): boolean {
+  const LA_TIMEZONE = "America/Los_Angeles";
+  const now = new Date();
+
+  const nowInLA = DateTime.fromJSDate(now).setZone(LA_TIMEZONE);
+  const todayStartInLA = nowInLA.startOf("day");
+  const todayEndInLA = nowInLA.endOf("day");
+
+  const stats = ensureClientStats(user, location);
+
+  const lastVisitDate = stats?.lastVisit
+    ? DateTime.fromJSDate(stats?.lastVisit).setZone(LA_TIMEZONE)
+    : null;
+
+  const alreadyUpdated = lastVisitDate &&
+    lastVisitDate >= todayStartInLA &&
+    lastVisitDate <= todayEndInLA;
+
+  if (!alreadyUpdated) {
+    stats.lastVisit = now;
+    return true; // updated
+  }
+
+  return false; // not updated
+}
+
 function firstWin(user: IUser, match: MatchData): AchievementEarned[] {
   const userIdStr = user._id.toString();
   const clientId = match.location;
@@ -340,6 +366,7 @@ export async function updateUserAndAchievements(
       newAchievements: AchievementEarned[];
       didVisit: boolean;
       visitDate?: Date;
+      lastVisitDate?: Date;
     }[] = [];
 
     for (const user of users) {
@@ -348,10 +375,6 @@ export async function updateUserAndAchievements(
       
       let didVisit = false;
       let visitDate: Date | undefined = undefined;
-      
-      function isVisitFn(fn: CheckFunction): fn is typeof visit {
-        return fn === visit;
-      }
 
       function isVisitResult(val: unknown): val is VisitResult {
         return typeof val === 'object' &&
@@ -372,6 +395,8 @@ export async function updateUserAndAchievements(
         }
       }
 
+      const lastVisitWasUpdated = updateLastVisit(user, location);
+      const lastVisitDate = lastVisitWasUpdated ? new Date() : undefined;
 
       const newAchievements = allAchievements.filter(a => {
         const existing = clientStats.achievements?.some(ach => ach.name === a.key);
@@ -382,7 +407,8 @@ export async function updateUserAndAchievements(
         user,
         newAchievements,
         didVisit,
-        visitDate
+        visitDate,
+        lastVisitDate
       });
     }
 
@@ -408,7 +434,7 @@ export async function updateUserAndAchievements(
       updateOne: { filter: { _id: Types.ObjectId }; update: UpdateQuery<IUser> };
     }[] = [];
 
-    for (const { user, newAchievements, didVisit, visitDate } of newAchievementsPerUser) {
+    for (const { user, newAchievements, didVisit, visitDate, lastVisitDate } of newAchievementsPerUser) {
       console.log('new achievements:', newAchievements, 'for user:', user.name);
 
       const userIdStr = user._id.toString();
@@ -417,6 +443,7 @@ export async function updateUserAndAchievements(
       const isOnTeam2 = team2Ids.includes(userIdStr);
       
       const statsPrefix = `stats.${location}`;
+
       const updateOps: UpdateQuery<IUser> = {};
 
       const teamScore = isOnTeam1
@@ -425,26 +452,33 @@ export async function updateUserAndAchievements(
         ? matchData.team2Score
         : 0;
 
+      // --- Group all $set operations ---
+      if (lastVisitDate) {
+        updateOps.$set ??= {};
+        updateOps.$set[`${statsPrefix}.lastVisit`] = lastVisitDate;
+      }
+      if (!isWinner) {
+        updateOps.$set ??= {};
+        updateOps.$set[`${statsPrefix}.winStreak`] = 0;
+      }
+
+      // --- Group all $inc operations ---
+      updateOps.$inc ??= {};
+      updateOps.$inc[`${statsPrefix}.${isWinner ? "wins" : "losses"}`] = 1;
+      updateOps.$inc[`${statsPrefix}.pointsWon`] = teamScore;
+      if (isWinner) {
+        updateOps.$inc[`${statsPrefix}.winStreak`] = 1;
+      }
+      
+      // --- Group all $addToSet operations ---
+      updateOps.$addToSet ??= {};
+      updateOps.$addToSet[`${statsPrefix}.matches`] = new Types.ObjectId(matchId);
+      
+      // --- Group all $push operations ---
       if (didVisit && visitDate) {
         updateOps.$push ??= {};
         updateOps.$push[`${statsPrefix}.visits`] = visitDate;
       }
-
-      // If the user is in the winners array, increment wins and streak.
-      updateOps.$inc = {
-        [`${statsPrefix}.${isWinner ? "wins" : "losses"}`]: 1,
-        [`${statsPrefix}.pointsWon`]: teamScore
-      };
-
-      if (!isWinner) {
-        updateOps.$set = { [`${statsPrefix}.winStreak`]: 0 };
-      } else {
-        updateOps.$inc[`${statsPrefix}.winStreak`] = 1;
-      }
-
-      updateOps.$addToSet = {
-        [`${statsPrefix}.matches`]: new Types.ObjectId(matchId)
-      };
 
       const existingAchievementsRaw = user.stats?.get(location)?.achievements;
       const existingAchievements = Array.isArray(existingAchievementsRaw) ? existingAchievementsRaw : [];
@@ -477,7 +511,7 @@ export async function updateUserAndAchievements(
 
       if (achievementEntries.length > 0) {
         updateOps.$push ??= {};
-        updateOps.$push[`${statsPrefix}.achievements`] = { $each: achievementEntries };
+        (updateOps.$push as any)[`${statsPrefix}.achievements`] = { $each: achievementEntries };
       }
 
 
@@ -558,7 +592,12 @@ export async function updateUserAndAchievements(
       if (rewardEntries.length > 0) {
         updateOps.$push ??= {};
         updateOps.$push[`${statsPrefix}.rewards`] = { $each: rewardEntries };
-        }
+      }
+
+      if (updateOps.$set && Object.keys(updateOps.$set).length === 0) delete updateOps.$set;
+      if (updateOps.$inc && Object.keys(updateOps.$inc).length === 0) delete updateOps.$inc;
+      if (updateOps.$push && Object.keys(updateOps.$push).length === 0) delete updateOps.$push;
+      if (updateOps.$addToSet && Object.keys(updateOps.$addToSet).length === 0) delete updateOps.$addToSet;
 
       if (Object.keys(updateOps).length > 0) {
         bulkOperations.push({

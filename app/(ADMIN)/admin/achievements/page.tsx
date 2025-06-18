@@ -260,10 +260,10 @@ export default function Ggupr() {
   : false;
 
   return (
-    <Flex direction={'column'} minHeight={'100vh'} pt={'4'}>
+    <Flex direction={'column'} height={'100vh'}>
 
       {/* Header */}
-      <Flex justify={"between"} align={'center'} direction={"row"} pt={"2"} pb={"5"} px={{initial: '3', md: '9'}}>
+      <Flex justify={"between"} align={'center'} direction={"row"} px={{initial: '3', md: '9'}} py={'4'}>
         <Flex direction={'column'} position={'relative'} maxWidth={'80px'}>
           <Image
             src={darkGgLogo}
@@ -292,7 +292,7 @@ export default function Ggupr() {
         <Flex direction={'column'} style={{backgroundColor: admin?.bannerColor}}>
           <Flex direction={'column'} position={'relative'} height={{initial: '60px', md: '80px'}} my={'5'}>
             <Image
-              src={location.logo}
+              src={location.admin_logo}
               alt="Location logo"
               priority
               fill
@@ -303,7 +303,7 @@ export default function Ggupr() {
       )}
 
       {/* Dashboard */}
-      <Flex direction={'column'} height={'600px'} width={'100vw'} maxWidth={'1500px'} style={{alignSelf: 'center'}}>
+      <Flex direction={'column'} height={'100%'} width={'100vw'} maxWidth={'1500px'} overflow={'hidden'} style={{alignSelf: 'center'}}>
         {!user ? (
           <Flex direction={'column'} justify={'center'} align={'center'} gap={'4'} mt={'9'}>
             <Button
@@ -355,7 +355,7 @@ export default function Ggupr() {
               <Flex direction={'row'} height={'100%'} width={'100%'}>
 
                 {/* Possible achievements */}
-                <Flex direction={'column'} width={'50%'} px={'6'} style={{borderRight: '1px solid #d3d3d3'}}>
+                <Flex direction={'column'} width={'50%'} px={'6'} overflow={'scroll'} style={{borderRight: '1px solid #d3d3d3'}}>
                   {achievementCategoriesError ? (
                     <Callout.Root size={'3'} color="red" >
                       <Callout.Icon>
@@ -454,7 +454,9 @@ export default function Ggupr() {
                               <AlertDialog.Content maxWidth="450px">
                                 <AlertDialog.Title>Are you sure?</AlertDialog.Title>
                                 <AlertDialog.Description>
-                                  All achievements within this category, and their associated rewards, will no longer be able to be earned.
+                                  All achievements within this category, and their associated rewards, 
+                                  will no longer be able to be earned. Any player who has already earned 
+                                  a reward will still be able to redeem.
                                 </AlertDialog.Description>
                                 <Flex gap="4" mt="4" justify="end">
                                   <AlertDialog.Cancel>

@@ -18,6 +18,7 @@ const ClientStatsSubSchema = new Schema({
     type: [Date],
     default: [],
   },
+  lastVisit: { type: Date },
   wins: { type: Number },
   losses: { type: Number },
   winStreak: { type: Number },

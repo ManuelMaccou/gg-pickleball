@@ -312,10 +312,10 @@ export default function Ggupr() {
     selectedAchievement.name in configuredClientRewards;
   
   return (
-    <Flex direction={'column'} minHeight={'100vh'} pt={'4'}>
+    <Flex direction={'column'} height={'100vh'} >
 
       {/* Header */}
-      <Flex justify={"between"} align={'center'} direction={"row"} pt={"2"} pb={"5"} px={{initial: '3', md: '9'}}>
+      <Flex justify={"between"} align={'center'} direction={"row"} px={{initial: '3', md: '9'}} py={'4'}>
         <Flex direction={'column'} position={'relative'} maxWidth={'80px'}>
           <Image
             src={darkGgLogo}
@@ -344,7 +344,7 @@ export default function Ggupr() {
         <Flex direction={'column'} style={{backgroundColor: admin?.bannerColor}}>
           <Flex direction={'column'} position={'relative'} height={{initial: '60px', md: '80px'}} my={'5'}>
             <Image
-              src={location.logo}
+              src={location.admin_logo}
               alt="Location logo"
               priority
               fill
@@ -355,7 +355,7 @@ export default function Ggupr() {
       )}
 
       {/* Dashboard */}
-      <Flex direction={'column'} height={'600px'} width={'100vw'} maxWidth={'1500px'} style={{alignSelf: 'center'}}>
+      <Flex direction={'column'} height={"100%"} width={'100vw'} maxWidth={'1500px'} overflow={'hidden'} style={{alignSelf: 'center'}}>
         {!user ? (
           <Flex direction={'column'} justify={'center'} align={'center'} gap={'4'} mt={'9'}>
             <Button
@@ -407,50 +407,66 @@ export default function Ggupr() {
               <Flex direction={'row'} height={'100%'} width={'100%'}>
 
                 {/* Configured achievements */}
-                <Flex direction={'column'} width={'50%'} px={'6'} style={{borderRight: '1px solid #d3d3d3'}} overflow={'scroll'}>
+                <Flex direction={'column'} width={'50%'} px={'6'} overflow={'scroll'} style={{borderRight: '1px solid #d3d3d3', paddingBottom: '100px'}}>
                   <Text size={'3'} mb={'3'}>Select an achievement</Text>
+                  {!configuredClientAchievements.length ? (
+                    <Flex direction={'column'} gap={'5'} align={'center'}>
+                      <Text size="2" color="gray">
+                        Select the achievements you would like to make available before configuring rewards.
+                      </Text>
+                      <Button
+                        color="blue"
+                        variant="soft"
+                        asChild>
+                          <Link href={"/admin/achievements"} style={{width: '250px'}}>
+                            Select your first achievement
+                          </Link>
+                        </Button>
+                    </Flex>
+                  ) : (
+                    <Flex direction={'column'}>
+                      {configuredClientAchievements
+                      .slice()
+                      .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
+                      .map((clientAchievement) => {
+                      const isConfigured = configuredClientRewards && clientAchievement.name in configuredClientRewards;
 
-                    {configuredClientAchievements
-                    .slice()
-                    .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
-                    .map((clientAchievement) => {
-                    const isConfigured = configuredClientRewards && clientAchievement.name in configuredClientRewards;
+                        return (
+                          <Flex
+                            key={clientAchievement._id.toString()}
+                            direction="row"
+                            justify={'between'}
+                            gap="1"
+                            onClick={() => {
+                              setSelectedAchievement(clientAchievement); 
+                            }}
+                            style={{
+                              cursor: 'pointer',
+                              border: '1px solid #e0e0e0',
+                              padding: '0.75rem',
+                              marginBottom: '0.5rem',
+                              borderRadius: '6px',
+                              background: selectedAchievement?._id.toString() === clientAchievement._id.toString() ? '#e6f7ff' : '#fafafa',
+                              boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                              transition: 'background 0.2s ease',
+                            }}
+                          >
+                            <Text weight="bold">
+                              {clientAchievement.friendlyName.charAt(0).toUpperCase() +
+                                clientAchievement.friendlyName.slice(1)}
+                            </Text>
 
-                      return (
-                        <Flex
-                          key={clientAchievement._id.toString()}
-                          direction="row"
-                          justify={'between'}
-                          gap="1"
-                          onClick={() => {
-                            setSelectedAchievement(clientAchievement); 
-                          }}
-                          style={{
-                            cursor: 'pointer',
-                            border: '1px solid #e0e0e0',
-                            padding: '0.75rem',
-                            marginBottom: '0.5rem',
-                            borderRadius: '6px',
-                            background: selectedAchievement?._id.toString() === clientAchievement._id.toString() ? '#e6f7ff' : '#fafafa',
-                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-                            transition: 'background 0.2s ease',
-                          }}
-                        >
-                          <Text weight="bold">
-                            {clientAchievement.friendlyName.charAt(0).toUpperCase() +
-                              clientAchievement.friendlyName.slice(1)}
-                          </Text>
-
-                          {isConfigured && (
-                            <Badge color="green">
-                              Reward set
-                            </Badge>
-                          )}
-                          
-                        </Flex>
-                      );
-                    })}
-                  
+                            {isConfigured && (
+                              <Badge color="green">
+                                Reward set
+                              </Badge>
+                            )}
+                            
+                          </Flex>
+                        );
+                      })}
+                    </Flex>
+                  )}
                 </Flex>
 
                 {/* Associate reward to achievement */}

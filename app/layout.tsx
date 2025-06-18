@@ -1,22 +1,11 @@
 import type { Metadata } from "next";
 import type { Viewport } from 'next'
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "@radix-ui/themes/styles.css";
 import { Theme } from "@radix-ui/themes";
 import { getResolvedUser } from '@/lib/getResolvedUser'
 import { UserProvider } from "./contexts/UserContext";
 import { CookieWarning } from "./components/CookieWarning";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "GG Pickleball",
@@ -34,7 +23,7 @@ export default async function RootLayout({
 }>) {
   const resolvedUser = await getResolvedUser()
   return (
-   <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
+   <html lang="en">
       <body>
         <Theme appearance="light">
           <UserProvider initialUser={resolvedUser}>

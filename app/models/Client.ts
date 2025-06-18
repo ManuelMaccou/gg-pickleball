@@ -14,6 +14,7 @@ const PodplaySubSchema = new Schema({
 const ClientSchema = new Schema<IClient>({
   name: { type: String, required: true, unique: true },
   logo: { type: String },
+  admin_logo: { type: String },
   icon: { type: String },
   latitude: { type: String },
   longitude: { type: String },

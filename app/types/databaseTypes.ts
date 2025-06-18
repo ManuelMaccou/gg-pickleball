@@ -22,6 +22,7 @@ export interface RewardData {
 
 export interface ClientStats {
   visits?: Date[];
+  lastVisit?: Date;
   wins?: number;
   losses?: number;
   winStreak?: number;
@@ -116,6 +117,7 @@ export interface IClient extends Document {
   latitude: string;
   longitude: string;
   logo: string;
+  admin_logo: string;
   icon: string;
   achievements?: Types.ObjectId[];
   rewardsPerAchievement?: {

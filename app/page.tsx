@@ -2,7 +2,7 @@ import { Button, Card, Flex, Inset, Link, Strong, Text } from "@radix-ui/themes"
 import Image from "next/image";
 import darkGgLogo from "../public/logos/gg_logo_black_transparent.png"
 import lightGgLogo from "../public/logos/gg_logo_white_transparent.png"
-import powerPlayLogo from "../public/partnerLogos/PowerPlay_logo.png"
+import calabasasPbLogo from "../public/partnerLogos/calabasaspb_logo.png"
 import hero1 from "../public/home/hero1.jpg"
 import { Copyright } from "lucide-react";
 
@@ -261,9 +261,12 @@ export default function GGPickleball() {
                 </Text>
               </Flex>
               <Inset clip="padding-box" side="bottom" pt={'current'}>
-                <img
-                  src={'/home/partner-facility.jpg'}
+                <Image
+                  priority
+                  src={'/home/calabasaspb-facility.jpg'}
                   alt="PowerPlay Pickleball"
+                  width={900}
+                  height={600}
                   style={{
                     display: "block",
                     objectFit: "cover",
@@ -283,9 +286,11 @@ export default function GGPickleball() {
                 </Text>
               </Flex>
               <Inset clip="padding-box" side="bottom" pt={'current'}>
-                <img
+                <Image
                   src={'/home/pickleball-share.jpg'}
                   alt="Pickleball players"
+                  width={900}
+                  height={600}
                   style={{
                     display: "block",
                     objectFit: "cover",
@@ -305,9 +310,11 @@ export default function GGPickleball() {
                 </Text>
               </Flex>
               <Inset clip="padding-box" side="bottom" pt={'current'}>
-                <img
+                <Image
                   src={'/home/celebrate.jpg'}
                   alt="Pickleball players"
+                  width={800}
+                  height={533}
                   style={{
                     display: "block",
                     objectFit: "cover",
@@ -323,21 +330,21 @@ export default function GGPickleball() {
       
       {/* Partner */}
       <Flex direction={'column'} py={'7'} width={{initial: '95vw', md: '80vw'}} mb={'7'} maxWidth={'1500px'} style={{backgroundColor: "#313538", borderRadius: '8px'}}>
-        <Flex direction={{initial: 'column-reverse', md: 'row'}} justify={'center'} gap={{initial: '2', md: '9'}}>
+        <Flex direction={{initial: 'column-reverse', md: 'row'}} justify={'center'} align={'center'} gap={{initial: '2', md: '9'}}>
           <Flex direction={'column'} gap={'5'}>
             <Text size={'5'} align={{initial: 'center', md: 'left'}} style={{color: 'white'}}>Play at our partner facility to start earning rewards.</Text>
             <Button size={'3'} radius="full" asChild mx={'9'}>
-              <Link target="_blank" href="https://maps.app.goo.gl/9nEevuLUuHhn5VCz7">Get directions</Link>
+              <Link target="_blank" href="https://maps.app.goo.gl/5SQ4izAPSspzDUi87">Get directions</Link>
             </Button>
           </Flex>
           <Flex direction={'column'} position={'relative'} align={'center'}>
             <Image
-              src={powerPlayLogo}
-              alt="PowerPlay Pickleball Logo"
-              height={94}
-              width={306}
+              src={calabasasPbLogo}
+              alt="Calabasas Pickleball Club Logo"
+              height={594}
+              width={594}
               style={{
-                width: '300px',
+                width: '150px',
                 height: 'auto',
               }}
             />

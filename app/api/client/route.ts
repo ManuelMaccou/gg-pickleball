@@ -13,20 +13,25 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
 
-    const { name, logo, latitude, longitude, achievements, rewardsPerAchievement } = body as Partial<IClient> & { name: string };
+    const { name, logo, icon, shopify, podplay, retailSoftware, reservationSoftware, latitude, longitude, achievements, rewardsPerAchievement } = body as Partial<IClient> & { name: string };
 
-    if (!name) {
-      logError(new Error('Request body did not include name'), {
+    if (!name || !logo || !icon) {
+      logError(new Error('Request body did not include required fields: name, logo, icon'), {
         endpoint: 'POST /api/client',
         task: 'Creating a client'
       });
 
-      return NextResponse.json({ error: 'Name is required' }, { status: 400 });
+      return NextResponse.json({ error: 'Required fields are missing' }, { status: 400 });
     }
 
     const newClient = new Client({
       name,
       logo,
+      icon,
+      shopify,
+      podplay,
+      retailSoftware,
+      reservationSoftware,
       latitude,
       longitude,
       achievements: achievements || [],

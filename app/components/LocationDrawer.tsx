@@ -54,7 +54,12 @@ export default function LocationDrawer({ allClients, currentClient, onLocationCh
           </DrawerHeader>
 
           <Flex direction="column" gap="4" mt={'5'} style={{marginTop: '30px'}}>
-            {allClients.map((client: IClient) => (
+            {allClients
+            .filter((client: IClient) => 
+              Array.isArray(client.achievements) && client.achievements.length > 0 &&
+              client.rewardsPerAchievement && Object.keys(client.rewardsPerAchievement).length > 0
+            )
+            .map((client: IClient) => (
               <DrawerClose asChild key={client._id.toString()}>
                 <Card onClick={() => handleSelectLocation(client)}>
                   <Flex direction={'column'} align="center" style={{marginBottom: '30px'}}>
