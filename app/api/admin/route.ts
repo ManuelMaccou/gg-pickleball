@@ -1,10 +1,19 @@
 import { Types } from "mongoose";
 import Admin from "@/app/models/Admin";
 import connectToDatabase from "@/lib/mongodb";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { logError } from "@/lib/sentry/logger";
+import { getAuthorizedUser } from "@/lib/auth/getAuthorizeduser";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
+  const user = await getAuthorizedUser(request)
+  console.log('authd user:', user)
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  console.log('made it')
+  
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get("userId");
 
@@ -46,7 +55,12 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const user = await getAuthorizedUser(request)
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   try {
     await connectToDatabase();
 

@@ -49,6 +49,13 @@ export interface IUser extends Document {
   stats: Map<string,ClientStats>;
 }
 
+export type ResolvedUser = {
+  id: string
+  name: string
+  email?: string
+  isGuest: boolean
+}
+
 export interface IMatch extends Document {
   _id: Types.ObjectId;
   matchId?: number;
