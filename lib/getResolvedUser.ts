@@ -1,13 +1,9 @@
 import { auth0 } from '@/lib/auth0'
 import { headers } from 'next/headers'
 import { getOrCreateGuestUser, getOrCreateAuthenticatedUser } from './db/users'
+import { ResolvedUser } from '@/app/types/databaseTypes'
 
-export type ResolvedUser = {
-  id: string
-  name: string
-  email?: string
-  isGuest: boolean
-}
+
 
 export async function getResolvedUser(): Promise<ResolvedUser | null> {
 
