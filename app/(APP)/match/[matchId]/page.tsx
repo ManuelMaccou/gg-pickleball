@@ -113,9 +113,15 @@ function GgpickleballMatchPage() {
     if (!tempName.trim()) return;
 
     try {
+      const res = await fetch('/api/user/guest/request-token')
+      const { token } = await res.json()
+
       const response = await fetch('/api/user/guest', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+           'x-guest-init-token': token,
+        },
         body: JSON.stringify({ guestName: tempName })
       });
 
@@ -407,7 +413,7 @@ function GgpickleballMatchPage() {
               alt="Location logo"
               priority
               fill
-              style={{objectFit: 'contain'}}
+              style={{objectFit: 'contain', paddingRight: '20px', paddingLeft: '20px'}}
             />
           )}
         </Flex>

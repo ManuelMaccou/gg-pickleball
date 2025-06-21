@@ -5,6 +5,12 @@ import { logError } from '@/lib/sentry/logger';
 import { Types } from 'mongoose';
 
 export async function POST(req: NextRequest) {
+
+const apiKey = req.headers.get('x-api-key');
+  if (apiKey !== process.env.INTERNAL_API_KEY) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+    
   await connectToDatabase();
 
   let team1: { players: Types.ObjectId[]; score: number } | undefined,

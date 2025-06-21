@@ -1,9 +1,17 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
 import Reward from '@/app/models/Reward';
 import { logError } from '@/lib/sentry/logger';
+import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser';
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+
+  const user = await getAuthorizedUser(req)
+  console.log('authd user:', user)
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  
   try {
     await connectToDatabase();
     const { rewardIds }: { rewardIds: string[] } = await req.json();

@@ -3,8 +3,16 @@ import connectToDatabase from '@/lib/mongodb';
 import Reward from '@/app/models/Reward';
 import { IReward } from '@/app/types/databaseTypes';
 import { logError } from '@/lib/sentry/logger';
+import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser';
 
 export async function POST(req: NextRequest) {
+
+  const user = await getAuthorizedUser(req)
+  console.log('authd user:', user)
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   try {
     await connectToDatabase();
 
@@ -34,6 +42,13 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+
+  const user = await getAuthorizedUser(req)
+  console.log('authd user:', user)
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   try {
     await connectToDatabase();
 
@@ -71,6 +86,13 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+
+  const user = await getAuthorizedUser(req)
+  console.log('authd user:', user)
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   try {
     await connectToDatabase();
     const rewardId = req.nextUrl.searchParams.get('id');
@@ -93,7 +115,6 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
-
 
 export async function GET(req: NextRequest) {
   try {

@@ -1,9 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import connectToDatabase from '@/lib/mongodb';
 import User from '@/app/models/User';
 import { escapeRegex } from '@/utils/escapeRegex';
 import { logError } from '@/lib/sentry/logger';
+import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser';
 
 await connectToDatabase();
 
@@ -17,7 +18,14 @@ type UserUpdatePayload = {
   dupr?: DuprFields;
 };
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+
+  const user = await getAuthorizedUser(request)
+  console.log('authd user:', user)
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   let name: string | undefined,
     auth0Id: string | undefined;
 
@@ -125,9 +133,14 @@ function buildUpdateOperation(body: UserUpdatePayload) {
   return { $set: updateOp };
 }
 
+export async function PATCH(req: NextRequest) {
 
+  const user = await getAuthorizedUser(req)
+  console.log('authd user:', user)
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
-export async function PATCH(req: Request) {
   try {
     await connectToDatabase();
 
