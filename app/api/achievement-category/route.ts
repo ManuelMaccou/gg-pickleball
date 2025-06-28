@@ -7,9 +7,9 @@ import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser';
 
 export async function POST(req: NextRequest) {
   const user = await getAuthorizedUser(req);
-  // if (!user) {
-    // return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  // }
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
   try {
     await connectToDatabase();
