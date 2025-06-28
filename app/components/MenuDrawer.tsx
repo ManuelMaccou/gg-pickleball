@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useState } from "react";
 import {
-  AlertDialog,
+  Dialog,
   Button,
   Flex,
   Switch,
@@ -149,18 +149,18 @@ const handleToggleDuprActivation = async (newValue: boolean) => {
 
   return (
 
-    <AlertDialog.Root>
-      <AlertDialog.Trigger>
+    <Dialog.Root>
+      <Dialog.Trigger>
         <Flex direction="column" justify="center" align="center" mx="4">
         <HamburgerMenuIcon width="30px" height="30px" />
       </Flex>
-      </AlertDialog.Trigger>
+      </Dialog.Trigger>
 
-      <AlertDialog.Content>
+      <Dialog.Content>
        <Flex direction="column">
         <VisuallyHidden>
-          <AlertDialog.Title>Edit profile</AlertDialog.Title>
-          <AlertDialog.Description>Edit profile</AlertDialog.Description>
+          <Dialog.Title>Edit profile</Dialog.Title>
+          <Dialog.Description>Edit profile</Dialog.Description>
         </VisuallyHidden>
          
             <Flex direction="column" gap="4" height={'80vh'}>
@@ -171,9 +171,9 @@ const handleToggleDuprActivation = async (newValue: boolean) => {
                   </Button>
                 )}
                 
-                <AlertDialog.Cancel>
+                <Dialog.Close>
                   <Cross2Icon height={25} width={25} />
-                </AlertDialog.Cancel>
+                </Dialog.Close>
               </Flex>
               
                {isAuthorized ? (
@@ -278,7 +278,7 @@ const handleToggleDuprActivation = async (newValue: boolean) => {
           </Flex>
           
         </Flex>
-      </AlertDialog.Content>
-    </AlertDialog.Root>
+      </Dialog.Content>
+    </Dialog.Root>
   );
 }
