@@ -9,7 +9,6 @@ import { getAuthorizedUser } from "@/lib/auth/getAuthorizeduser";
 export async function GET(request: NextRequest) {
   
   const user = await getAuthorizedUser(request)
-  console.log('authd user:', user)
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }

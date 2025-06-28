@@ -126,12 +126,18 @@ export interface IClient extends Document {
   logo: string;
   admin_logo: string;
   icon: string;
+  facilityCode: string;
+  altAchievements?: Types.ObjectId[];
+  altRewardsPerAchievement?: {
+    [achievementId: string]: IReward;
+  };
   achievements?: Types.ObjectId[];
   rewardsPerAchievement?: {
     [achievementId: string]: IReward;
   };
   retailSoftware: "shopify" | "playbypoint";
   reservationSoftware: "playbypoint" | "podplay" | "courtreserve";
+  rewardConfigStatus?: "pending" | "active";
   shopify?: ShopifyData;
   podplay?: PodplayData;
 }
@@ -146,11 +152,12 @@ export interface IAdmin extends Document {
 export interface IRewardCode {
   _id: Types.ObjectId;
   code: string;
-  userId: Types.ObjectId;
+  userId?: Types.ObjectId;
   clientId: Types.ObjectId;
   achievementId: Types.ObjectId;
   reward: IReward;
   redeemed: boolean;
   redemptionDate?: Date;
+  addedToPos?: boolean;
   createdAt: Date;
 }

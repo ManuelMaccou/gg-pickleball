@@ -18,6 +18,15 @@ const ClientSchema = new Schema<IClient>({
   icon: { type: String },
   latitude: { type: String },
   longitude: { type: String },
+  facilityCode: { type: String },
+  altAchievements: [
+    { type: Schema.Types.ObjectId, ref: 'Achievement', required: true,  default: [] },
+  ],
+  altRewardsPerAchievement: {
+    type: Map,
+    of: { type: Schema.Types.ObjectId, ref: 'Reward' },
+    default: {}
+  },
   achievements: [
     { type: Schema.Types.ObjectId, ref: 'Achievement', required: true,  default: [] },
   ],
@@ -33,6 +42,11 @@ const ClientSchema = new Schema<IClient>({
   reservationSoftware: {
     type: String,
     enum: ['playbypoint', 'podplay', 'courtreserve'],
+  },
+  rewardConfigStatus: {
+    type : String ,
+    enum: ['pending', 'active'],
+    default: 'active',
   },
   shopify: { type: ShopifySubSchema },
   podplay: { type: PodplaySubSchema }

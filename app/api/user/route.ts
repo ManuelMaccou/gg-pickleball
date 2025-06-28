@@ -21,7 +21,6 @@ type UserUpdatePayload = {
 export async function POST(request: NextRequest) {
 
   const user = await getAuthorizedUser(request)
-  console.log('authd user:', user)
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -136,7 +135,6 @@ function buildUpdateOperation(body: UserUpdatePayload) {
 export async function PATCH(req: NextRequest) {
 
   const user = await getAuthorizedUser(req)
-  console.log('authd user:', user)
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }

@@ -27,6 +27,7 @@ export async function generateAndSavePodPlayDiscountCodes(
         reward: task.reward,
         clientId: clientId,
         redeemed: false,
+        addedToPos: true,
       });
       result.set(task.reward._id.toString(), rewardCodeDoc._id);
     } catch (err) {

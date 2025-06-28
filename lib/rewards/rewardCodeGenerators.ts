@@ -2,6 +2,7 @@ import { Types } from 'mongoose';
 import { generateAndSaveShopifyDiscountCodes } from './generateAndSaveShopifyDiscountCodes';
 import { RewardCodeTask } from '@/app/types/rewardTypes';
 import { generateAndSavePodPlayDiscountCodes } from './generateAndSavePodplayDiscountCodes';
+import { assignPlayByPointDiscountCodes } from './assignPlayByPointDiscountCodes';
 
 export type RewardCodeGenerator = (
   tasks: RewardCodeTask[],
@@ -10,9 +11,9 @@ export type RewardCodeGenerator = (
 
 const rewardCodeGenerators: Record<string, RewardCodeGenerator> = {
   'retail:shopify': generateAndSaveShopifyDiscountCodes,
-  'programming:podplay': generateAndSavePodPlayDiscountCodes
-  // 'retail:playbypoint': generateAndSavePlayByPointDiscountCodes, // future
-  // 'programming:courtreserve': generateAndSaveCourtReserveCodes,
+  'programming:podplay': generateAndSavePodPlayDiscountCodes,
+  'retail:playbypoint': assignPlayByPointDiscountCodes,
+  'programming:playbypoint': assignPlayByPointDiscountCodes,
 };
 
 export function getRewardCodeGenerator(category: string, software: string): RewardCodeGenerator | undefined {

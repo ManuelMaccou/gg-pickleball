@@ -10,7 +10,6 @@ import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser';
 
 export async function POST(req: NextRequest) {
   const user = await getAuthorizedUser(req)
-  console.log('authd user:', user)
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -110,21 +109,28 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(req: NextRequest) {
-  let clientId: string | undefined,
-    achievements: string[] | undefined,
-    rewardsPerAchievement: Record<string, string> | undefined,
-    removeRewardForAchievement: string[] | undefined;
-
+  let clientId: string | undefined;
 
   try {
     await connectToDatabase();
 
-    const body = await req.json();
+    const {
+      clientId: bodyClientId,
+      achievements,
+      rewardsPerAchievement,
+      removeRewardForAchievement,
+      rewardContext = 'default',
+      achievementContext = 'default',
+    }: {
+      clientId?: string;
+      achievements?: string[];
+      rewardsPerAchievement?: Record<string, string>;
+      removeRewardForAchievement?: string[];
+      rewardContext?: 'default' | 'alt';
+      achievementContext?: 'default' | 'alt';
+    } = await req.json();
 
-    clientId = body.clientId;
-    achievements = body.achievements;
-    rewardsPerAchievement = body.rewardsPerAchievement;
-    removeRewardForAchievement = body.removeRewardForAchievement;
+     clientId = bodyClientId;
 
     if (!clientId || !Types.ObjectId.isValid(clientId)) {
       logError(new Error('Invalid or missing client ID'), {
@@ -148,24 +154,34 @@ export async function PATCH(req: NextRequest) {
 
     const removedRewardIds: string[] = [];
 
-    if (achievements) {
-      client.achievements = achievements;
+    if (achievementContext === 'alt' || rewardContext === 'alt') {
+      client.rewardConfigStatus = 'pending'
     }
+
+    const achievementFieldKey =
+      achievementContext === 'alt' ? 'altAchievements' : 'achievements';
+
+    if (achievements) {
+      client[achievementFieldKey] = achievements;
+    }
+
+    const rewardFieldKey =
+      rewardContext === 'alt' ? 'altRewardsPerAchievement' : 'rewardsPerAchievement';
 
     if (Array.isArray(removeRewardForAchievement)) {
       for (const achievementKey of removeRewardForAchievement) {
-        const rewardId = client.rewardsPerAchievement.get(achievementKey);
+        const rewardId = client[rewardFieldKey]?.get(achievementKey);
         if (rewardId) {
           removedRewardIds.push(rewardId.toString());
         }
-        client.rewardsPerAchievement.delete(achievementKey);
+        client[rewardFieldKey]?.delete(achievementKey);
       }
     }
 
     if (rewardsPerAchievement) {
       for (const [achievementKey, rewardId] of Object.entries(rewardsPerAchievement)) {
         if (Types.ObjectId.isValid(rewardId)) {
-          client.rewardsPerAchievement.set(achievementKey, new Types.ObjectId(rewardId));
+          client[rewardFieldKey]?.set(achievementKey, new Types.ObjectId(rewardId));
         } else {
           console.warn(`Invalid rewardId for achievement "${achievementKey}": ${rewardId}`);
         }
@@ -173,7 +189,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     await client.save();
-    await client.populate('achievements');
+    await client.populate(achievementContext === 'alt' ? 'altAchievements' : 'achievements');
 
     return NextResponse.json({
       message: 'Client updated successfully',

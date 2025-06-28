@@ -550,8 +550,11 @@ export async function updateUserAndAchievements(
             ? client.retailSoftware
             : client.reservationSoftware;
 
+
         const generator = getRewardCodeGenerator(category, software);
 
+        console.log('found reward code generator:', generator)
+        
         if (generator && rewardsInCategory.length > 0) {
           const tasks = rewardsInCategory.map(reward => {
             const achievementId = rewardToAchievementId.get(reward._id.toString());

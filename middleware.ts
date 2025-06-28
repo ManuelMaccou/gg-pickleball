@@ -8,7 +8,7 @@ const secret = new TextEncoder().encode(GUEST_SECRET)
 export async function middleware(request: NextRequest) {
   const response = await auth0.middleware(request)
 
-  const session = await auth0.getSession();
+  const session = await auth0.getSession(request);
   const guestToken = request.cookies.get('guestToken')?.value
 
   let guestUserName: string | null = null

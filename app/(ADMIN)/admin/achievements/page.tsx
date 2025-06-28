@@ -25,8 +25,10 @@ export default function GgpickleballAdminAchievements() {
   const [isGettingAllAchievementCategories, setIsGettingAllAchievementCategories] = useState<boolean>(true);
   const [allAchievementCategories, setAllAchievementCategories] = useState<IAchievementCategory[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<IAchievementCategory | null>(null);
+  const [rewardConfigStatus, setRewardConfigStatus] = useState<string | null>(null);
   const [achievementCategoriesError, setAchievementCategoriesError] = useState<string | null>(null);
   const [configuredClientAchievements, setConfiguredClientAchievements] = useState<IAchievement[]>([]);
+  const [isSettingCategoryAchievements, setIsSettingCategoryAchievements] = useState<boolean>(false);
   const [isRemovingCategoryAchievements, setIsRemovingCategoryAchievements] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [adminError, setAdminError] = useState<string | null>(null);
@@ -106,7 +108,10 @@ export default function GgpickleballAdminAchievements() {
 
     const getClientAchievements = async () => {
       try {
-        const response = await fetch(`/api/client/achievements?clientId=${location._id}`);
+        const achievementContext = location?.reservationSoftware === 'playbypoint' ? 'alt' : 'default';
+        const rewardContext = location?.reservationSoftware === 'playbypoint' ? 'alt' : 'default';
+
+        const response = await fetch(`/api/client/achievements?clientId=${location._id}&achievementContext=${achievementContext}&rewardContext=${rewardContext}`);
         const data = await response.json();
   
         if (!response.ok) {
@@ -114,6 +119,8 @@ export default function GgpickleballAdminAchievements() {
         }
   
         setConfiguredClientAchievements(data.achievements);
+        setRewardConfigStatus(data.rewardConfigStatus);
+
       } catch (error: unknown) {
         console.error("Error fetching updated client data:", error);
       
@@ -132,6 +139,10 @@ export default function GgpickleballAdminAchievements() {
     if (!selectedCategory || !client?._id) return;
 
     try {
+      setIsSettingCategoryAchievements(true)
+
+      const achievementContext = location?.reservationSoftware === 'playbypoint' ? 'alt' : 'default';
+
       // Step 1: Fetch all achievements in this category
       const categoryResponse = await fetch(`/api/achievement/category?id=${selectedCategory._id}`);
       const categoryData = await categoryResponse.json();
@@ -155,6 +166,7 @@ export default function GgpickleballAdminAchievements() {
         body: JSON.stringify({
           clientId: client._id,
           achievements: mergedAchievementIds,
+          achievementContext,
         }),
       });
 
@@ -166,11 +178,18 @@ export default function GgpickleballAdminAchievements() {
 
       console.log('patch data:', patchData)
 
-      setConfiguredClientAchievements(patchData.client.achievements);
-      console.log('updating client state with:', patchData.client.achievements)
+      const achievementFieldKey =
+        achievementContext === 'alt' ? 'altAchievements' : 'achievements';
+
+        console.log('updated achievements:', patchData.client[achievementFieldKey])
+
+      setConfiguredClientAchievements(patchData.client[achievementFieldKey]);
+      console.log('updating client state with:', patchData.client[achievementFieldKey])
 
     } catch (error: unknown) {
       console.error("Error updating client achievements:", error);
+    } finally {
+      setIsSettingCategoryAchievements(false)
     }
   };
 
@@ -180,6 +199,9 @@ export default function GgpickleballAdminAchievements() {
     setIsRemovingCategoryAchievements(true)
 
     try {
+      const achievementContext = location?.reservationSoftware === 'playbypoint' ? 'alt' : 'default';
+      const rewardContext = location?.reservationSoftware === 'playbypoint' ? 'alt' : 'default';
+
       // Get all achievements for this category
       const categoryResponse = await fetch(`/api/achievement/category?id=${selectedCategory._id}`);
       const categoryData = await categoryResponse.json();
@@ -208,6 +230,8 @@ export default function GgpickleballAdminAchievements() {
           clientId: client._id,
           achievements: remainingAchievementIds,
           removeRewardForAchievement: removedAchievements,
+          achievementContext,
+          rewardContext,
         }),
       });
 
@@ -236,7 +260,12 @@ export default function GgpickleballAdminAchievements() {
         });
       }
 
-      setConfiguredClientAchievements(patchData.client.achievements);
+      const achievementFieldKey =
+        achievementContext === 'alt' ? 'altAchievements' : 'achievements';
+
+        console.log('updated achievements:', patchData.client[achievementFieldKey])
+
+      setConfiguredClientAchievements(patchData.client[achievementFieldKey]);
     } catch (error) {
       console.error("Error removing category achievements:", error);
     } finally {
@@ -289,7 +318,7 @@ export default function GgpickleballAdminAchievements() {
        
       {/* Location Logo */}
       {location && (
-        <Flex direction={'column'} style={{backgroundColor: admin?.bannerColor}}>
+        <Flex direction={'column'} style={{backgroundColor: admin?.bannerColor, boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)', zIndex: 2}}>
           <Flex direction={'column'} position={'relative'} height={{initial: '60px', md: '80px'}} my={'5'}>
             <Image
               src={location.admin_logo}
@@ -299,6 +328,13 @@ export default function GgpickleballAdminAchievements() {
               style={{objectFit: 'contain'}}
             />
           </Flex>
+        </Flex>
+      )}
+
+      {/* Reward config status banner */}
+      {rewardConfigStatus === "pending" && (
+        <Flex direction={'column'} py={'3'} justify={'center'} align={'center'} style={{backgroundColor: "red", boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)', zIndex: 2}}>
+          <Text weight={'bold'} style={{color: 'white'}}>The below settings are pending. Please allow 24 hours.</Text>
         </Flex>
       )}
 
@@ -467,6 +503,7 @@ export default function GgpickleballAdminAchievements() {
                                   <AlertDialog.Action>
                                     <Button
                                       color="red"
+                                      disabled={!location}
                                       onClick={() => handleRemoveCategoryAchievements(location)}
                                     >
                                       Deactivate
@@ -480,7 +517,10 @@ export default function GgpickleballAdminAchievements() {
 
 
                           ) : (
-                            <Button onClick={() => handleAddAndRefreshClientAchievements(location)}>
+                            <Button
+                              disabled={!location}
+                              loading={isSettingCategoryAchievements}
+                              onClick={() => handleAddAndRefreshClientAchievements(location)}>
                               Activate
                             </Button>
                           )}

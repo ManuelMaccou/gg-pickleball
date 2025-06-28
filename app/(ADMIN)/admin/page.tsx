@@ -273,7 +273,7 @@ export default function GgpickleballAdmin() {
        
       {/* Location Logo */}
       {location && (
-        <Flex direction={'column'} style={{backgroundColor: admin?.bannerColor}}>
+        <Flex direction={'column'} style={{backgroundColor: admin?.bannerColor, boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)', zIndex: 2}}>
           <Flex direction={'column'} position={'relative'} height={{initial: '60px', md: '80px'}} my={'5'}>
             <Image
               src={location.admin_logo}

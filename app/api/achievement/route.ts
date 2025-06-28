@@ -8,7 +8,6 @@ import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser';
 export async function POST(req: NextRequest) {
 
   const user = await getAuthorizedUser(req)
-  console.log('authd user:', user)
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }

@@ -26,6 +26,7 @@ export default function GgpickleballAdminRewards() {
   const [selectedAchievement, setSelectedAchievement] = useState<IAchievement | null>(null);
   const [configuredClientAchievements, setConfiguredClientAchievements] = useState<IAchievement[]>([]);
   const [configuredClientRewards, setConfiguredClientRewards] = useState<Record<string, IReward> | null>(null);
+  const [rewardConfigStatus, setRewardConfigStatus] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [adminError, setAdminError] = useState<string | null>(null);
   const [discountAmount, setDiscountAmount] = useState<number | null>(null);
@@ -83,7 +84,10 @@ export default function GgpickleballAdminRewards() {
 
     const getClientAchievements = async () => {
       try {
-        const response = await fetch(`/api/client/achievements?clientId=${location._id}`);
+        const achievementContext = location?.reservationSoftware === 'playbypoint' ? 'alt' : 'default';
+        const rewardContext = location?.reservationSoftware === 'playbypoint' ? 'alt' : 'default';
+
+        const response = await fetch(`/api/client/achievements?clientId=${location._id}&achievementContext=${achievementContext}&rewardContext=${rewardContext}`);
         const data = await response.json();
   
         if (!response.ok) {
@@ -92,6 +96,10 @@ export default function GgpickleballAdminRewards() {
   
         setConfiguredClientAchievements(data.achievements);
         setConfiguredClientRewards(data.rewardsPerAchievement);
+        setRewardConfigStatus(data.rewardConfigStatus);
+
+        console.log("status:", data.rewardConfigStatus)
+
       } catch (error: unknown) {
         console.error("Error fetching updated client data:", error);
         if (error instanceof Error) {
@@ -208,6 +216,8 @@ export default function GgpickleballAdminRewards() {
 
 
     if (!existingRewardId) {
+      const rewardContext = location?.reservationSoftware === 'playbypoint' ? 'alt' : 'default';
+
       const patchResponse = await fetch('/api/client', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -216,6 +226,7 @@ export default function GgpickleballAdminRewards() {
           rewardsPerAchievement: {
             [selectedAchievement.name]: rewardId,
           },
+          rewardContext,
         }),
       });
   
@@ -264,12 +275,15 @@ export default function GgpickleballAdminRewards() {
       }
 
       // Remove reference from client
+      const rewardContext = location?.reservationSoftware === 'playbypoint' ? 'alt' : 'default';
+
       const patchResponse = await fetch('/api/client', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           clientId: location?._id,
           removeRewardForAchievement: [selectedAchievement.name],
+          rewardContext,
         }),
       });
 
@@ -341,7 +355,7 @@ export default function GgpickleballAdminRewards() {
        
       {/* Location Logo */}
       {location && (
-        <Flex direction={'column'} style={{backgroundColor: admin?.bannerColor}}>
+        <Flex direction={'column'} style={{backgroundColor: admin?.bannerColor, boxShadow: rewardConfigStatus === 'pending' ? '0 2px 4px rgba(0, 0, 0, 0.1)' : '', zIndex: 2}}>
           <Flex direction={'column'} position={'relative'} height={{initial: '60px', md: '80px'}} my={'5'}>
             <Image
               src={location.admin_logo}
@@ -351,6 +365,13 @@ export default function GgpickleballAdminRewards() {
               style={{objectFit: 'contain'}}
             />
           </Flex>
+        </Flex>
+      )}
+
+      {/* Reward config status banner */}
+      {rewardConfigStatus === "pending" && (
+        <Flex direction={'column'} py={'3'} justify={'center'} align={'center'} style={{backgroundColor: "red", boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)', zIndex: 2}}>
+          <Text weight={'bold'} style={{color: 'white'}}>The below settings are pending. Please allow 24 hours.</Text>
         </Flex>
       )}
 
@@ -531,7 +552,7 @@ export default function GgpickleballAdminRewards() {
                             <Button
                               size={'2'}
                               loading={isSavingReward}
-                              disabled={!discountAmount || !discountType || !discountProduct || !selectedAchievement}
+                              disabled={!discountAmount || !discountType || !discountProduct || !selectedAchievement || !location}
                               onClick={handleSaveReward}
                               style={{width: '100px'}}
                             >

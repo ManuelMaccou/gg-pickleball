@@ -7,6 +7,8 @@ import { logError } from '@/lib/sentry/logger';
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const clientId = searchParams.get('clientId');
+  const achievementContext = searchParams.get('achievementContext');
+  const rewardContext = searchParams.get('rewardContext');
 
   try {
     await connectToDatabase();
@@ -20,9 +22,15 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid or missing clientId' }, { status: 400 });
     }
 
+    const achievementFieldKey =
+      achievementContext === 'alt' ? 'altAchievements' : 'achievements';
+
+    const rewardFieldKey =
+      rewardContext === 'alt' ? 'altRewardsPerAchievement' : 'rewardsPerAchievement';
+
     const client = await Client.findById(clientId)
-    .populate('achievements')
-    .populate("rewardsPerAchievement");
+    .populate(achievementFieldKey)
+    .populate(rewardFieldKey);
 
     if (!client) {
       logError(new Error('Client not found'), {
@@ -33,10 +41,16 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Client not found' }, { status: 404 });
     }
 
+    const rewardsMap = client[rewardFieldKey];
+    const rewardsPerAchievement =
+      rewardsMap instanceof Map ? Object.fromEntries(rewardsMap.entries()) : {};
+
     return NextResponse.json({
-      achievements: client.achievements,
-      rewardsPerAchievement: Object.fromEntries(client.rewardsPerAchievement.entries()),
+      achievements: client[achievementFieldKey],
+      rewardsPerAchievement,
+      rewardConfigStatus: client.rewardConfigStatus,
     });
+
   } catch (error) {
     logError(error, {
       message: `Error fetching client achievements & rewards for ClientId: ${clientId}`,
