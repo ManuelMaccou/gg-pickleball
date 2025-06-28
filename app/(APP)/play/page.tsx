@@ -176,7 +176,7 @@ export default function Play() {
 
     useEffect(() => {
     console.log("PARENT RENDER, user is:", dbUser?._id);
-  }, [user])
+  }, [dbUser])
 
   
   const userStatsForClient = clientId ? dbUser?.stats?.[clientId] : undefined;
@@ -246,7 +246,7 @@ export default function Play() {
                Log in
             </Button>
             )}
-            {user && !isFetchingUser && (
+            {dbUser && !isFetchingUser && (
               <MenuDrawer isAuthorized={!!auth0User} user={dbUser}/>
             )}
           </Flex>
