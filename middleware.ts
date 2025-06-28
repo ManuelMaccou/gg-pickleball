@@ -12,6 +12,7 @@ export async function middleware(request: NextRequest) {
   const guestToken = request.cookies.get('guestToken')?.value
 
   let guestUserName: string | null = null
+  console.log('Middleware hit:', request.method, request.nextUrl.pathname);
 
   if (guestToken) {
     try {
@@ -43,6 +44,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)",
   ],
 }
