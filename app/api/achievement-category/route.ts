@@ -3,7 +3,7 @@ import connectToDatabase from '@/lib/mongodb';
 import { IAchievementCategory } from '@/app/types/databaseTypes';
 import { logError } from '@/lib/sentry/logger';
 import AchievementCategory from '@/app/models/AchievementCategory';
-import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser';
+// import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser';
 
 export async function POST(req: NextRequest) {
   // const user = await getAuthorizedUser(req);
