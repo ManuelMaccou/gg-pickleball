@@ -29,3 +29,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Failed to check dupr status" }, { status: 500 });
   }
 }
+
+export async function GET() {
+  return NextResponse.json({ message: 'GET reached this route' });
+}
