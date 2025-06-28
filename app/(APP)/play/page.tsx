@@ -207,6 +207,10 @@ export default function Play() {
     )
   }
 
+  useEffect(() => {
+    console.log("PARENT RENDER, user is:", dbUser?._id);
+  }, [user])
+
 
   return (
 

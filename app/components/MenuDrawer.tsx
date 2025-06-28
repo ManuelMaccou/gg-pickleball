@@ -39,6 +39,8 @@ export default function MenuDrawer({ user, isAuthorized }: LocationDrawerProps) 
   const [duprActivationError, setDuprActivationError] = useState<string | null>(null);
   const [duprActivationSuccess, setDuprActivationSuccess] = useState(false);
 
+  console.log("MENU DRAWER RENDER, user prop is:", user?._id);
+
   const handleSaveDisplayName = async () => {
     setDisplayNameLoading(true);
     setDisplayNameError(null);
