@@ -371,7 +371,7 @@ export default function GgpickleballAdminRewards() {
       {/* Reward config status banner */}
       {rewardConfigStatus === "pending" && (
         <Flex direction={'column'} py={'3'} justify={'center'} align={'center'} style={{backgroundColor: "red", boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)', zIndex: 2}}>
-          <Text weight={'bold'} style={{color: 'white'}}>The below settings are pending. Please allow 24 hours.</Text>
+          <Text weight={'bold'} style={{color: 'white'}}>Please allow 24 hours for changes to take effect.</Text>
         </Flex>
       )}
 
