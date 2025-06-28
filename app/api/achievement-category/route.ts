@@ -32,7 +32,10 @@ export async function POST(req: NextRequest) {
 
       const newAchievementCategory = new AchievementCategory({ name, description, milestones });
       await newAchievementCategory.save();
+      console.log(`Saved category: ${name}`);
+
       createdCategories.push(newAchievementCategory);
+      console.log('Created:', newAchievementCategory);
     }
 
     return NextResponse.json({ message: 'Achievement categories created', createdCategories }, { status: 201 });
