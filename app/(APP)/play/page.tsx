@@ -173,6 +173,11 @@ export default function Play() {
   
     fetchUser()
   }, [user, auth0User])  
+
+    useEffect(() => {
+    console.log("PARENT RENDER, user is:", dbUser?._id);
+  }, [user])
+
   
   const userStatsForClient = clientId ? dbUser?.stats?.[clientId] : undefined;
   if (userStatsForClient && !Array.isArray(userStatsForClient.rewards)) {
@@ -206,7 +211,6 @@ export default function Play() {
       </Flex>
     )
   }
-
 
   return (
 
