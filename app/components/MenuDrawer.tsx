@@ -15,7 +15,6 @@ import Image from "next/image";
 import { Cross2Icon, HamburgerMenuIcon } from "@radix-ui/react-icons";
 import { FrontendUser } from "../types/frontendTypes";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 
 interface LocationDrawerProps {
   user: FrontendUser | null;
@@ -169,7 +168,7 @@ const handleToggleDuprActivation = async (newValue: boolean) => {
               <Flex direction={isAuthorized ? 'row' : 'column'} justify={isAuthorized ? 'between' : 'start'} align={isAuthorized ? 'center' : 'end'} mb={'5'}>
                 {isAuthorized && (
                   <Button variant="outline" asChild>
-                    <Link href={'/auth/logout'}>Log out</Link>
+                    <a href={'/auth/logout'}>Log out</a>
                   </Button>
                 )}
                 
@@ -225,7 +224,7 @@ const handleToggleDuprActivation = async (newValue: boolean) => {
                     We can&apos;t upload your match until you&apos;ve joined our club on DUPR.
                   </Text>
                   <Button size={'2'} asChild mt={'2'} style={{backgroundColor: 'white'}}>
-                    <Link href={'https://dashboard.dupr.com/dashboard/browse/clubs/7456531284'} target="blank">Join</Link>
+                    <a href={'https://dashboard.dupr.com/dashboard/browse/clubs/7456531284'} target="blank" rel="noopener noreferrer">Join</a>
                   </Button>
                 </Flex>
 
