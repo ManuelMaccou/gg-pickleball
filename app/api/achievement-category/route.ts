@@ -6,36 +6,41 @@ import AchievementCategory from '@/app/models/AchievementCategory';
 import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser';
 
 export async function POST(req: NextRequest) {
+  const user = await getAuthorizedUser(req);
+  // if (!user) {
+    // return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  // }
 
-  const user = await getAuthorizedUser(req)
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-    
   try {
     await connectToDatabase();
 
     const body = await req.json();
 
-    const { name, description, milestones } = body as IAchievementCategory;
+    const categories = Array.isArray(body) ? body : [body];
+    const createdCategories = [];
 
-    if (!name || !description ) {
-      logError(new Error('Name or description not provided.'), {
-        endpoint: 'POST /api/achievement-catory',
-        task: 'Saving a new achievement category'
-      });
+    for (const cat of categories) {
+      const { name, description, milestones } = cat as IAchievementCategory;
 
-      return NextResponse.json({ error: 'Name and description are required' }, { status: 400 });
+      if (!name || !description) {
+        logError(new Error('Name or description not provided for one of the categories'), {
+          endpoint: 'POST /api/achievement-category',
+          task: 'Saving achievement categories'
+        });
+        continue; // Skip invalid entry
+      }
+
+      const newAchievementCategory = new AchievementCategory({ name, description, milestones });
+      await newAchievementCategory.save();
+      createdCategories.push(newAchievementCategory);
     }
 
-    const newAchievementCategory = new AchievementCategory({ name, description, milestones });
-    await newAchievementCategory.save();
+    return NextResponse.json({ message: 'Achievement categories created', createdCategories }, { status: 201 });
 
-    return NextResponse.json({ message: 'Achievement category created', AchievementCategory: newAchievementCategory }, { status: 201 });
   } catch (error) {
-     logError(error, {
+    logError(error, {
       endpoint: 'POST /api/achievement-category',
-      message: 'Failed to create new achievement category',
+      message: 'Failed to create achievement categories',
     });
 
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
