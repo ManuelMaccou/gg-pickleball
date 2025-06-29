@@ -12,7 +12,6 @@ export async function middleware(request: NextRequest) {
   const guestToken = request.cookies.get('guestToken')?.value
 
   let guestUserName: string | null = null
-  console.log('Middleware hit:', request.method, request.nextUrl.pathname);
 
   if (guestToken) {
     try {

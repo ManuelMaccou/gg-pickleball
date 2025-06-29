@@ -19,9 +19,10 @@ import { useRouter } from "next/navigation";
 interface LocationDrawerProps {
   user: FrontendUser | null;
   isAuthorized: boolean;
+  onUserUpdate: (user: FrontendUser | null) => void;
 }
 
-export default function MenuDrawer({ user, isAuthorized }: LocationDrawerProps) {
+export default function MenuDrawer({ user, isAuthorized, onUserUpdate }: LocationDrawerProps) {
   const router = useRouter();
   
   const [displayName, setDisplayName] = useState(user?.name || "");
@@ -37,8 +38,6 @@ export default function MenuDrawer({ user, isAuthorized }: LocationDrawerProps) 
   const [duprActivated, setDuprActivated] = useState<boolean>(user?.dupr?.activated || false);
   const [duprActivationError, setDuprActivationError] = useState<string | null>(null);
   const [duprActivationSuccess, setDuprActivationSuccess] = useState(false);
-
-  console.log("MENU DRAWER RENDER, user prop is:", user?._id);
 
   const handleSaveDisplayName = async () => {
     setDisplayNameLoading(true);
@@ -63,6 +62,9 @@ export default function MenuDrawer({ user, isAuthorized }: LocationDrawerProps) 
         throw new Error(error || "Failed to update user.");
       }
 
+      const updatedUser = await response.json();
+
+      onUserUpdate(updatedUser)
       setDisplayNameSuccess(true);
     } catch (err: unknown) {
       if (err instanceof Error) {

@@ -25,7 +25,6 @@ export default function Play() {
   const router = useRouter();
   const { user: auth0User, isLoading } = useAuth0User();
   const { user } = useUserContext(); 
-  const userName = user?.name
 
   const [allClients, setAllClients] = useState<IClient[]>([])
   const [currentClient, setCurrentClient] = useState<IClient | null>(null)
@@ -174,10 +173,6 @@ export default function Play() {
     fetchUser()
   }, [user, auth0User])  
 
-    useEffect(() => {
-    console.log("PARENT RENDER, user is:", dbUser?._id);
-  }, [dbUser])
-
   
   const userStatsForClient = clientId ? dbUser?.stats?.[clientId] : undefined;
   if (userStatsForClient && !Array.isArray(userStatsForClient.rewards)) {
@@ -229,10 +224,10 @@ export default function Play() {
         {!isLoading && (
           <Flex direction={'row'} justify={'center'} align={'center'}>
             <Text size={'3'} weight={'bold'} align={'right'}>
-              {userName ? (
+              {dbUser?.name ? (
                 auth0User 
-                  ? (String(userName).includes('@') ? String(userName).split('@')[0] : userName)
-                  : `${String(userName).includes('@') ? String(userName).split('@')[0] : userName} (guest)`
+                  ? (String(dbUser.name).includes('@') ? String(dbUser.name).split('@')[0] : dbUser.name)
+                  : `${String(dbUser.name).includes('@') ? String(dbUser.name).split('@')[0] : dbUser.name} (guest)`
               ) : ''}
             </Text>
             {!user?.isGuest && (
@@ -247,7 +242,11 @@ export default function Play() {
             </Button>
             )}
             {dbUser && !isFetchingUser && (
-              <MenuDrawer isAuthorized={!!auth0User} user={dbUser}/>
+              <MenuDrawer
+                isAuthorized={!!auth0User}
+                user={dbUser}
+                onUserUpdate={setDbUser}
+              />
             )}
           </Flex>
         )}
