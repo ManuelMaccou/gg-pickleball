@@ -11,6 +11,11 @@ const PodplaySubSchema = new Schema({
   accessToken: { type: String },
 });
 
+const PlayByPointSubSchema = new Schema({
+  facilityId: { type: Number },
+  affiliations: [{ type: String }]
+});
+
 const ClientSchema = new Schema<IClient>({
   name: { type: String, required: true, unique: true },
   logo: { type: String },
@@ -49,6 +54,7 @@ const ClientSchema = new Schema<IClient>({
     default: 'active',
   },
   shopify: { type: ShopifySubSchema },
+  playbypoint: { type: PlayByPointSubSchema },
   podplay: { type: PodplaySubSchema }
 }, { timestamps: true });
 

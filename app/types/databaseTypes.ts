@@ -42,6 +42,7 @@ export interface IUser extends Document {
   _id: Types.ObjectId;
   name: string;
   auth0Id?: string;
+  superAdmin?: string;
   email?: string;
   dupr?: IDupr;
   profilePicture?: string;
@@ -54,6 +55,7 @@ export type ResolvedUser = {
   name: string
   email?: string
   isGuest: boolean
+  superAdmin?: boolean
 }
 
 export interface IMatch extends Document {
@@ -118,6 +120,11 @@ export interface PodplayData {
   accessToken: string;
 }
 
+export interface PlayByPointData {
+  facilityId: number;
+  affiliations: string[];
+}
+
 export interface IClient extends Document {
   _id: Types.ObjectId;
   name: string;
@@ -139,6 +146,7 @@ export interface IClient extends Document {
   reservationSoftware: "playbypoint" | "podplay" | "courtreserve";
   rewardConfigStatus?: "pending" | "active";
   shopify?: ShopifyData;
+  playbypoint?: PlayByPointData;
   podplay?: PodplayData;
 }
 

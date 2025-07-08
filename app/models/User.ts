@@ -46,6 +46,7 @@ const UserSchema = new Schema<IUser>(
     name: { type: String, required: true, unique: true },
     email: { type: String },
     auth0Id: { type: String },
+    superAdmin: { type: Boolean },
     profilePicture: { type: String },
     dupr: { type: DuprSchema },
     lastLocation: { type: Schema.Types.ObjectId, ref: "Client" },

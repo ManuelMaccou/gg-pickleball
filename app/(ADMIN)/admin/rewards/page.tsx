@@ -10,16 +10,21 @@ import Image from "next/image";
 import darkGgLogo from '../../../../public/logos/gg_logo_black_transparent.png'
 import { IAchievement, IAdmin, IClient, IReward } from "@/app/types/databaseTypes";
 import Link from "next/link";
+import { useIsMobile } from "@/app/hooks/useIsMobile";
+import MobileMenu from "../components/MobileMenu";
+import MobileConfigureRewardsForm from "../components/MobileConfigureRewardsForm";
 
 export default function GgpickleballAdminRewards() {
 
   const { user } = useUserContext();
   const router = useRouter();
+  const isMobile =useIsMobile();
 
   const userId = user?.id
   const userName = user?.name
   
   const { user: auth0User, isLoading: auth0IsLoading } = useAuth0User();
+  const [isMobileRewardOpen, setIsMobileRewardOpen] = useState(false);
   const [admin, setAdmin] = useState<IAdmin | null>(null);
   const [location, setLocation] = useState<IClient | null>(null);
   const [isGettingAdmin, setIsGettingAdmin] = useState<boolean>(true);
@@ -320,10 +325,21 @@ export default function GgpickleballAdminRewards() {
     }
   }, [isGettingAdmin])
 
-  const isSelectedAchievementConfigured =
+  const isSelectedAchievementConfigured = Boolean(
     selectedAchievement?.name &&
     configuredClientRewards &&
-    selectedAchievement.name in configuredClientRewards;
+    selectedAchievement.name in configuredClientRewards
+  );
+
+  useEffect(() => {
+    if (!auth0IsLoading && !user) {
+      router.push(`/auth/login?returnTo=/admin/rewards`)
+    }
+  })
+
+  if (isMobile === null) {
+    return null;
+  }
   
   return (
     <Flex direction={'column'} height={'100vh'} >
@@ -341,7 +357,7 @@ export default function GgpickleballAdminRewards() {
         </Flex>
 
         {!auth0IsLoading && (
-          <Flex direction={'column'} justify={'center'}>
+          <Flex direction={'row'} justify={'center'} align={'center'}>
             <Text size={'3'} weight={'bold'} align={'right'}>
               {userName ? (
                 auth0User 
@@ -349,6 +365,11 @@ export default function GgpickleballAdminRewards() {
                   : `${String(userName).includes('@') ? String(userName).split('@')[0] : userName} (guest)`
               ) : ''}
             </Text>
+
+            {isMobile && (
+              <MobileMenu />
+            )}
+
           </Flex>
         )}
       </Flex>
@@ -376,18 +397,8 @@ export default function GgpickleballAdminRewards() {
       )}
 
       {/* Dashboard */}
-      <Flex direction={'column'} height={"100%"} width={'100vw'} maxWidth={'1500px'} overflow={'hidden'} style={{alignSelf: 'center'}}>
-        {!user ? (
-          <Flex direction={'column'} justify={'center'} align={'center'} gap={'4'} mt={'9'}>
-            <Button
-              size={'3'}
-              variant='ghost'
-              onClick={() => router.push(`/auth/login?returnTo=/admin`)}
-            >
-              Please log in
-            </Button>
-          </Flex>
-        ) : adminError ? (
+      <Flex direction={'column'} height={"100%"} width={'100vw'} maxWidth={'1500px'} overflow={'hidden'} px={'4'} style={{alignSelf: 'center'}}>
+        {adminError ? (
           <>
             <Flex direction={'column'} justify={'center'} gap={'4'} display={'flex'}>
               <Callout.Root size={'3'} color="red" >
@@ -408,27 +419,29 @@ export default function GgpickleballAdminRewards() {
           <Flex direction={'row'} height={'100%'}>
             
             {/* Left sidebar nav */}
-            <Flex direction={'column'} width={'250px'} py={'4'} px={'2'} style={{backgroundColor: '#F1F1F1', borderRight: '1px solid #d3d3d3'}}>
-              <Flex direction={'column'} gap={'3'} px={'2'}>
-                <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
-                  <Link href={'/admin'}>Dashboard</Link>
-                </Flex>
-                <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
-                  <Link href={'/admin/achievements'}>Set achievements</Link>
-                </Flex>
-                <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
-                  <Link href={'/admin/rewards'} style={{backgroundColor: 'white', borderRadius: '10px'}}>Configure rewards</Link>
+            {!isMobile && (
+              <Flex direction={'column'} width={'250px'} py={'4'} px={'2'} style={{backgroundColor: '#F1F1F1', borderRight: '1px solid #d3d3d3'}}>
+                <Flex direction={'column'} gap={'3'} px={'2'}>
+                  <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
+                    <Link href={'/admin'}>Dashboard</Link>
+                  </Flex>
+                  <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
+                    <Link href={'/admin/achievements'}>Set achievements</Link>
+                  </Flex>
+                  <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
+                    <Link href={'/admin/rewards'} style={{backgroundColor: 'white', borderRadius: '10px'}}>Configure rewards</Link>
+                  </Flex>
                 </Flex>
               </Flex>
-            </Flex>
+            )}
 
             {/* Container */}
             <Flex direction={'column'} py={'4'} width={'100%'}>
-               <Heading mx={'6'} mb={'6'}>Configure Rewards</Heading>
+               <Heading mx={{initial: '0', md: '6'}} mb={'6'}>Configure Rewards</Heading>
               <Flex direction={'row'} height={'100%'} width={'100%'}>
 
                 {/* Configured achievements */}
-                <Flex direction={'column'} width={'50%'} px={'6'} overflow={'scroll'} style={{borderRight: '1px solid #d3d3d3', paddingBottom: '100px'}}>
+                <Flex direction={'column'} width={{initial: '100%', md: '50%'}} px={{initial: '0', md: '6'}} overflow={'scroll'} style={{...(isMobile ? {} : {borderRight: '1px solid #d3d3d3', paddingBottom: '100px'})}}>
                   <Text size={'3'} mb={'3'}>Select an achievement</Text>
                   {!configuredClientAchievements.length ? (
                     <Flex direction={'column'} gap={'5'} align={'center'}>
@@ -455,11 +468,12 @@ export default function GgpickleballAdminRewards() {
                         return (
                           <Flex
                             key={clientAchievement._id.toString()}
-                            direction="row"
+                            direction={'row'}
                             justify={'between'}
                             gap="1"
                             onClick={() => {
-                              setSelectedAchievement(clientAchievement); 
+                              setSelectedAchievement(clientAchievement);
+                              if (isMobile) setIsMobileRewardOpen(true);
                             }}
                             style={{
                               cursor: 'pointer',
@@ -491,142 +505,165 @@ export default function GgpickleballAdminRewards() {
                 </Flex>
 
                 {/* Associate reward to achievement */}
-                <Flex direction="column" width="50%" px="6" gap={'3'}>
-                  <Text size="3">Set reward</Text>
+                {!isMobile && (
+                  <Flex direction="column" width="50%" px="6" gap={'3'}>
+                    <Text size="3">Set reward</Text>
 
-                  {selectedAchievement ? (
-                    <Flex direction={'column'} gap={'5'}>
-                      <Flex direction={'column'}>
-                        <Text size="4" weight="bold">
-                          {selectedAchievement.friendlyName.charAt(0).toUpperCase() + selectedAchievement.friendlyName.slice(1)}
-                        </Text>
-                      </Flex>
-                      <Flex direction={'column'} gap={'5'} maxWidth={'80%'}>
+                    {selectedAchievement ? (
+                      <Flex direction={'column'} gap={'5'}>
+                        <Flex direction={'column'}>
+                          <Text size="4" weight="bold">
+                            {selectedAchievement.friendlyName.charAt(0).toUpperCase() + selectedAchievement.friendlyName.slice(1)}
+                          </Text>
+                        </Flex>
+                        <Flex direction={'column'} gap={'5'} maxWidth={'80%'}>
 
-                        <Flex direction={'column'} gap={'2'}>
-                          <Text size={'3'}>Discount</Text>
-                          <Flex direction={'row'} gap={'3'} justify={'between'} width={'100%'} flexGrow={'1'}>
-                            <TextField.Root
-                              type="number"
-                              placeholder="Discount amount"
-                              value={discountAmount ?? ''}
-                              style={{flexGrow: '1'}}
-                              onChange={(e) => {
-                                const value = e.target.value;
-                                const numeric = Number(value);
-                                setDiscountAmount(value === '' || isNaN(numeric) ? null : numeric);
-                              }}
-                            />
-                            <SegmentedControl.Root
-                              value={discountType}
-                              onValueChange={(value) => {
-                                setDiscountType(value as "percent" | "dollars");
-                              }}
-                            >
-                              <SegmentedControl.Item value="percent">Percent</SegmentedControl.Item>
-                              <SegmentedControl.Item value="dollars">Dollars</SegmentedControl.Item>
-                            </SegmentedControl.Root>
+                          <Flex direction={'column'} gap={'2'}>
+                            <Text size={'3'}>Discount</Text>
+                            <Flex direction={'row'} gap={'3'} justify={'between'} width={'100%'} flexGrow={'1'}>
+                              <TextField.Root
+                                type="number"
+                                placeholder="Discount amount"
+                                value={discountAmount ?? ''}
+                                style={{flexGrow: '1'}}
+                                onChange={(e) => {
+                                  const value = e.target.value;
+                                  const numeric = Number(value);
+                                  setDiscountAmount(value === '' || isNaN(numeric) ? null : numeric);
+                                }}
+                              />
+                              <SegmentedControl.Root
+                                value={discountType}
+                                onValueChange={(value) => {
+                                  setDiscountType(value as "percent" | "dollars");
+                                }}
+                              >
+                                <SegmentedControl.Item value="percent">Percent</SegmentedControl.Item>
+                                <SegmentedControl.Item value="dollars">Dollars</SegmentedControl.Item>
+                              </SegmentedControl.Root>
+                            </Flex>
                           </Flex>
-                        </Flex>
 
-                        <Flex direction={'column'} gap={'2'}>
-                          <Text size={'3'}>Product</Text>
-                          <Text size={'1'} mt={'-2'}><Em> The product category to discount</Em></Text>
-                          <Select.Root
-                            size="2"
-                            value={discountProduct}
-                            onValueChange={(value) => {
-                              setDiscountProduct(value as "open play" | "reservation" | "pro shop");
-                            }}
-                          >
-                            <Select.Trigger />
-                            <Select.Content>
-                              <Select.Item value="reservation">Court reservation</Select.Item>
-                              <Select.Item value="open play">Open Play</Select.Item>
-                              <Select.Item value="pro shop">Pro shop</Select.Item>
-                            </Select.Content>
-                          </Select.Root>
-                        </Flex>
-                        <Flex direction={'column'} maxWidth={'300px'}>
-                          <Flex direction={'row'} justify={'between'} align={'center'}>
-                            <Button
-                              size={'2'}
-                              loading={isSavingReward}
-                              disabled={!discountAmount || !discountType || !discountProduct || !selectedAchievement || !location}
-                              onClick={handleSaveReward}
-                              style={{width: '100px'}}
+                          <Flex direction={'column'} gap={'2'}>
+                            <Text size={'3'}>Product</Text>
+                            <Text size={'1'} mt={'-2'}><Em> The product category to discount</Em></Text>
+                            <Select.Root
+                              size="2"
+                              value={discountProduct}
+                              onValueChange={(value) => {
+                                setDiscountProduct(value as "open play" | "reservation" | "pro shop");
+                              }}
                             >
-                              Save
-                            </Button>
-                            {isSelectedAchievementConfigured && (
-                              <AlertDialog.Root>
-                                <AlertDialog.Trigger>
-                                  <Button
-                                    loading={isRemovingReward}
-                                    variant="ghost"
-                                    color="red"
-                                  >
-                                    Remove Reward
-                                  </Button>
-                                </AlertDialog.Trigger>
-                                <AlertDialog.Content maxWidth="450px">
-                                  <AlertDialog.Title>Are you sure?</AlertDialog.Title>
-                                  <AlertDialog.Description>
-                                    Please confirm you no longer want this reward to be earned. 
-                                    Any player who has already earned it will still be able to redeem.
-                                  </AlertDialog.Description>
-
-                                  <Flex gap="4" mt="4" justify="end" align={'center'}>
-                                    <AlertDialog.Cancel>
-                                      <Button variant="soft" color="gray">
-                                        Cancel
-                                      </Button>
-                                    </AlertDialog.Cancel>
-                                    <AlertDialog.Action>
-                                      <Button
-                                      size={'2'}
+                              <Select.Trigger />
+                              <Select.Content>
+                                <Select.Item value="reservation">Court reservation</Select.Item>
+                                <Select.Item value="open play">Open Play</Select.Item>
+                                <Select.Item value="pro shop">Pro shop</Select.Item>
+                              </Select.Content>
+                            </Select.Root>
+                          </Flex>
+                          <Flex direction={'column'} maxWidth={'300px'}>
+                            <Flex direction={'row'} justify={'between'} align={'center'}>
+                              <Button
+                                size={'2'}
+                                loading={isSavingReward}
+                                disabled={!discountAmount || !discountType || !discountProduct || !selectedAchievement || !location}
+                                onClick={handleSaveReward}
+                                style={{width: '100px'}}
+                              >
+                                Save
+                              </Button>
+                              {isSelectedAchievementConfigured && (
+                                <AlertDialog.Root>
+                                  <AlertDialog.Trigger>
+                                    <Button
+                                      loading={isRemovingReward}
+                                      variant="ghost"
                                       color="red"
-                                      disabled={!selectedAchievement}
-                                      onClick={handleRemoveReward}
                                     >
-                                      Remove reward
+                                      Remove Reward
                                     </Button>
-                                    </AlertDialog.Action>
-                                  </Flex>
-                                </AlertDialog.Content>
-                              </AlertDialog.Root>
+                                  </AlertDialog.Trigger>
+                                  <AlertDialog.Content maxWidth="450px">
+                                    <AlertDialog.Title>Are you sure?</AlertDialog.Title>
+                                    <AlertDialog.Description>
+                                      Please confirm you no longer want this reward to be earned. 
+                                      Any player who has already earned it will still be able to redeem.
+                                    </AlertDialog.Description>
+
+                                    <Flex gap="4" mt="4" justify="end" align={'center'}>
+                                      <AlertDialog.Cancel>
+                                        <Button variant="soft" color="gray">
+                                          Cancel
+                                        </Button>
+                                      </AlertDialog.Cancel>
+                                      <AlertDialog.Action>
+                                        <Button
+                                        size={'2'}
+                                        color="red"
+                                        disabled={!selectedAchievement}
+                                        onClick={handleRemoveReward}
+                                      >
+                                        Remove reward
+                                      </Button>
+                                      </AlertDialog.Action>
+                                    </Flex>
+                                  </AlertDialog.Content>
+                                </AlertDialog.Root>
+                              )}
+                            </Flex>
+
+                            {rewardSuccess && (
+                              <Text mt={'3'} size={'2'} color="green">
+                                Reward successfully updated
+                              </Text>
+                            )}
+                            {rewardError && (
+                              <Text mt={'3'} size={'2'} color="red">
+                                There was an error saving the reward. We&apos;re investigating.
+                              </Text>
                             )}
                           </Flex>
 
-                          {rewardSuccess && (
-                            <Text mt={'3'} size={'2'} color="green">
-                              Reward successfully updated
-                            </Text>
-                          )}
-                          {rewardError && (
-                            <Text mt={'3'} size={'2'} color="red">
-                              There was an error saving the reward. We&apos;re investigating.
-                            </Text>
-                          )}
-                        </Flex>
-
-                        <Flex direction={'row'} gap={'2'}>
-                          <Text size={'3'}>Create a custom reward</Text>
-                          <Link href={'mailto:manuel@ggpickleball.co'} target="blank" style={{color: 'blue', textDecoration: 'underline'}}>Contact us</Link>
+                          <Flex direction={'row'} gap={'2'}>
+                            <Text size={'3'}>Create a custom reward</Text>
+                            <Link href={'mailto:manuel@ggpickleball.co'} target="blank" style={{color: 'blue', textDecoration: 'underline'}}>Contact us</Link>
+                          </Flex>
                         </Flex>
                       </Flex>
-                    </Flex>
-                  ) : (
-                    <Text size="2" color="gray">
-                      Click an achievement to set a reward.
-                    </Text>
-                  )}
-                </Flex>
+                    ) : (
+                      <Text size="2" color="gray">
+                        Click an achievement to set a reward.
+                      </Text>
+                    )}
+                  </Flex>
+                )}
+                
               </Flex>
             </Flex>
           </Flex>
         )}
       </Flex>
+      {isMobile && selectedAchievement && (
+        <MobileConfigureRewardsForm
+          open={isMobileRewardOpen}
+          onOpenChange={setIsMobileRewardOpen}
+          selectedAchievement={selectedAchievement}
+          discountAmount={discountAmount}
+          discountType={discountType}
+          discountProduct={discountProduct}
+          isSavingReward={isSavingReward}
+          isRemovingReward={isRemovingReward}
+          isConfigured={isSelectedAchievementConfigured}
+          rewardSuccess={rewardSuccess}
+          rewardError={rewardError}
+          onSetAmount={setDiscountAmount}
+          onSetType={setDiscountType}
+          onSetProduct={setDiscountProduct}
+          onSave={handleSaveReward}
+          onRemove={handleRemoveReward}
+        />
+      )}
     </Flex>
   )
 }
