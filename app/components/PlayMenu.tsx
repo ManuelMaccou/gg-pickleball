@@ -22,7 +22,7 @@ interface LocationDrawerProps {
   onUserUpdate: (user: FrontendUser | null) => void;
 }
 
-export default function MenuDrawer({ user, isAuthorized, onUserUpdate }: LocationDrawerProps) {
+export default function PlayMenu({ user, isAuthorized, onUserUpdate }: LocationDrawerProps) {
   const router = useRouter();
   
   const [displayName, setDisplayName] = useState(user?.name || "");

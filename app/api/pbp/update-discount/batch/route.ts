@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const browser = await chromium.launch({ headless: false, slowMo: 50 });
+  const browser = await chromium.launch({ slowMo: 50 });
   const context = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
   const page = await context.newPage();
 
@@ -67,6 +67,7 @@ export async function POST(request: Request) {
       const payload = {
         facility_id: 1122,
         coupon: {
+          id: 14390,
           code: codeName,
           description: description || `${codeName} discount`,
           quantity: String(quantity),
@@ -89,8 +90,8 @@ export async function POST(request: Request) {
 
       const response = await page.evaluate(
         async ({ token, payload }) => {
-          const res = await fetch('/api/coupons', {
-            method: 'POST',
+          const res = await fetch('/api/coupons/14390', {
+            method: 'PUT',
             headers: {
               'Content-Type': 'application/json',
               'X-CSRF-Token': token,

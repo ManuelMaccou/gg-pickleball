@@ -17,7 +17,7 @@ import { useIsMobile } from '@/app/hooks/useIsMobile';
 import { Types } from "mongoose";
 import MatchHistory from "@/components/sections/MatchHistory";
 import { HowToDialog } from "./components/HowToDialog";
-import MenuDrawer from "@/app/components/MenuDrawer";
+import PlayMenu from "@/app/components/PlayMenu";
 
 export default function Play() {
 
@@ -242,7 +242,7 @@ export default function Play() {
             </Button>
             )}
             {dbUser && !isFetchingUser && (
-              <MenuDrawer
+              <PlayMenu
                 isAuthorized={!!auth0User}
                 user={dbUser}
                 onUserUpdate={setDbUser}

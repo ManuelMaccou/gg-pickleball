@@ -10,15 +10,21 @@ import Image from "next/image";
 import darkGgLogo from '../../../../public/logos/gg_logo_black_transparent.png'
 import { IAchievement, IAchievementCategory, IAdmin, IClient } from "@/app/types/databaseTypes";
 import Link from "next/link";
+import { useIsMobile } from "@/app/hooks/useIsMobile";
+import MobileMenu from "../components/MobileMenu";
+import MobileAchievementDetails from "../components/MobileAchievementDetails";
 
 export default function GgpickleballAdminAchievements() {
 
   const { user } = useUserContext();
   const router = useRouter();
+  const isMobile =useIsMobile();
+
   const userId = user?.id
   const userName = user?.name
   
   const { user: auth0User, isLoading: auth0IsLoading } = useAuth0User();
+  const [isMobileDetailsOpen, setIsMobileDetailsOpen] = useState(false);
   const [admin, setAdmin] = useState<IAdmin | null>(null);
   const [location, setLocation] = useState<IClient | null>(null);
   const [isGettingAdmin, setIsGettingAdmin] = useState<boolean>(true);
@@ -134,6 +140,13 @@ export default function GgpickleballAdminAchievements() {
 
     getClientAchievements();
   }, [location])
+
+  const handleCategoryClick = (category: IAchievementCategory) => {
+    setSelectedCategory(category);
+    if (isMobile) {
+      setIsMobileDetailsOpen(true);
+    }
+  };
 
   const handleAddAndRefreshClientAchievements = async (client: IClient) => {
     if (!selectedCategory || !client?._id) return;
@@ -288,6 +301,16 @@ export default function GgpickleballAdminAchievements() {
     )
   : false;
 
+  useEffect(() => {
+    if (!auth0IsLoading && !user) {
+      router.push(`/auth/login?returnTo=/admin/achievements`)
+    }
+  })
+
+  if (isMobile === null) {
+    return null;
+  }
+
   return (
     <Flex direction={'column'} height={'100vh'}>
 
@@ -304,7 +327,7 @@ export default function GgpickleballAdminAchievements() {
         </Flex>
 
         {!auth0IsLoading && (
-          <Flex direction={'column'} justify={'center'}>
+          <Flex direction={'row'} justify={'center'} align={'center'}>
             <Text size={'3'} weight={'bold'} align={'right'}>
               {userName ? (
                 auth0User 
@@ -312,6 +335,11 @@ export default function GgpickleballAdminAchievements() {
                   : `${String(userName).includes('@') ? String(userName).split('@')[0] : userName} (guest)`
               ) : ''}
             </Text>
+
+            {isMobile && (
+              <MobileMenu />
+            )}
+
           </Flex>
         )}
       </Flex>
@@ -339,18 +367,8 @@ export default function GgpickleballAdminAchievements() {
       )}
 
       {/* Dashboard */}
-      <Flex direction={'column'} height={'100%'} width={'100vw'} maxWidth={'1500px'} overflow={'hidden'} style={{alignSelf: 'center'}}>
-        {!user ? (
-          <Flex direction={'column'} justify={'center'} align={'center'} gap={'4'} mt={'9'}>
-            <Button
-              size={'3'}
-              variant='ghost'
-              onClick={() => router.push(`/auth/login?returnTo=/admin`)}
-            >
-              Please log in
-            </Button>
-          </Flex>
-        ) : adminError ? (
+      <Flex direction={'column'} height={'100%'} width={'100vw'} maxWidth={'1500px'} overflow={'hidden'} px={'4'} style={{alignSelf: 'center'}}>
+        {adminError ? (
           <>
             <Flex direction={'column'} justify={'center'} gap={'4'} display={'flex'}>
               <Callout.Root size={'3'} color="red" >
@@ -371,27 +389,29 @@ export default function GgpickleballAdminAchievements() {
           <Flex direction={'row'} height={'100%'}>
             
             {/* Left sidebar nav */}
-            <Flex direction={'column'} width={'250px'} py={'4'} px={'2'} style={{backgroundColor: '#F1F1F1', borderRight: '1px solid #d3d3d3'}}>
-              <Flex direction={'column'} gap={'3'} px={'2'}>
-                <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
-                  <Link href={'/admin'}>Dashboard</Link>
-                </Flex>
-                <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
-                  <Link href={'/admin/achievements'} style={{backgroundColor: 'white', borderRadius: '10px'}}>Set achievements</Link>
-                </Flex>
-                <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
-                  <Link href={'/admin/rewards'}>Configure rewards</Link>
+            {!isMobile && (
+              <Flex direction={'column'} width={'250px'} py={'4'} px={'2'} style={{backgroundColor: '#F1F1F1', borderRight: '1px solid #d3d3d3'}}>
+                <Flex direction={'column'} gap={'3'} px={'2'}>
+                  <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
+                    <Link href={'/admin'}>Dashboard</Link>
+                  </Flex>
+                  <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
+                    <Link href={'/admin/achievements'} style={{backgroundColor: 'white', borderRadius: '10px'}}>Set achievements</Link>
+                  </Flex>
+                  <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
+                    <Link href={'/admin/rewards'}>Configure rewards</Link>
+                  </Flex>
                 </Flex>
               </Flex>
-            </Flex>
+            )}
 
             {/* Container */}
             <Flex direction={'column'} py={'4'} width={'100%'}>
-               <Heading mx={'6'} mb={'6'}>Set Achievements</Heading>
-              <Flex direction={'row'} height={'100%'} width={'100%'}>
+              <Heading mx={{initial: '0', md: '6'}} mb={'6'}>Set Achievements</Heading>
+              <Flex direction={{initial: 'column', md: 'row'}} height={'100%'} width={'100%'}>
 
                 {/* Possible achievements */}
-                <Flex direction={'column'} width={'50%'} px={'6'} overflow={'scroll'} style={{borderRight: '1px solid #d3d3d3'}}>
+                <Flex direction={'column'} width={{initial: '100%', md: '50%'}} px={{initial: '0', md: '6'}} overflow={'scroll'} style={{...(isMobile ? {} : { borderRight: '1px solid #d3d3d3' })}}>
                   {achievementCategoriesError ? (
                     <Callout.Root size={'3'} color="red" >
                       <Callout.Icon>
@@ -420,7 +440,7 @@ export default function GgpickleballAdminAchievements() {
                             direction="row"
                             justify={'between'}
                             gap="1"
-                            onClick={() => setSelectedCategory(achievementCategory)}
+                            onClick={() => handleCategoryClick(achievementCategory)}
                             style={{
                               cursor: 'pointer',
                               border: '1px solid #e0e0e0',
@@ -448,101 +468,119 @@ export default function GgpickleballAdminAchievements() {
                 </Flex>
 
                 {/* Achievement details */}
-                <Flex direction="column" width="50%" px="6" gap={'3'}>
-                  <Text size="3">
-                    Achievement details
-                  </Text>
-
-                  {selectedCategory && location ? (
-                    <>
-                      <Flex direction={'column'} mb={'4'}>
-                        <Text size="4" weight="bold">
-                          {selectedCategory.name.charAt(0).toUpperCase() + selectedCategory.name.slice(1)}
-                        </Text>
-                        <Text size="3">
-                          {selectedCategory.description}
-                        </Text>
-                      </Flex>
-                      <Flex direction={'column'} gap={'3'}>
-                        {selectedCategory && selectedCategory.milestones && selectedCategory.milestones?.length > 0 && (
-                          <>
-                            <Text size="3" weight={'bold'}>
-                              Available milestones
-                            </Text>
-                            <Text size={'1'} mt={'-3'}><Em>Not every milestone has to be rewarded</Em></Text>
-                            <Text>{selectedCategory.milestones?.join(', ')}</Text>
-                          </>
-                        )}
-                          
-
-                        <Flex direction={'column'} width={'200px'} mt={'4'}>
-                          {isSelectedCategoryActive ? (
-                            <AlertDialog.Root>
-                              <AlertDialog.Trigger>
-                                <Button
-                                  variant="soft"
-                                  color="red"
-                                  loading={isRemovingCategoryAchievements}
-                                >
-                                  Deactivate
-                                </Button>
-                              </AlertDialog.Trigger>
-                              <AlertDialog.Content maxWidth="450px">
-                                <AlertDialog.Title>Are you sure?</AlertDialog.Title>
-                                <AlertDialog.Description>
-                                  All achievements within this category, and their associated rewards, 
-                                  will no longer be able to be earned. Any player who has already earned 
-                                  a reward will still be able to redeem.
-                                </AlertDialog.Description>
-                                <Flex gap="4" mt="4" justify="end">
-                                  <AlertDialog.Cancel>
-                                    <Button variant="soft" color="gray">
-                                      Cancel
-                                    </Button>
-                                  </AlertDialog.Cancel>
-                                  <AlertDialog.Action>
-                                    <Button
-                                      color="red"
-                                      disabled={!location}
-                                      onClick={() => handleRemoveCategoryAchievements(location)}
-                                    >
-                                      Deactivate
-                                    </Button>
-                                  </AlertDialog.Action>
-                                </Flex>
-                              </AlertDialog.Content>
-                            </AlertDialog.Root>
-
-
-
-
-                          ) : (
-                            <Button
-                              disabled={!location}
-                              loading={isSettingCategoryAchievements}
-                              onClick={() => handleAddAndRefreshClientAchievements(location)}>
-                              Activate
-                            </Button>
-                          )}
-                        </Flex>
-
-                      </Flex>
-                    </>
-                  ) : (
-                    <Text size="2" color="gray">
-                      Click an achievement to see its details.
+                {!isMobile && (
+                  <Flex direction="column" width="50%" px="6" gap={'3'}>
+                    <Text size="3">
+                      Achievement details
                     </Text>
-                  )}
-                </Flex>
+
+                    {selectedCategory && location ? (
+                      <>
+                        <Flex direction={'column'} mb={'4'}>
+                          <Text size="4" weight="bold">
+                            {selectedCategory.name.charAt(0).toUpperCase() + selectedCategory.name.slice(1)}
+                          </Text>
+                          <Text size="3">
+                            {selectedCategory.description}
+                          </Text>
+                        </Flex>
+                        <Flex direction={'column'} gap={'3'}>
+                          {selectedCategory && selectedCategory.milestones && selectedCategory.milestones?.length > 0 && (
+                            <Flex direction={'column'}>
+                              <Text size="3" weight={'bold'}>
+                                Available milestones
+                              </Text>
+                              <Text size={'1'} mt={'-3'}><Em>Not every milestone has to be rewarded</Em></Text>
+                              <Flex gap="2" wrap="wrap" mb={'4'}>
+                                {selectedCategory.milestones.map((milestone, index) => (
+                                  <Badge key={index} size="3" color="green">
+                                    {milestone}
+                                  </Badge>
+                                ))}
+                              </Flex>
+                            </Flex>
+                          )}
+                            
+
+                          <Flex direction={'column'} width={'200px'} mt={'4'}>
+                            {isSelectedCategoryActive ? (
+                              <AlertDialog.Root>
+                                <AlertDialog.Trigger>
+                                  <Button
+                                    variant="soft"
+                                    color="red"
+                                    loading={isRemovingCategoryAchievements}
+                                  >
+                                    Deactivate
+                                  </Button>
+                                </AlertDialog.Trigger>
+                                <AlertDialog.Content maxWidth="450px">
+                                  <AlertDialog.Title>Are you sure?</AlertDialog.Title>
+                                  <AlertDialog.Description>
+                                    All achievements within this category, and their associated rewards, 
+                                    will no longer be able to be earned. Any player who has already earned 
+                                    a reward will still be able to redeem.
+                                  </AlertDialog.Description>
+                                  <Flex gap="4" mt="4" justify="end">
+                                    <AlertDialog.Cancel>
+                                      <Button variant="soft" color="gray">
+                                        Cancel
+                                      </Button>
+                                    </AlertDialog.Cancel>
+                                    <AlertDialog.Action>
+                                      <Button
+                                        color="red"
+                                        disabled={!location}
+                                        onClick={() => handleRemoveCategoryAchievements(location)}
+                                      >
+                                        Deactivate
+                                      </Button>
+                                    </AlertDialog.Action>
+                                  </Flex>
+                                </AlertDialog.Content>
+                              </AlertDialog.Root>
 
 
 
 
+                            ) : (
+                              <Button
+                                disabled={!location}
+                                loading={isSettingCategoryAchievements}
+                                onClick={() => handleAddAndRefreshClientAchievements(location)}>
+                                Activate
+                              </Button>
+                            )}
+                          </Flex>
+
+                        </Flex>
+                      </>
+                    ) : (
+                      <Text size="2" color="gray">
+                        Click an achievement to see its details.
+                      </Text>
+                    )}
+                  </Flex>
+                )}
               </Flex>
             </Flex>
           </Flex>
         )}
       </Flex>
+
+      {isMobile && selectedCategory && location && (
+        <MobileAchievementDetails
+          open={isMobileDetailsOpen}
+          onOpenChange={setIsMobileDetailsOpen}
+          selectedCategory={selectedCategory}
+          isSelectedCategoryActive={isSelectedCategoryActive}
+          isSettingCategoryAchievements={isSettingCategoryAchievements}
+          isRemovingCategoryAchievements={isRemovingCategoryAchievements}
+          location={location}
+          onActivate={() => handleAddAndRefreshClientAchievements(location)}
+          onDeactivate={() => handleRemoveCategoryAchievements(location)}
+        />
+      )}
     </Flex>
   )
 }

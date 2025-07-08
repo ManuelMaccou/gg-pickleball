@@ -43,3 +43,9 @@ export type PopulatedMatch = Omit<IMatch, "team1" | "team2"> & {
   winners: { _id: string }[]; 
   createdAt: Date;
 };
+
+export interface BasePopulatedDoc {
+  _id: string;
+  name: string;
+  [key: string]: unknown;
+}

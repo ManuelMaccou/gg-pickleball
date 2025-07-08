@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useUser as useAuth0User } from '@auth0/nextjs-auth0';
 import { useUserContext } from "@/app/contexts/UserContext";
 import { useRouter } from "next/navigation";
-import { Button, Callout, Card, Flex, Spinner, Table, Text } from "@radix-ui/themes";
+import { Callout, Card, Flex, Spinner, Table, Text } from "@radix-ui/themes";
 import { InfoCircledIcon } from "@radix-ui/react-icons"
 import * as Accordion from '@radix-ui/react-accordion';
 import Image from "next/image";
@@ -12,6 +12,8 @@ import darkGgLogo from '../../../public/logos/gg_logo_black_transparent.png'
 import { IAchievement, IAdmin, IClient, IReward, IUser } from "@/app/types/databaseTypes";
 import { Types } from "mongoose";
 import Link from "next/link";
+import { useIsMobile } from "@/app/hooks/useIsMobile";
+import MobileMenu from "./components/MobileMenu";
 
 interface ClientStats {
   visits?: Date[];
@@ -63,6 +65,8 @@ export default function GgpickleballAdmin() {
 
   const { user } = useUserContext();
   const router = useRouter();
+  const isMobile =useIsMobile();
+  
   const userId = user?.id
   const userName = user?.name
   
@@ -241,7 +245,16 @@ export default function GgpickleballAdmin() {
       setIsLoading(false)
     }
   }, [isGettingAdmin, isGettingMatches, isAnalyzingPlayers, isGettingAchievementsAndRewards])
-  
+
+  useEffect(() => {
+    if (!auth0IsLoading && !user) {
+      router.push(`/auth/login?returnTo=/admin`)
+    }
+  })
+
+  if (isMobile === null) {
+    return null;
+  }
 
   return (
     <Flex direction={'column'} minHeight={'100vh'}>
@@ -259,7 +272,7 @@ export default function GgpickleballAdmin() {
         </Flex>
 
         {!auth0IsLoading && (
-          <Flex direction={'column'} justify={'center'}>
+          <Flex direction={'row'} align={'center'} justify={'center'}>
             <Text size={'3'} weight={'bold'} align={'right'}>
               {userName ? (
                 auth0User 
@@ -267,6 +280,11 @@ export default function GgpickleballAdmin() {
                   : `${String(userName).includes('@') ? String(userName).split('@')[0] : userName} (guest)`
               ) : ''}
             </Text>
+
+            {isMobile && (
+              <MobileMenu />
+            )}
+
           </Flex>
         )}
       </Flex>
@@ -287,18 +305,8 @@ export default function GgpickleballAdmin() {
       )}
 
       {/* Dashboard */}
-      <Flex direction={'column'} height={'600px'} width={'100vw'} maxWidth={'1500px'} style={{alignSelf: 'center'}}>
-        {!user ? (
-          <Flex direction={'column'} justify={'center'} align={'center'} gap={'4'} mt={'9'}>
-            <Button
-              size={'3'}
-              variant='ghost'
-              onClick={() => router.push(`/auth/login?returnTo=/admin`)}
-            >
-              Please log in
-            </Button>
-          </Flex>
-        ) : matchError ?? adminError ? (
+      <Flex direction={'column'} height={'600px'} width={'100vw'} maxWidth={'1500px'} px={'4'} style={{alignSelf: 'center'}}>
+       {matchError ?? adminError ? (
           <>
             <Flex direction={'column'} justify={'center'} gap={'4'} display={adminError ? 'flex' : 'none'}>
               <Callout.Root size={'3'} color="red" >
@@ -329,21 +337,22 @@ export default function GgpickleballAdmin() {
           <Flex direction={'row'} height={'100%'} gap={'4'} wrap={'wrap'}>
             
             {/* Left sidebar nav */}
-            <Flex direction={'column'} width={'250px'} py={'4'} px={'2'} style={{backgroundColor: '#F1F1F1', borderRight: '1px solid #d3d3d3'}}>
-              <Flex direction={'column'} gap={'3'} px={'2'}>
-                <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
-                  <Link href={'/admin'} style={{backgroundColor: 'white', borderRadius: '10px'}}>Dashboard</Link>
-                </Flex>
-                <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
-                  <Link href={'/admin/achievements'}>Set achievements</Link>
-                </Flex>
-                <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
-                  <Link href={'/admin/rewards'}>Configure rewards</Link>
+            {!isMobile && (
+              <Flex direction={'column'} width={'250px'} py={'4'} px={'2'} style={{backgroundColor: '#F1F1F1', borderRight: '1px solid #d3d3d3'}}>
+                <Flex direction={'column'} gap={'3'} px={'2'}>
+                  <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
+                    <Link href={'/admin'} style={{backgroundColor: 'white', borderRadius: '10px'}}>Dashboard</Link>
+                  </Flex>
+                  <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
+                    <Link href={'/admin/achievements'}>Set achievements</Link>
+                  </Flex>
+                  <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
+                    <Link href={'/admin/rewards'}>Configure rewards</Link>
+                  </Flex>
                 </Flex>
               </Flex>
-            </Flex>
-
-
+            )}
+           
             {/* Total players and matches */}
             <Flex direction={{initial: 'row', md: 'column'}} mt={'4'} flexGrow={'1'} maxHeight={{initial: "200px", md: '80%'}} maxWidth={{initial: '100%', md: '20%'}} gap={'4'}>
               <Flex direction={'column'} flexGrow={'1'} minWidth={'150px'}>

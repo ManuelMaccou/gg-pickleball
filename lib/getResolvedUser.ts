@@ -25,7 +25,8 @@ export async function getResolvedUser(): Promise<ResolvedUser | null> {
         id: user._id.toString(),
         name: user.name,
         email: session.user.email,
-        isGuest: false
+        isGuest: false,
+        superAdmin: user.superAdmin === true
       }
     } catch (err) {
       console.error('Failed to resolve authenticated user:', err)

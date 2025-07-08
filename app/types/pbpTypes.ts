@@ -1,11 +1,3 @@
-export enum Affiliation {
-  Member = 'member',
-  NonMember = 'non_member',
-  Dink = 'Dink',
-  ErnieInsider = 'Ernie Insider',
-  ATPMaster = 'ATP Master',
-}
-
 export enum PaymentMethod {
   Card = 'card',
   Cash = 'cash',
@@ -32,7 +24,7 @@ export interface CouponInput {
   percentual: boolean;
   enabled: boolean;
   expirationDate: string; // ISO 8601
-  affiliations: Affiliation[];
+  affiliations: string[];
   paymentMethods: PaymentMethod[];
   kinds: Kind[];
   periodicityUnit: string;

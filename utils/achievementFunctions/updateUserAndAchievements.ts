@@ -85,39 +85,23 @@ function ensureClientStats(user: IUser, clientId: string): ClientStats {
 
 function visit(user: IUser, match: MatchData): VisitResult {
   const VISIT_MILESTONES = [1, 5, 10, 20, 50, 100];
-  const LA_TIMEZONE = "America/Los_Angeles";
-  const now = new Date();
-
-  const nowInLA = DateTime.fromJSDate(now).setZone(LA_TIMEZONE);
-  const todayStartInLA = nowInLA.startOf('day');
-  const todayEndInLA = nowInLA.endOf('day');
-
   const userStatsForClient = ensureClientStats(user, match.location);
-  userStatsForClient.visits ??= [];
+  
+  // The visit count is already up-to-date in memory thanks to our main loop.
+   const visitsBeforeThisOne = (userStatsForClient.visits ?? []).length;
 
-  const alreadyCheckedInToday = userStatsForClient.visits.some((visit) => {
-    const visitDate = DateTime.fromJSDate(visit).setZone(LA_TIMEZONE);
-    return visitDate >= todayStartInLA && visitDate <= todayEndInLA;
-  });
-
-  if (alreadyCheckedInToday) {
-    return { achievements: [], didVisit: false };
-  }
-
-  userStatsForClient.visits.push(now);
-
-  const totalVisitsAfterToday = userStatsForClient.visits.length;
   for (const milestone of VISIT_MILESTONES) {
-    if (totalVisitsAfterToday === milestone) {
+    // Check if the new total visit count is exactly at a milestone.
+    if (visitsBeforeThisOne === milestone - 1) {
       return {
+        // We no longer pass back didVisit or visitDate from here.
         achievements: [{ key: `visit-${milestone}`, repeatable: false }],
-        didVisit: true,
-        visitDate: now,
+        didVisit: false // This value is now ignored by the main loop anyway.
       };
     }
   }
 
-  return { achievements: [], didVisit: true, visitDate: now };
+  return { achievements: [], didVisit: false };
 }
 
 function updateLastVisit(user: IUser, location: string): boolean {
@@ -372,9 +356,8 @@ export async function updateUserAndAchievements(
     for (const user of users) {
       const clientStats = ensureClientStats(user, location);
       const allAchievements: AchievementEarned[] = [];
+
       
-      let didVisit = false;
-      let visitDate: Date | undefined = undefined;
 
       function isVisitResult(val: unknown): val is VisitResult {
         return typeof val === 'object' &&
@@ -388,11 +371,26 @@ export async function updateUserAndAchievements(
 
         if (isVisitResult(result)) {
           allAchievements.push(...result.achievements);
-          didVisit = result.didVisit;
-          visitDate = result.visitDate;
         } else {
           allAchievements.push(...result);
         }
+      }
+      
+      const LA_TIMEZONE = "America/Los_Angeles";
+      const now = new Date();
+      const nowInLA = DateTime.fromJSDate(now).setZone(LA_TIMEZONE);
+      const todayStartInLA = nowInLA.startOf('day');
+      const todayEndInLA = nowInLA.endOf('day');
+
+      clientStats.visits ??= [];
+      const alreadyCheckedInToday = clientStats.visits.some((visitDate) => {
+        const visitInLA = DateTime.fromJSDate(visitDate).setZone(LA_TIMEZONE);
+        return visitInLA >= todayStartInLA && visitInLA <= todayEndInLA;
+      });
+
+      const didVisit = !alreadyCheckedInToday;
+      if (didVisit) {
+        clientStats.visits.push(now);
       }
 
       const lastVisitWasUpdated = updateLastVisit(user, location);
@@ -407,7 +405,7 @@ export async function updateUserAndAchievements(
         user,
         newAchievements,
         didVisit,
-        visitDate,
+        visitDate: didVisit ? now : undefined,
         lastVisitDate
       });
     }
