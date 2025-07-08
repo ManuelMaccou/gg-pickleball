@@ -10,6 +10,7 @@ import {
   SegmentedControl,
   Text,
   TextField,
+  VisuallyHidden,
 } from "@radix-ui/themes";
 import Link from "next/link";
 
@@ -53,6 +54,11 @@ export default function MobileConfigureRewardsForm({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Content>
+        <VisuallyHidden>
+          <Dialog.Title>Configure reward</Dialog.Title>
+          <Dialog.Description>Configure rewar</Dialog.Description>
+        </VisuallyHidden>
+       
         <Dialog.Close>
           <Flex justify="end" mb="4">
             <Cross1Icon width="20px" height="20px" />
@@ -120,7 +126,7 @@ export default function MobileConfigureRewardsForm({
               {isConfigured && (
                 <AlertDialog.Root>
                   <AlertDialog.Trigger>
-                    <Button variant="ghost" color="red" loading={isRemovingReward}>
+                    <Button variant="ghost" color="red" mt={'4'} loading={isRemovingReward}>
                       Remove Reward
                     </Button>
                   </AlertDialog.Trigger>
