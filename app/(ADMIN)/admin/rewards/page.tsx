@@ -458,7 +458,7 @@ export default function GgpickleballAdminRewards() {
                         </Button>
                     </Flex>
                   ) : (
-                    <Flex direction={'column'}>
+                    <Flex direction={'column'} mb={{initial: '9', md: '0'}}>
                       {configuredClientAchievements
                       .slice()
                       .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
