@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Badge, Flex, Spinner } from '@radix-ui/themes'
+import { Badge, Flex, Spinner, Text } from '@radix-ui/themes'
 import Image from 'next/image'
 import { AchievementData, IAchievement } from '@/app/types/databaseTypes'
 
@@ -19,10 +19,13 @@ export default function AchievementsGrid({
   maxCount,
 }: Props) {
   const [allClientAchievements, setAllClientAchievements] = useState<IAchievement[]>([])
+  const [isFetchingAchievements, setIsFetchingAchievements] = useState<boolean>(false)
 
   useEffect(() => {
     const fetchClientAchievements = async () => {
       if (!clientId) return;
+
+      setIsFetchingAchievements(true)
 
       try {
         const res = await fetch(`/api/client/achievements?clientId=${clientId}`);
@@ -40,6 +43,8 @@ export default function AchievementsGrid({
         setAllClientAchievements(sortedAchievements);
       } catch (error) {
         console.error('Error fetching client achievements:', error);
+      } finally {
+        setIsFetchingAchievements(false)
       }
     };
 
@@ -58,9 +63,15 @@ export default function AchievementsGrid({
     ? allClientAchievements.slice(0, maxCount)
     : allClientAchievements
 
-  if (allClientAchievements.length === 0) return (
+  if (isFetchingAchievements) return (
     <Flex direction={'row'} width={'100%'} align={'center'} justify={'center'}>
        <Spinner size={'3'} style={{color: 'white'}} />
+    </Flex>
+  )
+
+  if (!isFetchingAchievements && allClientAchievements.length === 0) return (
+    <Flex direction={'row'} width={'100%'} align={'center'} justify={'center'}>
+      <Text align={'center'}>Achievements not configured. Please contact the facility.</Text>
     </Flex>
   )
 
@@ -92,7 +103,7 @@ export default function AchievementsGrid({
               style={{
                 filter: isEarned ? 'none' : 'grayscale(100%) brightness(0.6)',
                 borderRadius: '12px',
-                overflow: 'hidden',
+                overflow: 'auto',
               }}
             >
               

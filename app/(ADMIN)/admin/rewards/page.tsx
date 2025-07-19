@@ -37,6 +37,8 @@ export default function GgpickleballAdminRewards() {
   const [discountAmount, setDiscountAmount] = useState<number | null>(null);
   const [discountType, setDiscountType] = useState<"percent" | "dollars">("percent");
   const [discountProduct, setDiscountProduct] = useState<"open play" | "reservation" | "pro shop">("reservation");
+  const [minimumSpendAmount, setMinimumSpendAmount] = useState<number | null>(null);
+  const [maxDiscountAmount, setMaxDiscountAmount] = useState<number | null>(null);
   const [rewardSuccess, setRewardSuccess] = useState<boolean>(false);
   const [rewardError, setRewardError] = useState<boolean>(false);
   const [isSavingReward, setIsSavingReward] = useState<boolean>(false);
@@ -150,6 +152,8 @@ export default function GgpickleballAdminRewards() {
         setDiscountAmount(reward.discount);
         setDiscountProduct(reward.product as "open play" | "reservation" | "pro shop");
         setDiscountType(reward.type as "percent" | "dollars");
+        setMaxDiscountAmount(reward.maxDiscount ?? null);
+        setMinimumSpendAmount(reward.minimumSpend ?? null);
       } catch (err) {
         console.error("Error loading reward for achievement:", err);
       }
@@ -159,99 +163,115 @@ export default function GgpickleballAdminRewards() {
   }, [selectedAchievement, configuredClientRewards]);
 
   const handleSaveReward = async () => {
-  if (!selectedAchievement) return;
+    if (!selectedAchievement) return;
 
-  setIsSavingReward(true);
-  setRewardSuccess(false);
-  setRewardError(false);
+    setIsSavingReward(true);
+    setRewardSuccess(false);
+    setRewardError(false);
 
-  const discountPrefix = discountType === "dollars" ? `$${discountAmount}` : `${discountAmount}%`;
-  const discountName = `${discountPrefix}-off-${discountProduct}`.toLowerCase();
-  const friendlyName = `${discountPrefix} off`;
+    const discountPrefix = discountType === "dollars" ? `$${discountAmount}` : `${discountAmount}%`;
+    const discountName = `${discountPrefix}-off-${discountProduct}`.toLowerCase();
+    const friendlyName = `${discountPrefix} off`;
 
-  const rewardPayload = {
-    discount: discountAmount,
-    product: discountProduct,
-    name: discountName,
-    type: discountType,
-    friendlyName,
-    category: discountProduct === "pro shop" ? "retail" : "programming"
-  };
+    let maxDiscount: number | null = null;
+    let minimumSpend: number | null = null;
 
-  const existingReward = configuredClientRewards?.[selectedAchievement.name];
-  const existingRewardId = existingReward?._id
-  
-  try {
-    const rewardResponse = await fetch(
-      existingRewardId ? `/api/reward?id=${existingRewardId}` : `/api/reward`,
-      {
-        method: existingRewardId ? 'PATCH' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...(existingRewardId?.toString() && { id: existingRewardId.toString() }),
-          ...rewardPayload
-        }),
-      }
-    );
-
-    const rewardData = await rewardResponse.json();
-
-    if (!rewardResponse.ok) {
-      setRewardError(true);
-      throw new Error(rewardData.error || "Failed to save reward");
+    if (discountType === 'percent') {
+      maxDiscount = !isNaN(Number(maxDiscountAmount)) ? Number(maxDiscountAmount) : null;
+      minimumSpend = null;
+    } else if (discountType === 'dollars') {
+      minimumSpend = !isNaN(Number(minimumSpendAmount)) ? Number(minimumSpendAmount) : null;
+      maxDiscount = null;
     }
 
-    const rewardId = rewardData.reward._id;
-    if (!rewardId) {
-      setRewardError(true);
-      throw new Error(rewardData.error || "Reward save failed — no ID returned");
-    }
+    const existingReward = configuredClientRewards?.[selectedAchievement.name];
+    const existingRewardId = existingReward?._id
 
-    const reward = rewardData.reward;
-    console.log('reward:', reward)
+    const rewardPayload = {
+      discount: discountAmount,
+      product: discountProduct,
+      name: discountName,
+      type: discountType,
+      maxDiscount,
+      minimumSpend,
+      friendlyName,
+      category: discountProduct === "pro shop" ? "retail" : "programming"
+    };
 
-    setDiscountAmount(reward.discount);
-    setDiscountProduct(reward.product as "open play" | "reservation" | "pro shop");
-    setDiscountType(reward.type as "percent" | "dollars");
+    try {
+      const rewardResponse = await fetch(
+        existingRewardId ? `/api/reward?id=${existingRewardId}` : `/api/reward`,
+        {
+          method: existingRewardId ? 'PATCH' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...(existingRewardId?.toString() && { id: existingRewardId.toString() }),
+            ...rewardPayload
+          }),
+        }
+      );
 
-    setConfiguredClientRewards(prev => ({
-      ...(prev || {}),
-      [selectedAchievement.name]: reward
-    }));
+      const rewardData = await rewardResponse.json();
 
-
-    if (!existingRewardId) {
-      const rewardContext = location?.reservationSoftware === 'playbypoint' ? 'alt' : 'default';
-
-      const patchResponse = await fetch('/api/client', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clientId: location?._id,
-          rewardsPerAchievement: {
-            [selectedAchievement.name]: rewardId,
-          },
-          rewardContext,
-        }),
-      });
-  
-      const patchData = await patchResponse.json();
-
-      if (!patchResponse.ok) {
+      if (!rewardResponse.ok) {
         setRewardError(true);
-        throw new Error(patchData.error || "Failed to update client");
+        throw new Error(rewardData.error || "Failed to save reward");
       }
+
+      const rewardId = rewardData.reward._id;
+      if (!rewardId) {
+        setRewardError(true);
+        throw new Error(rewardData.error || "Reward save failed — no ID returned");
+      }
+
+      const reward = rewardData.reward;
+      console.log('reward:', reward)
+
+      setDiscountAmount(reward.discount);
+      setDiscountProduct(reward.product as "open play" | "reservation" | "pro shop");
+      setDiscountType(reward.type as "percent" | "dollars");
+      setMinimumSpendAmount(reward.minimumSpendAmount);
+      setMaxDiscountAmount(reward.maxDiscountAmount);
 
       setConfiguredClientRewards(prev => ({
         ...(prev || {}),
-        [selectedAchievement.name]: reward,
+        [selectedAchievement.name]: reward
       }));
-    }
-    setRewardSuccess(true);
-  } catch (error) {
-    setRewardError(true);
-    console.error("Error saving reward:", error);
-  } finally {
+
+
+      if (!existingRewardId) {
+        const rewardContext = location?.reservationSoftware === 'playbypoint' ? 'alt' : 'default';
+
+        const patchResponse = await fetch('/api/client', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            clientId: location?._id,
+            rewardsPerAchievement: {
+              [selectedAchievement.name]: rewardId,
+            },
+            rewardContext,
+            mergeRewards: true,
+          }),
+        });
+    
+        const patchData = await patchResponse.json();
+
+        if (!patchResponse.ok) {
+          setRewardError(true);
+          throw new Error(patchData.error || "Failed to update client");
+        }
+
+        setConfiguredClientRewards(prev => ({
+          ...(prev || {}),
+          [selectedAchievement.name]: reward,
+        }));
+      }
+      setRewardSuccess(true);
+    } catch (error) {
+      setRewardError(true);
+      console.error("Error saving reward:", error);
+    } finally {
       setIsSavingReward(false);
     }
   };
@@ -506,7 +526,7 @@ export default function GgpickleballAdminRewards() {
 
                 {/* Associate reward to achievement */}
                 {!isMobile && (
-                  <Flex direction="column" width="50%" px="6" gap={'3'}>
+                  <Flex direction="column" width="50%" px="6" gap={'3'} overflow={'auto'} pb={'9'}>
                     <Text size="3">Set reward</Text>
 
                     {selectedAchievement ? (
@@ -562,6 +582,55 @@ export default function GgpickleballAdminRewards() {
                               </Select.Content>
                             </Select.Root>
                           </Flex>
+
+                          {discountProduct === 'pro shop' && discountType === 'dollars' ? (
+                            <Flex direction="column" gap="5">
+                              <Flex direction="column" gap="2">
+                                <Text size="3">Minimum spend (optional)</Text>
+                                <Text size="1" mt="-2">
+                                  <Em>The minimum amount the customer must spend to qualify for this discount.</Em>
+                                </Text>
+                                <TextField.Root
+                                  type="number"
+                                  placeholder="Minimum spend"
+                                  value={minimumSpendAmount ?? ''}
+                                  style={{ flexGrow: '1' }}
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    const numeric = Number(value);
+                                    setMinimumSpendAmount(value === '' || isNaN(numeric) ? null : numeric);
+                                  }}
+                                >
+                                    <TextField.Slot>
+                                      <Text weight="bold">$</Text>
+                                    </TextField.Slot>
+                                  </TextField.Root>
+                                </Flex>
+                              </Flex>
+                            ) : discountProduct === 'pro shop' && discountType === 'percent' ? (
+                              <Flex direction="column" gap="2">
+                                <Text size="3">Maximum discount (optional)</Text>
+                                <Text size="1" mt="-2">
+                                  <Em>The max dollar amount that can be discounted from the purchase.</Em>
+                                </Text>
+                                <TextField.Root
+                                  type="number"
+                                  placeholder="Maximum discount"
+                                  value={maxDiscountAmount ?? ''}
+                                  style={{ flexGrow: '1' }}
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    const numeric = Number(value);
+                                    setMaxDiscountAmount(value === '' || isNaN(numeric) ? null : numeric);
+                                  }}
+                                >
+                                  <TextField.Slot>
+                                    <Text weight="bold">$</Text>
+                                  </TextField.Slot>
+                                </TextField.Root>
+                              </Flex>
+                            ) : null}
+                          
                           <Flex direction={'column'} maxWidth={'300px'}>
                             <Flex direction={'row'} justify={'between'} align={'center'}>
                               <Button
@@ -652,6 +721,8 @@ export default function GgpickleballAdminRewards() {
           discountAmount={discountAmount}
           discountType={discountType}
           discountProduct={discountProduct}
+          maxDiscount={maxDiscountAmount}
+          minimumSpend={minimumSpendAmount}
           isSavingReward={isSavingReward}
           isRemovingReward={isRemovingReward}
           isConfigured={isSelectedAchievementConfigured}
@@ -660,6 +731,8 @@ export default function GgpickleballAdminRewards() {
           onSetAmount={setDiscountAmount}
           onSetType={setDiscountType}
           onSetProduct={setDiscountProduct}
+          onSetMinimumSpend={setMinimumSpendAmount}
+          onSetMaxDiscount={setMaxDiscountAmount}
           onSave={handleSaveReward}
           onRemove={handleRemoveReward}
         />

@@ -1,58 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
 import Client from '@/app/models/Client';
-import { IClient } from '@/app/types/databaseTypes';
 import { Types } from 'mongoose'
-import { populateMapField } from '@/utils/populateMapField';
-import Reward from '@/app/models/Reward';
 import { logError } from '@/lib/sentry/logger';
 import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser';
 
 export async function POST(req: NextRequest) {
-  const user = await getAuthorizedUser(req)
+  const user = await getAuthorizedUser(req);
   if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   
   try {
     await connectToDatabase();
 
+    // Use a type that matches the incoming body from your form
     const body = await req.json();
 
-    const { name, logo, icon, shopify, podplay, retailSoftware, reservationSoftware, latitude, longitude, achievements, rewardsPerAchievement } = body as Partial<IClient> & { name: string };
+    const { name } = body;
 
-    if (!name || !logo || !icon) {
-      logError(new Error('Request body did not include required fields: name, logo, icon'), {
+    // Only the name is truly required to create a client
+    if (!name) {
+      logError(new Error('Request body did not include required field: name'), {
         endpoint: 'POST /api/client',
         task: 'Creating a client'
       });
-
-      return NextResponse.json({ error: 'Required fields are missing' }, { status: 400 });
+      return NextResponse.json({ error: 'Client name is required' }, { status: 400 });
     }
 
-    const newClient = new Client({
-      name,
-      logo,
-      icon,
-      shopify,
-      podplay,
-      retailSoftware,
-      reservationSoftware,
-      latitude,
-      longitude,
-      achievements: achievements || [],
-      rewardsPerAchievement: rewardsPerAchievement
-        ? new Map(Object.entries(rewardsPerAchievement))
-        : new Map(),
-    });
+    // Pass the entire body to the new Client constructor.
+    // Mongoose will only use the fields defined in its schema.
+    const newClient = new Client(body);
 
     await newClient.save();
 
     return NextResponse.json({ message: 'Client created', client: newClient }, { status: 201 });
-  } catch (error) {
-    logError(error, {
-      message: 'Error creating Client.'
-    });
+  } catch (error: unknown) {
+    // Check for MongoDB duplicate key error
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error as { code: number }).code === 11000
+    ) {
+      logError(error, { message: 'Attempted to create a client with a duplicate name.' });
+      return NextResponse.json({ error: 'A client with this name already exists.' }, { status: 409 });
+    }
+
+    logError(error, { message: 'Error creating Client.' });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -75,7 +70,12 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Invalid client ID' }, { status: 400 });
       }
 
-      const client = await Client.findById(clientId);
+       const client = await Client.findById(clientId)
+        .populate('achievements')
+        .populate('altAchievements')
+        .populate('rewardsPerAchievement')
+        .populate('altRewardsPerAchievement');
+
       if (!client) {
         logError(new Error('Client was not found'), {
           endpoint: 'GET /api/client',
@@ -85,19 +85,16 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Client not found' }, { status: 404 });
       }
 
-      const populatedRewards = await populateMapField(
-        client.rewardsPerAchievement,
-        async (ids) => Reward.find({ _id: { $in: ids } })
-      );
-
-      const clientObj = client.toObject();
-      clientObj.rewardsPerAchievement = populatedRewards;
-
-      return NextResponse.json({ client: clientObj });
+      return NextResponse.json({ client });
     }
 
     // No ID? Return all clients
-    const clients = await Client.find();
+   const clients = await Client.find()
+      .populate('achievements')
+      .populate('altAchievements')
+      .populate('rewardsPerAchievement')
+      .populate('altRewardsPerAchievement');
+
     return NextResponse.json({ clients });
   } catch (error) {
     logError(error, {
@@ -119,15 +116,19 @@ export async function PATCH(req: NextRequest) {
       achievements,
       rewardsPerAchievement,
       removeRewardForAchievement,
+      rewardConfigStatus,
       rewardContext = 'default',
       achievementContext = 'default',
+      mergeRewards = false,
     }: {
       clientId?: string;
       achievements?: string[];
       rewardsPerAchievement?: Record<string, string>;
       removeRewardForAchievement?: string[];
+      rewardConfigStatus?: 'active';
       rewardContext?: 'default' | 'alt';
       achievementContext?: 'default' | 'alt';
+      mergeRewards?: boolean;
     } = await req.json();
 
      clientId = bodyClientId;
@@ -154,6 +155,10 @@ export async function PATCH(req: NextRequest) {
 
     const removedRewardIds: string[] = [];
 
+    if (rewardConfigStatus === 'active') {
+      client.rewardConfigStatus = 'active';
+    }
+
     if (achievementContext === 'alt' || rewardContext === 'alt') {
       client.rewardConfigStatus = 'pending'
     }
@@ -178,7 +183,22 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
+    // ✅ PARTIAL REMOVE of specific reward entries
+    if (Array.isArray(removeRewardForAchievement)) {
+      for (const achievementKey of removeRewardForAchievement) {
+        const rewardId = client[rewardFieldKey]?.get(achievementKey);
+        if (rewardId) {
+          removedRewardIds.push(rewardId.toString());
+        }
+        client[rewardFieldKey]?.delete(achievementKey);
+      }
+    }
+
     if (rewardsPerAchievement) {
+      if (!mergeRewards) {
+        client[rewardFieldKey]?.clear(); // full replacement (default)
+      }
+
       for (const [achievementKey, rewardId] of Object.entries(rewardsPerAchievement)) {
         if (Types.ObjectId.isValid(rewardId)) {
           client[rewardFieldKey]?.set(achievementKey, new Types.ObjectId(rewardId));

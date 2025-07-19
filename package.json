@@ -50,6 +50,7 @@
     "require-in-the-middle": "^7.5.2",
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
+    "swr": "^2.3.4",
     "tailwind-merge": "^3.2.0",
     "tailwindcss": "^4.1.3",
     "tw-animate-css": "^1.2.5",

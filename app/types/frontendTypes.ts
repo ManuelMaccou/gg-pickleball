@@ -47,5 +47,8 @@ export type PopulatedMatch = Omit<IMatch, "team1" | "team2"> & {
 export interface BasePopulatedDoc {
   _id: string;
   name: string;
+  friendlyName: string;
+  product: string;
+  index?: number;
   [key: string]: unknown;
 }

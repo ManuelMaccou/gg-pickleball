@@ -21,6 +21,8 @@ interface MobileRewardFormProps {
   discountAmount: number | null;
   discountType: "percent" | "dollars";
   discountProduct: "open play" | "reservation" | "pro shop";
+  maxDiscount: number | null;
+  minimumSpend: number | null;
   isSavingReward: boolean;
   isRemovingReward: boolean;
   isConfigured: boolean;
@@ -29,6 +31,8 @@ interface MobileRewardFormProps {
   onSetAmount: (amount: number | null) => void;
   onSetType: (type: "percent" | "dollars") => void;
   onSetProduct: (product: "open play" | "reservation" | "pro shop") => void;
+  onSetMinimumSpend: (amount: number | null) => void;
+  onSetMaxDiscount: (amount: number | null) => void;
   onSave: () => void;
   onRemove: () => void;
 }
@@ -40,6 +44,8 @@ export default function MobileConfigureRewardsForm({
   discountAmount,
   discountType,
   discountProduct,
+  minimumSpend,
+  maxDiscount,
   isSavingReward,
   isRemovingReward,
   isConfigured,
@@ -48,6 +54,8 @@ export default function MobileConfigureRewardsForm({
   onSetAmount,
   onSetType,
   onSetProduct,
+  onSetMinimumSpend,
+  onSetMaxDiscount,
   onSave,
   onRemove,
 }: MobileRewardFormProps) {
@@ -65,7 +73,7 @@ export default function MobileConfigureRewardsForm({
           </Flex>
         </Dialog.Close>
 
-        <Flex direction="column" gap="5" justify={'between'} height={'500px'}>
+        <Flex direction="column" gap="5" justify={'between'} minHeight={'500px'} pb={'9'}>
           <Flex direction={'column'} gap={'5'}>
             <Text size="4" weight="bold">
               {selectedAchievement.friendlyName}
@@ -111,6 +119,52 @@ export default function MobileConfigureRewardsForm({
                 </Select.Content>
               </Select.Root>
             </Flex>
+
+            {discountProduct === 'pro shop' && (
+              <Flex direction={'column'} gap={'5'}>
+                <Flex direction={'column'} gap={'2'}>
+                  <Text size={'3'}>Minimum spend (optional)</Text>
+                  <Text size={'1'} mt={'-2'}><Em> The minimum amount the customer must spend to qualify for this discount.</Em></Text>
+                  <TextField.Root
+                    type="number"
+                    placeholder="Minimum spend"
+                    value={minimumSpend ?? ''}
+                    style={{flexGrow: '1'}}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      const numeric = Number(value);
+                      onSetMinimumSpend(value === '' || isNaN(numeric) ? null : numeric);
+                    }}
+                    >
+                    <TextField.Slot>
+                      <Text weight={'bold'}>$</Text>
+                    </TextField.Slot>
+                  </TextField.Root>
+                </Flex>
+
+                {discountType === 'percent' && (
+                  <Flex direction={'column'} gap={'2'}>
+                    <Text size={'3'}>Maximum discount (optional)</Text>
+                    <Text size={'1'} mt={'-2'}><Em>The max dollar amount that can be discounted from the purchase.</Em></Text>
+                    <TextField.Root
+                      type="number"
+                      placeholder="Maximum discount"
+                      value={maxDiscount ?? ''}
+                      style={{flexGrow: '1'}}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        const numeric = Number(value);
+                        onSetMaxDiscount(value === '' || isNaN(numeric) ? null : numeric);
+                      }}
+                      >
+                      <TextField.Slot>
+                        <Text weight={'bold'}>$</Text>
+                      </TextField.Slot>
+                    </TextField.Root>
+                  </Flex>
+                )}
+              </Flex>
+            )}
 
             {/* Buttons */}
             <Flex direction="column" gap="3" mt="2">

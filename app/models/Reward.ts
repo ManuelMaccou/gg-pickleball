@@ -20,6 +20,8 @@ export const RewardSchema = new Schema<IReward>(
       enum: ['open play', 'reservation', 'pro shop'],
     },
     discount: { type: Number },
+    minimumSpend: { type: Number },
+    maxDiscount: { type: Number }
   }
 );
 

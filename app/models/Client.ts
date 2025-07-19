@@ -5,16 +5,16 @@ const ShopifySubSchema = new Schema({
   shopDomain: { type: String },
   accessToken: { type: String },
   secret: { type: String },
-});
+}, { _id: false });
 
 const PodplaySubSchema = new Schema({
   accessToken: { type: String },
-});
+}, { _id: false });
 
 const PlayByPointSubSchema = new Schema({
   facilityId: { type: Number },
   affiliations: [{ type: String }]
-});
+}, { _id: false });
 
 const ClientSchema = new Schema<IClient>({
   name: { type: String, required: true, unique: true },
@@ -23,7 +23,6 @@ const ClientSchema = new Schema<IClient>({
   icon: { type: String },
   latitude: { type: String },
   longitude: { type: String },
-  facilityCode: { type: String },
   altAchievements: [
     { type: Schema.Types.ObjectId, ref: 'Achievement', required: true,  default: [] },
   ],
