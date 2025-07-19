@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
 
-    const { discount, product, name, type, friendlyName, category } = body as IReward;
+    const { discount, product, name, type, maxDiscount, minimumSpend, friendlyName, category } = body as IReward;
 
     if (!discount || !product || !name || !type || !friendlyName || !category) {
       logError(new Error('Required fields are missing.'), {
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Required fields are missing' }, { status: 400 });
     }
 
-    const newReward = new Reward({ discount, product, name, type, friendlyName, category });
+    const newReward = new Reward({ discount, product, name, type, maxDiscount, minimumSpend, friendlyName, category });
     await newReward.save();
 
     return NextResponse.json({ message: 'Reward created', reward: newReward }, { status: 201 });
@@ -58,7 +58,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { discount, product, name, type, friendlyName, category } = body as IReward;
+    const { discount, product, name, type, maxDiscount, minimumSpend, friendlyName, category } = body as IReward;
 
     if (!discount || !product || !name || !type || !friendlyName || !category) {
       return NextResponse.json({ error: 'Required fields are missing' }, { status: 400 });
@@ -66,7 +66,7 @@ export async function PATCH(req: NextRequest) {
 
     const updatedReward = await Reward.findByIdAndUpdate(
       id,
-      { discount, product, name, type, friendlyName, category },
+      { discount, product, name, type,  maxDiscount, minimumSpend, friendlyName, category },
       { new: true } // return the updated document
     );
 

@@ -93,6 +93,9 @@ export default function Play() {
           throw new Error('Failed to fetch clients')
         }
         const data = await res.json()
+        
+        console.log('all clients:', data.clients)
+
         setAllClients(data.clients || [])
       } catch (error) {
         console.error('Error fetching clients:', error)
@@ -258,22 +261,29 @@ export default function Play() {
 
         {/* Select location dropdown */}
         {currentClient && (
-          <Flex direction={'row'} justify={'center'} align={'center'} gap={'6'} mx={'4'}>
-            {allClients.length > 1 ? (
-              <LocationDrawer allClients={allClients} currentClient={currentClient} onLocationChange={setCurrentClient}/>
-            ) : (
-              <Box position={'relative'} height={'70px'} width={'200px'}>
-              <Image
-                src={currentClient.logo} 
-                alt={currentClient.name || "Location logo"}
-                fill
-                style={{objectFit: 'contain'}}
+          <Flex direction="row" justify="center" align="center" gap="6" mx="4">
+            {allClients.filter(client =>
+              Array.isArray(client.achievements) && client.achievements.length > 0 &&
+              client.rewardsPerAchievement && Object.keys(client.rewardsPerAchievement).length > 0
+            ).length > 1 ? (
+              <LocationDrawer
+                allClients={allClients}
+                currentClient={currentClient}
+                onLocationChange={setCurrentClient}
               />
-            </Box>
+            ) : (
+              <Box position="relative" height="70px" width="200px">
+                <Image
+                  src={currentClient.logo}
+                  alt={currentClient.name || "Location logo"}
+                  fill
+                  style={{ objectFit: 'contain' }}
+                />
+              </Box>
             )}
           </Flex>
         )}
-       
+              
         <Flex direction={'column'} mt={'7'}>
           <Flex direction={'column'} mx={'9'} mb={'7'}>
             <Link href={`/new?location=${currentClient?._id}`}>

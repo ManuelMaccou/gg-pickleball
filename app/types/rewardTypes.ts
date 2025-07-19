@@ -23,6 +23,8 @@ export interface IRewardWithCode {
   friendlyName: string;
   product: "open play" | "reservation" | "pro shop";
   discount: number;
+  minimumSpend?: number;
+  maxDiscount?: number;
   type: "dollars" | "percent";
   category: "retail" | "programming";
   codes?: IRewardCodeEntry[];

@@ -17,6 +17,7 @@ export enum Kind {
 }
 
 export interface CouponInput {
+  facilityId: string;
   codeName: string;
   quantity: number;
   description?: string;

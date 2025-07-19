@@ -1,14 +1,21 @@
 import { NextResponse } from 'next/server';
 import { chromium } from 'playwright';
-import {
-  CouponInput,
-} from '@/app/types/pbpTypes';
+import { CouponInput } from '@/app/types/pbpTypes';
 
-const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
+const randomDelay = (min = 400, max = 900) =>
+  new Promise((res) => setTimeout(res, min + Math.random() * (max - min)));
 
 export async function POST(request: Request) {
   const body = await request.json();
   const coupons: CouponInput[] = body?.coupons;
+  const facilityId = coupons[0]?.facilityId;
+
+  if (!facilityId) {
+    return NextResponse.json(
+      { message: 'facilityId is missing from the coupon data.' },
+      { status: 400 }
+    );
+  }
 
   if (!Array.isArray(coupons) || coupons.length === 0) {
     return NextResponse.json(
@@ -17,24 +24,52 @@ export async function POST(request: Request) {
     );
   }
 
-  const browser = await chromium.launch({ slowMo: 50 });
-  const context = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
+   const browser = await chromium.launch({
+    // headless: false,
+    channel: 'chromium',
+    args: [
+      '--disable-blink-features=AutomationControlled', // Disables the `navigator.webdriver` flag
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+    ],
+  });
+
+  const context = await browser.newContext({
+    viewport: { width: 1920, height: 1080 },
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
+    locale: 'en-US',
+    timezoneId: 'America/New_York'
+  });
+
   const page = await context.newPage();
+
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'webdriver', { get: () => false });
+    Object.defineProperty(navigator, 'plugins', {
+      get: () => [
+        { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
+        { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai', description: '' },
+        { name: 'Native Client', filename: 'internal-nacl-plugin', description: '' },
+      ],
+    });
+    Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+  });
 
   try {
     // Login
-    await page.goto(process.env.PBS_LOGIN_URL!, { waitUntil: 'networkidle' });
-    await page.fill('#user_email', process.env.POS_USERNAME!);
-    await page.fill('#user_password', process.env.POS_PASSWORD!);
+    await page.goto(process.env.PBS_LOGIN_URL!, { waitUntil: 'domcontentloaded' }); // or 'networkidle'
+    await page.locator('#user_email').pressSequentially(process.env.POS_USERNAME!, { delay: 60 + Math.random() * 40 });
+    await page.locator('#user_password').pressSequentially(process.env.POS_PASSWORD!, { delay: 75 + Math.random() * 50 });
+    
     await Promise.all([
-      page.click('input[type="submit"][value="Log in"]'),
-      page.waitForLoadState('networkidle'),
+      page.waitForURL(`**/facilities**`, { waitUntil: 'domcontentloaded' }),
+      page.locator('input[type="submit"][value="Log in"]').click(),
     ]);
 
-    await delay(500);
+    await randomDelay();
 
     // Go to page with CSRF
-    await page.goto('https://app.playbypoint.com/admin/facilities/1122/manage_bookings', {
+    await page.goto(`https://app.playbypoint.com/admin/facilities/${facilityId}/manage_bookings`, {
       waitUntil: 'networkidle',
     });
 
@@ -83,7 +118,6 @@ export async function POST(request: Request) {
           affiliations,
           payment_methods: paymentMethods,
           kinds,
-          kinds_formatted: ['All'],
           uses: [],
         },
       };
@@ -108,18 +142,21 @@ export async function POST(request: Request) {
 
       results.push({ codeName, quantity, status: response.status, body: response.body });
 
-      await page.waitForTimeout(500 + Math.random() * 300);
+      await randomDelay(300, 700);
     }
 
     return NextResponse.json({ results });
   } catch (error: unknown) {
     const err = error as Error;
-    console.error('Coupon creation error:', err.message);
+    console.error('Playwright automation error:', err.stack);
+    await page.screenshot({ path: `error-screenshot-${Date.now()}.png`, fullPage: true });
     return NextResponse.json(
       { message: 'Coupon creation failed.', details: err.message },
       { status: 500 }
     );
   } finally {
-    // await browser.close();
+    if (browser) {
+      await browser.close();
+    }
   }
 }

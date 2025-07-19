@@ -28,19 +28,9 @@ export async function generateAndSavePlayByPointDiscountCodes(
     throw new Error(`Client with ID ${clientId} not found. Cannot create PBP coupons.`);
   }
 
-  const allKinds: Kind[] = [
-    Kind.Reservation,
-    Kind.Membership,
-    Kind.Rental,
-    Kind.Lesson,
-    Kind.Clinic,
-    Kind.UserPackage,
-  ];
-
   const productToKindsMap: { [key: string]: Kind[] } = {
     'open play': [Kind.Clinic],
     'reservation': [Kind.Reservation],
-    'pro shop': allKinds,
   };
 
   const pbpAffiliations = client.playbypoint?.affiliations ?? [];
@@ -72,31 +62,40 @@ export async function generateAndSavePlayByPointDiscountCodes(
         throw new Error(error.error || 'Failed to create reward code');
       }
 
-      const data: IRewardCode = await response.json();
-      result.set(task.reward._id.toString(), data._id);
+      if (task.reward.product !== 'pro shop') {
+        const data: IRewardCode = await response.json();
+        result.set(task.reward._id.toString(), data._id);
 
-      const expiration = new Date();
-      expiration.setFullYear(expiration.getFullYear() + 1);
+        const expiration = new Date();
+        expiration.setFullYear(expiration.getFullYear() + 1);
 
-      const kinds = productToKindsMap[task.reward.product] ?? [];
- 
-      const pbpCoupon: CouponInput = {
-        codeName: code,
-        description: task.reward.name,
-        discountAmount: task.reward.discount,
-        percentual: task.reward.type === 'percent',
-        quantity: 1, // Each unique code should have a quantity of 1
-        periodicityValue: 1, // Each code can be used 1 time per user
-        enabled: true,
-        paymentMethods: [PaymentMethod.All],
-        affiliations: pbpAffiliations,
-        periodicityUnit: 'p_times',
-        kinds: kinds,
-        expirationDate: expiration.toISOString().slice(0, 10),
-      };
+        const kinds = productToKindsMap[task.reward.product] ?? [];
+        console.log("kinds:", kinds)
+        console.log("task.reward.product:", task.reward.product)
+        
+        if (!client.playbypoint || !client.playbypoint.facilityId) {
+          throw new Error(`Missing PlayByPoint facility ID for client ${clientId}`);
+        }
+        const facilityId = client.playbypoint.facilityId.toString();
+  
+        const pbpCoupon: CouponInput = {
+          facilityId,
+          codeName: code,
+          description: task.reward.name,
+          discountAmount: task.reward.discount,
+          percentual: task.reward.type === 'percent',
+          quantity: 1,
+          periodicityValue: 1,
+          enabled: true,
+          paymentMethods: [PaymentMethod.All],
+          affiliations: pbpAffiliations,
+          periodicityUnit: 'p_times',
+          kinds: kinds,
+          expirationDate: expiration.toISOString().slice(0, 10),
+        };
 
-      couponsForPbp.push(pbpCoupon);
-
+        couponsForPbp.push(pbpCoupon);
+      }
     } catch (err) {
       console.error(`Error generating local reward code for ${task.reward.name ?? 'unknown'}:`, err);
     }
@@ -108,7 +107,7 @@ export async function generateAndSavePlayByPointDiscountCodes(
 
     
 
-    fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/pbp/update-discount/batch`, {
+    fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/pbp/create-discount/batch`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ coupons: couponsForPbp }),

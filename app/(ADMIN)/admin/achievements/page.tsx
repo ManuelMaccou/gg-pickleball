@@ -14,7 +14,7 @@ import { useIsMobile } from "@/app/hooks/useIsMobile";
 import MobileMenu from "../components/MobileMenu";
 import MobileAchievementDetails from "../components/MobileAchievementDetails";
 
-export default function GgpickleballAdminAchievements() {
+export default function GgPickleballAdminAchievements() {
 
   const { user } = useUserContext();
   const router = useRouter();
@@ -490,8 +490,8 @@ export default function GgpickleballAdminAchievements() {
                               <Text size="3" weight={'bold'}>
                                 Available milestones
                               </Text>
-                              <Text size={'1'} mt={'-3'}><Em>Not every milestone has to be rewarded</Em></Text>
-                              <Flex gap="2" wrap="wrap" mb={'4'}>
+                              <Text size={'1'}><Em>Not every milestone has to be rewarded</Em></Text>
+                              <Flex gap="2" wrap="wrap" m={'4'}>
                                 {selectedCategory.milestones.map((milestone, index) => (
                                   <Badge key={index} size="3" color="green">
                                     {milestone}

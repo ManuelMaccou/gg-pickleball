@@ -106,6 +106,8 @@ export interface IReward extends Document {
   friendlyName: string;
   product: "open play" | "reservation" | "pro shop";
   discount: number;
+  minimumSpend?: number;
+  maxDiscount?: number;
   type: "dollars" | "percent";
   category: "retail" | "programming";
 }
@@ -121,7 +123,7 @@ export interface PodplayData {
 }
 
 export interface PlayByPointData {
-  facilityId: number;
+  facilityId: number | undefined;
   affiliations: string[];
 }
 
@@ -133,7 +135,6 @@ export interface IClient extends Document {
   logo: string;
   admin_logo: string;
   icon: string;
-  facilityCode: string;
   altAchievements?: Types.ObjectId[];
   altRewardsPerAchievement?: {
     [achievementId: string]: IReward;
@@ -142,8 +143,8 @@ export interface IClient extends Document {
   rewardsPerAchievement?: {
     [achievementId: string]: IReward;
   };
-  retailSoftware: "shopify" | "playbypoint";
-  reservationSoftware: "playbypoint" | "podplay" | "courtreserve";
+  retailSoftware: "shopify" | "playbypoint" | undefined;
+  reservationSoftware: "playbypoint" | "podplay" | "courtreserve" | undefined;
   rewardConfigStatus?: "pending" | "active";
   shopify?: ShopifyData;
   playbypoint?: PlayByPointData;
