@@ -356,7 +356,7 @@ function GgpickleballMatchPage() {
 
   if (!isMobile) {
     return (
-      <Flex direction={'column'} minHeight={'100dvh'} p={'4'} justify={'center'} gap={'7'}>
+      <Flex direction={'column'} minHeight={'100vh'} p={'4'} justify={'center'} gap={'7'}>
         <Flex direction={'column'} position={'relative'} align={'center'} mt={'-9'} p={'7'}>
           <Image
             src={lightGgLogo}
@@ -380,7 +380,7 @@ function GgpickleballMatchPage() {
 
   if (locationError) {
     return (
-    <Flex direction={'column'} minHeight={'100dvh'} p={'4'} justify={'center'} align={'center'} gap={'7'}>
+    <Flex direction={'column'} minHeight={'100vh'} p={'4'} justify={'center'} align={'center'} gap={'7'}>
       <Flex position={'relative'} justify={'center'} align={'center'} height={'100px'}>
         {selectedLocation && (
           <Image
@@ -405,7 +405,7 @@ function GgpickleballMatchPage() {
 
   if (!user) {
     return (
-      <Flex direction={'column'} minHeight={'100dvh'} p={'4'} justify={'center'} gap={'7'}>
+      <Flex direction={'column'} minHeight={'100vh'} p={'4'} justify={'center'} gap={'7'}>
         <Flex position={'relative'} justify={'center'} align={'center'} height={'100px'}>
           {selectedLocation && (
             <Image
