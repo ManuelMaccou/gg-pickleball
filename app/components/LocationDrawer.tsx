@@ -20,12 +20,22 @@ interface LocationDrawerProps {
   onLocationChange: (client: IClient) => void;
 }
 
+const EXCLUDED_CLIENT_NAME = "Test Client";
+
 export default function LocationDrawer({ allClients, currentClient, onLocationChange }: LocationDrawerProps) {
 
   const handleSelectLocation = async(client: IClient) => {
     document.cookie = `lastLocation=${client._id.toString()}; path=/; max-age=${60 * 60 * 24 * 30}`;
     onLocationChange(client);
   }
+
+  const filteredClients = allClients.filter((client: IClient) =>
+    client.name !== EXCLUDED_CLIENT_NAME &&
+    Array.isArray(client.achievements) &&
+    client.achievements.length > 0 &&
+    client.rewardsPerAchievement &&
+    Object.keys(client.rewardsPerAchievement).length > 0
+  );
 
 
   return (
@@ -54,12 +64,7 @@ export default function LocationDrawer({ allClients, currentClient, onLocationCh
           </DrawerHeader>
 
           <Flex direction="column" gap="4" mt={'5'} style={{marginTop: '30px'}}>
-            {allClients
-            .filter((client: IClient) => 
-              Array.isArray(client.achievements) && client.achievements.length > 0 &&
-              client.rewardsPerAchievement && Object.keys(client.rewardsPerAchievement).length > 0
-            )
-            .map((client: IClient) => (
+            {filteredClients.map((client: IClient) => (
               <DrawerClose asChild key={client._id.toString()}>
                 <Card onClick={() => handleSelectLocation(client)}>
                   <Flex direction={'column'} align="center" style={{marginBottom: '30px'}}>
