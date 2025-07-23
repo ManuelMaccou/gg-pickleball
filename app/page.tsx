@@ -1,10 +1,10 @@
-import { Button, Flex, Link, Text } from "@radix-ui/themes";
+import { Button, Card, Flex, Inset, Link, Strong, Text } from "@radix-ui/themes";
 import Image from "next/image";
 import darkGgLogo from "../public/logos/gg_logo_black_transparent.png"
 import lightGgLogo from "../public/logos/gg_logo_white_transparent.png"
-// import calabasasPbLogo from "../public/partnerLogos/calabasaspb_logo.png"
+import calabasasPbLogo from "../public/partnerLogos/calabasaspb_logo.png"
 import hero1 from "../public/home/hero1.jpg"
-// import { Copyright } from "lucide-react";
+import { Copyright } from "lucide-react";
 
 export default function GGPickleball() {
 
@@ -84,8 +84,6 @@ export default function GGPickleball() {
               />
             </Flex>
 
-            {/*
-
               <Flex direction="column" justify="center">
                 <Button
                   asChild
@@ -99,8 +97,6 @@ export default function GGPickleball() {
                   </Link>
                 </Button>
               </Flex>
-
-            */}
             
           </Flex>
         </Flex>
@@ -181,22 +177,18 @@ export default function GGPickleball() {
                 Play to earn discounts on reservations, programming, and gear.
               </Text>
               <Flex direction={'row'} width={'100%'} justify={'center'} gap={'5'} mt={'4'}>
-                <Text size={'7'} weight={'bold'} style={{color: 'white'}}>Coming soon</Text>
-                {/*
-                  <Button
-                    asChild
-                    size="4"
-                    highContrast
-                    radius="full"
-                    mb={'8'}
-                    style={{width: '250px'}}
-                  >
-                    <Link href="/play" style={{ textDecoration: 'none' }}>
-                      Go to app
-                    </Link>
-                  </Button>
-                */}
-               
+                <Button
+                  asChild
+                  size="4"
+                  highContrast
+                  radius="full"
+                  mb={'8'}
+                  style={{width: '250px'}}
+                >
+                  <Link href="/play" style={{ textDecoration: 'none' }}>
+                    Go to app
+                  </Link>
+                </Button>
               <Button
                 asChild
                 size="4"
@@ -228,22 +220,18 @@ export default function GGPickleball() {
           Play to earn discounts on reservations, programming, and gear.
         </Text>
         <Flex direction={'column'} width={'100%'} align={'center'} justify={'center'} gap={'4'} mx={'4'}>
-          <Text size={'7'} weight={'bold'}>Coming soon</Text>
-
-          {/*
-            <Button
-              asChild
-              size="4"
-              highContrast
-              variant="outline"
-              radius="full"
-              style={{ width: '70%', backgroundColor: '#1F2D5C', color: 'white' }}
-            >
-              <Link href="/play" style={{ textDecoration: 'none' }}>
-                Go to app
-              </Link>
-            </Button>
-          */}
+          <Button
+            asChild
+            size="4"
+            highContrast
+            variant="outline"
+            radius="full"
+            style={{ width: '70%', backgroundColor: '#1F2D5C', color: 'white' }}
+          >
+            <Link href="/play" style={{ textDecoration: 'none' }}>
+              Go to app
+            </Link>
+          </Button>
 
           <Button
             asChild
@@ -263,7 +251,6 @@ export default function GGPickleball() {
         </Flex>
       </Flex>
 
-{/*
       <Flex direction={'column'} width={{initial: '100vw', md: '80vw'}} mt={'7'} mb={'5'} maxWidth={'1500px'}>
         <Flex direction={'row'} gap={'3'} justify={'between'} wrap={'nowrap'} 
           style={{overflowX: 'auto'}}
@@ -395,12 +382,6 @@ export default function GGPickleball() {
           <Link size={'2'} target="_blank" href="https://www.instagram.com/ocmedia.pb/" style={{alignSelf: 'center', textDecoration: 'underline', color: 'white'}}>Main image by OC Media</Link>
         </Flex>
       </Flex>
-
-*/}
-
-
-
-
 
     </Flex>
   )
