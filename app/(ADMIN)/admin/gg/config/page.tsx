@@ -51,7 +51,7 @@ export default function GgpickleballAdminClients() {
   const { user } = useUserContext();
   const router = useRouter();
   const isMobile = useIsMobile();
-  const { isLoading: auth0IsLoading } = useAuth0User();
+  const { user: auth0User, isLoading: auth0IsLoading } = useAuth0User();
 
   // Admin and general page state
   const [admin, setAdmin] = useState<IAdmin | null>(null);
@@ -235,6 +235,48 @@ export default function GgpickleballAdminClients() {
   const userName = user?.name;
   if (isMobile === null) return null;
   const isLoading = isGettingAdmin || isFetchingClients;
+
+   if (user && !user.superAdmin) {
+      return (
+        <Flex direction="column" height="100vh">
+          <Flex
+            justify="between"
+            align="center"
+            direction="row"
+            px={{ initial: '3', md: '9' }}
+            py="4"
+          >
+            <Flex direction="column" position="relative" maxWidth="80px">
+              <Image
+                src={darkGgLogo}
+                alt="GG Pickleball dark logo"
+                priority
+                height={540}
+                width={960}
+              />
+            </Flex>
+            {!auth0IsLoading && (
+              <Flex direction="row" justify="center" align="center">
+                <Text size="3" weight="bold" align="right">
+                  {userName
+                    ? auth0User
+                      ? `Welcome ${
+                          String(userName).includes('@') ? String(userName).split('@')[0] : userName
+                        }`
+                      : `${
+                          String(userName).includes('@') ? String(userName).split('@')[0] : userName
+                        } (guest)`
+                    : ''}
+                </Text>
+              </Flex>
+            )}
+          </Flex>
+          <Flex direction="column" align="center" justify="center" height="300px">
+            <Text>You do not have access to this page</Text>
+          </Flex>
+        </Flex>
+      );
+    }
 
   return (
     <Flex direction={'column'} minHeight={'100vh'}>
