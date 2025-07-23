@@ -120,7 +120,7 @@ export default function MobileConfigureRewardsForm({
               </Select.Root>
             </Flex>
 
-            {discountProduct === 'pro shop' && (
+            {discountProduct === 'pro shop' && discountType === 'dollars' ? (
               <Flex direction={'column'} gap={'5'}>
                 <Flex direction={'column'} gap={'2'}>
                   <Text size={'3'}>Minimum spend (optional)</Text>
@@ -141,8 +141,9 @@ export default function MobileConfigureRewardsForm({
                     </TextField.Slot>
                   </TextField.Root>
                 </Flex>
+                </Flex>
 
-                {discountType === 'percent' && (
+                ) : discountProduct === 'pro shop' && discountType === 'percent' ? (
                   <Flex direction={'column'} gap={'2'}>
                     <Text size={'3'}>Maximum discount (optional)</Text>
                     <Text size={'1'} mt={'-2'}><Em>The max dollar amount that can be discounted from the purchase.</Em></Text>
@@ -162,9 +163,7 @@ export default function MobileConfigureRewardsForm({
                       </TextField.Slot>
                     </TextField.Root>
                   </Flex>
-                )}
-              </Flex>
-            )}
+                ) : null}
 
             {/* Buttons */}
             <Flex direction="column" gap="3" mt="2">
