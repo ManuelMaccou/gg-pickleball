@@ -122,7 +122,7 @@ function visit(user: IUser, match: MatchData): VisitResult {
     if (visitsBeforeThisOne === milestone - 1) {
       return {
         achievements: [{ key: `visit-${milestone}`, repeatable: false }],
-        didVisit: false // This value is now ignored by the main loop anyway.
+        didVisit: false // This value is now ignored by the main loop anyway
       };
     }
   }
