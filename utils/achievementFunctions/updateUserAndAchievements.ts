@@ -41,6 +41,17 @@ const achievementFunctionMap: Record<string, CheckFunction> = {
   'visit-50': visit,
   'visit-100': visit,
   'first-win': firstWin,
+  '5-wins': totalWins,
+  '10-wins': totalWins,
+  '20-wins': totalWins,
+  '30-wins': totalWins,
+  '40-wins': totalWins,
+  '50-wins': totalWins,
+  '100-wins': totalWins,
+  '200-wins': totalWins,
+  '300-wins': totalWins,
+  '400-wins': totalWins,
+  '500-wins': totalWins,
   '2-win-streak': winStreak,
   '5-win-streak': winStreak,
   '10-win-streak': winStreak,
@@ -140,6 +151,32 @@ function firstWin(user: IUser, match: MatchData): AchievementEarned[] {
   if (match.winners.includes(userIdStr) && (!wins || wins === 0)) {
     return [{ key: 'first-win', repeatable: false }];
   }
+  return [];
+}
+
+function totalWins(user: IUser, match: MatchData): AchievementEarned[] {
+  const WIN_MILESTONES = [5, 10, 20, 30, 40, 50, 100, 200];
+
+  const userIdStr = user._id.toString();
+
+  // This achievement is only for winners.
+  if (!match.winners.includes(userIdStr)) {
+    return [];
+  }
+
+  const clientId = match.location;
+  const userStatsForClient = ensureClientStats(user, clientId);
+  
+  const winsBeforeThisMatch = userStatsForClient.wins || 0;
+
+  const newWinCount = winsBeforeThisMatch + 1;
+
+  for (const milestone of WIN_MILESTONES) {
+    if (newWinCount === milestone) {
+      return [{ key: `${milestone}-wins`, repeatable: false }];
+    }
+  }
+
   return [];
 }
 
