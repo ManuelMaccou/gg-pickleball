@@ -37,7 +37,13 @@ const achievementFunctionMap: Record<string, CheckFunction> = {
   'visit-1': visit,
   'visit-5': visit,
   'visit-10': visit,
+  'visit-15': visit,
   'visit-20': visit,
+  'visit-25': visit,
+  'visit-30': visit,
+  'visit-35': visit,
+  'visit-40': visit,
+  'visit-45': visit,
   'visit-50': visit,
   'visit-100': visit,
   'first-win': firstWin,
@@ -49,18 +55,30 @@ const achievementFunctionMap: Record<string, CheckFunction> = {
   '50-wins': totalWins,
   '100-wins': totalWins,
   '200-wins': totalWins,
-  '300-wins': totalWins,
-  '400-wins': totalWins,
-  '500-wins': totalWins,
   '2-win-streak': winStreak,
   '5-win-streak': winStreak,
+  '7-win-streak': winStreak,
   '10-win-streak': winStreak,
+  '15-win-streak': winStreak,
   'win-streak-breaker': winStreakBreaker,
-  '5-matches-played': matchesPlayed,
+  '1-matches-played': matchesPlayed,
   '10-matches-played': matchesPlayed,
   '20-matches-played': matchesPlayed,
   '50-matches-played': matchesPlayed,
-  'century-club': matchesPlayed,
+  '100-matches-played': matchesPlayed,
+  '150-matches-played': matchesPlayed,
+  '200-matches-played': matchesPlayed,
+  '250-matches-played': matchesPlayed,
+  '300-matches-played': matchesPlayed,
+  '350-matches-played': matchesPlayed,
+  '400-matches-played': matchesPlayed,
+  '450-matches-played': matchesPlayed,
+  '500-matches-played': matchesPlayed,
+  '600-matches-played': matchesPlayed,
+  '700-matches-played': matchesPlayed,
+  '800-matches-played': matchesPlayed,
+  '900-matches-played': matchesPlayed,
+  '1000-matches-played': matchesPlayed,
   'pickle': pickle,
   '50-points-won': pointsWon,
   '100-points-won': pointsWon,
@@ -95,19 +113,16 @@ function ensureClientStats(user: IUser, clientId: string): ClientStats {
 }
 
 function visit(user: IUser, match: MatchData): VisitResult {
-  const VISIT_MILESTONES = [1, 5, 10, 20, 50, 100];
+  const VISIT_MILESTONES = [1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 100];
   const userStatsForClient = ensureClientStats(user, match.location);
   
-  // The visit count is already up-to-date in memory thanks to our main loop.
    const visitsBeforeThisOne = (userStatsForClient.visits ?? []).length;
 
   for (const milestone of VISIT_MILESTONES) {
-    // Check if the new total visit count is exactly at a milestone.
     if (visitsBeforeThisOne === milestone - 1) {
       return {
-        // We no longer pass back didVisit or visitDate from here.
         achievements: [{ key: `visit-${milestone}`, repeatable: false }],
-        didVisit: false // This value is now ignored by the main loop anyway.
+        didVisit: false // This value is now ignored by the main loop anyway
       };
     }
   }
@@ -196,22 +211,35 @@ function pickle(user: IUser, match: MatchData): AchievementEarned[] {
   return [];
 }
 
+/**
+ * Checks if a user has reached a win streak milestone.
+ * @param user The user document.
+ * @param match The data for the current match.
+ * @returns An array with the earned achievement, or an empty array.
+ */
 function winStreak(user: IUser, match: MatchData): AchievementEarned[] {
-  
+  const STREAK_MILESTONES = [2, 5, 7, 10, 15];
+
   const userIdStr = user._id.toString();
+
+  if (!match.winners.includes(userIdStr)) {
+    return [];
+  }
+
   const clientId = match.location;
   const userStatsForClient = ensureClientStats(user, clientId);
-  const { winStreak } = userStatsForClient;
+  
+  const streakBeforeThisMatch = userStatsForClient.winStreak || 0;
 
-  const earned: AchievementEarned[] = [];
+  const newWinStreak = streakBeforeThisMatch + 1;
 
-  if (match.winners.includes(userIdStr)) {
-    if (winStreak === 1) earned.push({ key: '2-win-streak', repeatable: true });
-    else if (winStreak === 4) earned.push({ key: '5-win-streak', repeatable: true });
-    else if (winStreak === 9) earned.push({ key: '10-win-streak', repeatable: true });
+  for (const milestone of STREAK_MILESTONES) {
+    if (newWinStreak === milestone) {
+      return [{ key: `${milestone}-win-streak`, repeatable: true }];
+    }
   }
-  console.log('win streak earned:', earned)
-  return earned;
+
+  return [];
 }
 
 async function winStreakBreaker(user: IUser, match: MatchData): Promise<AchievementEarned[]> {
@@ -261,21 +289,23 @@ async function winStreakBreaker(user: IUser, match: MatchData): Promise<Achievem
 }
 
 function matchesPlayed(user: IUser, match: MatchData): AchievementEarned[] {
+  const MATCH_MILESTONES = [1, 10, 20, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 600, 700, 800, 900, 1000];
+
   const clientId = match.location;
   const userStatsForClient = ensureClientStats(user, clientId);
-  const { matches } = userStatsForClient;
+  
+  const matchesPlayedBefore = userStatsForClient.matches?.length || 0;
 
-  if (matches?.length === 4) {
-    return [{key: '5-matches-played', repeatable: false }]
-  } else if (matches?.length === 9) {
-    return [{key: '10-matches-played', repeatable: false }]
-  } else if (matches?.length === 19) {
-    return [{key: '20-matches-played', repeatable: false }]
-  } else if (matches?.length === 49) {
-    return [{key: '50-matches-played', repeatable: false }]
-  } else if (matches?.length === 99) {
-    return [{key: 'century-club', repeatable: false }]
+  const newTotalMatches = matchesPlayedBefore + 1;
+
+  for (const milestone of MATCH_MILESTONES) {
+    if (newTotalMatches === milestone) {
+      const achievementKey = `${milestone}-matches-played`;
+      
+      return [{ key: achievementKey, repeatable: false }];
+    }
   }
+
   return [];
 }
 
