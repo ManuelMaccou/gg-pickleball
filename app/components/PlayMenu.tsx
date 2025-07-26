@@ -280,10 +280,10 @@ const handleToggleDuprActivation = async (newValue: boolean) => {
                   <Separator orientation={'horizontal'} size={'4'} color="blue"  />
                 </Flex>
 
-                <Flex direction={'column'} mb={'9'}>
+                <Flex direction={'column'}>
                   <Heading weight={'bold'} mb={'4'} style={{color: 'white'}}>Contact us</Heading>
                   <Text>Questions, comments, or issues? We would love to hear from you!</Text>
-                  <Button mt={'6'} asChild>
+                  <Button mt={'6'} mb={'9'} asChild>
                     <a
                       href="mailto:play@ggpickleball.co"
                       target="_blank"
