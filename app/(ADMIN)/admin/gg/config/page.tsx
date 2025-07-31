@@ -122,7 +122,7 @@ export default function GgpickleballAdminClients() {
   // Auth redirection
   useEffect(() => {
     if (!auth0IsLoading && !user) {
-      router.push(`/auth/login?returnTo=/admin/clients`);
+      router.push(`/auth/login?returnTo=/admin/gg/config`);
     }
   }, [auth0IsLoading, user, router]);
 

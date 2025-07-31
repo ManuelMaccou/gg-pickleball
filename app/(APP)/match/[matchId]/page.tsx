@@ -432,13 +432,10 @@ function GgpickleballMatchPage() {
               Continue (quick)
             </Button>
             {error && (
-                 <Badge size={'3'} color='red'>
-                 
-                  {error}
-            
-                  
-                 </Badge>
-              )}
+              <Badge size={'3'} color='red'>
+                {error}
+              </Badge>
+            )}
             <Text align={'center'}>----- or -----</Text>
             <Button size={'3'} variant='outline' onClick={() => router.push(`/auth/login?screen_hint=signup&returnTo=${pathname}`)}>Create account / Log in</Button>
             
@@ -623,19 +620,23 @@ function GgpickleballMatchPage() {
 
           {scoreError && (
             <Badge color="red" size={'3'}>
-              {scoreError}
+              <Text wrap={'wrap'}>{scoreError}</Text>
             </Badge>
           )}
 
           {saveErrorMessage && (
             <Flex direction={'column'} mt={'4'}>
-              <Badge color="red" size={'3'} mb={'5'}>{saveErrorMessage}</Badge>
+              <Badge color="red" size={'3'} mb={'5'}>
+                <Text wrap={'wrap'}>{saveErrorMessage}</Text>
+              </Badge>
             </Flex>
           )}
 
           {saveSuccessMessage && (
             <Flex direction={'column'} mt={'4'}>
-              <Badge color="green" size={'3'} mb={'5'}>{saveSuccessMessage}</Badge>
+              <Badge color="green" size={'3'} mb={'5'}>
+                <Text wrap={'wrap'}>{saveSuccessMessage}</Text>
+              </Badge>
             </Flex>
           )}
 
