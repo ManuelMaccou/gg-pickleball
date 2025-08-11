@@ -54,10 +54,10 @@ export default function GgpickleballAdminClients() {
   const { user: auth0User, isLoading: auth0IsLoading } = useAuth0User();
 
   // Admin and general page state
-  const [admin, setAdmin] = useState<IAdmin | null>(null);
-  const [location, setLocation] = useState<IClient | null>(null);
-  const [adminError, setAdminError] = useState<string | null>(null);
-  const [isGettingAdmin, setIsGettingAdmin] = useState<boolean>(true);
+  // const [admin, setAdmin] = useState<IAdmin | null>(null);
+  // const [location, setLocation] = useState<IClient | null>(null);
+  // const [adminError, setAdminError] = useState<string | null>(null);
+  // const [isGettingAdmin, setIsGettingAdmin] = useState<boolean>(true);
 
   // Client-specific state
   const [clients, setClients] = useState<IClient[]>([]);
@@ -72,6 +72,7 @@ export default function GgpickleballAdminClients() {
   const [formData, setFormData] = useState<FormState>(initialClientState);
 
   // Fetch admin data for header consistency
+  /*
   useEffect(() => {
     if (!user?.id) return;
     const getAdminUser = async () => {
@@ -94,6 +95,7 @@ export default function GgpickleballAdminClients() {
     };
     getAdminUser();
   }, [user?.id]);
+  */
 
   // Fetch all clients on component mount
   const fetchClients = async () => {
@@ -234,7 +236,6 @@ export default function GgpickleballAdminClients() {
 
   const userName = user?.name;
   if (isMobile === null) return null;
-  const isLoading = isGettingAdmin || isFetchingClients;
 
    if (user && !user.superAdmin) {
       return (
@@ -279,40 +280,45 @@ export default function GgpickleballAdminClients() {
     }
 
   return (
-    <Flex direction={'column'} minHeight={'100vh'}>
+    <Flex direction="column" minHeight="100vh">
       {/* Header */}
-      <Flex justify="between" align="center" direction="row" px={{ initial: '3', md: '9' }} py="4">
+      <Flex
+        justify="between"
+        align="center"
+        direction="row"
+        px={{ initial: '3', md: '9' }}
+        py="4"
+      >
         <Flex direction="column" position="relative" maxWidth="80px">
-          <Image src={darkGgLogo} alt="GG Pickleball dark logo" priority height={540} width={960} />
+          <Image
+            src={darkGgLogo}
+            alt="GG Pickleball dark logo"
+            priority
+            height={540}
+            width={960}
+          />
         </Flex>
         {!auth0IsLoading && (
           <Flex direction="row" justify="center" align="center">
             <Text size="3" weight="bold" align="right">
-              {userName ? `Welcome ${String(userName).split('@')[0]}` : ''}
+              {userName
+                ? auth0User
+                  ? `Welcome ${
+                      String(userName).includes('@') ? String(userName).split('@')[0] : userName
+                    }`
+                  : `${
+                      String(userName).includes('@') ? String(userName).split('@')[0] : userName
+                    } (guest)`
+                : ''}
             </Text>
           </Flex>
         )}
       </Flex>
-       
-      {/* Location Logo Banner */}
-      {location && (
-        <Flex direction={'column'} style={{backgroundColor: admin?.bannerColor, boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)', zIndex: 2}}>
-          <Flex direction={'column'} position={'relative'} height={{initial: '60px', md: '80px'}} my={'5'}>
-            <Image src={location.admin_logo || ''} alt="Location logo" priority fill style={{objectFit: 'contain'}}/>
-          </Flex>
-        </Flex>
-      )}
-
-      {/* Dashboard */}
-      <Flex direction={'column'} flexGrow="1" width={'100vw'} maxWidth={'1500px'} overflow={'hidden'} px={'4'} style={{alignSelf: 'center'}}>
-        {adminError ? (
-          <Callout.Root size={'3'} color="red"><Callout.Icon><InfoCircledIcon /></Callout.Icon><Callout.Text>{adminError}</Callout.Text></Callout.Root>
-        ) : (
-          <Flex direction={'row'} height={'100%'}>
-            {/* Left sidebar nav */}
-            {!isMobile && (
-              <GGAdminSidebar />
-            )}
+      <Flex direction={'column'} width={'100vw'}>
+        <Flex direction={'row'} height={'100%'}>
+          {!isMobile && (
+            <GGAdminSidebar />
+          )}
 
             {/* Main Content Area */}
             <Flex direction={'column'} py={'4'} px={{initial: '2', md: '6'}} width={'100%'} overflow={'auto'}>
@@ -321,7 +327,7 @@ export default function GgpickleballAdminClients() {
                 <Button onClick={handleOpenCreateDialog}>Create New Client</Button>
               </Flex>
 
-              {isLoading ? (
+              {isFetchingClients ? (
                 <Flex justify={'center'} align={'center'} mt={'9'}><Spinner size={'3'} /></Flex>
               ) : fetchError ? (
                 <Callout.Root color="red"><Callout.Icon><InfoCircledIcon /></Callout.Icon><Callout.Text>{fetchError}</Callout.Text></Callout.Root>
@@ -345,7 +351,6 @@ export default function GgpickleballAdminClients() {
               )}
             </Flex>
           </Flex>
-        )}
       </Flex>
 
       {/* Create/Edit Client Dialog */}
