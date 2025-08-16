@@ -9,7 +9,7 @@ import { InfoCircledIcon, Pencil2Icon } from "@radix-ui/react-icons"
 import Image from "next/image";
 import darkGgLogo from '../../../../../public/logos/gg_logo_black_transparent.png'
 import { useIsMobile } from "@/app/hooks/useIsMobile";
-import { IAdmin, IClient, PodplayData, ShopifyData } from "@/app/types/databaseTypes";
+import { IClient, PodplayData, ShopifyData } from "@/app/types/databaseTypes";
 import GGAdminSidebar from "../components/GGAdminSidebar";
 
 
