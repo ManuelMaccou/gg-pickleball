@@ -493,6 +493,8 @@ export default function GgpickleballAdminRewards() {
                             gap="1"
                             onClick={() => {
                               setSelectedAchievement(clientAchievement);
+                              setRewardSuccess(false)
+                              setRewardError(false)
                               if (isMobile) setIsMobileRewardOpen(true);
                             }}
                             style={{

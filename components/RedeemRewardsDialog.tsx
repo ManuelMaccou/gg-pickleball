@@ -53,17 +53,17 @@ const rewardCode = reward.codes?.find(c => c._id === earnedInstance._id)?.code;
             <Text size={'9'} weight={'bold'} align={'center'}>{reward.friendlyName}</Text>
           </Flex>
           
-          {reward.minimumSpend ? (
+          {reward.minimumSpend && reward.product === 'pro shop' ? (
             <Flex direction={'column'} align={'center'} mt={'3'}>
               <Text align={'center'}>Minimum spend to qualify: ${reward.minimumSpend}</Text>
             </Flex>
-          ) : reward.maxDiscount ? (
+          ) : reward.maxDiscount && reward.product === 'pro shop' ? (
             <Flex direction={'column'} align={'center'} mt={'3'}>
               <Text align={'center'}>Max discount amount: ${reward.maxDiscount}</Text>
             </Flex>
           ) : null}
           <Flex direction={'column'} mt={'4'} gap={'4'}>
-            <Text size={'4'} align={'center'}><Strong>To redeem: </Strong>Show this screen at the front desk, or call to make a reservation or order.</Text>
+            <Text size={'4'} align={'center'}><Strong>To redeem: </Strong>Show this screen at the front desk, or call to make a reservation or order. Certain restrictions may apply. Visit club for details.</Text>
             {reward.product !== 'pro shop' && (
               <Text size={'4'} align={'right'}>
                 <Strong>Code: </Strong>{rewardCode ?? 'Unavailable'}
