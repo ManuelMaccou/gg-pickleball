@@ -11,6 +11,7 @@ import { useUserContext } from '@/app/contexts/UserContext';
 import { IClient } from '@/app/types/databaseTypes';
 import { ArrowLeft } from 'lucide-react';
 import { useIsMobile } from '@/app/hooks/useIsMobile';
+import Link from 'next/link';
 
 function NewMatchPage() {
 
@@ -167,16 +168,16 @@ if (isMobile === null) {
                Continue
               </Button>
               <Button variant='ghost'
+                asChild
                 size={'3'}
-                onClick={() => router.back()}
                 style={{ outline: "none", boxShadow: "none" }}
               >
-                <ArrowLeft />Go back
+                <Link href={'/play'}><ArrowLeft />Go back</Link>
               </Button>
             </Flex>
             
           </Flex>
-          ) : !user ? (
+          ) : !user && locationParam ? (
             <Flex direction={'column'} gap={'4'}>
               <TextField.Root 
                 size={'3'}
@@ -195,9 +196,20 @@ if (isMobile === null) {
                  </Badge>
               )}
               <Text align={'center'}>----- or -----</Text>
-              <Button size={'3'} variant='outline' onClick={() => router.push('/auth/login?screen_hint=signup&returnTo=/new')}>Create account / Log in</Button>
+              <Flex direction={'column'} gap={'6'}>
+                <Button size={'3'} onClick={() => router.push(`/auth/login?returnTo=/new?location=${locationParam}`)}>Log in</Button>
+                <Button size={'3'} variant='outline' onClick={() => router.push(`/auth/login?screen_hint=signup&returnTo=/new?location=${locationParam}`)}>Create account</Button>
+              </Flex>
             </Flex>
           </Flex>
+          ) : !user && !locationParam ? (
+            <Flex direction={'column'} align={'center'} gap={'4'} mt={'-9'}>
+              <Text>There was an error loading the page.</Text>
+              <Button asChild size={'3'} variant='outline'>
+                <Link href={'/play'}><ArrowLeft />Go back</Link>
+                
+              </Button>
+            </Flex>
           ) : null }
       </Flex>
   )
