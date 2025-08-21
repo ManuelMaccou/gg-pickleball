@@ -61,12 +61,14 @@ export default function RewardsGrid({ user, location, maxCount }: Props) {
         const rewardMap = new Map<string, RewardWithAchievementContext>();
 
         for (const code of codes) {
-          const rewardId = code.reward._id.toString();
-          const { _id: achievementId, friendlyName } = code.achievement;
           const reward = code.reward;
+          const { _id: achievementId, friendlyName } = code.achievement;
 
-          if (!rewardMap.has(rewardId)) {
-            rewardMap.set(rewardId, {
+          // --- FIX: Create a truly unique key for each reward version ---
+          const uniqueSnapshotKey = `${reward._id.toString()}-${reward.friendlyName}-${reward.product}-${reward.discount}`;
+
+          if (!rewardMap.has(uniqueSnapshotKey)) {
+            rewardMap.set(uniqueSnapshotKey, {
               ...reward,
               achievementId,
               achievementFriendlyName: friendlyName,
@@ -74,7 +76,7 @@ export default function RewardsGrid({ user, location, maxCount }: Props) {
             });
           }
 
-          rewardMap.get(rewardId)!.codes.push({
+          rewardMap.get(uniqueSnapshotKey)!.codes.push({
             _id: code._id.toString(),
             code: code.code,
             redeemed: code.redeemed,
@@ -119,11 +121,18 @@ export default function RewardsGrid({ user, location, maxCount }: Props) {
     fetchClientRewards();
   }, [location._id]);
 
-  // Merge configured + earned rewards
+    // Merge configured + earned rewards
   useEffect(() => {
     const mergeRewards = () => {
       const mergedMap = new Map<string, RewardWithAchievementContext>();
 
+      // 1. Add all EARNED rewards first using the unique key.
+      for (const earned of allUserEarnedRewards) {
+        const uniqueSnapshotKey = `${earned._id.toString()}-${earned.friendlyName}-${earned.product}-${earned.discount}`;
+        mergedMap.set(uniqueSnapshotKey, earned);
+      }
+
+      // 2. Now, add any CONFIGURED rewards that the user has NOT yet earned in their current form.
       for (const item of clientConfiguredRewards) {
         const reward = item.reward;
         if (!reward || !reward._id) {
@@ -131,20 +140,15 @@ export default function RewardsGrid({ user, location, maxCount }: Props) {
           continue;
         }
 
-        mergedMap.set(reward._id.toString(), {
-          ...reward,
-          achievementId: item.achievementId,
-          achievementFriendlyName: item.achievementFriendlyName,
-          codes: [],
-        });
-      }
-
-      for (const earned of allUserEarnedRewards) {
-        const key = earned._id.toString();
-        if (mergedMap.has(key)) {
-          mergedMap.get(key)!.codes = earned.codes;
-        } else {
-          mergedMap.set(key, earned);
+        const uniqueSnapshotKey = `${reward._id.toString()}-${reward.friendlyName}-${reward.product}-${reward.discount}`;
+        
+        if (!mergedMap.has(uniqueSnapshotKey)) {
+          mergedMap.set(uniqueSnapshotKey, {
+            ...reward,
+            achievementId: item.achievementId,
+            achievementFriendlyName: item.achievementFriendlyName,
+            codes: [],
+          });
         }
       }
 
@@ -156,12 +160,23 @@ export default function RewardsGrid({ user, location, maxCount }: Props) {
         return (a.index ?? Infinity) - (b.index ?? Infinity);
       });
 
-      setAllRewards(mergedList);
-    };
+      // --- NEW FIX: Filter out fully redeemed rewards ---
+      const visibleRewards = mergedList.filter(reward => {
+        const hasCodes = reward.codes && reward.codes.length > 0;
+        // Keep if it's an unearned configured reward OR has unredeemed codes.
+        if (!hasCodes) {
+          return true; // Keep (it's an unearned reward)
+        }
+        // It has codes, so check if any are NOT redeemed.
+        const hasUnredeemedCodes = reward.codes.some(c => !c.redeemed);
+        return hasUnredeemedCodes; // Keep only if there's something to redeem
+      });
 
-    if (clientConfiguredRewards.length > 0 || allUserEarnedRewards.length > 0) {
-      mergeRewards();
-    }
+      setAllRewards(visibleRewards);
+    };
+    
+    mergeRewards();
+    
   }, [clientConfiguredRewards, allUserEarnedRewards]);
 
   const displayedRewards = maxCount
