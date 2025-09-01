@@ -303,9 +303,12 @@ const handleToggleDuprActivation = async (newValue: boolean) => {
               </>
             ) : (
               <Flex direction="column" align={'center'} gap={'7'} mt={'9'} height={'100%'}>
-                <Text size={'3'}>
-                  Create an account to change your display name and connect DUPR.
-                </Text>
+                <Flex direction={'column'} gap={'3'} align={'center'}>
+                  <Text weight={'bold'} align={'center'}>You are currently logged in as a guest</Text>
+                  <Text size={'3'} align={'center'}>
+                    To ensure your stats are not lost and to connect to DUPR, create an account.
+                  </Text>
+                </Flex>
                 <Button size={'3'} variant='outline' asChild>
                   <a href={loginUrl}>Create account</a>
                 </Button> 

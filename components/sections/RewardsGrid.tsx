@@ -336,16 +336,19 @@ export default function RewardsGrid({ user, location, maxCount }: Props) {
         )
       })}
 
+     
       {selectedReward && (
-        <RedeemRewardsDialog
-          showRedeemRewardsDialog={true}
-          setShowRedeemRewardsDialog={(open) => {
-            if (!open) setSelectedReward(null)
-          }}
-          reward={selectedReward.reward}
-          earnedInstance={selectedReward.instance}
-          location={location}
-        />
+        <Flex direction={'column'}>
+          <RedeemRewardsDialog
+            showRedeemRewardsDialog={true}
+            setShowRedeemRewardsDialog={(open) => {
+              if (!open) setSelectedReward(null)
+            }}
+            reward={selectedReward.reward}
+            earnedInstance={selectedReward.instance}
+            location={location}
+          />
+        </Flex>
       )}
     </Flex>
   )

@@ -30,7 +30,9 @@ export async function generateAndSavePlayByPointDiscountCodes(
 
   const productToKindsMap: { [key: string]: Kind[] } = {
     'open play': [Kind.Clinic],
-    'reservation': [Kind.Reservation],
+    'reservations': [Kind.Reservation],
+    'guest reservations': [Kind.Reservation],
+    'classes and clinics': [Kind.Clinic],
   };
 
   const pbpAffiliations = client.playbypoint?.affiliations ?? [];
@@ -79,9 +81,9 @@ export async function generateAndSavePlayByPointDiscountCodes(
         const facilityId = client.playbypoint.facilityId.toString();
 
         const discount = task.reward.discount;
-        if (discount == null) { // `== null` safely checks for both null and undefined
+        if (discount == null) {
           console.error(`CRITICAL ERROR: A reward without a discount was passed to the PlayByPoint coupon generator. Skipping. Reward name: ${task.reward.name}`);
-          continue; // Skip this iteration
+          continue;
         }
   
         const pbpCoupon: CouponInput = {
@@ -116,7 +118,6 @@ export async function generateAndSavePlayByPointDiscountCodes(
       body: JSON.stringify({ coupons: couponsForPbp }),
     })
     .then(async (response) => {
-      // This part is correct: It handles network or server-level failures.
       if (!response.ok) {
         const errorBody = await response.json().catch(() => ({ message: 'Could not parse error JSON.' }));
         console.error(`[Background Task] Batch coupon creation failed with HTTP status ${response.status}:`, errorBody);
@@ -125,30 +126,22 @@ export async function generateAndSavePlayByPointDiscountCodes(
       
       const successBody = await response.json();
 
-      // --- THIS IS THE CRITICAL FIX ---
-      // We must now inspect the `results` array within the successful response.
       if (!Array.isArray(successBody.results)) {
         console.error('[Background Task] Batch response was successful, but the `results` key is missing or not an array.', successBody);
         return;
       }
 
       let allSucceeded = true;
-      // Iterate through each result in the batch to check its individual status.
       for (const result of successBody.results) {
-        // A successful status from the PBP batch API is typically 200-299.
-        // We check for any status that indicates an error (400 or higher).
         if (result.status >= 400) {
           allSucceeded = false;
-          // Log this specific failure as a high-priority error.
           console.error(`[Background Task] Coupon creation FAILED for code '${result.codeName}'. Status: ${result.status}. Body:`, result.body);
         }
       }
 
-      // Now, log the final, accurate outcome of the entire batch operation.
       if (allSucceeded) {
         console.log('[Background Task] Successfully completed batch coupon creation in PlayByPoint. All coupons were created.');
       } else {
-        // This is a more accurate message than the success message you saw before.
         console.warn('[Background Task] Batch coupon creation completed, but one or more coupons failed. See individual errors above.');
       }
       

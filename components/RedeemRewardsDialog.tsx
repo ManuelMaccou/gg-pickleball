@@ -2,7 +2,7 @@
 
 import { IClient } from "@/app/types/databaseTypes";
 import { IRewardWithCode } from "@/app/types/rewardTypes";
-import { Box, Dialog, Flex, Strong, Text, VisuallyHidden } from "@radix-ui/themes";
+import { Dialog, Flex, Strong, Text, VisuallyHidden } from "@radix-ui/themes";
 import Image from "next/image";
 
 interface RedeemRewardsDialogProps {
@@ -26,16 +26,16 @@ const rewardCode = reward.codes?.find(c => c._id === earnedInstance._id)?.code;
   return (
     <Dialog.Root open={showRedeemRewardsDialog} onOpenChange={setShowRedeemRewardsDialog}>
       <Dialog.Content>
-        <Dialog.Title size={'6'} align={'center'}>Redeem your reward</Dialog.Title>
         <VisuallyHidden>
+          <Dialog.Title size={'6'} align={'center'}>Redeem your reward</Dialog.Title>
           <Dialog.Description> Redeem your reward</Dialog.Description>
         </VisuallyHidden>
         <Flex direction={'column'}>
           <Flex 
-            direction={reward.product !== 'custom' ? 'row' : 'column'}
-            align={reward.product !== 'custom' ? undefined : 'center'}
+            direction={'column'}
+            align={'center'}
           >
-            <Box position={'relative'} height={'100px'} width={'150px'}>
+            <Flex direction={'column'} align={'center'} position={'relative'} height={'100px'} width={'150px'}>
               <Image
                 src={location.logo}
                 alt={location.name ?? 'Location logo'}
@@ -43,11 +43,11 @@ const rewardCode = reward.codes?.find(c => c._id === earnedInstance._id)?.code;
                 priority
                 style={{objectFit: 'contain'}}
               />
-            </Box>
+            </Flex>
 
             {reward.product !== 'custom' && (
               <Flex direction={'row'} align={'center'} justify={'center'} flexGrow={'1'} width={'100%'}>
-                <Text align={'center'} size={'7'} weight={'bold'}
+                <Text align={'center'} size={'6'} weight={'bold'}
                   style={{textTransform: "uppercase"}}
                 >
                   {reward.product}
@@ -57,7 +57,7 @@ const rewardCode = reward.codes?.find(c => c._id === earnedInstance._id)?.code;
             
           </Flex>
           <Flex direction={'column'}>
-            <Text size={'9'} weight={'bold'} align={'center'}>{reward.friendlyName}</Text>
+            <Text size={reward.product === 'custom' ? '7' : '9'} weight={'bold'} align={'center'}>{reward.friendlyName}</Text>
           </Flex>
           
           {reward.minimumSpend && reward.product === 'pro shop' ? (
