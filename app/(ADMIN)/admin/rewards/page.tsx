@@ -268,10 +268,10 @@ export default function GgpickleballAdminRewards() {
       console.log('reward:', reward)
 
       setDiscountAmount(reward.discount);
-      setDiscountProduct(reward.product as "open play" | "reservation" | "pro shop");
-      setDiscountType(reward.type as "percent" | "dollars");
-      setMinimumSpendAmount(reward.minimumSpendAmount);
-      setMaxDiscountAmount(reward.maxDiscountAmount);
+      setDiscountProduct(reward.product);
+      setDiscountType(reward.type ?? 'percent');
+      setMinimumSpendAmount(reward.minimumSpend ?? null);
+      setMaxDiscountAmount(reward.maxDiscount ?? null);
 
       setConfiguredClientRewards(prev => ({
         ...(prev || {}),
@@ -366,7 +366,7 @@ export default function GgpickleballAdminRewards() {
         return updated;
       });
       setDiscountAmount(null)
-      setDiscountProduct("reservation")
+      setDiscountProduct("reservations")
       setDiscountType("percent")
       setRewardSuccess(true)
 

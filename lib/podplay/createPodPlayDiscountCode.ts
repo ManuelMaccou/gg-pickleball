@@ -8,7 +8,8 @@ const PODPLAY_API_URL = 'https://powerplay.podplay.app/apis/v2/coupons';
 const PODPLAY_API_KEY = process.env.PODPLAY_API_KEY; // Set in .env
 
 const eligibleTypeMap: Record<string, 'BOOKING' | 'EVENT_OPEN_PLAY'> = {
-  'reservation': 'BOOKING',
+  'reservations': 'BOOKING',
+  'guest reservations': 'BOOKING',
   'open play': 'EVENT_OPEN_PLAY',
 };
 

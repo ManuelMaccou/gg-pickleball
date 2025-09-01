@@ -2,7 +2,7 @@
 
 import { IClient } from "@/app/types/databaseTypes";
 import { IRewardWithCode } from "@/app/types/rewardTypes";
-import { Box, Dialog, Flex, Strong, Text, VisuallyHidden } from "@radix-ui/themes";
+import { Dialog, Flex, Strong, Text, VisuallyHidden } from "@radix-ui/themes";
 import Image from "next/image";
 
 interface RedeemRewardsDialogProps {
