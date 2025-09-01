@@ -7,6 +7,8 @@ import { IClient, IRewardCode } from '@/app/types/databaseTypes'
 import RedeemRewardsDialog from '../RedeemRewardsDialog'
 import { FrontendUser } from '@/app/types/frontendTypes'
 import { IRewardWithCode } from '@/app/types/rewardTypes'
+import { achievementKeyToFunctionName } from '@/lib/achievements/definitions'
+import { achievementFunctionMetadata } from '@/lib/achievements/achievementMetadata'
 
 type RewardWithAchievementContext = IRewardWithCode & {
   achievementId: string;
@@ -27,7 +29,7 @@ type ClientConfiguredReward = {
 };
 
 type PopulatedRewardCode = Omit<IRewardCode, 'rewardId' | 'achievementId'> & {
-  achievement: { _id: string; friendlyName: string };
+  achievement: { _id: string; friendlyName: string; name: string };
 };
 
 type Props = {
@@ -38,7 +40,8 @@ type Props = {
 };
 
 export default function RewardsGrid({ user, location, maxCount }: Props) {
-  const [fetchingRewards, setFetchingRewards] = useState<boolean>(false);
+  const [fetchingRewards, setFetchingRewards] = useState<boolean>(true);
+  const [filteringRewards, setFilteringRewards] = useState<boolean>(true);
   const [allUserEarnedRewards, setAllUserEarnedRewards] = useState<RewardWithAchievementContext[]>([]);
   const [clientConfiguredRewards, setClientConfiguredRewards] = useState<ClientConfiguredReward[]>([]);
   const [allRewards, setAllRewards] = useState<RewardWithAchievementContext[]>([]);
@@ -62,15 +65,19 @@ export default function RewardsGrid({ user, location, maxCount }: Props) {
 
         for (const code of codes) {
           const reward = code.reward;
-          const { _id: achievementId, friendlyName } = code.achievement;
+          const { _id: achievementId, friendlyName, name: achievementName } = code.achievement;
 
-          // --- FIX: Create a truly unique key for each reward version ---
-          const uniqueSnapshotKey = `${reward._id.toString()}-${reward.friendlyName}-${reward.product}-${reward.discount}`;
+          const functionName = achievementKeyToFunctionName[achievementName];
+          const metadata = functionName ? achievementFunctionMetadata[functionName] : undefined;
+          const isRepeatable = metadata ? metadata.repeatable : false;
+
+          const uniqueSnapshotKey = `${reward._id.toString()}-${reward.friendlyName}-${reward.product}-${reward.discount ?? 'custom'}`;
 
           if (!rewardMap.has(uniqueSnapshotKey)) {
             rewardMap.set(uniqueSnapshotKey, {
               ...reward,
-              achievementId,
+              repeatable: isRepeatable,
+              achievementId: achievementId,
               achievementFriendlyName: friendlyName,
               codes: [],
             });
@@ -121,38 +128,71 @@ export default function RewardsGrid({ user, location, maxCount }: Props) {
     fetchClientRewards();
   }, [location._id]);
 
-    // Merge configured + earned rewards
+  // Merge configured + earned rewards
   useEffect(() => {
+    setFilteringRewards(true);
     const mergeRewards = () => {
       const mergedMap = new Map<string, RewardWithAchievementContext>();
 
-      // 1. Add all EARNED rewards first using the unique key.
+      // This establishes the baseline of what is currently earnable ("locked" state).
+      for (const configuredItem of clientConfiguredRewards) {
+        const reward = configuredItem.reward;
+        if (!reward || !reward._id) continue;
+
+        const uniqueSnapshotKey = `${reward._id.toString()}-${reward.friendlyName}-${reward.product}-${reward.discount ?? 'custom'}`;
+        
+        mergedMap.set(uniqueSnapshotKey, {
+          ...reward,
+          achievementId: configuredItem.achievementId,
+          achievementFriendlyName: configuredItem.achievementFriendlyName,
+          codes: [],
+        });
+      }
+
+      // This will overwrite the locked versions with unlocked ones if they match,
+      // and add any old, earned "snapshots" that no longer match a configured reward.
       for (const earned of allUserEarnedRewards) {
-        const uniqueSnapshotKey = `${earned._id.toString()}-${earned.friendlyName}-${earned.product}-${earned.discount}`;
+        const uniqueSnapshotKey = `${earned._id.toString()}-${earned.friendlyName}-${earned.product}-${earned.discount ?? 'custom'}`;
         mergedMap.set(uniqueSnapshotKey, earned);
       }
+      
+      // Convert the map to an array for filtering and sorting.
+      const allRewardVersions = [...mergedMap.values()];
 
-      // 2. Now, add any CONFIGURED rewards that the user has NOT yet earned in their current form.
-      for (const item of clientConfiguredRewards) {
-        const reward = item.reward;
-        if (!reward || !reward._id) {
-          console.warn('Skipping invalid reward in clientConfiguredRewards:', item);
-          continue;
+      const earnedAchievementIds = new Set(
+        allRewardVersions
+          .filter(reward => reward.codes && reward.codes.length > 0) // Find all earned rewards
+          .map(reward => reward.achievementId) // Get their achievement IDs
+      );
+
+      const deduplicatedList = allRewardVersions.filter(reward => {
+        // If the reward has NOT been earned yet, always keep it.
+        if (!reward.codes || reward.codes.length === 0) {
+          // BUT, if its corresponding achievement has ALREADY been earned by another
+          // version of this reward, and it's non-repeatable, then HIDE it.
+          if (earnedAchievementIds.has(reward.achievementId) && !reward.repeatable) {
+            return false; // Hide this unearned, non-repeatable version
+          }
+          return true; // Keep this unearned, repeatable version
         }
-
-        const uniqueSnapshotKey = `${reward._id.toString()}-${reward.friendlyName}-${reward.product}-${reward.discount}`;
         
-        if (!mergedMap.has(uniqueSnapshotKey)) {
-          mergedMap.set(uniqueSnapshotKey, {
-            ...reward,
-            achievementId: item.achievementId,
-            achievementFriendlyName: item.achievementFriendlyName,
-            codes: [],
-          });
-        }
-      }
+        // If the reward HAS been earned, always keep it for now.
+        // The final filter will handle its visibility based on redemption status.
+        return true;
+      });
 
-      const mergedList = [...mergedMap.values()].sort((a, b) => {
+      // Now we apply the rule to hide non-repeatable rewards that are fully redeemed.
+      const visibleRewards = deduplicatedList.filter(reward => {
+        if (!reward.codes || reward.codes.length === 0) {
+          return true; // Keep all unearned rewards that passed the deduplication step
+        }
+        
+        const areAllCodesRedeemed = reward.codes.every(c => c.redeemed);
+        return reward.repeatable || !areAllCodesRedeemed;
+      });
+
+      // The sorting logic remains correct.
+      const sortedList = visibleRewards.sort((a, b) => {
         const aUnlocked = a.codes.some(c => !c.redeemed);
         const bUnlocked = b.codes.some(c => !c.redeemed);
         if (aUnlocked && !bUnlocked) return -1;
@@ -160,19 +200,8 @@ export default function RewardsGrid({ user, location, maxCount }: Props) {
         return (a.index ?? Infinity) - (b.index ?? Infinity);
       });
 
-      // --- NEW FIX: Filter out fully redeemed rewards ---
-      const visibleRewards = mergedList.filter(reward => {
-        const hasCodes = reward.codes && reward.codes.length > 0;
-        // Keep if it's an unearned configured reward OR has unredeemed codes.
-        if (!hasCodes) {
-          return true; // Keep (it's an unearned reward)
-        }
-        // It has codes, so check if any are NOT redeemed.
-        const hasUnredeemedCodes = reward.codes.some(c => !c.redeemed);
-        return hasUnredeemedCodes; // Keep only if there's something to redeem
-      });
-
-      setAllRewards(visibleRewards);
+      setAllRewards(sortedList);
+      setFilteringRewards(false);
     };
     
     mergeRewards();
@@ -183,15 +212,28 @@ export default function RewardsGrid({ user, location, maxCount }: Props) {
     ? allRewards.slice(0, maxCount)
     : allRewards;
 
-  if (fetchingRewards) return (
+  if (fetchingRewards || filteringRewards) return (
     <Flex direction={'row'} width={'100%'} align={'center'} justify={'center'}>
         <Spinner size={'3'} style={{color: 'white'}} />
     </Flex>
   )
 
+  if (displayedRewards.length === 0) {
+    return (
+      <Card>
+        <Flex align="center" justify="center" p="4">
+          <Text align={'center'} color="gray" size="3">
+            You`&apos;ve earned all available rewards! Check back later for new challenges.
+          </Text>
+        </Flex>
+      </Card>
+    );
+  }
+
   return (
     <Flex direction={'column'} gap="4">
       {displayedRewards.map((reward) => {
+        const uniqueSnapshotKey = `${reward._id.toString()}-${reward.friendlyName}-${reward.product}-${reward.discount ?? 'custom'}`;
         const unredeemedCount = reward.codes?.filter(c => !c.redeemed).length ?? 0;
         const isUnlocked = unredeemedCount > 0;
 
@@ -207,7 +249,7 @@ export default function RewardsGrid({ user, location, maxCount }: Props) {
               borderRadius: isUnlocked ? '10px' : undefined
             }}
           >
-            <Flex direction={'row'} justify={'between'}>
+            <Flex direction={'row'} gap={'3'} justify={'between'}>
               <Flex direction={'row'} gap={'3'}>
                 <Box position={'relative'}>
                   <Image
@@ -218,18 +260,33 @@ export default function RewardsGrid({ user, location, maxCount }: Props) {
                     style={{maxWidth: '50px', height: 'auto'}}
                     />
                 </Box>
-              <Flex direction={'column'} justify={'center'}>
-                <Text size={'5'} weight={'bold'}  color={isUnlocked ? undefined : 'gray'}
-                  style={{ textTransform: 'uppercase' }}
-                >
-                  {reward.friendlyName}
-                </Text>
-                <Text size={'4'} color={isUnlocked ? undefined : 'gray'}
-                  style={{ textTransform: 'uppercase' }}
-                >
-                  {reward.product}
-                </Text>
-              </Flex>
+                <Flex direction={'column'} justify={'center'}>
+                  <Text size={'5'} weight={'bold'}  color={isUnlocked ? undefined : 'gray'}
+                    style={{ textTransform: 'uppercase' }}
+                  >
+                    {reward.friendlyName}
+                  </Text>
+
+                  {reward.product !== 'custom' && (
+                    <Text size={'4'} color={isUnlocked ? undefined : 'gray'}
+                      style={{ textTransform: 'uppercase' }}
+                    >
+                      {reward.product}
+                    </Text>
+                  )}
+                  
+                  {reward.productDescription && reward.product === 'pro shop' ? (
+                    <Text size={'2'} color={isUnlocked ? undefined : 'gray'}>
+                      {reward.productDescription}
+                    </Text>
+                  ) : (!reward.productDescription && reward.product === 'pro shop' ? (
+                    <Text size={'2'} color={isUnlocked ? undefined : 'gray'}>
+                    All products
+                    </Text>
+                  ) : null
+                  )}
+                  
+                </Flex>
 
               </Flex>
               
@@ -249,7 +306,7 @@ export default function RewardsGrid({ user, location, maxCount }: Props) {
         )
 
         return (
-          <Flex direction="column" key={reward._id.toString()}>
+          <Flex direction="column" key={uniqueSnapshotKey}>
             {isUnlocked ? (
               <div
                 onClick={() => {

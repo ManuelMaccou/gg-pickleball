@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Badge, Flex, Spinner, Text } from '@radix-ui/themes'
+import { Badge, Card, Flex, Spinner, Text } from '@radix-ui/themes'
 import Image from 'next/image'
 import { AchievementData, IAchievement } from '@/app/types/databaseTypes'
 
@@ -70,9 +70,11 @@ export default function AchievementsGrid({
   )
 
   if (!isFetchingAchievements && allClientAchievements.length === 0) return (
-    <Flex direction={'row'} width={'100%'} align={'center'} justify={'center'}>
-      <Text align={'center'}>Achievements not configured. Please contact the facility.</Text>
-    </Flex>
+    <Card>
+      <Flex direction={'row'} width={'100%'} align={'center'} justify={'center'}>
+        <Text color='gray' size={'3'} align={'center'}>Achievements not configured. Please contact the facility.</Text>
+      </Flex>
+    </Card>
   )
 
   return (

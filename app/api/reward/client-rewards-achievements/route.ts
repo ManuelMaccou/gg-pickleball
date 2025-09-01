@@ -5,6 +5,9 @@ import Reward from '@/app/models/Reward'
 import Achievement from '@/app/models/Achievement'
 import { Types } from 'mongoose'
 import { logError } from '@/lib/sentry/logger'
+import { achievementKeyToFunctionName } from '@/lib/achievements/definitions'
+import { achievementFunctionMetadata } from '@/lib/achievements/achievementMetadata'
+import { IAchievement, IReward } from '@/app/types/databaseTypes'
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
@@ -34,22 +37,31 @@ export async function GET(req: Request) {
     const achievementNames = entries.map(([achievementName]) => achievementName);
 
     const [rewards, achievements] = await Promise.all([
-      Reward.find({ _id: { $in: rewardIds } }),
-      Achievement.find({ name: { $in: achievementNames } })
-    ])
+      Reward.find({ _id: { $in: rewardIds } }).lean<IReward[]>(),
+      Achievement.find({ name: { $in: achievementNames } }).lean<IAchievement[]>(),
+    ]);
 
     const result = entries.map(([achievementName, rewardId]) => {
-      const reward = rewards.find(r => r._id.toString() === rewardId.toString())
-      const achievement = achievements.find(a => a.name === achievementName)
+      const reward = rewards.find(r => r._id.toString() === rewardId.toString());
+      const achievement = achievements.find(a => a.name === achievementName);
 
-      if (!reward || !achievement) return null
+      if (!reward || !achievement) return null;
 
+      const functionName = achievementKeyToFunctionName[achievementName];
+      const metadata = functionName ? achievementFunctionMetadata[functionName] : undefined;
+      const isRepeatable = metadata ? metadata.repeatable : false;
+
+      // Since `reward` is now a plain object, we can spread it directly.
+      // The `.toObject()` call is no longer needed.
       return {
         achievementId: achievement._id.toString(),
         achievementFriendlyName: achievement.friendlyName,
-        reward
-      }
-    }).filter(Boolean)
+        reward: {
+          ...reward,
+          repeatable: isRepeatable,
+        },
+      };
+    }).filter(Boolean);
 
     return NextResponse.json({ rewards: result })
   } catch (error) {

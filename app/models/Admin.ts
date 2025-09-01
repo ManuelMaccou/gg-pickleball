@@ -6,7 +6,6 @@ const AdminSchema = new Schema<IAdmin>(
   {
     user: { type: Schema.Types.ObjectId, ref: 'User' },
     location: { type: Schema.Types.ObjectId, ref: 'Client' },
-    bannerColor: { type: String, default: 'white'},
   }
 );
 

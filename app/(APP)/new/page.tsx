@@ -31,6 +31,13 @@ function NewMatchPage() {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null);
 
+  const guestUsername = user?.isGuest ? user.name : null;
+  let loginUrl = `/auth/login?screen_hint=signup&returnTo=/new?location=${locationParam}`;
+  if (guestUsername) {
+    // If a guest session exists, append their username to the URL.
+    loginUrl += `&guest_username=${encodeURIComponent(guestUsername)}`;
+  }
+
   // set selected location
   useEffect(() => {
     const fetchClientById = async () => {
@@ -53,9 +60,15 @@ function NewMatchPage() {
     if (!tempName.trim()) return;
 
     try {
+      const res = await fetch('/api/user/guest/request-token')
+      const { token } = await res.json()
+
       const response = await fetch('/api/user/guest', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+         headers: {
+          'Content-Type': 'application/json',
+           'x-guest-init-token': token,
+        },
         body: JSON.stringify({ guestName: tempName })
       });
 
@@ -198,7 +211,9 @@ if (isMobile === null) {
               <Text align={'center'}>----- or -----</Text>
               <Flex direction={'column'} gap={'6'}>
                 <Button size={'3'} onClick={() => router.push(`/auth/login?returnTo=/new?location=${locationParam}`)}>Log in</Button>
-                <Button size={'3'} variant='outline' onClick={() => router.push(`/auth/login?screen_hint=signup&returnTo=/new?location=${locationParam}`)}>Create account</Button>
+                <Button size={'3'} variant='outline' asChild>
+                  <a href={loginUrl}>Create account</a>
+                </Button> 
               </Flex>
             </Flex>
           </Flex>

@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
     await connectToDatabase();
 
     const body = await request.json();
-    const { user, location, bannerColor } = body;
+    const { user, location } = body;
 
     if (!user || !location) {
       logError(new Error('Request body missing user or location field'), {
@@ -88,7 +88,6 @@ export async function POST(request: NextRequest) {
     const admin = new Admin({
       user,
       location,
-      bannerColor: bannerColor || null,
     });
 
     await admin.save();

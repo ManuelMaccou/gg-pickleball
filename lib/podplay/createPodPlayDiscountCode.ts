@@ -33,9 +33,12 @@ export async function createPodPlayDiscountCode(rewardId: Types.ObjectId): Promi
       throw new Error(`Invalid or missing eligibleType for product: ${reward.product}`);
     }
 
-    const value = reward.type === 'percent'
-      ? reward.discount/100
-      : reward.discount;
+    const discountValue = reward.discount ?? 0;
+    const discountType = reward.type ?? 'dollars';
+
+    const value = discountType === 'percent'
+      ? discountValue / 100
+      : discountValue;
 
     const body = {
       id: reward._id.toString(),

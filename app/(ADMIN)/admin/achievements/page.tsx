@@ -8,7 +8,7 @@ import { AlertDialog, Badge, Button, Callout, Em, Flex, Heading, Spinner, Text }
 import { InfoCircledIcon } from "@radix-ui/react-icons"
 import Image from "next/image";
 import darkGgLogo from '../../../../public/logos/gg_logo_black_transparent.png'
-import { IAchievement, IAchievementCategory, IAdmin, IClient } from "@/app/types/databaseTypes";
+import { IAchievement, IAchievementCategory, IClient } from "@/app/types/databaseTypes";
 import Link from "next/link";
 import { useIsMobile } from "@/app/hooks/useIsMobile";
 import MobileMenu from "../components/MobileMenu";
@@ -25,7 +25,6 @@ export default function GgPickleballAdminAchievements() {
   
   const { user: auth0User, isLoading: auth0IsLoading } = useAuth0User();
   const [isMobileDetailsOpen, setIsMobileDetailsOpen] = useState(false);
-  const [admin, setAdmin] = useState<IAdmin | null>(null);
   const [location, setLocation] = useState<IClient | null>(null);
   const [isGettingAdmin, setIsGettingAdmin] = useState<boolean>(true);
   const [isGettingAllAchievementCategories, setIsGettingAllAchievementCategories] = useState<boolean>(true);
@@ -77,7 +76,6 @@ export default function GgPickleballAdminAchievements() {
         const response = await fetch(`/api/admin?userId=${userId}`);
 
         if (response.status === 204) {
-          setAdmin(null);
           setAdminError("You don't have permission to access this page.");
           return;
         }
@@ -88,7 +86,6 @@ export default function GgPickleballAdminAchievements() {
           throw new Error(data.error || "Failed to fetch admin data");
         }
   
-        setAdmin(data.admin);
         setLocation(data.admin.location);
       } catch (error: unknown) {
         console.error("Error fetching admin data:", error);
@@ -99,7 +96,6 @@ export default function GgPickleballAdminAchievements() {
           setAdminError("Unknown error occurred");
         }
       
-        setAdmin(null);
       } finally {
         setIsGettingAdmin(false);
       }
@@ -346,7 +342,7 @@ export default function GgPickleballAdminAchievements() {
        
       {/* Location Logo */}
       {location && (
-        <Flex direction={'column'} style={{backgroundColor: admin?.bannerColor, boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)', zIndex: 2}}>
+        <Flex direction={'column'} style={{backgroundColor: location?.bannerColor, boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)', zIndex: 2}}>
           <Flex direction={'column'} position={'relative'} height={{initial: '60px', md: '80px'}} my={'5'}>
             <Image
               src={location.admin_logo}

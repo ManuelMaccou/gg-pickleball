@@ -1,5 +1,11 @@
 import { Types, Document } from 'mongoose';
 
+export const REWARD_PRODUCT_NAMES = ["open play", "reservations", "guest reservations", "classes and clinics", "pro shop", "custom"] as const;
+export type RewardProductName = typeof REWARD_PRODUCT_NAMES[number];
+
+export const REWARD_CATEGORY_NAMES = ["retail", "programming", "custom"] as const;
+export type RewardCategoryName = typeof REWARD_CATEGORY_NAMES[number];
+
 export interface AchievementEarned {
   key: string;
   repeatable: boolean;
@@ -27,7 +33,7 @@ export interface ClientStats {
   losses?: number;
   winStreak?: number;
   pointsWon?: number;
-  matches?: Types.ObjectId[];
+  // matches?: Types.ObjectId[];
   achievements: AchievementData[];
   rewards: RewardData[];
 }
@@ -102,14 +108,16 @@ export interface IAchievementCategory extends Document {
 export interface IReward extends Document {
   _id: Types.ObjectId;
   index: number;
+  repeatable?: boolean;
   name: string;
   friendlyName: string;
-  product: "open play" | "reservation" | "pro shop";
-  discount: number;
+  product: RewardProductName;
+  productDescription?: string;
+  discount?: number;
   minimumSpend?: number;
   maxDiscount?: number;
-  type: "dollars" | "percent";
-  category: "retail" | "programming";
+  type?: "dollars" | "percent";
+  category: RewardCategoryName;
 }
 
 export interface ShopifyData {
@@ -133,7 +141,9 @@ export interface IClient extends Document {
   latitude: string;
   longitude: string;
   logo: string;
+  rewardProducts: string[];
   admin_logo: string;
+  bannerColor: string;
   icon: string;
   altAchievements?: Types.ObjectId[];
   altRewardsPerAchievement?: {
@@ -155,7 +165,6 @@ export interface IAdmin extends Document {
   _id: Types.ObjectId;
   user: Types.ObjectId;
   location: Types.ObjectId;
-  bannerColor: string;
 }
 
 export interface IRewardCode {

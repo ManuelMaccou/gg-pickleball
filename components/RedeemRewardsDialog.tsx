@@ -31,7 +31,10 @@ const rewardCode = reward.codes?.find(c => c._id === earnedInstance._id)?.code;
           <Dialog.Description> Redeem your reward</Dialog.Description>
         </VisuallyHidden>
         <Flex direction={'column'}>
-          <Flex direction={'row'}>
+          <Flex 
+            direction={reward.product !== 'custom' ? 'row' : 'column'}
+            align={reward.product !== 'custom' ? undefined : 'center'}
+          >
             <Box position={'relative'} height={'100px'} width={'150px'}>
               <Image
                 src={location.logo}
@@ -41,13 +44,17 @@ const rewardCode = reward.codes?.find(c => c._id === earnedInstance._id)?.code;
                 style={{objectFit: 'contain'}}
               />
             </Box>
-            <Flex direction={'row'} align={'center'} justify={'center'} flexGrow={'1'} width={'100%'}>
-              <Text align={'center'} size={'7'} weight={'bold'}
-                style={{textTransform: "uppercase"}}
-              >
-                {reward.product}
-              </Text>
-            </Flex>
+
+            {reward.product !== 'custom' && (
+              <Flex direction={'row'} align={'center'} justify={'center'} flexGrow={'1'} width={'100%'}>
+                <Text align={'center'} size={'7'} weight={'bold'}
+                  style={{textTransform: "uppercase"}}
+                >
+                  {reward.product}
+                </Text>
+              </Flex>
+            )}
+            
           </Flex>
           <Flex direction={'column'}>
             <Text size={'9'} weight={'bold'} align={'center'}>{reward.friendlyName}</Text>
@@ -63,13 +70,13 @@ const rewardCode = reward.codes?.find(c => c._id === earnedInstance._id)?.code;
             </Flex>
           ) : null}
           <Flex direction={'column'} mt={'4'} gap={'4'}>
-            <Text size={'4'} align={'center'}><Strong>To redeem: </Strong>Show this screen at the front desk, or call to make a reservation or order. Certain restrictions may apply. Visit club for details.</Text>
-            {reward.product !== 'pro shop' && (
-              <Text size={'4'} align={'right'}>
-                <Strong>Code: </Strong>{rewardCode ?? 'Unavailable'}
-              </Text>
-            )}
-            
+            <Text size={'4'}><Strong>To redeem: </Strong>
+              Show this screen at the front desk, or call. 
+              Certain restrictions may apply. Visit club for details.
+            </Text>
+            <Text size={'4'} align={'right'}>
+              <Strong>Code: </Strong>{rewardCode ?? 'Unavailable'}
+            </Text>
           </Flex>
         </Flex>
       </Dialog.Content>

@@ -23,7 +23,7 @@ import SuccessDialog from "@/app/components/SuccessDialog";
 import { useRouter } from "next/navigation";
 import QrCodeDialog from "@/app/components/QrCodeDialog";
 import { useUserContext } from "@/app/contexts/UserContext";
-import { IClient, IReward, SerializedAchievement } from "@/app/types/databaseTypes";
+import { IClient, IReward, RewardProductName, SerializedAchievement } from "@/app/types/databaseTypes";
 import { useIsMobile } from "@/app/hooks/useIsMobile";
 import { updateUserAndAchievements } from "@/utils/achievementFunctions/updateUserAndAchievements";
 
@@ -40,8 +40,8 @@ interface UserEarnedData {
     rewardId: string;
     name: string;
     friendlyName: string;
-    product: "open play" | "reservation" | "pro shop";
-    discount: number;
+    product: RewardProductName;
+    discount?: number;
   }[];
 }
 
@@ -83,6 +83,13 @@ function GgpickleballMatchPage() {
   const params = useParams<{ matchId: string }>()
   const matchId = params.matchId;
   const locationParam = searchParams.get('location')  
+
+  const guestUsername = user?.isGuest ? user.name : null;
+  let loginUrl = `/api/auth/login?screen_hint=signup&returnTo=${pathname}`;
+  if (guestUsername) {
+    // If a guest session exists, append their username to the URL.
+    loginUrl += `&guest_username=${encodeURIComponent(guestUsername)}`;
+  }
 
   // set selected location
   useEffect(() => {
@@ -437,8 +444,9 @@ function GgpickleballMatchPage() {
               </Badge>
             )}
             <Text align={'center'}>----- or -----</Text>
-            <Button size={'3'} variant='outline' onClick={() => router.push(`/auth/login?screen_hint=signup&returnTo=${pathname}`)}>Create account / Log in</Button>
-            
+            <Button size={'3'} variant='outline' asChild>
+              <a href={loginUrl}>Create account / Log in</a>
+            </Button>            
           </Flex>
 
         ) : (

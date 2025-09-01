@@ -19,6 +19,7 @@ export async function getAuthorizedUser(req: NextRequest): Promise<ResolvedUser 
 
   const guestToken = req.cookies.get('guestToken')?.value
   const guestUsername = req.cookies.get('guestUsername')?.value ?? null
+  console.log('guestusername:', guestUsername);
 
   if (session?.user?.sub) {
     try {
