@@ -3,6 +3,7 @@ import { generateAndSaveShopifyDiscountCodes } from './generateAndSaveShopifyDis
 import { RewardCodeTask } from '@/app/types/rewardTypes';
 import { generateAndSavePodPlayDiscountCodes } from './generateAndSavePodplayDiscountCodes';
 import { generateAndSavePlayByPointDiscountCodes } from './generateAndSavePlayByPointDiscountCodes';
+import { generateAndSaveCustomDiscountCodes } from './generateAndSaveCustomDiscountCodes';
 
 export type RewardCodeGenerator = (
   tasks: RewardCodeTask[],
@@ -16,6 +17,15 @@ const rewardCodeGenerators: Record<string, RewardCodeGenerator> = {
   'programming:playbypoint': generateAndSavePlayByPointDiscountCodes,
 };
 
-export function getRewardCodeGenerator(category: string, software: string): RewardCodeGenerator | undefined {
+export function getRewardCodeGenerator(category: string, software?: string): RewardCodeGenerator | undefined {
+  if (category === 'custom') {
+    return generateAndSaveCustomDiscountCodes;
+  }
+
+  if (!software) {
+    console.warn(`Cannot get reward generator for category "${category}" without a configured software.`);
+    return undefined;
+  }
+
   return rewardCodeGenerators[`${category}:${software}`];
 }

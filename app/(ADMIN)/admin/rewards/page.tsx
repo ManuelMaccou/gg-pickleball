@@ -8,11 +8,14 @@ import { AlertDialog, Badge, Button, Callout, Em, Flex, Heading, SegmentedContro
 import { InfoCircledIcon } from "@radix-ui/react-icons"
 import Image from "next/image";
 import darkGgLogo from '../../../../public/logos/gg_logo_black_transparent.png'
-import { IAchievement, IAdmin, IClient, IReward } from "@/app/types/databaseTypes";
+import { IAchievement, IClient, IReward } from "@/app/types/databaseTypes";
 import Link from "next/link";
 import { useIsMobile } from "@/app/hooks/useIsMobile";
 import MobileMenu from "../components/MobileMenu";
 import MobileConfigureRewardsForm from "../components/MobileConfigureRewardsForm";
+import { toTitleCase } from "@/utils/formatters";
+
+type Category = "custom" | "programming" | "retail";
 
 export default function GgpickleballAdminRewards() {
 
@@ -25,7 +28,6 @@ export default function GgpickleballAdminRewards() {
   
   const { user: auth0User, isLoading: auth0IsLoading } = useAuth0User();
   const [isMobileRewardOpen, setIsMobileRewardOpen] = useState(false);
-  const [admin, setAdmin] = useState<IAdmin | null>(null);
   const [location, setLocation] = useState<IClient | null>(null);
   const [isGettingAdmin, setIsGettingAdmin] = useState<boolean>(true);
   const [selectedAchievement, setSelectedAchievement] = useState<IAchievement | null>(null);
@@ -36,7 +38,8 @@ export default function GgpickleballAdminRewards() {
   const [adminError, setAdminError] = useState<string | null>(null);
   const [discountAmount, setDiscountAmount] = useState<number | null>(null);
   const [discountType, setDiscountType] = useState<"percent" | "dollars">("percent");
-  const [discountProduct, setDiscountProduct] = useState<"open play" | "reservation" | "pro shop">("reservation");
+  const [discountProduct, setDiscountProduct] = useState<string>('');
+  const [productDescription, setProductDescription] = useState<string>(''); 
   const [minimumSpendAmount, setMinimumSpendAmount] = useState<number | null>(null);
   const [maxDiscountAmount, setMaxDiscountAmount] = useState<number | null>(null);
   const [rewardSuccess, setRewardSuccess] = useState<boolean>(false);
@@ -54,7 +57,6 @@ export default function GgpickleballAdminRewards() {
         const response = await fetch(`/api/admin?userId=${userId}`);
 
         if (response.status === 204) {
-          setAdmin(null);
           setAdminError("You don't have permission to access this page.");
           return;
         }
@@ -65,7 +67,6 @@ export default function GgpickleballAdminRewards() {
           throw new Error(data.error || "Failed to fetch admin data");
         }
   
-        setAdmin(data.admin);
         setLocation(data.admin.location);
       } catch (error: unknown) {
         console.error("Error fetching admin data:", error);
@@ -76,7 +77,6 @@ export default function GgpickleballAdminRewards() {
           setAdminError("Unknown error occurred");
         }
       
-        setAdmin(null);
       } finally {
         setIsGettingAdmin(false);
       }
@@ -127,40 +127,53 @@ export default function GgpickleballAdminRewards() {
     const fetchRewardForSelectedAchievement = async () => {
       if (!selectedAchievement || !configuredClientRewards) return;
 
-      const reward = configuredClientRewards[selectedAchievement.name];
-      const rewardId = reward?._id;
-      console.log('rewardId:', rewardId)
+      const rewardId = configuredClientRewards[selectedAchievement.name]?._id;
 
       if (!rewardId) {
-        // Reset to defaults
         setDiscountAmount(null);
-        setDiscountProduct("reservation");
+        setProductDescription(''); 
+
+        const firstProductOption = location?.rewardProducts?.[0] || '';
+        setDiscountProduct(firstProductOption);
         setDiscountType("percent");
+        setMaxDiscountAmount(null);
+        setMinimumSpendAmount(null);
         return;
       }
 
       try {
         const res = await fetch(`/api/reward?id=${rewardId}`);
-        const data = await res.json();
 
         if (!res.ok) {
+          const data = await res.json();
           throw new Error(data.error || "Failed to fetch reward");
         }
 
-        const reward: IReward = data.reward;
+        const data = await res.json();
+        const savedReward: IReward = data.reward;
+        setProductDescription(savedReward.productDescription || '');
+        setDiscountAmount(savedReward.discount ?? null);
+        setDiscountType(savedReward.type ?? "percent"); 
+        setMaxDiscountAmount(savedReward.maxDiscount ?? null);
+        setMinimumSpendAmount(savedReward.minimumSpend ?? null);
 
-        setDiscountAmount(reward.discount);
-        setDiscountProduct(reward.product as "open play" | "reservation" | "pro shop");
-        setDiscountType(reward.type as "percent" | "dollars");
-        setMaxDiscountAmount(reward.maxDiscount ?? null);
-        setMinimumSpendAmount(reward.minimumSpend ?? null);
+        const savedProduct = savedReward.product;
+        const availableProducts = location?.rewardProducts || []; 
+
+        if (availableProducts.includes(savedProduct)) {
+          setDiscountProduct(savedProduct);
+        } else {
+          console.warn(`Saved product "${savedProduct}" is not in the available list. Defaulting.`);
+          const firstProductOption = availableProducts[0] || '';
+          setDiscountProduct(firstProductOption);
+        }
       } catch (err) {
         console.error("Error loading reward for achievement:", err);
       }
     };
 
-    fetchRewardForSelectedAchievement();
-  }, [selectedAchievement, configuredClientRewards]);
+  fetchRewardForSelectedAchievement();
+}, [selectedAchievement, configuredClientRewards, location]);
 
   const handleSaveReward = async () => {
     if (!selectedAchievement) return;
@@ -169,33 +182,60 @@ export default function GgpickleballAdminRewards() {
     setRewardSuccess(false);
     setRewardError(false);
 
-    const discountPrefix = discountType === "dollars" ? `$${discountAmount}` : `${discountAmount}%`;
-    const discountName = `${discountPrefix}-off-${discountProduct}`.toLowerCase();
-    const friendlyName = `${discountPrefix} off`;
+    // --- 1. DECLARE VARIABLES FOR THE PAYLOAD ---
+    // We will set these inside our conditional logic.
+    let rewardName: string;
+    let rewardFriendlyName: string;
+    let finalDiscountAmount: number | null = discountAmount;
+    let finalDiscountType: "percent" | "dollars" | undefined = discountType;
+
+    // --- 2. THE CORE LOGIC: IF/ELSE BLOCK ---
+    // This creates two distinct paths for generating reward details.
+    if (discountProduct === 'custom') {
+        // --- Path A: For "custom" rewards ---
+        // The friendly name is the description the user typed.
+        rewardFriendlyName = productDescription.trim();
+        // The internal name can be a standardized format.
+        rewardName = `custom-${selectedAchievement.name}`.toLowerCase();
+        // Custom rewards do not have a discount amount or type.
+        finalDiscountAmount = null;
+        finalDiscountType = undefined;
+
+    } else {
+        // --- Path B: For all standard rewards ---
+        const discountPrefix = discountType === "dollars" ? `$${finalDiscountAmount}` : `${finalDiscountAmount}%`;
+        rewardName = `${discountPrefix}-off-${discountProduct}`.toLowerCase();
+        rewardFriendlyName = `${discountPrefix} off`;
+    }
+
+    // --- 3. DETERMINE CATEGORY AND OTHER FIELDS ---
+    const specialCategories: Record<string, Category> = {
+      "custom": "custom",
+      "pro shop": "retail"
+    };
+    const category: Category = specialCategories[discountProduct] || "programming";
 
     let maxDiscount: number | null = null;
     let minimumSpend: number | null = null;
-
-    if (discountType === 'percent') {
+    if (finalDiscountType === 'percent') {
       maxDiscount = !isNaN(Number(maxDiscountAmount)) ? Number(maxDiscountAmount) : null;
-      minimumSpend = null;
-    } else if (discountType === 'dollars') {
+    } else if (finalDiscountType === 'dollars') {
       minimumSpend = !isNaN(Number(minimumSpendAmount)) ? Number(minimumSpendAmount) : null;
-      maxDiscount = null;
     }
 
-    const existingReward = configuredClientRewards?.[selectedAchievement.name];
-    const existingRewardId = existingReward?._id
+    const existingRewardId = configuredClientRewards?.[selectedAchievement.name]?._id;
 
+    // --- 4. CONSTRUCT THE FINAL PAYLOAD ---
     const rewardPayload = {
-      discount: discountAmount,
       product: discountProduct,
-      name: discountName,
-      type: discountType,
+      productDescription: (discountProduct === 'pro shop' || discountProduct === 'custom') && productDescription.trim() ? productDescription.trim() : undefined,
+      name: rewardName,
+      friendlyName: rewardFriendlyName,
+      discount: finalDiscountAmount,
+      type: finalDiscountType,
       maxDiscount,
       minimumSpend,
-      friendlyName,
-      category: discountProduct === "pro shop" ? "retail" : "programming"
+      category
     };
 
     try {
@@ -357,6 +397,16 @@ export default function GgpickleballAdminRewards() {
     }
   })
 
+  let isSaveDisabled = true; // Default to disabled
+
+  if (discountProduct === 'custom') {
+    // For custom rewards, only a description and a selected achievement are required.
+    isSaveDisabled = !productDescription.trim() || !selectedAchievement;
+  } else {
+    // For standard rewards, the old logic applies.
+    isSaveDisabled = !discountAmount || !discountType || !discountProduct || !selectedAchievement;
+  }
+
   if (isMobile === null) {
     return null;
   }
@@ -396,7 +446,7 @@ export default function GgpickleballAdminRewards() {
        
       {/* Location Logo */}
       {location && (
-        <Flex direction={'column'} style={{backgroundColor: admin?.bannerColor, boxShadow: rewardConfigStatus === 'pending' ? '0 2px 4px rgba(0, 0, 0, 0.1)' : '', zIndex: 2}}>
+        <Flex direction={'column'} style={{backgroundColor: location?.bannerColor, boxShadow: rewardConfigStatus === 'pending' ? '0 2px 4px rgba(0, 0, 0, 0.1)' : '', zIndex: 2}}>
           <Flex direction={'column'} position={'relative'} height={{initial: '60px', md: '80px'}} my={'5'}>
             <Image
               src={location.admin_logo}
@@ -540,6 +590,34 @@ export default function GgpickleballAdminRewards() {
                         </Flex>
                         <Flex direction={'column'} gap={'5'} maxWidth={'80%'}>
 
+                        {/* Product Field */}
+                        <Flex direction={'column'} gap={'2'}>
+                          <Text size={'3'}>Product</Text>
+                          <Text size={'1'} mt={'-2'}><Em> The product category to discount</Em></Text>
+                          <Select.Root
+                            size="2"
+                            value={discountProduct}
+                            onValueChange={setDiscountProduct}
+                          >
+                            <Select.Trigger />
+                            <Select.Content>
+                            {location?.rewardProducts && location.rewardProducts.length > 0 ? (
+                              location.rewardProducts.map(productName => (
+                                <Select.Item key={productName} value={productName}>
+                                  {toTitleCase(productName)}
+                                </Select.Item>
+                              ))
+                            ) : (
+                              <Select.Item value="none" disabled>
+                                No products configured for this location
+                              </Select.Item>
+                            )}
+                          </Select.Content>
+                          </Select.Root>
+                        </Flex>
+
+                        {/* Discount Field */}
+                        {discountProduct !== "custom" && (
                           <Flex direction={'column'} gap={'2'}>
                             <Text size={'3'}>Discount</Text>
                             <Flex direction={'row'} gap={'3'} justify={'between'} width={'100%'} flexGrow={'1'}>
@@ -565,80 +643,92 @@ export default function GgpickleballAdminRewards() {
                               </SegmentedControl.Root>
                             </Flex>
                           </Flex>
+                        )}
 
-                          <Flex direction={'column'} gap={'2'}>
-                            <Text size={'3'}>Product</Text>
-                            <Text size={'1'} mt={'-2'}><Em> The product category to discount</Em></Text>
-                            <Select.Root
-                              size="2"
-                              value={discountProduct}
-                              onValueChange={(value) => {
-                                setDiscountProduct(value as "open play" | "reservation" | "pro shop");
-                              }}
-                            >
-                              <Select.Trigger />
-                              <Select.Content>
-                                <Select.Item value="reservation">Court reservation</Select.Item>
-                                <Select.Item value="open play">Open Play</Select.Item>
-                                <Select.Item value="pro shop">Pro shop</Select.Item>
-                              </Select.Content>
-                            </Select.Root>
+                        {discountProduct === 'pro shop' && (
+                          <Flex direction="column" gap="2">
+                            <Text size="3">Applies To (Optional)</Text>
+                            <Text size="1" mt="-2">
+                              <Em>e.g., &ldquo;All club-branded clothing&ldquo; or &ldquo;Sunglasses only&ldquo;</Em>
+                            </Text>
+                            <TextField.Root
+                              placeholder="e.g., All club-branded clothing"
+                              value={productDescription}
+                              onChange={(e) => setProductDescription(e.target.value)}
+                            />
                           </Flex>
+                        )}
 
-                          {discountProduct === 'pro shop' && discountType === 'dollars' ? (
-                            <Flex direction="column" gap="5">
-                              <Flex direction="column" gap="2">
-                                <Text size="3">Minimum spend (optional)</Text>
-                                <Text size="1" mt="-2">
-                                  <Em>The minimum amount the customer must spend to qualify for this discount.</Em>
-                                </Text>
-                                <TextField.Root
-                                  type="number"
-                                  placeholder="Minimum spend"
-                                  value={minimumSpendAmount ?? ''}
-                                  style={{ flexGrow: '1' }}
-                                  onChange={(e) => {
-                                    const value = e.target.value;
-                                    const numeric = Number(value);
-                                    setMinimumSpendAmount(value === '' || isNaN(numeric) ? null : numeric);
-                                  }}
-                                >
-                                    <TextField.Slot>
-                                      <Text weight="bold">$</Text>
-                                    </TextField.Slot>
-                                  </TextField.Root>
-                                </Flex>
-                              </Flex>
-                            ) : discountProduct === 'pro shop' && discountType === 'percent' ? (
-                              <Flex direction="column" gap="2">
-                                <Text size="3">Maximum discount (optional)</Text>
-                                <Text size="1" mt="-2">
-                                  <Em>The max dollar amount that can be discounted from the purchase.</Em>
-                                </Text>
-                                <TextField.Root
-                                  type="number"
-                                  placeholder="Maximum discount"
-                                  value={maxDiscountAmount ?? ''}
-                                  style={{ flexGrow: '1' }}
-                                  onChange={(e) => {
-                                    const value = e.target.value;
-                                    const numeric = Number(value);
-                                    setMaxDiscountAmount(value === '' || isNaN(numeric) ? null : numeric);
-                                  }}
-                                >
+                        {discountProduct === 'custom' && (
+                          <Flex direction="column" gap="2">
+                            <Text size="3">Custom reward</Text>
+                            <Text size="1" mt="-2">
+                              <Em>What do you want to offer players who earn this reward? (e.g., &quot;A shoutout in our newsletter&quot;)</Em>
+                            </Text>
+                            <TextField.Root
+                              placeholder="e.g., A shout out in our newsletter"
+                              value={productDescription}
+                              onChange={(e) => setProductDescription(e.target.value)}
+                              required
+                            />
+                          </Flex>
+                        )}
+
+                        {discountProduct === 'pro shop' && discountType === 'dollars' ? (
+                          <Flex direction="column" gap="5">
+                            <Flex direction="column" gap="2">
+                              <Text size="3">Minimum spend (optional)</Text>
+                              <Text size="1" mt="-2">
+                                <Em>The minimum amount the customer must spend to qualify for this discount.</Em>
+                              </Text>
+                              <TextField.Root
+                                type="number"
+                                placeholder="Minimum spend"
+                                value={minimumSpendAmount ?? ''}
+                                style={{ flexGrow: '1' }}
+                                onChange={(e) => {
+                                  const value = e.target.value;
+                                  const numeric = Number(value);
+                                  setMinimumSpendAmount(value === '' || isNaN(numeric) ? null : numeric);
+                                }}
+                              >
                                   <TextField.Slot>
                                     <Text weight="bold">$</Text>
                                   </TextField.Slot>
                                 </TextField.Root>
                               </Flex>
-                            ) : null}
-                          
+                            </Flex>
+                          ) : discountProduct === 'pro shop' && discountType === 'percent' ? (
+                            <Flex direction="column" gap="2">
+                              <Text size="3">Maximum discount (optional)</Text>
+                              <Text size="1" mt="-2">
+                                <Em>The max dollar amount that can be discounted from the purchase.</Em>
+                              </Text>
+                              <TextField.Root
+                                type="number"
+                                placeholder="Maximum discount"
+                                value={maxDiscountAmount ?? ''}
+                                style={{ flexGrow: '1' }}
+                                onChange={(e) => {
+                                  const value = e.target.value;
+                                  const numeric = Number(value);
+                                  setMaxDiscountAmount(value === '' || isNaN(numeric) ? null : numeric);
+                                }}
+                              >
+                                <TextField.Slot>
+                                  <Text weight="bold">$</Text>
+                                </TextField.Slot>
+                              </TextField.Root>
+                            </Flex>
+                          ) : null}
+
+                          {/* Buttons */}
                           <Flex direction={'column'} maxWidth={'300px'}>
                             <Flex direction={'row'} justify={'between'} align={'center'}>
                               <Button
                                 size={'2'}
                                 loading={isSavingReward}
-                                disabled={!discountAmount || !discountType || !discountProduct || !selectedAchievement || !location}
+                                disabled={isSaveDisabled || isSavingReward}
                                 onClick={handleSaveReward}
                                 style={{width: '100px'}}
                               >
@@ -695,11 +785,6 @@ export default function GgpickleballAdminRewards() {
                               </Text>
                             )}
                           </Flex>
-
-                          <Flex direction={'row'} gap={'2'}>
-                            <Text size={'3'}>Create a custom reward</Text>
-                            <Link href={'mailto:manuel@ggpickleball.co'} target="blank" style={{color: 'blue', textDecoration: 'underline'}}>Contact us</Link>
-                          </Flex>
                         </Flex>
                       </Flex>
                     ) : (
@@ -709,7 +794,6 @@ export default function GgpickleballAdminRewards() {
                     )}
                   </Flex>
                 )}
-                
               </Flex>
             </Flex>
           </Flex>
@@ -722,7 +806,9 @@ export default function GgpickleballAdminRewards() {
           selectedAchievement={selectedAchievement}
           discountAmount={discountAmount}
           discountType={discountType}
+          rewardProducts={location?.rewardProducts || []}
           discountProduct={discountProduct}
+          productDescription={productDescription}
           maxDiscount={maxDiscountAmount}
           minimumSpend={minimumSpendAmount}
           isSavingReward={isSavingReward}
@@ -733,6 +819,7 @@ export default function GgpickleballAdminRewards() {
           onSetAmount={setDiscountAmount}
           onSetType={setDiscountType}
           onSetProduct={setDiscountProduct}
+          onSetProductDescription={setProductDescription}
           onSetMinimumSpend={setMinimumSpendAmount}
           onSetMaxDiscount={setMaxDiscountAmount}
           onSave={handleSaveReward}

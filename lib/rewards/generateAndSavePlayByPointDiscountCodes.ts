@@ -77,12 +77,18 @@ export async function generateAndSavePlayByPointDiscountCodes(
           throw new Error(`Missing PlayByPoint facility ID for client ${clientId}`);
         }
         const facilityId = client.playbypoint.facilityId.toString();
+
+        const discount = task.reward.discount;
+        if (discount == null) { // `== null` safely checks for both null and undefined
+          console.error(`CRITICAL ERROR: A reward without a discount was passed to the PlayByPoint coupon generator. Skipping. Reward name: ${task.reward.name}`);
+          continue; // Skip this iteration
+        }
   
         const pbpCoupon: CouponInput = {
           facilityId,
           codeName: code,
           description: task.reward.name,
-          discountAmount: task.reward.discount,
+          discountAmount: discount,
           percentual: task.reward.type === 'percent',
           quantity: 1,
           periodicityValue: 1,
@@ -101,11 +107,8 @@ export async function generateAndSavePlayByPointDiscountCodes(
     }
   }
 
-  if (couponsForPbp.length > 0) {
+ if (couponsForPbp.length > 0) {
     console.log(`Triggering background task to add ${couponsForPbp.length} coupons to PlayByPoint.`);
-    console.log('Body:', couponsForPbp);
-
-    
 
     fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/pbp/create-discount/batch`, {
       method: 'POST',
@@ -113,22 +116,47 @@ export async function generateAndSavePlayByPointDiscountCodes(
       body: JSON.stringify({ coupons: couponsForPbp }),
     })
     .then(async (response) => {
+      // This part is correct: It handles network or server-level failures.
       if (!response.ok) {
-        // If the API returns an error (e.g., 400 or 500), log it.
         const errorBody = await response.json().catch(() => ({ message: 'Could not parse error JSON.' }));
-        console.error(`[Background Task] Batch coupon creation failed with status ${response.status}:`, errorBody);
-        return; // Stop processing
+        console.error(`[Background Task] Batch coupon creation failed with HTTP status ${response.status}:`, errorBody);
+        return;
       }
+      
       const successBody = await response.json();
-      console.log('[Background Task] Successfully completed batch coupon creation in PlayByPoint.', successBody.results);
-      // Here you could trigger another background task to update the `addedToPos: true` flag in your DB.
+
+      // --- THIS IS THE CRITICAL FIX ---
+      // We must now inspect the `results` array within the successful response.
+      if (!Array.isArray(successBody.results)) {
+        console.error('[Background Task] Batch response was successful, but the `results` key is missing or not an array.', successBody);
+        return;
+      }
+
+      let allSucceeded = true;
+      // Iterate through each result in the batch to check its individual status.
+      for (const result of successBody.results) {
+        // A successful status from the PBP batch API is typically 200-299.
+        // We check for any status that indicates an error (400 or higher).
+        if (result.status >= 400) {
+          allSucceeded = false;
+          // Log this specific failure as a high-priority error.
+          console.error(`[Background Task] Coupon creation FAILED for code '${result.codeName}'. Status: ${result.status}. Body:`, result.body);
+        }
+      }
+
+      // Now, log the final, accurate outcome of the entire batch operation.
+      if (allSucceeded) {
+        console.log('[Background Task] Successfully completed batch coupon creation in PlayByPoint. All coupons were created.');
+      } else {
+        // This is a more accurate message than the success message you saw before.
+        console.warn('[Background Task] Batch coupon creation completed, but one or more coupons failed. See individual errors above.');
+      }
+      
     })
     .catch((err) => {
-      // This catches network errors or other issues with the fetch call itself.
       console.error('[Background Task] A critical error occurred during the PlayByPoint batch update fetch call:', err);
     });
   }
 
-  // The function returns the map of saved codes without waiting for the batch update to finish.
   return result;
 }

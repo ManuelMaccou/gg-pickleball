@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useUser as useAuth0User } from '@auth0/nextjs-auth0';
 import { useUserContext } from "@/app/contexts/UserContext";
 import { useRouter } from "next/navigation";
-import { Avatar, Box, Button, Callout, Card, Dialog, Flex, Heading, Select, Spinner, Text, TextField, Tooltip } from "@radix-ui/themes";
+import { Avatar, Box, Button, Callout, Card, Checkbox, Dialog, Flex, Heading, Select, Spinner, Text, TextField, Tooltip } from "@radix-ui/themes";
 import { InfoCircledIcon, Pencil2Icon } from "@radix-ui/react-icons"
 import Image from "next/image";
 import darkGgLogo from '../../../../../public/logos/gg_logo_black_transparent.png'
@@ -13,7 +13,18 @@ import { IClient, PodplayData, ShopifyData } from "@/app/types/databaseTypes";
 import GGAdminSidebar from "../components/GGAdminSidebar";
 
 
-// A specific type for the form's state, ensuring nested objects always exist.
+const PRODUCT_NAMES = ["open play", "reservations", "guest reservations", "classes and clinics", "pro shop", "custom"] as const;
+type ProductName = typeof PRODUCT_NAMES[number];
+
+const PRODUCT_DISPLAY_NAMES: Record<ProductName, string> = {
+  "open play": "Open Play",
+  "reservations": "Reservations",
+  "guest reservations": "Guest Reservations",
+  "classes and clinics": "Classes and Clinics",
+  "pro shop": "Pro Shop",
+  "custom": "Custom",
+};
+
 type FormState = {
   _id?: string;
   name: string;
@@ -22,6 +33,7 @@ type FormState = {
   icon: string;
   latitude: string;
   longitude: string;
+  products: Record<ProductName, boolean>;
   retailSoftware?: 'shopify' | 'playbypoint';
   reservationSoftware?: 'playbypoint' | 'podplay' | 'courtreserve';
   shopify: ShopifyData;
@@ -38,6 +50,14 @@ const initialClientState: FormState = {
   logo: '',
   admin_logo: '',
   icon: '',
+  products: { // Initialize checkbox state
+    "open play": false,
+    "reservations": false,
+    "guest reservations": false,
+    "classes and clinics": false,
+    "pro shop": false,
+    "custom": false
+  },
   latitude: '',
   longitude: '',
   retailSoftware: undefined,
@@ -52,50 +72,14 @@ export default function GgpickleballAdminClients() {
   const router = useRouter();
   const isMobile = useIsMobile();
   const { user: auth0User, isLoading: auth0IsLoading } = useAuth0User();
-
-  // Admin and general page state
-  // const [admin, setAdmin] = useState<IAdmin | null>(null);
-  // const [location, setLocation] = useState<IClient | null>(null);
-  // const [adminError, setAdminError] = useState<string | null>(null);
-  // const [isGettingAdmin, setIsGettingAdmin] = useState<boolean>(true);
-
-  // Client-specific state
   const [clients, setClients] = useState<IClient[]>([]);
   const [isFetchingClients, setIsFetchingClients] = useState<boolean>(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  
-  // Form and Dialog state
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [selectedClientForEdit, setSelectedClientForEdit] = useState<IClient | null>(null);
   const [formData, setFormData] = useState<FormState>(initialClientState);
-
-  // Fetch admin data for header consistency
-  /*
-  useEffect(() => {
-    if (!user?.id) return;
-    const getAdminUser = async () => {
-      try {
-        const response = await fetch(`/api/admin?userId=${user.id}`);
-        if (response.status === 204) { setAdminError("You don't have permission to access this page."); return; }
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || "Failed to fetch admin data");
-        setAdmin(data.admin);
-        setLocation(data.admin.location);
-      } catch (error: unknown) {
-        if (error instanceof Error) {
-          setAdminError(error.message);
-        } else {
-          setAdminError("An unknown error occurred while fetching admin data.");
-        }
-      } finally {
-        setIsGettingAdmin(false);
-      }
-    };
-    getAdminUser();
-  }, [user?.id]);
-  */
 
   // Fetch all clients on component mount
   const fetchClients = async () => {
@@ -136,24 +120,39 @@ export default function GgpickleballAdminClients() {
     setIsFormOpen(true);
   };
 
-  // Handler for opening the 'Edit' dialog
   const handleOpenEditDialog = (client: IClient) => {
     setSelectedClientForEdit(client);
-    // Deep copy and format data for the form, ensuring all nested objects are initialized
-    setFormData({
-      ...initialClientState,
-      ...client, // <-- Simply spread the client object directly
-      _id: client._id.toString(), 
+
+    const productsForForm: Record<ProductName, boolean> = { ...initialClientState.products };
+    client.rewardProducts?.forEach(productName => {
+      if (productName in productsForForm) {
+        productsForForm[productName as ProductName] = true;
+      }
+    });
+
+    const formDataForEdit: FormState = {
+      _id: client._id.toString(),
+      name: client.name,
+      logo: client.logo || '',
+      admin_logo: client.admin_logo || '',
+      icon: client.icon || '',
+      latitude: client.latitude?.toString() || '',
+      longitude: client.longitude?.toString() || '',
+      products: productsForForm,
+      retailSoftware: client.retailSoftware,
+      reservationSoftware: client.reservationSoftware,
       shopify: client.shopify || initialClientState.shopify,
       podplay: client.podplay || initialClientState.podplay,
       playbypoint: {
         facilityId: client.playbypoint?.facilityId || '',
         affiliations: client.playbypoint?.affiliations?.join(', ') || ''
       },
-    });
+    };
+
+    setFormData(formDataForEdit);
     setSubmitError(null);
     setIsFormOpen(true);
-  };
+    };
 
   // Generic input change handler for top-level and nested fields
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -175,6 +174,16 @@ export default function GgpickleballAdminClients() {
     setFormData(prev => ({ ...prev, [name]: value === 'none' ? undefined : value as FormState[typeof name] }));
   };
 
+  const handleCheckboxChange = (checked: boolean, name: ProductName) => {
+    setFormData(prev => ({
+      ...prev,
+      products: {
+        ...prev.products,
+        [name]: checked,
+      }
+    }));
+  };
+
   // Form submission handler
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -182,14 +191,19 @@ export default function GgpickleballAdminClients() {
     setSubmitError(null);
 
     try {
-      // 1. Destructure formData to separate the part that needs transformation.
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-     const { _id: _, playbypoint: formPlayByPointData, ...clientData } = formData;
+      const { _id: _, products, playbypoint: formPlayByPointData, ...clientData } = formData;
 
       // 2. Create the payload from the data that is already correctly typed.
-      const payload: Partial<Omit<IClient, keyof Document>> = {
-        ...clientData,
-      };
+      const payload: Partial<Omit<IClient, keyof Document>> = { ...clientData };
+
+      const rewardProductsPayload: string[] = [];
+      for (const name of PRODUCT_NAMES) {
+        if (products[name]) {
+          rewardProductsPayload.push(name);
+        }
+      }
+      payload.rewardProducts = rewardProductsPayload;
 
       // 3. Transform the form's playbypoint data and add it to the payload.
       if (payload.reservationSoftware === 'playbypoint') {
@@ -363,22 +377,46 @@ export default function GgpickleballAdminClients() {
           {submitError && (<Callout.Root color="red" mb="4"><Callout.Text>{submitError}</Callout.Text></Callout.Root>)}
 
           <form onSubmit={handleSubmit}>
-            <Flex direction="column" gap="3">
-              <label><Text as="div" size="2" mb="1" weight="bold">Name *</Text>
+            <Flex direction="column" gap="5">
+              <label>
+                <Text as="div" size="2" mb="1" weight="bold">Name *</Text>
                 <TextField.Root name="name" value={formData.name || ''} onChange={handleInputChange} required />
               </label>
-              <label><Text as="div" size="2" mb="1" weight="bold">Logo URL (for players)</Text>
+              <label>
+                <Text as="div" size="2" mb="1" weight="bold">Logo URL (for players)</Text>
                 <TextField.Root name="logo" value={formData.logo || ''} onChange={handleInputChange} />
               </label>
-              <label><Text as="div" size="2" mb="1" weight="bold">Admin Logo URL (for this dashboard)</Text>
+              <label>
+                <Text as="div" size="2" mb="1" weight="bold">Admin Logo URL (for this dashboard)</Text>
                 <TextField.Root name="admin_logo" value={formData.admin_logo || ''} onChange={handleInputChange} />
               </label>
-              <label><Text as="div" size="2" mb="1" weight="bold">Icon URL</Text>
+              <label>
+                <Text as="div" size="2" mb="1" weight="bold">Icon URL</Text>
                 <TextField.Root  name="icon" value={formData.icon || ''} onChange={handleInputChange} />
               </label>
+              
+              <Box>
+                <Text as="div" size="2" mb="2" weight="bold">
+                  Reward Products
+                </Text>
+                <Flex direction="column" gap="2">
+                  {PRODUCT_NAMES.map(productName => (
+                    <Text as="label" size="2" key={productName}>
+                      <Flex gap="2" align="center">
+                        <Checkbox
+                          checked={formData.products[productName]}
+                          onCheckedChange={(checked) => handleCheckboxChange(checked as boolean, productName)}
+                        />
+                        {PRODUCT_DISPLAY_NAMES[productName]}
+                      </Flex>
+                    </Text>
+                  ))}
+                </Flex>
+              </Box>
 
               <Flex direction={{ initial: 'column', sm: 'row' }} gap="3">
-                <label style={{ flex: 1 }}><Text as="div" size="2" mb="1" weight="bold">Reservation Software</Text>
+                <label style={{ flex: 1 }}>
+                  <Text as="div" size="2" mb="1" weight="bold">Reservation Software</Text>
                   <Select.Root name="reservationSoftware" value={formData.reservationSoftware || 'none'} onValueChange={(value) => handleSelectChange(value, 'reservationSoftware')}>
                     <Select.Trigger />
                     <Select.Content>
@@ -417,8 +455,14 @@ export default function GgpickleballAdminClients() {
                 <Box p="3" style={{ border: '1px solid var(--gray-a5)', borderRadius: 'var(--radius-3)' }}>
                   <Heading size="3" mb="2">PlayByPoint Config</Heading>
                   <Flex direction="column" gap="2">
-                    <label><Text as="div" size="2" mb="1" weight="bold">Facility ID</Text><TextField.Root type="number" name="playbypoint.facilityId" value={formData.playbypoint.facilityId || ''} onChange={handleInputChange} /></label>
-                    <label><Text as="div" size="2" mb="1" weight="bold">Affiliations</Text><Tooltip content="Enter multiple values separated by a comma."><TextField.Root name="playbypoint.affiliations" value={formData.playbypoint.affiliations || ''} onChange={handleInputChange} placeholder="Affiliate A, Affiliate B" /></Tooltip></label>
+                    <label>
+                      <Text as="div" size="2" mb="1" weight="bold">Facility ID</Text>
+                      <TextField.Root type="number" name="playbypoint.facilityId" value={formData.playbypoint.facilityId || ''} onChange={handleInputChange} />
+                    </label>
+                    <label>
+                      <Text as="div" size="2" mb="1" weight="bold">Affiliations</Text>
+                      <Tooltip content="Enter multiple values separated by a comma."><TextField.Root name="playbypoint.affiliations" value={formData.playbypoint.affiliations || ''} onChange={handleInputChange} placeholder="e.g., Affiliate A, Affiliate B" /></Tooltip>
+                    </label>
                   </Flex>
                 </Box>
               )}

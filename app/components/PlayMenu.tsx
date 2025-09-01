@@ -16,7 +16,7 @@ import {
 import Image from "next/image";
 import { Cross2Icon, HamburgerMenuIcon } from "@radix-ui/react-icons";
 import { FrontendUser } from "../types/frontendTypes";
-import { useRouter } from "next/navigation";
+import { useUserContext } from "../contexts/UserContext";
 
 interface LocationDrawerProps {
   user: FrontendUser | null;
@@ -25,7 +25,7 @@ interface LocationDrawerProps {
 }
 
 export default function PlayMenu({ user, isAuthorized, onUserUpdate }: LocationDrawerProps) {
-  const router = useRouter();
+  const { user:userContextUser } = useUserContext()
   
   const [displayName, setDisplayName] = useState(user?.name || "");
   const [displayNameLoading, setDisplayNameLoading] = useState(false);
@@ -40,6 +40,13 @@ export default function PlayMenu({ user, isAuthorized, onUserUpdate }: LocationD
   const [duprActivated, setDuprActivated] = useState<boolean>(user?.dupr?.activated || false);
   const [duprActivationError, setDuprActivationError] = useState<string | null>(null);
   const [duprActivationSuccess, setDuprActivationSuccess] = useState(false);
+
+  const guestUsername = userContextUser?.isGuest ? userContextUser.name : null;
+  let loginUrl = '/auth/login?screen_hint=signup&returnTo=/play';
+  if (guestUsername) {
+    // If a guest session exists, append their username to the URL.
+    loginUrl += `&guest_username=${encodeURIComponent(guestUsername)}`;
+  }
 
   const handleSaveDisplayName = async () => {
     setDisplayNameLoading(true);
@@ -161,7 +168,7 @@ const handleToggleDuprActivation = async (newValue: boolean) => {
       </Flex>
       </Dialog.Trigger>
 
-      <Dialog.Content>
+      <Dialog.Content onOpenAutoFocus={(event) => event.preventDefault()}>
        <Flex direction="column">
         <VisuallyHidden>
           <Dialog.Title>Edit profile</Dialog.Title>
@@ -295,11 +302,13 @@ const handleToggleDuprActivation = async (newValue: boolean) => {
                 </Flex>
               </>
             ) : (
-              <Flex direction="column" justify={'center'} align={'center'} gap={'7'} mt={'-9'} height={'100%'}>
+              <Flex direction="column" align={'center'} gap={'7'} mt={'9'} height={'100%'}>
                 <Text size={'3'}>
                   Create an account to change your display name and connect DUPR.
                 </Text>
-                <Button variant='outline' onClick={() => router.push('/auth/login?screen_hint=signup&returnTo=/new')}>Create account / Log in</Button>
+                <Button size={'3'} variant='outline' asChild>
+                  <a href={loginUrl}>Create account</a>
+                </Button> 
               </Flex>
             )}
           </Flex>

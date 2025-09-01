@@ -45,7 +45,7 @@ export function CookieWarning() {
           <Dialog.Close>
             <Button variant="outline">Continue anyway</Button>
           </Dialog.Close>
-          <Button onClick={() => router.push('/auth/login?screen_hint=signup&returnTo=/')}>
+          <Button onClick={() => router.push('/auth/login?screen_hint=signup&returnTo=/play')}>
             Create account
           </Button>
         </Flex>

@@ -4,16 +4,21 @@ import { useEffect, useMemo, useState } from "react";
 import { useUser as useAuth0User } from '@auth0/nextjs-auth0';
 import { useUserContext } from "@/app/contexts/UserContext";
 import { useRouter } from "next/navigation";
-import { Callout, Card, Flex, Spinner, Table, Text } from "@radix-ui/themes";
+import { Badge, Button, Callout, Card, Flex, Spinner, Table, Text } from "@radix-ui/themes";
 import { InfoCircledIcon } from "@radix-ui/react-icons"
 import * as Accordion from '@radix-ui/react-accordion';
 import Image from "next/image";
 import darkGgLogo from '../../../public/logos/gg_logo_black_transparent.png'
-import { IAchievement, IAdmin, IClient, IReward, IUser } from "@/app/types/databaseTypes";
+import { IAchievement, IClient, IRewardCode, IUser } from "@/app/types/databaseTypes";
 import { Types } from "mongoose";
 import Link from "next/link";
 import { useIsMobile } from "@/app/hooks/useIsMobile";
 import MobileMenu from "./components/MobileMenu";
+import { redeemRewardAction } from "@/app/actions/redeemRewardAction";
+import { useLocationRewardCodes } from '@/app/hooks/useLocationRewardCodes';
+import MatchHistory from "@/components/sections/MatchHistory";
+import { DateTime } from "luxon";
+import { logError } from "@/lib/sentry/logger";
 
 interface ClientStats {
   visits?: Date[];
@@ -29,13 +34,6 @@ interface ClientStats {
     name: string;
     earnedAt: Date;
     count?: number;
-  }[];
-  rewards?: {
-    rewardId: Types.ObjectId;
-    earnedAt: Date;
-    redeemed: boolean;
-    redemptionDate?: Date;
-    code?: string;
   }[];
 }
 
@@ -61,6 +59,22 @@ type TopPlayer = {
   winCount: number;
 };
 
+const formatDate = (dateInput: string | Date | undefined | null): string => {
+  if (!dateInput) {
+    return '—';
+  }
+  // Check the type at runtime
+  if (typeof dateInput === 'string') {
+    // If it's a string, use fromISO
+    return DateTime.fromISO(dateInput).toFormat('MM/dd/yy');
+  } else if (dateInput instanceof Date) {
+    // If it's a Date object, use fromJSDate
+    return DateTime.fromJSDate(dateInput).toFormat('MM/dd/yy');
+  }
+  // Fallback for any other unexpected type
+  return '—';
+};
+
 export default function GgpickleballAdmin() {
 
   const { user } = useUserContext();
@@ -71,14 +85,12 @@ export default function GgpickleballAdmin() {
   const userName = user?.name
   
   const { user: auth0User, isLoading: auth0IsLoading } = useAuth0User();
-  const [admin, setAdmin] = useState<IAdmin | null>(null);
   const [location, setLocation] = useState<IClient | null>(null);
   const [isGettingAdmin, setIsGettingAdmin] = useState<boolean>(true);
   const [isGettingMatches, setIsGettingMatches] = useState<boolean>(true);
   const [isGettingAchievementsAndRewards, setIsGettingAchievementsAndRewards] = useState<boolean>(true);
   const [matches, setMatches] = useState<IPopulatedMatch[] | []>([]);
   const [allClientAchievements, setAllClientAchievements] = useState<IAchievement[]>([]);
-  const [rewardsPerAchievement, setRewardsPerAchievement] = useState<Record<string, IReward>>({});
   const [allPlayers, setAllPlayers] = useState<IUser[]>([]);
   const [uniquePlayerCount, setUniquePlayerCount] = useState<number>(0);
   const [top5PlayersByWins, setTop5PlayersByWins] = useState<TopPlayer[]>([]);
@@ -88,8 +100,87 @@ export default function GgpickleballAdmin() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [adminError, setAdminError] = useState<string | null>(null);
   const [matchError, setMatchError] = useState<string | null>(null);
+  const [isRedeeming, setIsRedeeming] = useState<string | null>(null);
+  const [redeemError, setRedeemError] = useState<string | null>(null);
 
+  const { 
+    rewardCodes: allRewardCodes, 
+    isLoading: isGettingRewardCodes, 
+    mutate: mutateRewardCodes // Get the mutate function for updates
+  } = useLocationRewardCodes(location?._id);
 
+  const handleRedeem = async (rewardCode: string) => {
+  setRedeemError(null);
+  setIsRedeeming(rewardCode);
+
+  // --- 1. OPTIMISTIC UI UPDATE ---
+  // Create a new Date object for the optimistic update.
+  const optimisticDate = new Date();
+
+  await mutateRewardCodes(
+    (currentData) => {
+      if (!currentData) return;
+      
+      const updatedCodes = currentData.rewardCodes.map(code => 
+        code.code === rewardCode 
+          // --- FIX 1: Provide a Date object, not a string ---
+          ? { ...code, redeemed: true, redemptionDate: optimisticDate } 
+          : code
+      );
+      return { ...currentData, rewardCodes: updatedCodes };
+    },
+    { revalidate: false }
+  );
+
+  try {
+    // --- 2. CALL THE SERVER ACTION ---
+    const result = await redeemRewardAction(rewardCode);
+
+    if (!result.success) {
+      logError(new Error(result.message), { 
+        rewardCode,
+        component: 'GgpickleballAdmin',
+        context: 'Server action failed' 
+      });
+      // 2. Set a user-friendly error message for the UI
+      setRedeemError(result.message);
+      
+      await mutateRewardCodes(); 
+    } else {
+      // --- 3. RE-VALIDATE WITH SERVER DATA ---
+      await mutateRewardCodes(
+        (currentData) => {
+          if (!currentData) return;
+          const updatedCodes = currentData.rewardCodes.map(code => {
+            if (code.code === rewardCode) {
+              return { 
+                ...code, 
+                redeemed: true, 
+                // --- FIX 2: Parse the string from the server into a Date object ---
+                redemptionDate: result.redemptionDate ? new Date(result.redemptionDate) : undefined
+              };
+            }
+            return code;
+          });
+          return { ...currentData, rewardCodes: updatedCodes };
+        },
+        { revalidate: false } 
+      );
+    }
+  } catch (error) {
+     logError(error, { 
+      rewardCode, 
+      component: 'GgpickleballAdmin',
+      context: 'Client-side exception' 
+    });
+    setRedeemError("An unexpected error occurred. Please try again.");
+
+    await mutateRewardCodes();
+  } finally {
+    setIsRedeeming(null);
+  }
+};
+  
   // Get admin data
   useEffect(() => {
     if (!userId) return;
@@ -100,7 +191,6 @@ export default function GgpickleballAdmin() {
         const response = await fetch(`/api/admin?userId=${userId}`);
 
         if (response.status === 204) {
-          setAdmin(null);
           setAdminError("You don't have permission to access this page.");
           return;
         }
@@ -111,7 +201,6 @@ export default function GgpickleballAdmin() {
           throw new Error(data.error || "Failed to fetch admin data");
         }
   
-        setAdmin(data.admin);
         setLocation(data.admin.location);
       } catch (error: unknown) {
         console.error("Error fetching admin data:", error);
@@ -122,7 +211,6 @@ export default function GgpickleballAdmin() {
           setAdminError("Unknown error occurred");
         }
       
-        setAdmin(null);
       } finally {
         setIsGettingAdmin(false);
       }
@@ -173,7 +261,6 @@ export default function GgpickleballAdmin() {
         }
   
         setAllClientAchievements(data.achievements || []);
-        setRewardsPerAchievement(data.rewardsPerAchievement || {});
       } catch (error) {
         console.error('Error fetching client achievements:', error);
       } finally {
@@ -191,14 +278,6 @@ export default function GgpickleballAdmin() {
     });
     return map;
   }, [allClientAchievements]);
-
-  const rewardMap = useMemo(() => {
-    const map = new Map<string, IReward>();
-    Object.values(rewardsPerAchievement).forEach(reward => {
-      map.set(reward._id.toString(), reward);
-    });
-    return map;
-  }, [rewardsPerAchievement]);
   
   // Get total player count and top 5 players for this location
   useEffect(() => {
@@ -237,14 +316,28 @@ export default function GgpickleballAdmin() {
     setIsAnalyzingPlayers(false);
   }, [matches]);
 
+  const rewardsByUser = useMemo(() => {
+    const map = new Map<string, IRewardCode[]>();
+    if (!allRewardCodes) return map; // Return empty map if data is not yet loaded
+
+    allRewardCodes.forEach(code => {
+      if (code.userId) {
+        const userId = code.userId.toString();
+        if (!map.has(userId)) {
+          map.set(userId, []);
+        }
+        map.get(userId)!.push(code);
+      }
+    });
+    return map;
+  }, [allRewardCodes]);
   
   // Final loading status
   useEffect(() => {
-    console.log(isGettingAdmin, isGettingMatches, isAnalyzingPlayers, isGettingAchievementsAndRewards)
-    if (!isGettingAdmin && !isGettingMatches && !isAnalyzingPlayers && !isGettingAchievementsAndRewards) {
-      setIsLoading(false)
+    if (!isGettingAdmin && !isGettingMatches && !isAnalyzingPlayers && !isGettingAchievementsAndRewards && !isGettingRewardCodes) {
+      setIsLoading(false);
     }
-  }, [isGettingAdmin, isGettingMatches, isAnalyzingPlayers, isGettingAchievementsAndRewards])
+  }, [isGettingAdmin, isGettingMatches, isAnalyzingPlayers, isGettingAchievementsAndRewards, isGettingRewardCodes]);
 
   useEffect(() => {
     if (!auth0IsLoading && !user) {
@@ -291,7 +384,7 @@ export default function GgpickleballAdmin() {
        
       {/* Location Logo */}
       {location && (
-        <Flex direction={'column'} style={{backgroundColor: admin?.bannerColor, boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)', zIndex: 2}}>
+        <Flex direction={'column'} style={{backgroundColor: location?.bannerColor, boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)', zIndex: 2}}>
           <Flex direction={'column'} position={'relative'} height={{initial: '60px', md: '80px'}} my={'5'}>
             <Image
               src={location.admin_logo}
@@ -406,6 +499,8 @@ export default function GgpickleballAdmin() {
                 <Accordion.Root type="multiple" value={openAccordion} onValueChange={setOpenAccordion}>
                   <Flex direction={'column'} gap={'1'}>
                     {allPlayers.map(player => {
+                      const playerId = player._id.toString();
+                      const playerRewards = rewardsByUser.get(playerId) || [];
                       const clientStats = (player.stats as unknown as Record<string, ClientStats>)?.[location._id.toString()];
                       const lastVisit = clientStats?.lastVisit
                         ? new Date(clientStats?.lastVisit).toLocaleDateString()
@@ -430,9 +525,10 @@ export default function GgpickleballAdmin() {
                               </Accordion.Trigger>
                             </Accordion.Header>
                             <Accordion.Content>
+
                               {/* Achievements Table */}
                               <Flex direction={'column'} mt={'5'}>
-                                <Text size="2" weight={'medium'} mb={'3'}>Achievements</Text>
+                                <Text size={'4'} mb={'4'} weight={'bold'}>Acheivements</Text>
                                 <Table.Root size="1" variant="surface">
                                   <Table.Header>
                                     <Table.Row>
@@ -461,29 +557,76 @@ export default function GgpickleballAdmin() {
 
                               {/* Rewards Table */}
                               <Flex direction={'column'} my={'5'}>
-                                <Text size="2" weight={'medium'} mb={'3'}>Rewards</Text>
+                                <Text size={'4'} mb={'4'} weight={'bold'}>Rewards</Text>
+
+                                {redeemError && (
+                                  <Callout.Root color="red" mb="3">
+                                    <Callout.Icon><InfoCircledIcon /></Callout.Icon>
+                                    <Callout.Text>{redeemError}</Callout.Text>
+                                  </Callout.Root>
+                                )}
+                                
                                 <Table.Root size="1" variant="surface">
                                   <Table.Header>
                                     <Table.Row>
                                       <Table.ColumnHeaderCell>Name</Table.ColumnHeaderCell>
                                       <Table.ColumnHeaderCell>Code</Table.ColumnHeaderCell>
-                                      <Table.ColumnHeaderCell>Redeemed?</Table.ColumnHeaderCell>
+                                      <Table.ColumnHeaderCell>Action</Table.ColumnHeaderCell>
+                                      <Table.ColumnHeaderCell></Table.ColumnHeaderCell>
                                     </Table.Row>
                                   </Table.Header>
                                   <Table.Body>
-                                  {clientStats?.rewards?.map((rewardEntry, index) => {
-                                    const reward = rewardMap.get(rewardEntry.rewardId.toString());
-                                    return (
-                                      <Table.Row key={`${rewardEntry.rewardId}-${index}`}>
-                                        <Table.RowHeaderCell>{`${reward?.friendlyName} ${reward?.product}`}</Table.RowHeaderCell>
-                                        <Table.Cell>{rewardEntry.code ?? '—'}</Table.Cell>
-                                        <Table.Cell>{rewardEntry.redeemed ? 'Yes' : 'No'}</Table.Cell>
-                                      </Table.Row>
-                                    );
-                                  })}
+                                    {/* MAP OVER `playerRewards`*/}
+                                    {playerRewards.map((rewardCodeEntry) => {
+                                      const isCurrentButtonLoading = isRedeeming === rewardCodeEntry.code;
+                                      
+                                      // The `reward` details are embedded in the rewardCodeEntry
+                                      const reward = rewardCodeEntry.reward; 
+
+                                      return (
+                                        <Table.Row key={rewardCodeEntry._id.toString()}>
+                                          <Table.RowHeaderCell>
+                                            <Flex direction={'column'}>
+                                              <Text>{reward.product !== 'custom' ? `${reward?.friendlyName} ${reward?.product}` : reward?.friendlyName }</Text>
+                                              {reward.product !== 'custom' && (
+                                                <Text>{reward.productDescription ? reward.productDescription : "All products"}</Text>
+                                              )}
+                                            
+                                            </Flex>
+                                            </Table.RowHeaderCell>
+                                          <Table.Cell style={{alignContent: 'center'}}>{rewardCodeEntry.code ?? '—'}</Table.Cell>
+                                          <Table.Cell>
+                                            {rewardCodeEntry.redeemed ? (
+                                              <Badge color="green">Redeemed</Badge>
+                                            ) : (
+                                              <Button size={'1'}
+                                                onClick={() => {
+                                                  if (rewardCodeEntry.code) {
+                                                    handleRedeem(rewardCodeEntry.code);
+                                                  }
+                                                }}
+                                                disabled={isCurrentButtonLoading}
+                                              >
+                                                {isCurrentButtonLoading ? <Spinner size="1"/> : 'Redeem'}
+                                              </Button>
+                                            )}
+                                          </Table.Cell>
+                                          <Table.Cell>
+                                            {formatDate(rewardCodeEntry.redemptionDate)}
+                                          </Table.Cell>
+                                        </Table.Row>
+                                      );
+                                    })}
                                   </Table.Body>
                                 </Table.Root>
                               </Flex>
+
+                              {/* Matches Table */}
+                              <Flex direction={'column'} mb={'5'} mt={'9'}>
+                                <Text size={'4'} mb={'-4'} weight={'bold'}>Match History</Text>
+                                <MatchHistory userId={player._id.toString()} userName={player.name} locationId={location._id.toString()}/>
+                              </Flex>
+
                             </Accordion.Content>
                           </Accordion.Item>
                         </Card>

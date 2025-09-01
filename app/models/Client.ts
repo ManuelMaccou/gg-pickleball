@@ -20,7 +20,12 @@ const ClientSchema = new Schema<IClient>({
   name: { type: String, required: true, unique: true },
   logo: { type: String },
   admin_logo: { type: String },
+  bannerColor: { type: String, default: 'white'},
   icon: { type: String },
+  rewardProducts: {
+    type: [String],
+    default: []
+  },
   latitude: { type: String },
   longitude: { type: String },
   altAchievements: [

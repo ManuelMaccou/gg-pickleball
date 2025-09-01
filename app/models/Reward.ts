@@ -13,12 +13,13 @@ export const RewardSchema = new Schema<IReward>(
     },
     category: {
       type: String,
-      enum: ['retail', 'programming'],
+      enum: ['retail', 'programming', 'custom'],
     },
     product: {
       type: String,
-      enum: ['open play', 'reservation', 'pro shop'],
+      enum: ['open play', 'reservation', 'guest reservations', 'classes and clinics', 'pro shop', 'custom'],
     },
+    productDescription: { type: String },
     discount: { type: Number },
     minimumSpend: { type: Number },
     maxDiscount: { type: Number }

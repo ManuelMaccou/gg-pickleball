@@ -9,6 +9,8 @@ import { DateTime } from 'luxon';
 import Achievement from '@/app/models/Achievement';
 import Reward from '@/app/models/Reward';
 import { getRewardCodeGenerator } from '@/lib/rewards/rewardCodeGenerators';
+import Match from '@/app/models/Match';
+import { achievementDefinitions } from '@/lib/achievements/definitions';
 
 interface MatchData {
   team1Ids: string[];
@@ -33,61 +35,6 @@ type VisitResult = {
 
 type CheckFunction = (user: IUser, match: MatchData) => Promise<AchievementEarned[] | VisitResult> | AchievementEarned[] | VisitResult;
 
-const achievementFunctionMap: Record<string, CheckFunction> = {
-  'visit-1': visit,
-  'visit-5': visit,
-  'visit-10': visit,
-  'visit-15': visit,
-  'visit-20': visit,
-  'visit-25': visit,
-  'visit-30': visit,
-  'visit-35': visit,
-  'visit-40': visit,
-  'visit-45': visit,
-  'visit-50': visit,
-  'visit-100': visit,
-  'first-win': firstWin,
-  '5-wins': totalWins,
-  '10-wins': totalWins,
-  '20-wins': totalWins,
-  '30-wins': totalWins,
-  '40-wins': totalWins,
-  '50-wins': totalWins,
-  '100-wins': totalWins,
-  '200-wins': totalWins,
-  '2-win-streak': winStreak,
-  '5-win-streak': winStreak,
-  '7-win-streak': winStreak,
-  '10-win-streak': winStreak,
-  '15-win-streak': winStreak,
-  'win-streak-breaker': winStreakBreaker,
-  '1-matches-played': matchesPlayed,
-  '10-matches-played': matchesPlayed,
-  '20-matches-played': matchesPlayed,
-  '50-matches-played': matchesPlayed,
-  '100-matches-played': matchesPlayed,
-  '150-matches-played': matchesPlayed,
-  '200-matches-played': matchesPlayed,
-  '250-matches-played': matchesPlayed,
-  '300-matches-played': matchesPlayed,
-  '350-matches-played': matchesPlayed,
-  '400-matches-played': matchesPlayed,
-  '450-matches-played': matchesPlayed,
-  '500-matches-played': matchesPlayed,
-  '600-matches-played': matchesPlayed,
-  '700-matches-played': matchesPlayed,
-  '800-matches-played': matchesPlayed,
-  '900-matches-played': matchesPlayed,
-  '1000-matches-played': matchesPlayed,
-  'pickle': pickle,
-  '50-points-won': pointsWon,
-  '100-points-won': pointsWon,
-  '200-points-won': pointsWon,
-  '300-points-won': pointsWon,
-  '400-points-won': pointsWon,
-  '500-points-won': pointsWon,
-};
-
 function ensureClientStats(user: IUser, clientId: string): ClientStats {
   if (!user.stats || !(user.stats instanceof Map)) {
     user.stats = new Map<string, ClientStats>();
@@ -102,7 +49,7 @@ function ensureClientStats(user: IUser, clientId: string): ClientStats {
       losses: 0,
       winStreak: 0,
       pointsWon: 0,
-      matches: [],
+      // matches: [],
       achievements: [],
       rewards: [],
     };
@@ -288,18 +235,22 @@ async function winStreakBreaker(user: IUser, match: MatchData): Promise<Achievem
   }
 }
 
-function matchesPlayed(user: IUser, match: MatchData): AchievementEarned[] {
+async function matchesPlayed(user: IUser, match: MatchData): Promise<AchievementEarned[]> {
   const MATCH_MILESTONES = [1, 10, 20, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 600, 700, 800, 900, 1000];
 
   const clientId = match.location;
-  const userStatsForClient = ensureClientStats(user, clientId);
+  const userId = new Types.ObjectId(user._id);
   
-  const matchesPlayedBefore = userStatsForClient.matches?.length || 0;
-
-  const newTotalMatches = matchesPlayedBefore + 1;
+  const totalMatchesPlayed = await Match.countDocuments({
+    location: new Types.ObjectId(clientId), // Also ensure location is queried as an ObjectId
+    $or: [
+      { 'team1.players': userId },
+      { 'team2.players': userId }
+    ]
+  });
 
   for (const milestone of MATCH_MILESTONES) {
-    if (newTotalMatches === milestone) {
+    if (totalMatchesPlayed === milestone) {
       const achievementKey = `${milestone}-matches-played`;
       
       return [{ key: achievementKey, repeatable: false }];
@@ -340,7 +291,26 @@ function pointsWon(user: IUser, match: MatchData): AchievementEarned[] {
     }
   
     return [];
+}
+
+const functionImplementations: Record<string, CheckFunction> = {
+  visit,
+  firstWin,
+  totalWins,
+  winStreak,
+  winStreakBreaker,
+  matchesPlayed,
+  pickle,
+  pointsWon,
+};
+
+const achievementFunctionMap = achievementDefinitions.reduce((acc, def) => {
+  const func = functionImplementations[def.name];
+  if (func) {
+    acc[def.key] = func;
   }
+  return acc;
+}, {} as Record<string, CheckFunction>);
 
 /**
  * Main function to update user achievements.
@@ -392,13 +362,16 @@ export async function updateUserAndAchievements(
       throw new Error(`Client with id ${location} not found`);
     }
 
-    const achievementDocs = await Achievement.find({ _id: { $in: client.achievements } });
-    const enabledAchievementNames = achievementDocs.map((a) => a.name);
+    const enabledAchievementKeys = new Set(
+      (await Achievement.find({ _id: { $in: client.achievements } })).map(a => a.name)
+    );
 
-    const enabledCheckFns = new Set<CheckFunction>();
-    for (const name of enabledAchievementNames) {
-      const fn = achievementFunctionMap[name];
-      if (fn) enabledCheckFns.add(fn);
+    const enabledCheckFunctions = new Set<CheckFunction>();
+    for (const key of enabledAchievementKeys) {
+      const func = achievementFunctionMap[key];
+      if (func) {
+        enabledCheckFunctions.add(func);
+      }
     }
 
     // Build match data to be passed into each achievement function.
@@ -424,8 +397,6 @@ export async function updateUserAndAchievements(
       const clientStats = ensureClientStats(user, location);
       const allAchievements: AchievementEarned[] = [];
 
-      
-
       function isVisitResult(val: unknown): val is VisitResult {
         return typeof val === 'object' &&
           val !== null &&
@@ -433,9 +404,10 @@ export async function updateUserAndAchievements(
           'didVisit' in val;
       }
 
-      for (const check of enabledCheckFns) {
-        const result = await check(user, matchData);
-
+      for (const checkFn of enabledCheckFunctions) {
+        const result = await checkFn(user, matchData);
+        
+        // Your logic to handle the result is correct.
         if (isVisitResult(result)) {
           allAchievements.push(...result.achievements);
         } else {
@@ -537,7 +509,6 @@ export async function updateUserAndAchievements(
       
       // --- Group all $addToSet operations ---
       updateOps.$addToSet ??= {};
-      updateOps.$addToSet[`${statsPrefix}.matches`] = new Types.ObjectId(matchId);
       
       // --- Group all $push operations ---
       if (didVisit && visitDate) {
@@ -615,10 +586,7 @@ export async function updateUserAndAchievements(
             ? client.retailSoftware
             : client.reservationSoftware;
 
-
         const generator = getRewardCodeGenerator(category, software);
-
-        console.log('found reward code generator:', generator)
         
         if (generator && rewardsInCategory.length > 0) {
           const tasks = rewardsInCategory.map(reward => {

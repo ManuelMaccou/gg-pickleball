@@ -5,80 +5,115 @@ import { IReward } from '@/app/types/databaseTypes';
 import { logError } from '@/lib/sentry/logger';
 import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser';
 
-export async function POST(req: NextRequest) {
+/**
+ * Validates the reward data based on its product type.
+ * @param body - The request body containing reward data.
+ * @returns An error message string if invalid, or null if valid.
+ */
+function validateRewardBody(body: Partial<IReward>): string | null {
+  const { product, name, category, discount, type, friendlyName } = body;
 
-  const user = await getAuthorizedUser(req)
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Rule 1: 'product', 'name', and 'category' are always required.
+  if (!product || !name || !category) {
+    return 'Missing required fields: product, name, and category are always required.';
   }
+
+  // Rule 2: If the product is NOT 'custom', then discount details are required.
+  if (product !== 'custom') {
+    if (discount === undefined || discount === null || !type || !friendlyName) {
+      return 'Missing required fields for standard reward: discount, type, and friendlyName are required.';
+    }
+  }
+  
+  // If all checks pass, the data is valid.
+  return null;
+}
+
+export async function POST(req: NextRequest) {
+  const user = await getAuthorizedUser(req);
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
     await connectToDatabase();
+    const body = await req.json() as Partial<IReward>;
 
-    const body = await req.json();
-
-    const { discount, product, name, type, maxDiscount, minimumSpend, friendlyName, category } = body as IReward;
-
-    if (!discount || !product || !name || !type || !friendlyName || !category) {
-      logError(new Error('Required fields are missing.'), {
-        endpoint: 'POST /api/reward',
-        task: 'Creating a new reward'
-      });
-
-      return NextResponse.json({ error: 'Required fields are missing' }, { status: 400 });
+    // Use the helper for clean validation
+    const validationError = validateRewardBody(body);
+    if (validationError) {
+      logError(new Error(validationError), { endpoint: 'POST /api/reward', task: 'Validating new reward' });
+      return NextResponse.json({ error: validationError }, { status: 400 });
     }
 
-    const newReward = new Reward({ discount, product, name, type, maxDiscount, minimumSpend, friendlyName, category });
-    await newReward.save();
-
-    return NextResponse.json({ message: 'Reward created', reward: newReward }, { status: 201 });
-  } catch (error) {
-    logError(error, {
-      message: `Error creating new reward`,
+    // Build the payload explicitly to ensure no extra properties are saved
+    const newReward = new Reward({
+      product: body.product,
+      productDescription: body.productDescription,
+      name: body.name,
+      friendlyName: body.friendlyName,
+      category: body.category,
+      discount: body.discount,
+      type: body.type,
+      maxDiscount: body.maxDiscount,
+      minimumSpend: body.minimumSpend,
     });
+    
+    await newReward.save();
+    return NextResponse.json({ message: 'Reward created', reward: newReward }, { status: 201 });
+
+  } catch (error) {
+    logError(error, { message: 'Error creating new reward' });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 export async function PATCH(req: NextRequest) {
-
-  const user = await getAuthorizedUser(req)
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const user = await getAuthorizedUser(req);
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
     await connectToDatabase();
-
-    const { searchParams } = new URL(req.url);
-    const id = searchParams.get('id');
-
-    if (!id) {
-      return NextResponse.json({ error: 'Missing reward ID' }, { status: 400 });
-    }
-
+    
     const body = await req.json();
-    const { discount, product, name, type, maxDiscount, minimumSpend, friendlyName, category } = body as IReward;
+    const { id, ...updateData } = body as Partial<IReward> & { id: string };
 
-    if (!discount || !product || !name || !type || !friendlyName || !category) {
-      return NextResponse.json({ error: 'Required fields are missing' }, { status: 400 });
+    if (!id) return NextResponse.json({ error: 'Missing reward ID' }, { status: 400 });
+
+    // Use the same helper for clean validation
+    const validationError = validateRewardBody(updateData);
+    if (validationError) {
+      logError(new Error(validationError), { endpoint: 'PATCH /api/reward', task: 'Validating reward update' });
+      return NextResponse.json({ error: validationError }, { status: 400 });
     }
 
-    const updatedReward = await Reward.findByIdAndUpdate(
-      id,
-      { discount, product, name, type,  maxDiscount, minimumSpend, friendlyName, category },
-      { new: true } // return the updated document
-    );
+    // Build the update payload with $set and $unset for data integrity
+    const updatePayload: { $set: Partial<IReward>, $unset?: Record<string, number> } = {
+      $set: {
+        product: updateData.product,
+        productDescription: updateData.productDescription,
+        name: updateData.name,
+        friendlyName: updateData.friendlyName,
+        category: updateData.category,
+        maxDiscount: updateData.maxDiscount,
+        minimumSpend: updateData.minimumSpend,
+      }
+    };
 
-    if (!updatedReward) {
-      return NextResponse.json({ error: 'Reward not found' }, { status: 404 });
+    if (updateData.product === 'custom') {
+      // If it's custom, explicitly remove discount fields from the database document
+      updatePayload.$unset = { discount: 1, type: 1 };
+    } else {
+      // If it's a standard reward, set the discount fields
+      updatePayload.$set.discount = updateData.discount;
+      updatePayload.$set.type = updateData.type;
     }
+
+    const updatedReward = await Reward.findByIdAndUpdate(id, updatePayload, { new: true });
+
+    if (!updatedReward) return NextResponse.json({ error: 'Reward not found' }, { status: 404 });
 
     return NextResponse.json({ message: 'Reward updated', reward: updatedReward });
   } catch (error) {
-    logError(error, {
-      message: `Error updating reward`,
-    });
+    logError(error, { message: `Error updating reward` });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

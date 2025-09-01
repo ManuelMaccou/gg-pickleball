@@ -1,4 +1,5 @@
 import { IAchievement } from "@/app/types/databaseTypes";
+import { toTitleCase } from "@/utils/formatters";
 import { Cross1Icon } from "@radix-ui/react-icons";
 import {
   AlertDialog,
@@ -12,7 +13,6 @@ import {
   TextField,
   VisuallyHidden,
 } from "@radix-ui/themes";
-import Link from "next/link";
 
 interface MobileRewardFormProps {
   open: boolean;
@@ -20,7 +20,9 @@ interface MobileRewardFormProps {
   selectedAchievement: IAchievement;
   discountAmount: number | null;
   discountType: "percent" | "dollars";
-  discountProduct: "open play" | "reservation" | "pro shop";
+  rewardProducts: string[];
+  discountProduct: string;
+  productDescription: string;
   maxDiscount: number | null;
   minimumSpend: number | null;
   isSavingReward: boolean;
@@ -30,7 +32,8 @@ interface MobileRewardFormProps {
   rewardError: boolean;
   onSetAmount: (amount: number | null) => void;
   onSetType: (type: "percent" | "dollars") => void;
-  onSetProduct: (product: "open play" | "reservation" | "pro shop") => void;
+  onSetProduct: (product: string) => void;
+  onSetProductDescription: (desc: string) => void;
   onSetMinimumSpend: (amount: number | null) => void;
   onSetMaxDiscount: (amount: number | null) => void;
   onSave: () => void;
@@ -43,7 +46,9 @@ export default function MobileConfigureRewardsForm({
   selectedAchievement,
   discountAmount,
   discountType,
+  rewardProducts,
   discountProduct,
+  productDescription,
   minimumSpend,
   maxDiscount,
   isSavingReward,
@@ -54,17 +59,19 @@ export default function MobileConfigureRewardsForm({
   onSetAmount,
   onSetType,
   onSetProduct,
+  onSetProductDescription,
   onSetMinimumSpend,
   onSetMaxDiscount,
   onSave,
   onRemove,
 }: MobileRewardFormProps) {
+
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Content>
         <VisuallyHidden>
           <Dialog.Title>Configure reward</Dialog.Title>
-          <Dialog.Description>Configure rewar</Dialog.Description>
+          <Dialog.Description>Configure reward</Dialog.Description>
         </VisuallyHidden>
        
         <Dialog.Close>
@@ -78,47 +85,85 @@ export default function MobileConfigureRewardsForm({
             <Text size="4" weight="bold">
               {selectedAchievement.friendlyName}
             </Text>
-            {/* Discount Field */}
-            <Flex direction="column" gap="2">
-              <Text size="3">Discount</Text>
-              <Flex gap="3" justify="between">
-                <TextField.Root
-                  type="number"
-                  placeholder="Discount amount"
-                  value={discountAmount ?? ''}
-                  onChange={(e) => {
-                    const val = Number(e.target.value);
-                    onSetAmount(e.target.value === '' || isNaN(val) ? null : val);
-                  }}
-                />
-                <SegmentedControl.Root
-                  value={discountType}
-                  onValueChange={(val) => onSetType(val as "percent" | "dollars")}
-                >
-                  <SegmentedControl.Item value="percent">Percent</SegmentedControl.Item>
-                  <SegmentedControl.Item value="dollars">Dollars</SegmentedControl.Item>
-                </SegmentedControl.Root>
-              </Flex>
-            </Flex>
 
-          {/* Product Field */}
+            {/* Product Field */}
             <Flex direction="column" gap="1">
               <Text size="3">Product</Text>
               <Text size="1" mt="-1" mb={'3'}><Em>The product category to discount</Em></Text>
               <Select.Root
                 value={discountProduct}
-                onValueChange={(val) =>
-                  onSetProduct(val as "open play" | "reservation" | "pro shop")
-                }
+                onValueChange={onSetProduct} 
               >
-                <Select.Trigger />
+                <Select.Trigger placeholder="Select a product..." />
                 <Select.Content>
-                  <Select.Item value="reservation">Court reservation</Select.Item>
-                  <Select.Item value="open play">Open Play</Select.Item>
-                  <Select.Item value="pro shop">Pro shop</Select.Item>
+                  {rewardProducts && rewardProducts.length > 0 ? (
+                    rewardProducts.map(productName => (
+                      <Select.Item key={productName} value={productName}>
+                        {toTitleCase(productName)}
+                      </Select.Item>
+                    ))
+                  ) : (
+                    <Select.Item value="none" disabled>
+                      No products configured
+                    </Select.Item>
+                  )}
                 </Select.Content>
               </Select.Root>
             </Flex>
+
+            {/* Discount Field */}
+            {discountProduct !== "custom" && (
+              <Flex direction="column" gap="2">
+                <Text size="3">Discount</Text>
+                <Flex gap="3" justify="between">
+                  <TextField.Root
+                    type="number"
+                    placeholder="Discount amount"
+                    value={discountAmount ?? ''}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      onSetAmount(e.target.value === '' || isNaN(val) ? null : val);
+                    }}
+                  />
+                  <SegmentedControl.Root
+                    value={discountType}
+                    onValueChange={(val) => onSetType(val as "percent" | "dollars")}
+                  >
+                    <SegmentedControl.Item value="percent">Percent</SegmentedControl.Item>
+                    <SegmentedControl.Item value="dollars">Dollars</SegmentedControl.Item>
+                  </SegmentedControl.Root>
+                </Flex>
+              </Flex>
+            )}
+
+            {discountProduct === 'pro shop' && (
+              <Flex direction="column" gap="2">
+                <Text size="3">Applies To (Optional)</Text>
+                <Text size="1" mt="-2">
+                  <Em>e.g., &ldquo;All club-branded clothing&ldquo; or &ldquo;Sunglasses only&ldquo;</Em>
+                </Text>
+                <TextField.Root
+                  placeholder="e.g., All club-branded clothing"
+                  value={productDescription}
+                  onChange={(e) => onSetProductDescription(e.target.value)}
+                />
+              </Flex>
+            )}
+
+            {discountProduct === 'custom' && (
+              <Flex direction="column" gap="2">
+                <Text size="3">Custom reward</Text>
+                <Text size="1" mt="-2">
+                  <Em>What do you want to offer players who earn this reward? (e.g., &ldquo;A shoutout in our newsletter&ldquo;)</Em>
+                </Text>
+                <TextField.Root
+                  placeholder="e.g., A shout out in our newsletter"
+                  value={productDescription}
+                  onChange={(e) => onSetProductDescription(e.target.value)}
+                  required
+                />
+              </Flex>
+            )}
 
             {discountProduct === 'pro shop' && discountType === 'dollars' ? (
               <Flex direction={'column'} gap={'5'}>
@@ -141,29 +186,28 @@ export default function MobileConfigureRewardsForm({
                     </TextField.Slot>
                   </TextField.Root>
                 </Flex>
-                </Flex>
-
-                ) : discountProduct === 'pro shop' && discountType === 'percent' ? (
-                  <Flex direction={'column'} gap={'2'}>
-                    <Text size={'3'}>Maximum discount (optional)</Text>
-                    <Text size={'1'} mt={'-2'}><Em>The max dollar amount that can be discounted from the purchase.</Em></Text>
-                    <TextField.Root
-                      type="number"
-                      placeholder="Maximum discount"
-                      value={maxDiscount ?? ''}
-                      style={{flexGrow: '1'}}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        const numeric = Number(value);
-                        onSetMaxDiscount(value === '' || isNaN(numeric) ? null : numeric);
-                      }}
-                      >
-                      <TextField.Slot>
-                        <Text weight={'bold'}>$</Text>
-                      </TextField.Slot>
-                    </TextField.Root>
-                  </Flex>
-                ) : null}
+              </Flex>
+            ) : discountProduct === 'pro shop' && discountType === 'percent' ? (
+              <Flex direction={'column'} gap={'2'}>
+                <Text size={'3'}>Maximum discount (optional)</Text>
+                <Text size={'1'} mt={'-2'}><Em>The max dollar amount that can be discounted from the purchase.</Em></Text>
+                <TextField.Root
+                  type="number"
+                  placeholder="Maximum discount"
+                  value={maxDiscount ?? ''}
+                  style={{flexGrow: '1'}}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    const numeric = Number(value);
+                    onSetMaxDiscount(value === '' || isNaN(numeric) ? null : numeric);
+                  }}
+                  >
+                  <TextField.Slot>
+                    <Text weight={'bold'}>$</Text>
+                  </TextField.Slot>
+                </TextField.Root>
+              </Flex>
+            ) : null}
 
             {/* Buttons */}
             <Flex direction="column" gap="3" mt="2">
@@ -212,17 +256,6 @@ export default function MobileConfigureRewardsForm({
             )}
 
           </Flex>
-          
-          <Flex direction={'column'}>
-            <Flex gap="2">
-              <Text size="2">Want to build a custom reward?</Text>
-              <Link href="mailto:manuel@ggpickleball.co" target="_blank" style={{ color: 'blue', textDecoration: 'underline' }}>
-                Contact us
-              </Link>
-            </Flex>
-
-          </Flex>
-          
         </Flex>
       </Dialog.Content>
     </Dialog.Root>

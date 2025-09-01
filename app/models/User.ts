@@ -23,7 +23,7 @@ const ClientStatsSubSchema = new Schema({
   losses: { type: Number },
   winStreak: { type: Number },
   pointsWon: { type: Number },
-  matches: [{ type: Schema.Types.ObjectId, ref: "Match" }],
+  // matches: [{ type: Schema.Types.ObjectId, ref: "Match" }],
   achievements: {
     type: [AchievementSubSchema],
     default: []
@@ -43,7 +43,7 @@ const DuprSchema = new Schema({
 
 const UserSchema = new Schema<IUser>(
   {
-    name: { type: String, required: true, unique: true },
+    name: { type: String, required: true},
     email: { type: String },
     auth0Id: { type: String },
     superAdmin: { type: Boolean },
@@ -59,5 +59,6 @@ const UserSchema = new Schema<IUser>(
 );
 
 UserSchema.index({ auth0Id: 1 });
+UserSchema.index({ name: 1 }, { unique: true, collation: { locale: 'en', strength: 2 } });
 
 export default mongoose.models.User || mongoose.model<IUser>("User", UserSchema);

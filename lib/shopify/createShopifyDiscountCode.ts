@@ -26,6 +26,9 @@ export async function createShopifyDiscountCode(rewardId: Types.ObjectId, client
     (reward.friendlyName?.trim() || '') + ' ' + (reward.product?.trim() || '');
   const cleanTitle = discountTitle.trim() || 'Discount Reward';
 
+  const discountType = reward.type ?? 'dollars';
+  const discountValue = reward.discount ?? 0; 
+
   const input = {
     basicCodeDiscount: {
       title: cleanTitle,
@@ -35,10 +38,9 @@ export async function createShopifyDiscountCode(rewardId: Types.ObjectId, client
         all: true,
       },
       customerGets: {
-        value: reward.type === 'percent'
-          ? { percentage: reward.discount/100 }
-          : { discountAmount: { amount: reward.discount, appliesOnEachItem: false } },
-        appliesOnOneTimePurchase: true,
+        value: discountType === 'percent'
+          ? { percentage: discountValue / 100 } 
+          : { discountAmount: { amount: discountValue, appliesOnEachItem: false } },
         appliesOnSubscription: false,
         items: {
           all: true,

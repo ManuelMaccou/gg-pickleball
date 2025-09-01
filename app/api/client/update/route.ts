@@ -4,6 +4,7 @@ import Client from '@/app/models/Client';
 import { Types } from 'mongoose'
 import { logError } from '@/lib/sentry/logger';
 import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser';
+import { IClient } from '@/app/types/databaseTypes';
 
 export async function PATCH(req: NextRequest) {
   const user = await getAuthorizedUser(req);
@@ -24,9 +25,24 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid or missing client ID' }, { status: 400 });
     }
 
+    const allowedUpdates: (keyof IClient)[] = [
+      'name', 'logo', 'admin_logo', 'icon', 'latitude', 'longitude', 
+      'rewardProducts', 'retailSoftware', 'reservationSoftware', 
+      'shopify', 'podplay', 'playbypoint'
+    ];
+
+    const sanitizedUpdateData = Object.keys(updateData)
+      .filter((key): key is keyof IClient => (allowedUpdates as string[]).includes(key))
+      .reduce((acc, key) => {
+        if (updateData[key] !== undefined) {
+          acc[key] = updateData[key];
+        }
+        return acc;
+      }, {} as Partial<IClient>);
+
     const updatedClient = await Client.findByIdAndUpdate(
       clientId,
-      { $set: updateData },
+      { $set: sanitizedUpdateData },
       { new: true, runValidators: true }
     );
 

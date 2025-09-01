@@ -2,11 +2,10 @@
 
 import { Button, Flex, Text, Progress, VisuallyHidden, AlertDialog } from "@radix-ui/themes";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useUserContext } from "@/app/contexts/UserContext";
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { SerializedAchievement } from "../types/databaseTypes";
+import { RewardProductName, SerializedAchievement } from "../types/databaseTypes";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import Image from "next/image";
 
@@ -17,8 +16,8 @@ interface UserEarnedData {
     rewardId: string;
     name: string;
     friendlyName: string;
-    product: "open play" | "reservation" | "pro shop";
-    discount: number;
+    product: RewardProductName
+    discount?: number;
   }[];
 }
 
@@ -31,8 +30,8 @@ type Step =
         rewardId: string;
         name: string;
         friendlyName: string;
-        product: "open play" | "reservation" | "pro shop";
-        discount: number;
+        product: RewardProductName
+        discount?: number;
       };
     };
 
@@ -47,12 +46,18 @@ export default function SuccessDialog({
   setShowDialog,
   userEarnedData,
 }: SuccessDialogProps) {
-  const router = useRouter();
   const { user } = useUserContext();
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentStep, setCurrentStep] = useState<Step>({ type: "message" });
   const [timerKey, setTimerKey] = useState(0);
+
+  const guestUsername = user?.isGuest ? user.name : null;
+  let loginUrl = "/auth/login?screen_hint=signup&returnTo=/play";
+  if (guestUsername) {
+    // If a guest session exists, append their username to the URL.
+    loginUrl += `&guest_username=${encodeURIComponent(guestUsername)}`;
+  }
 
   const steps: Step[] = useMemo(() => [
     { type: "message" },
@@ -123,9 +128,13 @@ export default function SuccessDialog({
                     <Text size="6" weight={'bold'} style={{textTransform: "uppercase"}}>
                       {currentStep.data.friendlyName}
                     </Text>
-                    <Text size="6" weight={'bold'} style={{textTransform: "uppercase"}}>
-                      {currentStep.data.product}
-                    </Text>
+                    
+                    {currentStep.data.product !== "custom" && (
+                      <Text size="6" weight={'bold'} style={{textTransform: "uppercase"}}>
+                        {currentStep.data.product}
+                      </Text>
+                    )}
+                   
                   </Flex>
                 )}
               </Flex>
@@ -167,9 +176,9 @@ export default function SuccessDialog({
                   You&apos;re currently logged in as a guest. To ensure your achievements and rewards remain available, 
                   create an account.
                 </Text>
-                <Button onClick={() => router.push("/auth/login?screen_hint=signup&returnTo=/")}>
-                  Create account
-                </Button>
+                <Button size={'3'} asChild>
+                  <a href={loginUrl}>Create account</a>
+                </Button> 
               </>
             )}
             <Button variant={user?.isGuest ? 'outline' : 'solid'} asChild>

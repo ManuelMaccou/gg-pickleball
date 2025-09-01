@@ -19,4 +19,8 @@ const MatchSchema = new Schema<IMatch>(
   { timestamps: true }
 );
 
+MatchSchema.index({ location: 1 });
+MatchSchema.index({ 'team1.players': 1 });
+MatchSchema.index({ 'team2.players': 1 });
+
 export default mongoose.models.Match || mongoose.model<IMatch>("Match", MatchSchema);
