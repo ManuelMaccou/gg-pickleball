@@ -34,7 +34,12 @@ export async function POST(request: NextRequest) {
     auth0Id = body.auth0Id
 
     if (!name || name.trim() === "") {
-      return NextResponse.json({ error: 'Name is required' }, { status: 400 });
+    logError(new Error(`Name is missing`), {
+      endpoint: 'POST /api/user',
+      task: 'Creating a user.',
+    });
+
+      return NextResponse.json({ error: 'Name is a required field' }, { status: 400 });
     }
 
     const trimmedName = name.trim();
@@ -64,7 +69,7 @@ export async function POST(request: NextRequest) {
       auth0Id: auth0Id ?? 'Undefined',
     });
 
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: 'There was an unexpected error. Please try again.' }, { status: 500 });
   }
 }
 
@@ -74,7 +79,11 @@ export async function GET(request: Request) {
   const auth0Id = searchParams.get('auth0Id');
 
   if (!name && !auth0Id) {
-    return NextResponse.json({ error: "Name or auth0Id is required." }, { status: 400 });
+    logError(new Error(`Name or auth0Id is missing`), {
+      endpoint: 'GET /api/user',
+      task: 'Getting a user.',
+    });
+    return NextResponse.json({ error: "There was an error fetching user information. Please try again." }, { status: 400 });
   }
 
   try {
@@ -159,16 +168,31 @@ export async function PATCH(req: NextRequest) {
         if (userId) filter._id = userId;
         break;
       default:
+        logError(new Error(`Information is missing`), {
+          endpoint: 'PATCH /api/user',
+          task: 'Updating a user.',
+          name: filter.name ?? 'null',
+          auth0Id: filter.auth0Id ?? 'null',
+          userId: filter._id ?? 'null'
+        });
+
         return NextResponse.json(
-          { error: "A valid 'findBy' key is required: name, auth0Id, or userId." },
+          { error: "The request cannot be completed. Please try again later" },
           { status: 400 }
         );
     }
     
     // Check if the corresponding identifier value was provided
     if (Object.keys(filter).length === 0) {
+
+      logError(new Error(`Missing "findby key`), {
+          endpoint: 'PATCH /api/user',
+          task: 'Updating a user.',
+          findbykey: findBy ?? 'null'
+        });
+
       return NextResponse.json(
-        { error: `Missing value for the specified 'findBy' key: '${findBy}'` },
+         { error: "The request cannot be completed. Please try again later" },
         { status: 400 }
       );
     }
@@ -236,7 +260,7 @@ export async function PATCH(req: NextRequest) {
       task: "Update user record",
     });
 
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json({ error: "An unexpected error occured. Please try again." }, { status: 500 });
   }
 }
 

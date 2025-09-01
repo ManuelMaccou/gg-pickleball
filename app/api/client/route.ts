@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
         endpoint: 'POST /api/client',
         task: 'Creating a client'
       });
-      return NextResponse.json({ error: 'Client name is required' }, { status: 400 });
+      return NextResponse.json({ error: 'There was an error creating the client. Please try again ensuring all fields are included.' }, { status: 400 });
     }
 
     // Pass the entire body to the new Client constructor.
@@ -44,11 +44,12 @@ export async function POST(req: NextRequest) {
       (error as { code: number }).code === 11000
     ) {
       logError(error, { message: 'Attempted to create a client with a duplicate name.' });
+
       return NextResponse.json({ error: 'A client with this name already exists.' }, { status: 409 });
     }
 
     logError(error, { message: 'Error creating Client.' });
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'There was an unexpected error. Please try again.' }, { status: 500 });
   }
 }
 
@@ -67,7 +68,7 @@ export async function GET(request: Request) {
           task: 'Fetching a client'
         });
 
-        return NextResponse.json({ error: 'Invalid client ID' }, { status: 400 });
+        return NextResponse.json({ error: 'There was an error whil fetching the data. Please try again.' }, { status: 400 });
       }
 
        const client = await Client.findById(clientId)
@@ -101,7 +102,7 @@ export async function GET(request: Request) {
       message: clientId ? `Failed to fetch client with clientId: ${clientId}` : 'Failed to fetch all clients',
       clientId: clientId ?? 'null'
     });
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+    return NextResponse.json({ error: 'There was an unexpected error. Please try again.' }, { status: 500 });
   }
 }
 
@@ -139,7 +140,7 @@ export async function PATCH(req: NextRequest) {
         task: 'Updating a client'
       });
 
-      return NextResponse.json({ error: 'Invalid or missing client ID' }, { status: 400 });
+      return NextResponse.json({ error: 'There was an error updating the client information. Please try again.' }, { status: 400 });
     }
 
     const client = await Client.findById(clientId);
@@ -221,6 +222,6 @@ export async function PATCH(req: NextRequest) {
       message: `Failed to update client achievements for clientId: ${clientId}`,
     });
     
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'There was an unexpected error. Please try again.' }, { status: 500 });
   }
 }

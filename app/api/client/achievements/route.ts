@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
         task: 'Fetching a clients configured achievements and rewards'
       });
 
-      return NextResponse.json({ error: 'Invalid or missing clientId' }, { status: 400 });
+      return NextResponse.json({ error: 'There was an error fetching client data. Please try again.' }, { status: 400 });
     }
 
     const achievementFieldKey =
@@ -55,6 +55,6 @@ export async function GET(req: NextRequest) {
     logError(error, {
       message: `Error fetching client achievements & rewards for ClientId: ${clientId}`,
     });
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'There was an unexpected error. Please try again.' }, { status: 500 });
   }
 }

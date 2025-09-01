@@ -27,15 +27,13 @@ export async function POST(req: NextRequest) {
           endpoint: 'POST /api/achievement-category',
           task: 'Saving achievement categories'
         });
-        continue; // Skip invalid entry
+        continue;
       }
 
       const newAchievementCategory = new AchievementCategory({ name, description, milestones });
       await newAchievementCategory.save();
-      console.log(`Saved category: ${name}`);
 
       createdCategories.push(newAchievementCategory);
-      console.log('Created:', newAchievementCategory);
     }
 
     return NextResponse.json({ message: 'Achievement categories created', createdCategories }, { status: 201 });
@@ -46,7 +44,7 @@ export async function POST(req: NextRequest) {
       message: 'Failed to create achievement categories',
     });
 
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'There was an unexpected error. Please try again.' }, { status: 500 });
   }
 }
 
@@ -64,6 +62,6 @@ export async function GET() {
       message: 'Failed to fetch all achievemenet categories',
     });
     
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+    return NextResponse.json({ error: 'There was an unexpected error. Please try again.' }, { status: 500 });
   }
 }

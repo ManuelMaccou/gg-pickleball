@@ -223,7 +223,7 @@ export default function RewardsGrid({ user, location, maxCount }: Props) {
       <Card>
         <Flex align="center" justify="center" p="4">
           <Text align={'center'} color="gray" size="3">
-            You`&apos;ve earned all available rewards! Check back later for new challenges.
+            You&apos;ve earned all available rewards! Check back later for new challenges.
           </Text>
         </Flex>
       </Card>

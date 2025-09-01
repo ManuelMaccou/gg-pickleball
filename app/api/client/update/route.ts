@@ -22,7 +22,7 @@ export async function PATCH(req: NextRequest) {
         endpoint: 'PATCH /api/client',
         task: 'Updating a client'
       });
-      return NextResponse.json({ error: 'Invalid or missing client ID' }, { status: 400 });
+      return NextResponse.json({ error: 'There was an error while updating client information. Please try again.' }, { status: 400 });
     }
 
     const allowedUpdates: (keyof IClient)[] = [
@@ -58,6 +58,6 @@ export async function PATCH(req: NextRequest) {
 
   } catch (error) {
     logError(error, { message: 'Error updating Client.' });
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'There was an unexpected error. Please try again.' }, { status: 500 });
   }
 }

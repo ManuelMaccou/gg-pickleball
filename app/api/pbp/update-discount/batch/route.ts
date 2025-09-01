@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { chromium } from 'playwright';
 import { CouponInput } from '@/app/types/pbpTypes';
+import { logError } from '@/lib/sentry/logger';
 
 const randomDelay = (min = 400, max = 900) =>
   new Promise((res) => setTimeout(res, min + Math.random() * (max - min)));
@@ -11,6 +12,12 @@ export async function POST(request: Request) {
   const facilityId = coupons[0]?.facilityId;
 
   if (!facilityId) {
+
+    logError(new Error("facilityId is missing from the request."), {
+      endpoint: 'POST /api/pbp/update-discount/batch',
+      task: 'Updating pbp discounts in batch.'
+    });
+
     return NextResponse.json(
       { message: 'facilityId is missing from the coupon data.' },
       { status: 400 }
@@ -18,6 +25,11 @@ export async function POST(request: Request) {
   }
 
   if (!Array.isArray(coupons) || coupons.length === 0) {
+    logError(new Error("No coupons provided. Expected a valid array of CouponInput."), {
+      endpoint: 'POST /api/pbp/update-discount/batch',
+      task: 'Updating pbp discounts in batch.'
+    });
+
     return NextResponse.json(
       { message: 'No coupons provided. Expected a valid array of CouponInput.' },
       { status: 400 }
@@ -148,8 +160,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ results });
   } catch (error: unknown) {
     const err = error as Error;
-    console.error('Playwright automation error:', err.stack);
     await page.screenshot({ path: `error-screenshot-${Date.now()}.png`, fullPage: true });
+
+    logError(new Error("Coupon creation failed."), {
+      endpoint: 'POST /api/pbp/update-discount/batch',
+      task: 'Updating pbp discounts in batch.'
+    });
+
     return NextResponse.json(
       { message: 'Coupon creation failed.', details: err.message },
       { status: 500 }
