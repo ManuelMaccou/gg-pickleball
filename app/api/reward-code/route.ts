@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(savedRewardCode, { status: 201 });
   } catch (error) {
-    logError(new Error("Internal server error."), {
+    logError(new Error(`Internal server error: ${error}.`), {
         endpoint: 'POST /api/reward-code',
         task: 'Creating a reward code.',
       });
