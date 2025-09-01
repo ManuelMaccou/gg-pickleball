@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
         endpoint: 'GET /api/match/location',
         task: 'Fetching matches by location for admin page'
       });
-      return NextResponse.json({ error: "locationId is required." }, { status: 400 });
+      return NextResponse.json({ error: "There was an error fetching match information. Please try again." }, { status: 400 });
     }
 
     if (!Types.ObjectId.isValid(locationId)) {
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
         endpoint: 'GET /api/match/location',
         task: 'Fetching matches by location for admin page'
       });
-      return NextResponse.json({ error: "Invalid locationId format." }, { status: 400 });
+      return NextResponse.json({ error: "There was an error fetching match information. Please try again." }, { status: 400 });
     }
 
     const matches = await Match.find({ location: locationId })
@@ -45,6 +45,6 @@ export async function GET(request: NextRequest) {
     logError(error, {
       message: `Error fetching matches at locationID: ${locationId} for admin page`
     });
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    return NextResponse.json({ error: "There was an unexpected error. Please try again." }, { status: 500 });
   }
 }

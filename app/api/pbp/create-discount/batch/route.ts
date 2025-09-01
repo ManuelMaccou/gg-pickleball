@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { chromium } from 'playwright';
 import { CouponInput } from '@/app/types/pbpTypes';
+import { logError } from '@/lib/sentry/logger';
 
 const randomDelay = (min = 400, max = 900) =>
   new Promise((res) => setTimeout(res, min + Math.random() * (max - min)));
@@ -11,15 +12,26 @@ export async function POST(request: Request) {
   const facilityId = coupons[0]?.facilityId;
 
    if (!facilityId) {
+    logError(new Error('facilityId is missing from the request.'), {
+      endpoint: 'POST /api/pbp/create-discount/batch',
+      task: 'Creating batch PBP discounts.'
+    });
+
     return NextResponse.json(
-      { message: 'facilityId is missing from the coupon data.' },
+      { message: 'There was an error creating discounts. Please try again.' },
       { status: 400 }
     );
   }
 
   if (!Array.isArray(coupons) || coupons.length === 0) {
+
+    logError(new Error('No coupons provided. Expected a valid array of CouponUpdateInput.'), {
+      endpoint: 'POST /api/pbp/create-discount/batch',
+      task: 'Creating batch PBP discounts.'
+    });
+
     return NextResponse.json(
-      { message: 'No coupons provided. Expected a valid array of CouponUpdateInput.' },
+      { message: 'There was an error creating the reward. Please try again.' },
       { status: 400 }
     );
   }
@@ -28,7 +40,7 @@ export async function POST(request: Request) {
     // headless: false,
     channel: 'chromium',
     args: [
-      '--disable-blink-features=AutomationControlled', // Disables the `navigator.webdriver` flag
+      '--disable-blink-features=AutomationControlled',
       '--no-sandbox',
       '--disable-setuid-sandbox',
     ],
@@ -148,6 +160,12 @@ export async function POST(request: Request) {
   } catch (error: unknown) {
     const err = error as Error;
     console.error('Batch update error:', err.message);
+
+    logError(new Error(`Batch update failed. ${err.message}`), {
+      endpoint: 'POST /api/pbp/create-discount/batch',
+      task: 'Fetching match history for a player based on location'
+    });
+
     return NextResponse.json(
       { message: 'Batch update failed.', details: err.message },
       { status: 500 }

@@ -20,6 +20,11 @@ export async function GET(req: NextRequest) {
     await connectToDatabase()
 
     if (!userId || !clientId) {
+      logError(new Error("Missing userId or clientId."), {
+        endpoint: 'GET /api/reward-code',
+        task: 'Getting a reward code.'
+      });
+
       return NextResponse.json({ error: 'Missing userId or clientId' }, { status: 400 })
     }
 
@@ -39,7 +44,7 @@ export async function GET(req: NextRequest) {
       clientId: clientId,
     });
 
-    return NextResponse.json({ error: 'Server error' }, { status: 500 })
+    return NextResponse.json({ error: 'There was an unexpected error. Please try again.' }, { status: 500 })
   }
 }
 
@@ -55,8 +60,16 @@ export async function POST(req: NextRequest) {
     const body: Partial<IRewardCode> = await req.json();
 
     if (!body.code || !body.clientId || !body.achievementId || !body.reward) {
+      logError(new Error("Missing required fields."), {
+        endpoint: 'POST /api/reward-code',
+        task: 'Creating a reward code.',
+        clientId: body.clientId ?? "null",
+        achievementId: body.achievementId ?? 'null',
+        reward: body.reward ?? 'null'
+      });
+
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'There was an error creating a reward. Pleas try again.' },
         { status: 400 }
       );
     }
@@ -76,9 +89,13 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(savedRewardCode, { status: 201 });
   } catch (error) {
-    console.error('Error creating RewardCode:', error);
+    logError(new Error("Internal server error."), {
+        endpoint: 'POST /api/reward-code',
+        task: 'Creating a reward code.',
+      });
+
     return NextResponse.json(
-      { error: 'Internal Server Error' },
+      { error: 'An unexpected error happened. Please try again.' },
       { status: 500 }
     );
   }

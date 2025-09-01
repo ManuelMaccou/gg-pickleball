@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
         task: 'Fetching match history for a player'
       });
 
-      return NextResponse.json({ error: "userId is required." }, { status: 400 });
+      return NextResponse.json({ error: "There was an error fetching match information. Please try again." }, { status: 400 });
     }
 
     if (!Types.ObjectId.isValid(userId)) {
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
         task: 'Fetching match history for a player'
       });
 
-      return NextResponse.json({ error: "Invalid userId format." }, { status: 400 });
+      return NextResponse.json({ error: "There was an error fetching match information. Please try again." }, { status: 400 });
     }
 
     const query: FilterQuery<IMatch> = {
@@ -79,6 +79,6 @@ export async function GET(request: NextRequest) {
       message: `Error fetching match history for userId: ${userId}`
     });
     
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    return NextResponse.json({ error: "An unexpected error happened. Please try again." }, { status: 500 });
   }
 }

@@ -17,12 +17,22 @@ export async function GET(req: Request) {
     await connectToDatabase()
 
     if (!clientId) {
-      return NextResponse.json({ error: 'Missing clientId' }, { status: 400 })
+      logError(new Error("Missing clientId."), {
+        endpoint: 'POST /api/reward/client-rewards-achievements',
+        task: 'Getting a reward/achievement for a client.'
+      });
+
+      return NextResponse.json({ error: 'There was an error fetching client reward data.' }, { status: 400 })
     }
 
     const client = await Client.findById(clientId)
 
     if (!client) {
+      logError(new Error(`Client not found for client ID: ${clientId}.`), {
+        endpoint: 'POST /api/reward/client-rewards-achievements',
+        task: 'Getting a reward/achievement for a client.'
+      });
+
       return NextResponse.json({ error: 'Client not found' }, { status: 404 })
     }
 
@@ -70,6 +80,6 @@ export async function GET(req: Request) {
       clientId: clientId,
     });
     
-    return NextResponse.json({ error: 'Server error' }, { status: 500 })
+    return NextResponse.json({ error: 'An unexpected error happened. Please try again.' }, { status: 500 })
   }
 }

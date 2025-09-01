@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
 
   } catch (error) {
     logError(error, { message: 'Error creating new reward' });
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'There was an unexpected error. We are on it.' }, { status: 500 });
   }
 }
 
@@ -76,9 +76,15 @@ export async function PATCH(req: NextRequest) {
     const body = await req.json();
     const { id, ...updateData } = body as Partial<IReward> & { id: string };
 
-    if (!id) return NextResponse.json({ error: 'Missing reward ID' }, { status: 400 });
+    if (!id) {
+    logError(new Error("Missing id."), {
+      endpoint: 'POST /api/reward',
+      task: 'Updating a reward.'
+    });
 
-    // Use the same helper for clean validation
+      return NextResponse.json({ error: 'There was an error. Please try again.' }, { status: 400 });
+    }
+
     const validationError = validateRewardBody(updateData);
     if (validationError) {
       logError(new Error(validationError), { endpoint: 'PATCH /api/reward', task: 'Validating reward update' });
@@ -109,7 +115,14 @@ export async function PATCH(req: NextRequest) {
 
     const updatedReward = await Reward.findByIdAndUpdate(id, updatePayload, { new: true });
 
-    if (!updatedReward) return NextResponse.json({ error: 'Reward not found' }, { status: 404 });
+    if (!updatedReward) {
+      logError(new Error(`reward not found for id: ${id}.`), {
+        endpoint: 'POST /api/reward',
+        task: 'Updating a reward.'
+      });
+
+      return NextResponse.json({ error: 'Reward not found' }, { status: 404 });
+    }
 
     return NextResponse.json({ message: 'Reward updated', reward: updatedReward });
   } catch (error) {
@@ -130,12 +143,20 @@ export async function DELETE(req: NextRequest) {
     const rewardId = req.nextUrl.searchParams.get('id');
 
     if (!rewardId) {
+      logError(new Error("Missing rward Id."), {
+        endpoint: 'POST /api/reward',
+        task: 'Deleting a reward.'
+      });
       return NextResponse.json({ error: 'Missing reward ID' }, { status: 400 });
     }
 
     const deletedReward = await Reward.findByIdAndDelete(rewardId);
 
     if (!deletedReward) {
+      logError(new Error("Reward not found."), {
+        endpoint: 'POST /api/reward',
+        task: 'Deleting a reward.'
+      });
       return NextResponse.json({ error: 'Reward not found' }, { status: 404 });
     }
 
@@ -144,7 +165,7 @@ export async function DELETE(req: NextRequest) {
     logError(error, {
       message: 'Error deleting reward',
     });
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'There as an error deleting the reward. Please try again.' }, { status: 500 });
   }
 }
 
@@ -170,7 +191,7 @@ export async function GET(req: NextRequest) {
     logError(error, {
       message: `Error fetching reward(s)`,
     });
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+    return NextResponse.json({ error: 'There was an error fetching reward details. Please try again.' }, { status: 500 });
   }
 }
 

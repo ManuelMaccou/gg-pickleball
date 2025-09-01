@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
       message: 'Failed to create new achievement object',
     });
 
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'There was an unexpected error. We are looking into it.' }, { status: 500 });
   }
 }
 
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
           task: 'Fetching an existing achievement'
         });
 
-        return NextResponse.json({ error: 'Achievement not found' }, { status: 404 });
+        return NextResponse.json({ error: 'Achievement not found. Please try again.' }, { status: 404 });
       }
       return NextResponse.json({ achievement });
     }
@@ -71,6 +71,6 @@ export async function GET(request: NextRequest) {
       message: name ? `Failed to fetch achievement with name: ${name}` : 'Failed to fetch all achievements',
     });
     
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+    return NextResponse.json({ error: 'There was an unexpected error. We are looking into it.' }, { status: 500 });
   }
 }

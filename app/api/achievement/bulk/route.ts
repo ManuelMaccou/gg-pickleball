@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
         task: 'Creating bulk achievemnts'
       });
 
-      return NextResponse.json({ error: 'Expected an array of achievements' }, { status: 400 });
+      return NextResponse.json({ error: 'There was an error creating the achievements. Please try again.' }, { status: 400 });
     }
 
     const invalid = body.find(
@@ -46,6 +46,6 @@ export async function POST(req: NextRequest) {
       logError(error, {
         message: 'Failed to add achievements in bulk',
       });
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Ther was an unexpected error. Please try again.' }, { status: 500 });
   }
 }

@@ -10,8 +10,6 @@ export async function GET(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
-
-  console.log('made it')
   
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get("userId");
@@ -25,7 +23,7 @@ export async function GET(request: NextRequest) {
         task: 'Fetching admin details'
       });
 
-      return NextResponse.json({ error: "UserId is required." }, { status: 400 });
+      return NextResponse.json({ error: "There was an error completing this request." }, { status: 400 });
     }
 
     if (!Types.ObjectId.isValid(userId)) {
@@ -34,7 +32,7 @@ export async function GET(request: NextRequest) {
         task: 'Fetching admin details'
       });
 
-      return NextResponse.json({ error: "Invalid userId format." }, { status: 400 });
+      return NextResponse.json({ error: "There was an error completing this request." }, { status: 400 });
     }
 
     const admin = await Admin.findOne({ user: userId }).populate("location");
@@ -50,7 +48,7 @@ export async function GET(request: NextRequest) {
       message: 'Failed to fetch admin data based on UserId',
     });
     
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    return NextResponse.json({ error: "There was an unexpected error. Please try again." }, { status: 500 });
   }
 }
 
@@ -82,7 +80,7 @@ export async function POST(request: NextRequest) {
         task: 'Creating an admin'
       });
 
-      return NextResponse.json({ error: "Invalid user or location ID." }, { status: 400 });
+      return NextResponse.json({ error: "Invalid request. Please include all required fields." }, { status: 400 });
     }
 
     const admin = new Admin({
@@ -97,6 +95,6 @@ export async function POST(request: NextRequest) {
     logError(error, {
       message: 'Error creating admin.'
     });
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    return NextResponse.json({ error: "There was an unexpected error. Please try again." }, { status: 500 });
   }
 }

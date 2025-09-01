@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
         task: 'Fetching match history for a player based on location'
       });
 
-      return NextResponse.json({ error: "userId is required." }, { status: 400 });
+      return NextResponse.json({ error: "There was an error fetching match information. Please try again." }, { status: 400 });
     }
 
     if (!Types.ObjectId.isValid(userId)) {
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
         task: 'Fetching match history for a player based on location'
       });
 
-      return NextResponse.json({ error: "Invalid userId format." }, { status: 400 });
+      return NextResponse.json({ error: "There was an error fetching match information. Please try again." }, { status: 400 });
     }
 
     if (locationId && !Types.ObjectId.isValid(locationId)) {
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
         task: 'Fetching match history for a player based on location'
       });
 
-      return NextResponse.json({ error: "Invalid locationId format." }, { status: 400 });
+      return NextResponse.json({ error: "There was an error fetching match information. Please try again." }, { status: 400 });
     }
 
     const userQuery = {
@@ -95,6 +95,6 @@ export async function GET(request: NextRequest) {
       message: `Error fetching match history for userId: ${userId}`,
       locationId: locationId
     });
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    return NextResponse.json({ error: "There was an unexpected error. Please try again." }, { status: 500 });
   }
 }

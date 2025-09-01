@@ -42,7 +42,7 @@ const apiKey = req.headers.get('x-api-key');
         logToDupr: logToDupr ?? "undefinded",
       });
 
-      return NextResponse.json({ success: false, error: 'Missing required data.' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'There was an error saving the match. Please try again.' }, { status: 400 });
     }
 
     // Save match details
@@ -72,6 +72,6 @@ const apiKey = req.headers.get('x-api-key');
       team2Players: team2?.players ?? "team 2 undefined",
     });
 
-    return NextResponse.json({ success: false, error: 'Failed to save match.' }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'There was an error saving the match.' }, { status: 500 });
   }
 }

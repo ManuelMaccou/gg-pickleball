@@ -4,6 +4,7 @@ import { jwtVerify, SignJWT } from 'jose'
 import User from '@/app/models/User'
 import { escapeRegex } from '@/utils/escapeRegex'
 import connectToDatabase from '@/lib/mongodb'
+import { logError } from '@/lib/sentry/logger'
 
 const GUEST_SECRET = process.env.GUEST_SECRET!
 const secret = new TextEncoder().encode(GUEST_SECRET)
@@ -12,7 +13,12 @@ export async function POST(request: NextRequest) {
   const token = request.headers.get('x-guest-init-token')
 
    if (!token) {
-    return NextResponse.json({ error: 'Missing guest token' }, { status: 401 })
+    logError(new Error(`Missing guest token`), {
+      endpoint: 'POST /api/user/guest/',
+      task: 'Creating an guest user.',
+    });
+
+    return NextResponse.json({ error: "There was an error creating a guest user. We are looking into it." }, { status: 401 })
   }
 
  try {
@@ -60,7 +66,12 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ message: 'Guest user created', user: newUser }, { status: 201 })
   } catch (err) {
-    console.error('Failed to create guest token or set cookie:', err)
+
+    logError(new Error(`Failed to create guest token or set cookie: ${err}`), {
+      endpoint: 'POST /api/user/guest',
+      task: 'Creating a guest token or set cookie.'
+    });
+
     return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 })
   }
 }
