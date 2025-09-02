@@ -54,14 +54,33 @@ export default function RewardsGrid({ user, location, maxCount }: Props) {
   // --- A SINGLE, UNIFIED useEffect FOR ALL DATA ---
   useEffect(() => {
     const fetchAllDataAndMerge = async () => {
-      if (!user?._id || !location?._id) {
+      if (!location?._id) {
         setIsLoading(false);
         return;
       }
 
       setIsLoading(true);
       try {
-        // --- 1. FETCH BOTH DATA SOURCES IN PARALLEL ---
+        if (!user) {
+          // Logged-out users only see the configured rewards.
+          const res = await fetch(`/api/reward/client-rewards-achievements?clientId=${location._id}`);
+          if (!res.ok) throw new Error("Failed to fetch configured rewards");
+          
+          const data = await res.json();
+          const configuredRewards = (data.rewards || []) as ClientConfiguredReward[];
+
+          // Convert configured rewards to the display format (all are "locked").
+          const rewardsToDisplay = configuredRewards.map(item => ({
+            ...item.reward,
+            achievementId: item.achievementId,
+            achievementFriendlyName: item.achievementFriendlyName,
+            codes: [],
+          }));
+          
+          setAllRewards(rewardsToDisplay.sort((a, b) => (a.index ?? Infinity) - (b.index ?? Infinity)));
+          return; // End execution for logged-out users
+        }
+        // --- LOGIC FOR LOGGED-IN & GUEST USERS ---
         const [earnedRes, configuredRes] = await Promise.all([
           fetch(`/api/reward-code?userId=${user._id}&clientId=${location._id}`),
           fetch(`/api/reward/client-rewards-achievements?clientId=${location._id}`)
@@ -78,7 +97,7 @@ export default function RewardsGrid({ user, location, maxCount }: Props) {
         const earnedCodes = (earnedData.codes || []) as PopulatedRewardCode[];
         const clientConfiguredRewards = (configuredData.rewards || []) as ClientConfiguredReward[];
 
-        // --- 2. PROCESS EARNED REWARDS (INJECT `repeatable` FLAG) ---
+        // --- PROCESS EARNED REWARDS (INJECT `repeatable` FLAG) ---
         const earnedRewardsMap = new Map<string, RewardWithAchievementContext>();
         for (const code of earnedCodes) {
           const reward = code.reward;
