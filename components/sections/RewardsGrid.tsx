@@ -40,16 +40,138 @@ type Props = {
 };
 
 export default function RewardsGrid({ user, location, maxCount }: Props) {
-  const [fetchingRewards, setFetchingRewards] = useState<boolean>(true);
-  const [filteringRewards, setFilteringRewards] = useState<boolean>(true);
-  const [allUserEarnedRewards, setAllUserEarnedRewards] = useState<RewardWithAchievementContext[]>([]);
-  const [clientConfiguredRewards, setClientConfiguredRewards] = useState<ClientConfiguredReward[]>([]);
+  // const [fetchingRewards, setFetchingRewards] = useState<boolean>(true);
+  // const [filteringRewards, setFilteringRewards] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  // const [allUserEarnedRewards, setAllUserEarnedRewards] = useState<RewardWithAchievementContext[]>([]);
+  // const [clientConfiguredRewards, setClientConfiguredRewards] = useState<ClientConfiguredReward[]>([]);
   const [allRewards, setAllRewards] = useState<RewardWithAchievementContext[]>([]);
   const [selectedReward, setSelectedReward] = useState<{
     reward: RewardWithAchievementContext;
     instance: { redeemed: boolean; earnedAt: Date; _id: string };
   } | null>(null);
 
+  // --- A SINGLE, UNIFIED useEffect FOR ALL DATA ---
+  useEffect(() => {
+    const fetchAllDataAndMerge = async () => {
+      if (!user?._id || !location?._id) {
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      try {
+        // --- 1. FETCH BOTH DATA SOURCES IN PARALLEL ---
+        const [earnedRes, configuredRes] = await Promise.all([
+          fetch(`/api/reward-code?userId=${user._id}&clientId=${location._id}`),
+          fetch(`/api/reward/client-rewards-achievements?clientId=${location._id}`)
+        ]);
+
+        if (!earnedRes.ok || !configuredRes.ok) {
+          console.error("Failed to fetch one or more reward sources.");
+          return;
+        }
+
+        const earnedData = await earnedRes.json();
+        const configuredData = await configuredRes.json();
+        
+        const earnedCodes = (earnedData.codes || []) as PopulatedRewardCode[];
+        const clientConfiguredRewards = (configuredData.rewards || []) as ClientConfiguredReward[];
+
+        // --- 2. PROCESS EARNED REWARDS (INJECT `repeatable` FLAG) ---
+        const earnedRewardsMap = new Map<string, RewardWithAchievementContext>();
+        for (const code of earnedCodes) {
+          const reward = code.reward;
+          const { _id: achievementId, friendlyName, name: achievementName } = code.achievement;
+          const functionName = achievementKeyToFunctionName[achievementName];
+          const metadata = functionName ? achievementFunctionMetadata[functionName] : undefined;
+          const isRepeatable = metadata ? metadata.repeatable : false;
+          const uniqueSnapshotKey = `${reward._id.toString()}-${reward.friendlyName}-${reward.product}-${reward.discount ?? 'custom'}`;
+
+          if (!earnedRewardsMap.has(uniqueSnapshotKey)) {
+            earnedRewardsMap.set(uniqueSnapshotKey, {
+              ...reward,
+              repeatable: isRepeatable,
+              achievementId,
+              achievementFriendlyName: friendlyName,
+              codes: [],
+            });
+          }
+          earnedRewardsMap.get(uniqueSnapshotKey)!.codes.push({
+             _id: code._id.toString(),
+             code: code.code,
+             redeemed: code.redeemed,
+             redemptionDate: code.redemptionDate,
+             earnedAt: code.createdAt,
+          });
+        }
+        
+        // --- 3. MERGE AND FILTER LOGIC ---
+        const mergedMap = new Map<string, RewardWithAchievementContext>();
+
+        for (const configuredItem of clientConfiguredRewards) {
+          const reward = configuredItem.reward;
+          if (!reward || !reward._id) continue;
+          const uniqueSnapshotKey = `${reward._id.toString()}-${reward.friendlyName}-${reward.product}-${reward.discount ?? 'custom'}`;
+          mergedMap.set(uniqueSnapshotKey, {
+            ...reward,
+            achievementId: configuredItem.achievementId,
+            achievementFriendlyName: configuredItem.achievementFriendlyName,
+            codes: [],
+          });
+        }
+        for (const earned of [...earnedRewardsMap.values()]) {
+          const uniqueSnapshotKey = `${earned._id.toString()}-${earned.friendlyName}-${earned.product}-${earned.discount ?? 'custom'}`;
+          mergedMap.set(uniqueSnapshotKey, earned);
+        }
+        
+        const allRewardVersions = [...mergedMap.values()];
+
+        const earnedAchievementIds = new Set(
+          allRewardVersions
+            .filter(reward => reward.codes && reward.codes.length > 0)
+            .map(reward => reward.achievementId)
+        );
+
+        const deduplicatedList = allRewardVersions.filter(reward => {
+          if (!reward.codes || reward.codes.length === 0) {
+            if (earnedAchievementIds.has(reward.achievementId) && !reward.repeatable) {
+              return false;
+            }
+            return true;
+          }
+          return true;
+        });
+
+        const visibleRewards = deduplicatedList.filter(reward => {
+          if (!reward.codes || reward.codes.length === 0) {
+            return true;
+          }
+          const areAllCodesRedeemed = reward.codes.every(c => c.redeemed);
+          return reward.repeatable || !areAllCodesRedeemed;
+        });
+
+        const sortedList = visibleRewards.sort((a, b) => {
+          const aUnlocked = a.codes.some(c => !c.redeemed);
+          const bUnlocked = b.codes.some(c => !c.redeemed);
+          if (aUnlocked && !bUnlocked) return -1;
+          if (!aUnlocked && bUnlocked) return 1;
+          return (a.index ?? Infinity) - (b.index ?? Infinity);
+        });
+
+        setAllRewards(sortedList);
+
+      } catch (err) {
+        console.error('Error fetching and merging rewards:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAllDataAndMerge();
+  }, [user?._id, location?._id]);
+
+  /*
   // Get all earned reward codes for this user at this location
   useEffect(() => {
     const fetchUserRewardCodes = async () => {
@@ -102,7 +224,9 @@ export default function RewardsGrid({ user, location, maxCount }: Props) {
 
     fetchUserRewardCodes();
   }, [user?._id, location._id]);
+  */
 
+  /*
   // Get all client configured rewards
   useEffect(() => {
     const fetchClientRewards = async () => {
@@ -127,7 +251,9 @@ export default function RewardsGrid({ user, location, maxCount }: Props) {
 
     fetchClientRewards();
   }, [location._id]);
+  */
 
+  /*
   // Merge configured + earned rewards
   useEffect(() => {
     setFilteringRewards(true);
@@ -207,12 +333,13 @@ export default function RewardsGrid({ user, location, maxCount }: Props) {
     mergeRewards();
     
   }, [clientConfiguredRewards, allUserEarnedRewards]);
+  */
 
   const displayedRewards = maxCount
     ? allRewards.slice(0, maxCount)
     : allRewards;
 
-  if (fetchingRewards || filteringRewards) return (
+  if (isLoading) return (
     <Flex direction={'row'} width={'100%'} align={'center'} justify={'center'}>
         <Spinner size={'3'} style={{color: 'white'}} />
     </Flex>
