@@ -12,7 +12,6 @@ export async function getResolvedUser(): Promise<ResolvedUser | null> {
   const guestUsername = headerList.get('x-guest-username')
 
   if (userType === 'authenticated') {
-    console.log('user type is authenticated');
     try {
       const session = await auth0.getSession()
       const auth0Id = session?.user?.sub
@@ -42,7 +41,6 @@ export async function getResolvedUser(): Promise<ResolvedUser | null> {
   }
 
   if (userType === 'guest') {
-     console.log('user type is guest')
     if (!guestUsername) {
       console.warn('Guest user missing guestUsername header')
       return null
@@ -60,8 +58,6 @@ export async function getResolvedUser(): Promise<ResolvedUser | null> {
       return null
     }
   }
-   console.log('user type is unknown')
-
   // First-time visitor or unknown user type
   return null
 

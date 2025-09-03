@@ -188,7 +188,7 @@ export default function RewardsGrid({ user, location, maxCount }: Props) {
     };
 
     fetchAllDataAndMerge();
-  }, [user?._id, location?._id]);
+  }, [user, user?._id, location?._id]);
 
   /*
   // Get all earned reward codes for this user at this location
