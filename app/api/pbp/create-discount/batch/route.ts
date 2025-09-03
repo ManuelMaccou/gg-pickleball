@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { chromium } from 'playwright';
+import { chromium, Browser } from 'playwright';
 import { CouponInput } from '@/app/types/pbpTypes';
 import { logError } from '@/lib/sentry/logger';
 
@@ -7,67 +7,69 @@ const randomDelay = (min = 400, max = 900) =>
   new Promise((res) => setTimeout(res, min + Math.random() * (max - min)));
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  const coupons: CouponInput[] = body?.coupons;
-  const facilityId = coupons[0]?.facilityId;
-
-   if (!facilityId) {
-    logError(new Error('facilityId is missing from the request.'), {
-      endpoint: 'POST /api/pbp/create-discount/batch',
-      task: 'Creating batch PBP discounts.'
-    });
-
-    return NextResponse.json(
-      { message: 'There was an error creating discounts. Please try again.' },
-      { status: 400 }
-    );
-  }
-
-  if (!Array.isArray(coupons) || coupons.length === 0) {
-
-    logError(new Error('No coupons provided. Expected a valid array of CouponUpdateInput.'), {
-      endpoint: 'POST /api/pbp/create-discount/batch',
-      task: 'Creating batch PBP discounts.'
-    });
-
-    return NextResponse.json(
-      { message: 'There was an error creating the reward. Please try again.' },
-      { status: 400 }
-    );
-  }
-  
-   const browser = await chromium.launch({
-    // headless: false,
-    channel: 'chromium',
-    args: [
-      '--disable-blink-features=AutomationControlled',
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-    ],
-  });
-
-  const context = await browser.newContext({
-    viewport: { width: 1920, height: 1080 },
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
-    locale: 'en-US',
-    timezoneId: 'America/New_York'
-  });
-
-  const page = await context.newPage();
-
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator, 'webdriver', { get: () => false });
-    Object.defineProperty(navigator, 'plugins', {
-      get: () => [
-        { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
-        { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai', description: '' },
-        { name: 'Native Client', filename: 'internal-nacl-plugin', description: '' },
-      ],
-    });
-    Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
-  });
+  let browser: Browser | null = null;
 
   try {
+    const body = await request.json();
+    const coupons: CouponInput[] = body?.coupons;
+    const facilityId = coupons[0]?.facilityId;
+
+    if (!facilityId) {
+      logError(new Error('facilityId is missing from the request.'), {
+        endpoint: 'POST /api/pbp/create-discount/batch',
+        task: 'Creating batch PBP discounts.'
+      });
+
+      return NextResponse.json(
+        { message: 'There was an error creating discounts. Please try again.' },
+        { status: 400 }
+      );
+    }
+
+    if (!Array.isArray(coupons) || coupons.length === 0) {
+
+      logError(new Error('No coupons provided. Expected a valid array of CouponUpdateInput.'), {
+        endpoint: 'POST /api/pbp/create-discount/batch',
+        task: 'Creating batch PBP discounts.'
+      });
+
+      return NextResponse.json(
+        { message: 'There was an error creating the reward. Please try again.' },
+        { status: 400 }
+      );
+    }
+    
+    browser = await chromium.launch({
+      // headless: false,
+      channel: 'chromium',
+      args: [
+        '--disable-blink-features=AutomationControlled',
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+      ],
+    });
+
+    const context = await browser.newContext({
+      viewport: { width: 1920, height: 1080 },
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
+      locale: 'en-US',
+      timezoneId: 'America/New_York'
+    });
+
+    const page = await context.newPage();
+
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'webdriver', { get: () => false });
+      Object.defineProperty(navigator, 'plugins', {
+        get: () => [
+          { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
+          { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai', description: '' },
+          { name: 'Native Client', filename: 'internal-nacl-plugin', description: '' },
+        ],
+      });
+      Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+    });
+
     // Login
     await page.goto(process.env.PBS_LOGIN_URL!, { waitUntil: 'domcontentloaded' }); // or 'networkidle'
     await page.locator('#user_email').pressSequentially(process.env.POS_USERNAME!, { delay: 60 + Math.random() * 40 });
@@ -156,22 +158,29 @@ export async function POST(request: Request) {
       await page.waitForTimeout(500 + Math.random() * 300);
     }
 
-    return NextResponse.json({ results });
-  } catch (error: unknown) {
-    const err = error as Error;
-    console.error('Batch update error:', err.message);
+    await browser.close();
+    browser = null;
 
-    logError(new Error(`Batch update failed. ${err.message}`), {
+    return NextResponse.json({ results });
+ } catch (error: unknown) {
+    // --- THIS BLOCK NOW CATCHES EVERYTHING ---
+    const err = error as Error;
+    
+    // Log the true root cause of the crash
+    console.error('[PLAYWRIGHT_CRASH] An error occurred during the batch update process:', err);
+    logError(new Error(`Playwright batch update failed: ${err.message}`), {
       endpoint: 'POST /api/pbp/create-discount/batch',
-      task: 'Fetching match history for a player based on location'
+      stack: err.stack,
     });
 
+    // Return a proper JSON error so the client can parse it
     return NextResponse.json(
-      { message: 'Batch update failed.', details: err.message },
+      { error: 'Internal Server Error', details: 'A failure occurred during the automation process.' },
       { status: 500 }
     );
   } finally {
-   if (browser) {
+    // This ensures the browser is always closed, even if an error occurs
+    if (browser) {
       await browser.close();
     }
   }
