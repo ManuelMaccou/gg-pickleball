@@ -191,11 +191,15 @@ export default function GgpickleballAdminClients() {
     setSubmitError(null);
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { _id: _, products, playbypoint: formPlayByPointData, ...clientData } = formData;
-
-      // 2. Create the payload from the data that is already correctly typed.
-      const payload: Partial<Omit<IClient, keyof Document>> = { ...clientData };
+      const {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        _id: _, // Intentionally unused
+        products,
+        playbypoint: formPlayByPointData,
+        latitude: latString, // Give the strings unique names
+        longitude: lngString,
+        ...basePayload // The rest of the data is already correctly typed
+      } = formData;
 
       const rewardProductsPayload: string[] = [];
       for (const name of PRODUCT_NAMES) {
@@ -203,16 +207,29 @@ export default function GgpickleballAdminClients() {
           rewardProductsPayload.push(name);
         }
       }
-      payload.rewardProducts = rewardProductsPayload;
 
-      // 3. Transform the form's playbypoint data and add it to the payload.
-      if (payload.reservationSoftware === 'playbypoint') {
-        payload.playbypoint = {
+      const lat = parseFloat(latString);
+      const lng = parseFloat(lngString);
+      const latitude = !isNaN(lat) ? lat : undefined;
+      const longitude = !isNaN(lng) ? lng : undefined;
+
+      let playbypointPayload;
+      if (basePayload.reservationSoftware === 'playbypoint') {
+        playbypointPayload = {
           facilityId: formPlayByPointData.facilityId ? Number(formPlayByPointData.facilityId) : undefined,
           affiliations: formPlayByPointData.affiliations.split(',').map(s => s.trim()).filter(Boolean),
         };
       }
-      
+
+
+      const payload: Partial<Omit<IClient, keyof Document>> = {
+        ...basePayload,
+        latitude,
+        longitude,
+        rewardProducts: rewardProductsPayload,
+        playbypoint: playbypointPayload,
+      };
+        
       // 4. Clean up other conditional fields.
       if (payload.retailSoftware !== 'shopify') delete payload.shopify;
       if (payload.reservationSoftware !== 'podplay') delete payload.podplay;

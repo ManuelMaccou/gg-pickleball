@@ -1,11 +1,10 @@
-import axios from 'axios';
 import crypto from 'crypto';
 import Reward from '@/app/models/Reward';
 import { IReward } from '@/app/types/databaseTypes';
 import { Types } from 'mongoose';
 
 const PODPLAY_API_URL = 'https://powerplay.podplay.app/apis/v2/coupons';
-const PODPLAY_API_KEY = process.env.PODPLAY_API_KEY; // Set in .env
+const PODPLAY_API_KEY = process.env.PODPLAY_API_KEY;
 
 const eligibleTypeMap: Record<string, 'BOOKING' | 'EVENT_OPEN_PLAY'> = {
   'reservations': 'BOOKING',
@@ -13,7 +12,7 @@ const eligibleTypeMap: Record<string, 'BOOKING' | 'EVENT_OPEN_PLAY'> = {
   'open play': 'EVENT_OPEN_PLAY',
 };
 
-export async function createPodPlayDiscountCode(rewardId: Types.ObjectId): Promise<string | null> {
+export async function createPodPlayDiscountCode(rewardId: Types.ObjectId): Promise<string> {
   const code = crypto.randomBytes(6)
       .toString('base64')
       .replace(/[^a-zA-Z0-9]/g, '')
@@ -70,15 +69,18 @@ export async function createPodPlayDiscountCode(rewardId: Types.ObjectId): Promi
       _links: {},
     };
 
-    const response = await axios.post(PODPLAY_API_URL, body, {
+    const response = await fetch(PODPLAY_API_URL, {
+      method: 'POST', // Specify the HTTP method
       headers: {
-        Authorization: `Bearer ${PODPLAY_API_KEY}`,
+        'Authorization': `Bearer ${PODPLAY_API_KEY}`,
         'Content-Type': 'application/json',
       },
+      body: JSON.stringify(body),
     });
 
-    if (response.status !== 201 && response.status !== 200) {
-      throw new Error(`PodPlay API returned unexpected status: ${response.status}`);
+    if (!response.ok) {
+      const errorDetails = await response.text();
+      throw new Error(`PodPlay API request failed with status ${response.status}: ${errorDetails}`);
     }
 
     console.log(`Discount created successfully: ${code}`);

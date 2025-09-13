@@ -1,7 +1,7 @@
 'use client'
 
 import { v4 as uuidv4 } from 'uuid';
-import { Badge, Button, Flex, Text, TextField } from "@radix-ui/themes";
+import { Badge, Button, Flex, Spinner, Text, TextField } from "@radix-ui/themes";
 import Image from "next/image";
 import lightGgLogo from '../../../public/logos/gg_logo_white_transparent.png'
 import { Suspense, useEffect, useState, useTransition } from "react";
@@ -12,6 +12,7 @@ import { IClient } from '@/app/types/databaseTypes';
 import { ArrowLeft } from 'lucide-react';
 import { useIsMobile } from '@/app/hooks/useIsMobile';
 import Link from 'next/link';
+import LocationGuard from '@/app/components/LocationGuard';
 
 function NewMatchPage() {
 
@@ -139,94 +140,107 @@ if (isMobile === null) {
   }
 
   return (
-      <Flex direction={'column'} minHeight={'100vh'} p={'4'} justify={'center'} gap={'7'} pb={'9'}>
-        <Flex position={'relative'} justify={'center'} align={'center'} height={'100px'}>
-          {selectedLocation && (
-            <Image
-              src={selectedLocation.logo}
-              alt="Location logo"
-              priority
-              fill
-              style={{objectFit: 'contain'}}
-            />
-          )}
-        </Flex>
-
-        {locationError && (
-          <Badge color="red" size={'3'}>
-            <Text align={'center'} wrap={'wrap'}>{locationError}</Text>
-          </Badge>
-        )}
-      
-        {matchId && user ? (
-          <Flex direction={'column'} mx={'9'}>
-            {selectedLocation && (
-              <>
-                <Flex direction={'column'} align={'center'} gap={'4'}>
-                  <Flex direction={'column'} mt={'4'} align={'center'}>
-                    <Text size={'4'} align={'center'}>All players must scan the same QR code. Once scanned, click continue.</Text>
-                  </Flex>
-                  <QRCodeGenerator matchId={matchId} selectedLocation={selectedLocation._id.toString()} />
-                </Flex>
-
-                
-              </>
-            )}
-            <Flex direction={'column'} mt={'9'} gap={'7'}>
-              <Button size={'3'}
-                disabled={!selectedLocation || isPending}
-                loading={isPending}
-                onClick={handleContinue}
-              >
-               Continue
-              </Button>
-              <Button variant='ghost'
-                asChild
-                size={'3'}
-                style={{ outline: "none", boxShadow: "none" }}
-              >
-                <Link href={'/play'}><ArrowLeft />Go back</Link>
-              </Button>
-            </Flex>
-            
-          </Flex>
-          ) : !user && locationParam ? (
-            <Flex direction={'column'} gap={'4'}>
-              <TextField.Root 
-                size={'3'}
-                type="text" 
-                value={tempName} 
-                onChange={(e) => setTempName(e.target.value)} 
-                placeholder="Enter your player name"
-              />
-            <Flex direction={'column'} mb={'9'} gap={'5'}>
-              <Button size={'3'} disabled={submittingName || !tempName} loading={submittingName} onClick={handleNameSubmit}>
-                Continue (quick)
-              </Button>
-              {error && (
-                 <Badge size={'3'} color='red'>
-                  {error}
-                 </Badge>
+    <>
+      {selectedLocation ? (
+        <LocationGuard location={selectedLocation}>
+          <Flex direction={'column'} minHeight={'100vh'} p={'4'} justify={'center'} gap={'7'} pb={'9'}>
+            <Flex position={'relative'} justify={'center'} align={'center'} height={'100px'}>
+              {selectedLocation && (
+                <Image
+                  src={selectedLocation.logo}
+                  alt="Location logo"
+                  priority
+                  fill
+                  style={{objectFit: 'contain'}}
+                />
               )}
-              <Text align={'center'}>----- or -----</Text>
-              <Flex direction={'column'} gap={'6'}>
-                <Button size={'3'} onClick={() => router.push(`/auth/login?returnTo=/new?location=${locationParam}`)}>Log in</Button>
-                <Button size={'3'} variant='outline' asChild>
-                  <a href={loginUrl}>Create account</a>
-                </Button> 
-              </Flex>
             </Flex>
-          </Flex>
-          ) : !user && !locationParam ? (
-            <Flex direction={'column'} align={'center'} gap={'4'} mt={'-9'}>
-              <Text>There was an error loading the page.</Text>
-              <Button asChild size={'3'} variant='outline'>
-                <Link href={'/play'}><ArrowLeft />Go back</Link>
+
+            {locationError && (
+              <Badge color="red" size={'3'}>
+                <Text align={'center'} wrap={'wrap'}>{locationError}</Text>
+              </Badge>
+            )}
+          
+            {matchId && user ? (
+              <Flex direction={'column'} mx={'9'}>
+                {selectedLocation && (
+                  <>
+                    <Flex direction={'column'} align={'center'} gap={'4'}>
+                      <Flex direction={'column'} mt={'4'} align={'center'}>
+                        <Text size={'4'} align={'center'}>All players must scan the same QR code. Once scanned, click continue.</Text>
+                      </Flex>
+                      <QRCodeGenerator matchId={matchId} selectedLocation={selectedLocation._id.toString()} />
+                    </Flex>
+
+                    
+                  </>
+                )}
+                <Flex direction={'column'} mt={'9'} gap={'7'}>
+                  <Button size={'3'}
+                    disabled={!selectedLocation || isPending}
+                    loading={isPending}
+                    onClick={handleContinue}
+                  >
+                  Continue
+                  </Button>
+                  <Button variant='ghost'
+                    asChild
+                    size={'3'}
+                    style={{ outline: "none", boxShadow: "none" }}
+                  >
+                    <Link href={'/play'}><ArrowLeft />Go back</Link>
+                  </Button>
+                </Flex>
                 
-              </Button>
-            </Flex>
-          ) : null }
-      </Flex>
+              </Flex>
+              ) : !user && locationParam ? (
+                <Flex direction={'column'} gap={'4'}>
+                  <TextField.Root 
+                    size={'3'}
+                    type="text" 
+                    value={tempName} 
+                    onChange={(e) => setTempName(e.target.value)} 
+                    placeholder="Enter your player name"
+                  />
+                <Flex direction={'column'} mb={'9'} gap={'5'}>
+                  <Button size={'3'} disabled={submittingName || !tempName} loading={submittingName} onClick={handleNameSubmit}>
+                    Continue (quick)
+                  </Button>
+                  {error && (
+                    <Badge size={'3'} color='red'>
+                      {error}
+                    </Badge>
+                  )}
+                  <Text align={'center'}>----- or -----</Text>
+                  <Flex direction={'column'} gap={'6'}>
+                    <Button size={'3'} onClick={() => router.push(`/auth/login?returnTo=/new?location=${locationParam}`)}>Log in</Button>
+                    <Button size={'3'} variant='outline' asChild>
+                      <a href={loginUrl}>Create account</a>
+                    </Button> 
+                  </Flex>
+                </Flex>
+              </Flex>
+              ) : !user && !locationParam ? (
+                <Flex direction={'column'} align={'center'} gap={'4'} mt={'-9'}>
+                  <Text>There was an error loading the page.</Text>
+                  <Button asChild size={'3'} variant='outline'>
+                    <Link href={'/play'}><ArrowLeft />Go back</Link>
+                    
+                  </Button>
+                </Flex>
+              ) : null }
+          </Flex>
+        </LocationGuard>
+      ) : (
+        <Flex align="center" justify="center" style={{ minHeight: '100vh' }}>
+          {locationError 
+            ? <Text color="red">{locationError}</Text> 
+            : <Spinner size="3" />
+          }
+        </Flex>
+      )}
+    </>
   )
 }
 

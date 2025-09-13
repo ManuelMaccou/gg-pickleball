@@ -138,8 +138,8 @@ export interface PlayByPointData {
 export interface IClient extends Document {
   _id: Types.ObjectId;
   name: string;
-  latitude: string;
-  longitude: string;
+  latitude: number;
+  longitude: number;
   logo: string;
   rewardProducts: string[];
   admin_logo: string;
