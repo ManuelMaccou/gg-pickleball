@@ -1,10 +1,9 @@
 'use client'
 
-import { Box, Button, Flex, Text } from "@radix-ui/themes";
+import { Box, Button, Callout, Flex, Spinner, Text } from "@radix-ui/themes";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import lightGgLogo from '../../../public/logos/gg_logo_white_transparent.png'
-import Link from 'next/link';
 import { useUser as useAuth0User } from '@auth0/nextjs-auth0';
 import { useUserContext } from '@/app/contexts/UserContext';
 import { useEffect, useMemo, useState } from 'react';
@@ -18,13 +17,14 @@ import { Types } from "mongoose";
 import MatchHistory from "@/components/sections/MatchHistory";
 import { HowToDialog } from "./components/HowToDialog";
 import PlayMenu from "@/app/components/PlayMenu";
+import { useGeolocation } from "@/app/hooks/useGeolocation";
 
 export default function Play() {
 
   const isMobile = useIsMobile();
   const router = useRouter();
-  const { user: auth0User, isLoading } = useAuth0User();
-  const { user } = useUserContext(); 
+  const { user: auth0User, isLoading: auth0IsLoading } = useAuth0User();
+  const { user: contextUser } = useUserContext(); 
 
   const [allClients, setAllClients] = useState<IClient[]>([])
   const [currentClient, setCurrentClient] = useState<IClient | null>(null)
@@ -32,7 +32,21 @@ export default function Play() {
   const [achievementsVariant, setAchievementsVariant] = useState<'full' | 'preview'>('preview')
   const [rewardsVariant, setRewardsVariant] = useState<'full' | 'preview'>('preview')
   const [showHowToDialog, setShowHowToDialog] = useState<boolean>(false)
-  const [isFetchingUser, setIsFetchingUser] = useState<boolean>(true)
+  const [isFetchingDbUser, setIsFetchingDbUser] = useState(true);
+  const { isLoading: isGettingLocation, error: locationError } = useGeolocation();
+    
+  const authenticationStatus = useMemo(() => {
+    if (auth0IsLoading || isFetchingDbUser) {
+      return 'loading';
+    }
+    if (auth0User && dbUser) {
+      return 'authenticated';
+    }
+    if (contextUser?.isGuest && dbUser) {
+      return 'guest';
+    }
+    return 'anonymous';
+  }, [auth0IsLoading, isFetchingDbUser, auth0User, dbUser, contextUser]);
 
   const clientId: string | undefined = currentClient?._id?.toString();
 
@@ -47,14 +61,14 @@ export default function Play() {
       const grouped = new Map<string, { count: number; lastEarned: Date }>();
     
       for (const entry of achievementsRaw) {
-        const entryDate = new Date(entry.earnedAt); // ⬅ added here
+        const entryDate = new Date(entry.earnedAt);
     
         if (!grouped.has(entry.name)) {
           grouped.set(entry.name, { count: 1, lastEarned: entryDate });
         } else {
           const group = grouped.get(entry.name)!;
           group.count += 1;
-          group.lastEarned = entryDate > group.lastEarned ? entryDate : group.lastEarned; // ⬅ updated here
+          group.lastEarned = entryDate > group.lastEarned ? entryDate : group.lastEarned;
         }
       }
     
@@ -143,38 +157,60 @@ export default function Play() {
   // Fetch user details
   useEffect(() => {
     const fetchUser = async () => {
-      if (!user?.isGuest && !auth0User?.sub) return
-  
-      try {
-        let query = ''
-        if (user?.isGuest) {
-          query = `?name=${encodeURIComponent(user.name)}`
-        } else if (auth0User && auth0User.sub) {
-          query = `?auth0Id=${encodeURIComponent(auth0User.sub)}`
-        }
-
-        if (!query) return
-  
-        const res = await fetch(`/api/user${query}`)
-        const data = await res.json()
-  
-        if (!res.ok) {
-          console.error('Failed to fetch user:', data.error)
-          return
-        }
-  
-        // const frontendUser = toFrontendUser(data.user);
-        setDbUser(data.user);
-       
-      } catch (err) {
-        console.error('Error fetching user:', err)
-      } finally {
-        setIsFetchingUser(false);
+      // Condition 1: We already have the correct authenticated user.
+      if (auth0User && dbUser && dbUser.auth0Id === auth0User.sub) {
+        setIsFetchingDbUser(false);
+        return;
       }
-    }
+      // Condition 2: We already have the correct guest user.
+      if (contextUser?.isGuest && dbUser && dbUser.name === contextUser.name) {
+        setIsFetchingDbUser(false);
+        return;
+      }
+      // Condition 3: We're logged out and there's no guest. Nothing to fetch.
+      if (!auth0IsLoading && !auth0User && !contextUser) {
+        setIsFetchingDbUser(false);
+        setDbUser(null);
+        return;
+      }
+      
+      let query = '';
+      if (contextUser?.isGuest) {
+        query = `?name=${encodeURIComponent(contextUser.name)}`;
+      } else if (auth0User?.sub) {
+        query = `?auth0Id=${encodeURIComponent(auth0User.sub)}`;
+      }
+
+      if (!query) return;
+
+      try {
+        setIsFetchingDbUser(true);
+        const res = await fetch(`/api/user${query}`);
+        const data = await res.json();
+        
+        if (res.ok) {
+          setDbUser(data.user);
+        } else {
+          console.error('Failed to fetch user:', data.error);
+          setDbUser(null);
+        }
+      } catch (err) {
+        console.error('Error fetching user:', err);
+      } finally {
+        setIsFetchingDbUser(false);
+      }
+    };
   
-    fetchUser()
-  }, [user, auth0User])  
+    fetchUser();
+  }, [contextUser, auth0User, auth0IsLoading, dbUser]);
+
+  const handleLogMatchClick = () => {
+    if (currentClient?._id) {
+      router.push(`/new?location=${currentClient._id}`);
+    } else {
+      console.error("Cannot log match: No location selected.");
+    }
+  };
 
   
   const userStatsForClient = clientId ? dbUser?.stats?.[clientId] : undefined;
@@ -224,29 +260,34 @@ export default function Play() {
           />
         </Flex>
 
-        {!isLoading && (
+        {authenticationStatus === 'loading' ? (
+          <Spinner />
+        ) : (
           <Flex direction={'row'} justify={'center'} align={'center'}>
-            <Text size={'3'} weight={'bold'} align={'right'}>
-              {dbUser?.name ? (
-                auth0User 
-                  ? (String(dbUser.name).includes('@') ? String(dbUser.name).split('@')[0] : dbUser.name)
-                  : `${String(dbUser.name).includes('@') ? String(dbUser.name).split('@')[0] : dbUser.name} (guest)`
-              ) : ''}
-            </Text>
-            {!user?.isGuest && (
-              <Button
-              size={'2'}
-              variant="outline"
-              mt={'1'}
-              hidden={!!auth0User}
-              onClick={() => router.push('/auth/login?returnTo=/play')}
-            >
-               Log in
-            </Button>
+            {/* Display username if authenticated or guest */}
+            {(authenticationStatus === 'authenticated' || authenticationStatus === 'guest') && dbUser && (
+              <Text size={'3'} weight={'bold'} align={'right'}>
+                {String(dbUser.name).split('@')[0]}
+                {authenticationStatus === 'guest' && ' (guest)'}
+              </Text>
             )}
-            {dbUser && !isFetchingUser && (
+
+            {/* Display login button ONLY if truly anonymous */}
+            {authenticationStatus === 'anonymous' && (
+              <Button
+                size={'2'}
+                variant="outline"
+                mt={'1'}
+                onClick={() => router.push('/auth/login?returnTo=/play')}
+              >
+                Log in
+              </Button>
+            )}
+            
+            {/* The PlayMenu should only render when we have a confirmed user */}
+            {(authenticationStatus === 'authenticated' || authenticationStatus === 'guest') && dbUser && (
               <PlayMenu
-                isAuthorized={!!auth0User}
+                isAuthorized={authenticationStatus === 'authenticated'}
                 user={dbUser}
                 onUserUpdate={setDbUser}
               />
@@ -286,9 +327,20 @@ export default function Play() {
               
         <Flex direction={'column'} mt={'7'}>
           <Flex direction={'column'} mx={'9'} mb={'7'}>
-            <Link href={`/new?location=${currentClient?._id}`}>
-              <Button loading={!currentClient} size={'3'} style={{width: '100%'}}>Log match</Button>
-            </Link>
+            <Button 
+              onClick={handleLogMatchClick}
+              loading={isGettingLocation}
+              disabled={isGettingLocation || !currentClient}
+              size={'3'} style={{width: '100%'}}
+            >
+              Log match
+            </Button>
+            {locationError && (
+              <Callout.Root color="red" mt="2">
+                <Callout.Text>{locationError.message}</Callout.Text>
+              </Callout.Root>
+            )}
+
           </Flex>
           <Flex direction={'row'} width={'100%'} justify={'between'} mb={'5'}>
             <Text size={'6'} weight={'bold'}>Achievements</Text>
@@ -334,10 +386,10 @@ export default function Play() {
         )}
 
         {/* Match history */}
-        {user && currentClient && (
+        {contextUser && currentClient && (
           <Flex direction={'column'} mb={'5'} mt={'9'}>
             <Text size={'6'} weight={'bold'}>Match history</Text>
-            <MatchHistory userId={user.id} userName={user.name} locationId={currentClient._id.toString()}/>
+            <MatchHistory userId={contextUser.id} userName={contextUser.name} locationId={currentClient._id.toString()}/>
           </Flex>
         )}
          

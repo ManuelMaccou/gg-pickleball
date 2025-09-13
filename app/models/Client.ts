@@ -26,8 +26,8 @@ const ClientSchema = new Schema<IClient>({
     type: [String],
     default: []
   },
-  latitude: { type: String },
-  longitude: { type: String },
+  latitude: { type: Number },
+  longitude: { type: Number },
   altAchievements: [
     { type: Schema.Types.ObjectId, ref: 'Achievement', required: true,  default: [] },
   ],

@@ -26,6 +26,7 @@ import { useUserContext } from "@/app/contexts/UserContext";
 import { IClient, IReward, RewardProductName, SerializedAchievement } from "@/app/types/databaseTypes";
 import { useIsMobile } from "@/app/hooks/useIsMobile";
 import { updateUserAndAchievements } from "@/utils/achievementFunctions/updateUserAndAchievements";
+import LocationGuard from "@/app/components/LocationGuard";
 
 type Player = {
   userName: string;
@@ -459,234 +460,247 @@ function GgpickleballMatchPage() {
   }
 
   return (
-    <Flex direction={'column'} minHeight={'100vh'} p={'4'} style={{paddingBottom: '150px'}}>
-      <Flex justify={"between"} align={'center'} direction={"row"} pt={"2"} pb={"5"} px={'2'}>
-        <Flex direction={'column'} position={'relative'} maxWidth={'80px'}>
-            <Image
-            src={lightGgLogo}
-            alt="GG Pickleball light logo"
-              priority
-            height={540}
-            width={960}
-            />
-        </Flex>
+    <>
+      {selectedLocation ? (
+        <LocationGuard location={selectedLocation}>
+          <Flex direction={'column'} minHeight={'100vh'} p={'4'} style={{paddingBottom: '150px'}}>
+            <Flex justify={"between"} align={'center'} direction={"row"} pt={"2"} pb={"5"} px={'2'}>
+              <Flex direction={'column'} position={'relative'} maxWidth={'80px'}>
+                  <Image
+                  src={lightGgLogo}
+                  alt="GG Pickleball light logo"
+                    priority
+                  height={540}
+                  width={960}
+                  />
+              </Flex>
 
-        {!authIsLoading && (
-          <Flex direction={'column'} justify={'center'} gap={'4'}>
-            <Text size={'3'} weight={'bold'} align={'right'}>
-              {user.name ? (
-                auth0User 
-                  ? (String(user.name).includes('@') ? String(user.name).split('@')[0] : user.name)
-                  : `${String(user.name).includes('@') ? String(user.name).split('@')[0] : user.name} (guest)`
-              ) : ''}
-            </Text>
-          </Flex>
-        )}
-      </Flex>
-      
-        <SuccessDialog 
-          showDialog={showDialog}
-          setShowDialog={setShowDialog}
-          userEarnedData={userEarnedData}
-        />
-      
-      <Flex direction={'row'} mt={'5'} justify={'between'}>
-        {matchId && (
-          <Flex direction={'column'}>
-            <QrCodeDialog matchId={matchId} selectedLocation={selectedLocation?._id.toString() || ""} />
-          </Flex>
-        )}
-        {!matchSaved && (
-          <Dialog.Root>
-            <Dialog.Trigger>
-              <Button variant="soft" color="red">Cancel match</Button>
-            </Dialog.Trigger>
-            <Dialog.Content>
-              <Dialog.Title>Cancel match</Dialog.Title>
-              <Dialog.Description>Are you sure? You will lose data for this match.</Dialog.Description>
-              <Dialog.Close>
-                <Flex direction={'row'} align={'stretch'} justify={'between'} mt={'5'}>
-                  <Button size={'3'} variant="outline">Go back</Button>
-                  <Button size={'3'} onClick={() => router.push("/play")}>Yes</Button>
-                </Flex>
-              </Dialog.Close>
-            </Dialog.Content>
-          </Dialog.Root>
-        )}
-       
-      </Flex>
-
-      {isWaiting && (
-        <Flex direction={'column'} mt={'4'}>
-          <Badge color="blue" size={'3'} mb={'5'}>Waiting for players to join...</Badge>
-        </Flex>
-      )}
-
-{/**
- {players.length < 4 ? (
-          <Button
-          size="3"
-          variant="solid"
-          onClick={simulatePlayersJoining}
-        >
-          Simulate All Players Joined
-        </Button>
-      ) : (
-        <Button
-          size="3"
-          color="green"
-          variant="solid"
-          onClick={simulateScoreSubmissions}
-          disabled={players.length < 4}
-        >
-          Simulate Scores
-        </Button>
-      )}
- */}
-      
-
-      <Flex direction={'column'} mt={isWaiting ? '0' : '4'}>
-        {players.length >=2 && (
-           <Text weight={'bold'} size={'3'} mb={'5'}>Select your partner</Text>
-        )}
-       
-        <Box maxWidth="600px">
-          <RadioCards.Root
-            value={teammate || ""}
-            onValueChange={(value) => {
-              setTeammate(value);
-
-              // Ensure currentPlayer is not null before proceeding
-              if (!user.name || !value) {
-                console.error("UserName or selected teammate is null");
-                return;
-              }
-
-              const selectedTeammate = value;
-              const currentPlayer = user.name;
-
-              const newTeam1: string[] = [currentPlayer, selectedTeammate];
-              const newTeam2: string[] = players
-                .filter(player => !newTeam1.includes(player.userName))
-                .map(player => player.userName);
-
-              setTeam1(newTeam1);
-              setTeam2(newTeam2);
-
-              // Access the socket instance here
-              const socket = getSocket();
-              
-              if (socket && socket.connected && matchId) {
-                socket.emit("set-teams", { matchId, team1: newTeam1, team2: newTeam2 });
-              } else {
-                console.error("Socket is not connected or does not exist.");
-              }
-            }}
-            columns={{ initial: "1", sm: "2" }}
-          >
-            {players
-            .filter(player => player.userName !== user.name)
-            .map((player) => (
-              <RadioCards.Item key={player.socketId} value={player.userName}>
-                <Flex direction="column" width="100%">
-                  <Text size={'5'} weight="bold">
-                    {player.userName.includes('@') ? player.userName.split('@')[0] : player.userName}
+              {!authIsLoading && (
+                <Flex direction={'column'} justify={'center'} gap={'4'}>
+                  <Text size={'3'} weight={'bold'} align={'right'}>
+                    {user.name ? (
+                      auth0User 
+                        ? (String(user.name).includes('@') ? String(user.name).split('@')[0] : user.name)
+                        : `${String(user.name).includes('@') ? String(user.name).split('@')[0] : user.name} (guest)`
+                    ) : ''}
                   </Text>
                 </Flex>
-              </RadioCards.Item>
-            ))}
-        </RadioCards.Root>
+              )}
+            </Flex>
+            
+              <SuccessDialog 
+                showDialog={showDialog}
+                setShowDialog={setShowDialog}
+                userEarnedData={userEarnedData}
+              />
+            
+            <Flex direction={'row'} mt={'5'} justify={'between'}>
+              {matchId && (
+                <Flex direction={'column'}>
+                  <QrCodeDialog matchId={matchId} selectedLocation={selectedLocation?._id.toString() || ""} />
+                </Flex>
+              )}
+              {!matchSaved && (
+                <Dialog.Root>
+                  <Dialog.Trigger>
+                    <Button variant="soft" color="red">Cancel match</Button>
+                  </Dialog.Trigger>
+                  <Dialog.Content>
+                    <Dialog.Title>Cancel match</Dialog.Title>
+                    <Dialog.Description>Are you sure? You will lose data for this match.</Dialog.Description>
+                    <Dialog.Close>
+                      <Flex direction={'row'} align={'stretch'} justify={'between'} mt={'5'}>
+                        <Button size={'3'} variant="outline">Go back</Button>
+                        <Button size={'3'} onClick={() => router.push("/play")}>Yes</Button>
+                      </Flex>
+                    </Dialog.Close>
+                  </Dialog.Content>
+                </Dialog.Root>
+              )}
+            
+            </Flex>
+
+            {isWaiting && (
+              <Flex direction={'column'} mt={'4'}>
+                <Badge color="blue" size={'3'} mb={'5'}>Waiting for players to join...</Badge>
+              </Flex>
+            )}
+
+      {/**
+      {players.length < 4 ? (
+                <Button
+                size="3"
+                variant="solid"
+                onClick={simulatePlayersJoining}
+              >
+                Simulate All Players Joined
+              </Button>
+            ) : (
+              <Button
+                size="3"
+                color="green"
+                variant="solid"
+                onClick={simulateScoreSubmissions}
+                disabled={players.length < 4}
+              >
+                Simulate Scores
+              </Button>
+            )}
+      */}
+            
+
+            <Flex direction={'column'} mt={isWaiting ? '0' : '4'}>
+              {players.length >=2 && (
+                <Text weight={'bold'} size={'3'} mb={'5'}>Select your partner</Text>
+              )}
+            
+              <Box maxWidth="600px">
+                <RadioCards.Root
+                  value={teammate || ""}
+                  onValueChange={(value) => {
+                    setTeammate(value);
+
+                    // Ensure currentPlayer is not null before proceeding
+                    if (!user.name || !value) {
+                      console.error("UserName or selected teammate is null");
+                      return;
+                    }
+
+                    const selectedTeammate = value;
+                    const currentPlayer = user.name;
+
+                    const newTeam1: string[] = [currentPlayer, selectedTeammate];
+                    const newTeam2: string[] = players
+                      .filter(player => !newTeam1.includes(player.userName))
+                      .map(player => player.userName);
+
+                    setTeam1(newTeam1);
+                    setTeam2(newTeam2);
+
+                    // Access the socket instance here
+                    const socket = getSocket();
+                    
+                    if (socket && socket.connected && matchId) {
+                      socket.emit("set-teams", { matchId, team1: newTeam1, team2: newTeam2 });
+                    } else {
+                      console.error("Socket is not connected or does not exist.");
+                    }
+                  }}
+                  columns={{ initial: "1", sm: "2" }}
+                >
+                  {players
+                  .filter(player => player.userName !== user.name)
+                  .map((player) => (
+                    <RadioCards.Item key={player.socketId} value={player.userName}>
+                      <Flex direction="column" width="100%">
+                        <Text size={'5'} weight="bold">
+                          {player.userName.includes('@') ? player.userName.split('@')[0] : player.userName}
+                        </Text>
+                      </Flex>
+                    </RadioCards.Item>
+                  ))}
+              </RadioCards.Root>
 
 
-        </Box>
-      </Flex>
+              </Box>
+            </Flex>
 
-      {teammate && (
-        <>
-          <Flex direction={'column'}>
-            <Separator size={'4'} my={'5'} />
+            {teammate && (
+              <>
+                <Flex direction={'column'}>
+                  <Separator size={'4'} my={'5'} />
+                </Flex>
+
+                {waitingForScores && (
+                  <Badge color="blue" size={'3'} mb={'5'}>
+                    Waiting for scores...
+                  </Badge>
+                )}
+
+                {scoreMatch && (
+                  <Badge color="green" size={'3'}>
+                    {scoreMatch}
+                  </Badge>
+                )}
+
+                {isSavingMatch && !saveSuccessMessage && (
+                  <Flex direction={'row'} align={'center'} gap={'2'} mt={'3'}>
+                    <Spinner style={{color: 'white'}} />
+                    <Text size={'3'}>saving match...</Text>
+                  </Flex>
+                )}
+
+                {scoreError && (
+                  <Badge color="red" size={'3'}>
+                    <Text wrap={'wrap'}>{scoreError}</Text>
+                  </Badge>
+                )}
+
+                {saveErrorMessage && (
+                  <Flex direction={'column'} mt={'4'}>
+                    <Badge color="red" size={'3'} mb={'5'}>
+                      <Text wrap={'wrap'}>{saveErrorMessage}</Text>
+                    </Badge>
+                  </Flex>
+                )}
+
+                {saveSuccessMessage && (
+                  <Flex direction={'column'} mt={'4'}>
+                    <Badge color="green" size={'3'} mb={'5'}>
+                      <Text wrap={'wrap'}>{saveSuccessMessage}</Text>
+                    </Badge>
+                  </Flex>
+                )}
+
+                {team1.length === 2 && team2.length === 2 && (
+                  <Flex direction={'column'} gap={'4'} mt={'5'}>
+                    <Flex direction={'column'} gap={'2'}>
+                      <Text weight={'bold'} size={'3'}>Your Team&apos;s Score</Text>
+                      <TextField.Root 
+                        size={'3'}
+                        type="number"
+                        value={yourScore !== null ? yourScore.toString() : ''}
+                        onChange={(e) => setYourScore(e.target.value === '' ? null : parseInt(e.target.value, 10))}
+                        onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}
+                        placeholder="Enter your team's score"
+                        disabled={matchSaved || isSavingMatch}
+                      />
+                    </Flex>
+                    <Flex direction={'column'} gap={'2'}>
+                      <Text weight={'bold'} size={'3'}>Opponent&apos;s Score</Text>
+                      <TextField.Root 
+                        size={'3'}
+                        type="number"
+                        value={opponentsScore !== null ? opponentsScore.toString() : ''}
+                        onChange={(e) => setOpponentsScore(e.target.value === '' ? null : parseInt(e.target.value, 10))}
+                        onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}
+                        placeholder="Enter opponent's score"
+                        disabled={matchSaved || isSavingMatch}
+                      />
+                    
+                    </Flex>
+                  </Flex>
+                )}
+              </>
+            )}
+
+            {matchSaved && (
+              <Flex direction={'column'} mt={'6'}>
+                <Button size={'3'} onClick={() => router.push('/play')}>Log new match</Button>
+              </Flex>
+            )}
+            
           </Flex>
-
-          {waitingForScores && (
-            <Badge color="blue" size={'3'} mb={'5'}>
-              Waiting for scores...
-            </Badge>
-          )}
-
-          {scoreMatch && (
-            <Badge color="green" size={'3'}>
-              {scoreMatch}
-            </Badge>
-          )}
-
-          {isSavingMatch && !saveSuccessMessage && (
-            <Flex direction={'row'} align={'center'} gap={'2'} mt={'3'}>
-              <Spinner style={{color: 'white'}} />
-              <Text size={'3'}>saving match...</Text>
-            </Flex>
-          )}
-
-          {scoreError && (
-            <Badge color="red" size={'3'}>
-              <Text wrap={'wrap'}>{scoreError}</Text>
-            </Badge>
-          )}
-
-          {saveErrorMessage && (
-            <Flex direction={'column'} mt={'4'}>
-              <Badge color="red" size={'3'} mb={'5'}>
-                <Text wrap={'wrap'}>{saveErrorMessage}</Text>
-              </Badge>
-            </Flex>
-          )}
-
-          {saveSuccessMessage && (
-            <Flex direction={'column'} mt={'4'}>
-              <Badge color="green" size={'3'} mb={'5'}>
-                <Text wrap={'wrap'}>{saveSuccessMessage}</Text>
-              </Badge>
-            </Flex>
-          )}
-
-          {team1.length === 2 && team2.length === 2 && (
-            <Flex direction={'column'} gap={'4'} mt={'5'}>
-              <Flex direction={'column'} gap={'2'}>
-                <Text weight={'bold'} size={'3'}>Your Team&apos;s Score</Text>
-                <TextField.Root 
-                  size={'3'}
-                  type="number"
-                  value={yourScore !== null ? yourScore.toString() : ''}
-                  onChange={(e) => setYourScore(e.target.value === '' ? null : parseInt(e.target.value, 10))}
-                  onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}
-                  placeholder="Enter your team's score"
-                  disabled={matchSaved || isSavingMatch}
-                />
-              </Flex>
-              <Flex direction={'column'} gap={'2'}>
-                <Text weight={'bold'} size={'3'}>Opponent&apos;s Score</Text>
-                <TextField.Root 
-                  size={'3'}
-                  type="number"
-                  value={opponentsScore !== null ? opponentsScore.toString() : ''}
-                  onChange={(e) => setOpponentsScore(e.target.value === '' ? null : parseInt(e.target.value, 10))}
-                  onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}
-                  placeholder="Enter opponent's score"
-                  disabled={matchSaved || isSavingMatch}
-                />
-               
-              </Flex>
-            </Flex>
-          )}
-        </>
-      )}
-
-      {matchSaved && (
-        <Flex direction={'column'} mt={'6'}>
-          <Button size={'3'} onClick={() => router.push('/play')}>Log new match</Button>
+        </LocationGuard>
+      ) : (
+        <Flex align="center" justify="center" style={{ minHeight: '100vh' }}>
+          {locationError 
+            ? <Text color="red">{locationError}</Text> 
+            : <Spinner size="3" />
+          }
         </Flex>
       )}
-      
-    </Flex>
+    </>
   )
 }
 
