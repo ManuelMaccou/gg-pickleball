@@ -1,9 +1,8 @@
 'use client'
 
 import { useRouter } from 'next/navigation';
-import { Button, Card, Flex, Heading, Strong, Text } from '@radix-ui/themes';
+import { Button, Card, Flex, Heading, Text } from '@radix-ui/themes';
 import { ArrowLeftIcon } from '@radix-ui/react-icons';
-import Link from 'next/link';
 
 export default function NotCloseEnoughPage() {
   const router = useRouter();
