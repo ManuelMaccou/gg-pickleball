@@ -413,49 +413,62 @@ function GgpickleballMatchPage() {
 
   if (!user) {
     return (
-      <Flex direction={'column'} minHeight={'100vh'} p={'4'} justify={'center'} gap={'7'}>
-        <Flex position={'relative'} justify={'center'} align={'center'} height={'100px'}>
-          {selectedLocation && (
-            <Image
-              src={selectedLocation.logo}
-              alt="Location logo"
-              priority
-              fill
-              style={{objectFit: 'contain', paddingRight: '20px', paddingLeft: '20px'}}
-            />
-          )}
-        </Flex>
-
-        {!isCheckingUser && !user && !authIsLoading ? (
-          <Flex direction={'column'} gap={'4'} mt={'4'}>
-            <TextField.Root 
-              size={'3'}
-              type="text" 
-              value={tempName} 
-              onChange={(e) => setTempName(e.target.value)} 
-              placeholder="Enter your player name"
-            />
-
-            <Button size={'3'} mb={'4'} disabled={submittingName || !tempName} loading={submittingName} onClick={handleNameSubmit}>
-              Continue (quick)
-            </Button>
-            {error && (
-              <Badge size={'3'} color='red'>
-                {error}
-              </Badge>
-            )}
-            <Text align={'center'}>----- or -----</Text>
-            <Button size={'3'} variant='outline' asChild>
-              <a href={loginUrl}>Create account / Log in</a>
-            </Button>            
-          </Flex>
-
-        ) : (
-            <Flex direction={'column'} justify={'center'} align={'center'}>
-              <Spinner />
+      <>
+      {selectedLocation ? (
+        <LocationGuard location={selectedLocation}>
+          <Flex direction={'column'} minHeight={'100vh'} p={'4'} justify={'center'} gap={'7'}>
+            <Flex position={'relative'} justify={'center'} align={'center'} height={'100px'}>
+              {selectedLocation && (
+                <Image
+                  src={selectedLocation.logo}
+                  alt="Location logo"
+                  priority
+                  fill
+                  style={{objectFit: 'contain', paddingRight: '20px', paddingLeft: '20px'}}
+                />
+              )}
             </Flex>
-        )}
-      </Flex>
+
+            {!isCheckingUser && !user && !authIsLoading ? (
+              <Flex direction={'column'} gap={'4'} mt={'4'}>
+                <TextField.Root 
+                  size={'3'}
+                  type="text" 
+                  value={tempName} 
+                  onChange={(e) => setTempName(e.target.value)} 
+                  placeholder="Enter your player name"
+                />
+
+                <Button size={'3'} mb={'4'} disabled={submittingName || !tempName} loading={submittingName} onClick={handleNameSubmit}>
+                  Continue (quick)
+                </Button>
+                {error && (
+                  <Badge size={'3'} color='red'>
+                    {error}
+                  </Badge>
+                )}
+                <Text align={'center'}>----- or -----</Text>
+                <Button size={'3'} variant='outline' asChild>
+                  <a href={loginUrl}>Create account / Log in</a>
+                </Button>            
+              </Flex>
+
+            ) : (
+                <Flex direction={'column'} justify={'center'} align={'center'}>
+                  <Spinner />
+                </Flex>
+            )}
+          </Flex>
+        </LocationGuard>
+        ) : (
+        <Flex align="center" justify="center" style={{ minHeight: '100vh' }}>
+          {locationError 
+            ? <Text color="red">{locationError}</Text> 
+            : <Spinner size="3" />
+          }
+        </Flex>
+      )}
+    </>
     )
   }
 
