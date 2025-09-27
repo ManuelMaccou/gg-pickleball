@@ -17,6 +17,7 @@ const PlayByPointSubSchema = new Schema({
 }, { _id: false });
 
 const ClientSchema = new Schema<IClient>({
+  active: { type: Boolean, default: false },
   name: { type: String, required: true, unique: true },
   logo: { type: String },
   admin_logo: { type: String },
