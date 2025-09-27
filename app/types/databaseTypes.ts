@@ -137,6 +137,7 @@ export interface PlayByPointData {
 
 export interface IClient extends Document {
   _id: Types.ObjectId;
+  active?: boolean;
   name: string;
   latitude: number;
   longitude: number;

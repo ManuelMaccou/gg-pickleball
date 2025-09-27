@@ -31,6 +31,7 @@ export default function LocationDrawer({ allClients, currentClient, onLocationCh
 
   const filteredClients = allClients.filter((client: IClient) =>
     client.name !== EXCLUDED_CLIENT_NAME &&
+    client.active &&
     Array.isArray(client.achievements) &&
     client.achievements.length > 0 &&
     client.rewardsPerAchievement &&
@@ -51,7 +52,10 @@ export default function LocationDrawer({ allClients, currentClient, onLocationCh
               style={{objectFit: 'contain'}}
             />
           </Box>
-          <ChevronDownIcon width={'20px'} height={'20px'}/>
+          {filteredClients.length > 1 && (
+            <ChevronDownIcon width={'20px'} height={'20px'}/>
+          )}
+          
         </Flex>
       </DrawerTrigger>
       <DrawerContent className="bg-gray-800 shadow-[0_-2px_8px_rgba(0,0,0,0.5)] border-t-0 data-[vaul-drawer-direction=bottom]:border-t-0 data-[vaul-drawer-direction=bottom]:rounded-t-lg [&>div.bg-muted]:hidden">
