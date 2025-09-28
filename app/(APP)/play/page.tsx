@@ -18,6 +18,7 @@ import MatchHistory from "@/components/sections/MatchHistory";
 import { HowToDialog } from "./components/HowToDialog";
 import PlayMenu from "@/app/components/PlayMenu";
 import { useGeolocation } from "@/app/hooks/useGeolocation";
+import { isClientSelectable } from "@/utils/isClientAccessible";
 
 export default function Play() {
 
@@ -121,6 +122,8 @@ export default function Play() {
 
   // Set lastLocation cookie
   useEffect(() => {
+    const validClients = allClients.filter(isClientSelectable);
+    
     if (allClients.length === 0) return
 
     const setClientFromCookie = async () => {
@@ -136,23 +139,25 @@ export default function Play() {
           ?.split('=')[1]
 
         if (lastLocationCookie) {
-          const lastLocation = allClients.find((client) => client._id.toString() === lastLocationCookie)
+          const lastLocation = validClients.find((client) => client._id.toString() === lastLocationCookie);
+          
           if (lastLocation) {
-            setCurrentClient(lastLocation)
+            setCurrentClient(lastLocation);
           } else {
-            console.warn('No matching client found for cookie value.')
+            setCurrentClient(validClients[0]);
+            document.cookie = `lastLocation=${validClients[0]._id}; path=/; max-age=${60 * 60 * 24 * 30}`;
           }
         } else {
-          document.cookie = `lastLocation=${allClients[0]._id}; path=/; max-age=${60 * 60 * 24 * 30}`;
-          setCurrentClient(allClients[0])
+          setCurrentClient(validClients[0]);
+          document.cookie = `lastLocation=${validClients[0]._id}; path=/; max-age=${60 * 60 * 24 * 30}`;
         }
       } catch (error) {
-        console.error('Error setting client from cookie:', error)
+        console.error('Error setting client from cookie:', error);
       }
-    }
+    };
 
-    setClientFromCookie()
-  }, [allClients])
+    setClientFromCookie();
+  }, [allClients]);
 
   // Fetch user details
   useEffect(() => {
