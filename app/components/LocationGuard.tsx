@@ -37,8 +37,8 @@ export default function LocationGuard({ location, children }: LocationGuardProps
   const { getLocation } = useGeolocation();
   const [status, setStatus] = useState<VerificationStatus>('verifying');
 
-  const isDisabled = process.env.NEXT_PUBLIC_DISABLE_LOCATION_GUARD === 'true' && 
-                     process.env.NODE_ENV === 'development';
+  const isDisabled = process.env.NEXT_PUBLIC_DISABLE_LOCATION_GUARD === 'true' 
+                     // && process.env.NODE_ENV === 'development';
   
 
 
