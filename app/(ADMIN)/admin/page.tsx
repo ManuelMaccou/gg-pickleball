@@ -398,7 +398,7 @@ export default function GgpickleballAdmin() {
       )}
 
       {/* Dashboard */}
-      <Flex direction={'column'} height={'600px'} width={'100vw'} maxWidth={'1500px'} px={'4'} style={{alignSelf: 'center'}}>
+      <Flex direction={'column'} flexGrow={'1'} height={'600px'} width={'100vw'} maxWidth={'1500px'} px={'4'} style={{alignSelf: 'center'}}>
        {matchError ?? adminError ? (
           <>
             <Flex direction={'column'} justify={'center'} gap={'4'} display={adminError ? 'flex' : 'none'}>
@@ -427,7 +427,7 @@ export default function GgpickleballAdmin() {
             <Spinner size={'3'} style={{color: 'black'}} />
           </Flex>
           ) : matches ? (
-          <Flex direction={'row'} height={'100%'} gap={'4'} wrap={'wrap'}>
+          <Flex direction={'row'} height={'100%'} gap={'4'} wrap={'wrap'} align={'stretch'}>
             
             {/* Left sidebar nav */}
             {!isMobile && (
@@ -446,196 +446,215 @@ export default function GgpickleballAdmin() {
               </Flex>
             )}
            
-            {/* Total players and matches */}
-            <Flex direction={{initial: 'row', md: 'column'}} mt={'4'} flexGrow={'1'} maxHeight={{initial: "200px", md: '80%'}} maxWidth={{initial: '100%', md: '20%'}} gap={'4'}>
-              <Flex direction={'column'} flexGrow={'1'} minWidth={'150px'}>
-                <Card variant="classic" style={{height: '100%', alignContent: 'end'}}>
-                  <Flex direction={'column'} gap={'4'}>
-                    <Text size={'9'} align={'center'} weight={'bold'}>{uniquePlayerCount}</Text>
-                    <Text size={'4'} align={'center'} style={{color: 'grey'}}>Total players</Text>
-                  </Flex>
-                </Card>
-              </Flex>
-              
-              <Flex direction={'column'} flexGrow={'1'} minWidth={'150px'}>
-                <Card variant="classic" style={{height: '100%', alignContent: 'end'}}>
-                  <Flex direction={'column'} gap={'4'}>
-                    <Text size={'9'} align={'center'} weight={'bold'}>{matches.length}</Text>
-                    <Text size={'4'} align={'center'} style={{color: 'grey'}}>Total matches</Text>
-                  </Flex>
-                </Card>
-              </Flex>
-            </Flex>
+            <Flex direction={'row'} flexGrow={'1'} gap={'4'} maxHeight={{initial: "200px", md: '100%'}} pb={'7'}>
+              <Flex>
+              {/* PUT THE GROUP BELOW IN THIS, MAKE IT A COLUMN, AND ADD "ALL REWARDS" */}
 
-              {/* Top players */}
-            <Flex direction={'column'} mt={'4'} flexGrow={'1'} height={'100%'} maxHeight={{initial: "fit-content", md: '80%'}} minWidth={"300px"} maxWidth={{initial: '100%', md: '20%'}} gap={'4'}>
-              <Text size={'4'} align={'center'} style={{color: 'grey'}}>Top players by wins</Text>
-              <Card variant="classic" style={{flexGrow: 'inherit'}}>
-                <Flex direction={'column'} gap={'4'}>
-                  <Table.Root size="1">
-                    <Table.Header>
-                      <Table.Row>
-                        <Table.ColumnHeaderCell>Player</Table.ColumnHeaderCell>
-                        <Table.ColumnHeaderCell>Wins</Table.ColumnHeaderCell>
-                      </Table.Row>
-                    </Table.Header>
-                    <Table.Body>
-                      {top5PlayersByWins.map((player, idx) => (
-                        <Table.Row key={idx}>
-                          <Table.RowHeaderCell>{player.name}</Table.RowHeaderCell>
-                          <Table.Cell>{player.winCount}</Table.Cell>
-                        </Table.Row>
-                      ))}
-                    </Table.Body>
-                  </Table.Root>
+              </Flex>
+              <Flex direction={'row'} width={'50%'} gap={'4'}>
+                {/* Total players and matches */}
+                <Flex direction={{initial: 'row', md: 'column'}} maxHeight={'80%'} mt={'4'} flexGrow={'1'} gap={'4'}>
+                  <Flex direction={'column'} flexGrow={'1'} minWidth={'200px'}>
+                    <Card variant="classic" style={{height: '100%', alignContent: 'end'}}>
+                      <Flex direction={'column'} gap={'4'}>
+                        <Text size={'9'} align={'center'} weight={'bold'}>{uniquePlayerCount}</Text>
+                        <Text size={'4'} align={'center'} style={{color: 'grey'}}>Total players</Text>
+                      </Flex>
+                    </Card>
+                  </Flex>
+                  
+                  <Flex direction={'column'} flexGrow={'1'} minWidth={'150px'}>
+                    <Card variant="classic" style={{height: '100%', alignContent: 'end'}}>
+                      <Flex direction={'column'} gap={'4'}>
+                        <Text size={'9'} align={'center'} weight={'bold'}>{matches.length}</Text>
+                        <Text size={'4'} align={'center'} style={{color: 'grey'}}>Total matches</Text>
+                      </Flex>
+                    </Card>
+                  </Flex>
                 </Flex>
-              </Card>
-            </Flex>
 
-            {/* All players */}
-            {location && (
-              <Flex direction={'column'} mt={'4'} pb={'9'} flexGrow={'1'} height={{md: '100%'}} maxWidth={{md: '100%'}} overflow={{initial: 'visible', md: 'scroll'}}>
-                <Text size={'4'} style={{color: 'grey'}} mb={'4'}>All players</Text>
-                <Accordion.Root type="multiple" value={openAccordion} onValueChange={setOpenAccordion}>
-                  <Flex direction={'column'} gap={'1'}>
-                    {allPlayers.map(player => {
-                      const playerId = player._id.toString();
-                      const playerRewards = rewardsByUser.get(playerId) || [];
-                      const clientStats = (player.stats as unknown as Record<string, ClientStats>)?.[location._id.toString()];
-                      const lastVisit = clientStats?.lastVisit
-                        ? new Date(clientStats?.lastVisit).toLocaleDateString()
-                        : '—';
-                      // const isOpen = openAccordion === player._id.toString(); // If type = single
-                      const isOpen = openAccordion.includes(player._id.toString()); // If type = multiple
+                  {/* Top players */}
+                <Flex direction={'column'} mt={'4'} flexGrow={'1'} height={'100%'} maxHeight={{initial: "fit-content", md: '80%'}} minWidth={"300px"} width={'100%'} gap={'4'}>
+                  <Text size={'4'} align={'center'} weight={'bold'} style={{color: 'black'}}>Top players by wins</Text>
+                  <Card variant="classic" style={{flexGrow: 'inherit'}}>
+                    <Flex direction={'column'} gap={'4'}>
+                      <Table.Root size="1">
+                        <Table.Header>
+                          <Table.Row>
+                            <Table.ColumnHeaderCell>Player</Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell>Wins</Table.ColumnHeaderCell>
+                          </Table.Row>
+                        </Table.Header>
+                        <Table.Body>
+                          {top5PlayersByWins.map((player, idx) => (
+                            <Table.Row key={idx}>
+                              <Table.RowHeaderCell>{player.name}</Table.RowHeaderCell>
+                              <Table.Cell>{player.winCount}</Table.Cell>
+                            </Table.Row>
+                          ))}
+                        </Table.Body>
+                      </Table.Root>
+                    </Flex>
+                  </Card>
+                </Flex>
+              </Flex>
+            
+              {/* All players */}
+              {location && (
+                <Flex direction={'column'} mt={'4'} pb={'9'} flexGrow={'1'} height={{md: '100%'}} width={'50%'} overflow={{initial: 'visible', md: 'scroll'}}>
+                  <Text size={'4'} weight={'bold'} style={{color: 'black'}} mb={'4'}>All players</Text>
+                  <Accordion.Root type="multiple" value={openAccordion} onValueChange={setOpenAccordion}>
+                    <Flex direction={'column'} gap={'1'}>
+                      {allPlayers.map(player => {
+                        const playerId = player._id.toString();
+                        const playerRewards = rewardsByUser.get(playerId) || [];
+                        const clientStats = (player.stats as unknown as Record<string, ClientStats>)?.[location._id.toString()];
+                        const lastVisit = clientStats?.lastVisit
+                          ? new Date(clientStats?.lastVisit).toLocaleDateString()
+                          : '—';
+                        // const isOpen = openAccordion === player._id.toString(); // If type = single
+                        const isOpen = openAccordion.includes(player._id.toString()); // If type = multiple
 
-                      return (
-                        <Card key={player._id.toString()} variant="classic" 
-                          style={{
-                            backgroundColor: isOpen ? '#c4e1ff' : 'white',
-                            transition: 'background-color 0.2s ease',
-                          }}
-                        >
-                          <Accordion.Item value={player._id.toString()}>
-                            <Accordion.Header>
-                              <Accordion.Trigger style={{width: '100%', cursor: 'pointer',}}>
-                                <Flex direction={'row'} justify={'between'} align={'stretch'} py={'2'} maxWidth={{initial: '100%', md: '500px'}} wrap={'wrap'}>
-                                  <Text size="2" weight="bold">{player.name}</Text>
-                                  <Text size="2">Last visit: {lastVisit}</Text>
-                                </Flex>
-                              </Accordion.Trigger>
-                            </Accordion.Header>
-                            <Accordion.Content>
+                        return (
+                          <Card key={player._id.toString()} variant="classic" 
+                            style={{
+                              backgroundColor: isOpen ? '#c4e1ff' : 'white',
+                              transition: 'background-color 0.2s ease',
+                            }}
+                          >
+                            <Accordion.Item value={player._id.toString()}>
+                              <Accordion.Header>
+                                <Accordion.Trigger style={{width: '100%', cursor: 'pointer',}}>
+                                  <Flex direction={'row'} justify={'between'} align={'stretch'} py={'2'} maxWidth={{initial: '100%', md: '500px'}} wrap={'wrap'}>
+                                    <Flex direction={'column'} align={'start'}>
+                                      <Text size="2" weight="bold">{player.name}</Text>
+                                      <Text size="2">{player.email ? player.email : "Guest player"}</Text>
+                                    </Flex>
+                                    
+                                    <Text size="2">Last visit: {lastVisit}</Text>
+                                  </Flex>
+                                </Accordion.Trigger>
+                              </Accordion.Header>
+                              <Accordion.Content>
 
-                              {/* Achievements Table */}
-                              <Flex direction={'column'} mt={'5'}>
-                                <Text size={'4'} mb={'4'} weight={'bold'}>Acheivements</Text>
-                                <Table.Root size="1" variant="surface">
-                                  <Table.Header>
-                                    <Table.Row>
-                                      <Table.ColumnHeaderCell>Name</Table.ColumnHeaderCell>
-                                      <Table.ColumnHeaderCell>Earned on</Table.ColumnHeaderCell>
-                                    </Table.Row>
-                                  </Table.Header>
-                                  <Table.Body>
-                                  {clientStats?.achievements?.map((ach) => {
-                                    const achievement = achievementMap.get(ach.name);
-                                    return (
-                                      <Table.Row key={ach._id.toString()}>
-                                        <Table.RowHeaderCell>{achievement?.friendlyName || ach.name}</Table.RowHeaderCell>
-                                        <Table.Cell>
-                                          {ach.earnedAt
-                                            ? new Date(ach.earnedAt).toLocaleDateString()
-                                            : '—'}
-                                        </Table.Cell>
+                                {/* Achievements Table */}
+                                <Flex direction={'column'} mt={'5'}>
+                                  <Text size={'4'} mb={'4'} weight={'bold'}>Acheivements</Text>
+                                  <Table.Root size="1" variant="surface">
+                                    <Table.Header>
+                                      <Table.Row>
+                                        <Table.ColumnHeaderCell>Name</Table.ColumnHeaderCell>
+                                        <Table.ColumnHeaderCell>Earned on</Table.ColumnHeaderCell>
                                       </Table.Row>
-                                    );
-                                  })}
-                                  </Table.Body>
-                                </Table.Root>
-                              </Flex>
-                              
-
-                              {/* Rewards Table */}
-                              <Flex direction={'column'} my={'5'}>
-                                <Text size={'4'} mb={'4'} weight={'bold'}>Rewards</Text>
-
-                                {redeemError && (
-                                  <Callout.Root color="red" mb="3">
-                                    <Callout.Icon><InfoCircledIcon /></Callout.Icon>
-                                    <Callout.Text>{redeemError}</Callout.Text>
-                                  </Callout.Root>
-                                )}
-                                
-                                <Table.Root size="1" variant="surface">
-                                  <Table.Header>
-                                    <Table.Row>
-                                      <Table.ColumnHeaderCell>Name</Table.ColumnHeaderCell>
-                                      <Table.ColumnHeaderCell>Code</Table.ColumnHeaderCell>
-                                      <Table.ColumnHeaderCell>Action</Table.ColumnHeaderCell>
-                                      <Table.ColumnHeaderCell></Table.ColumnHeaderCell>
-                                    </Table.Row>
-                                  </Table.Header>
-                                  <Table.Body>
-                                    {/* MAP OVER `playerRewards`*/}
-                                    {playerRewards.map((rewardCodeEntry) => {
-                                      const isCurrentButtonLoading = isRedeeming === rewardCodeEntry.code;
-                                      
-                                      // The `reward` details are embedded in the rewardCodeEntry
-                                      const reward = rewardCodeEntry.reward; 
-
+                                    </Table.Header>
+                                    <Table.Body>
+                                    {clientStats?.achievements?.map((ach) => {
+                                      const achievement = achievementMap.get(ach.name);
                                       return (
-                                        <Table.Row key={rewardCodeEntry._id.toString()}>
-                                          <Table.RowHeaderCell>
-                                            <Flex direction={'column'}>
-                                              <Text>{reward.product !== 'custom' ? `${reward?.friendlyName} ${reward?.product}` : reward?.friendlyName }</Text>
-                                              {reward.product !== 'custom' && (
-                                                <Text>{reward.productDescription ? reward.productDescription : "All products"}</Text>
-                                              )}
-                                            
-                                            </Flex>
-                                            </Table.RowHeaderCell>
-                                          <Table.Cell style={{alignContent: 'center'}}>{rewardCodeEntry.code ?? '—'}</Table.Cell>
+                                        <Table.Row key={ach._id.toString()}>
+                                          <Table.RowHeaderCell>{achievement?.friendlyName || ach.name}</Table.RowHeaderCell>
                                           <Table.Cell>
-                                            {rewardCodeEntry.redeemed ? (
-                                              <Badge color="green">Redeemed</Badge>
-                                            ) : (
-                                              <Button size={'1'}
-                                                onClick={() => {
-                                                  if (rewardCodeEntry.code) {
-                                                    handleRedeem(rewardCodeEntry.code);
-                                                  }
-                                                }}
-                                                disabled={isCurrentButtonLoading}
-                                              >
-                                                {isCurrentButtonLoading ? <Spinner size="1"/> : 'Redeem'}
-                                              </Button>
-                                            )}
-                                          </Table.Cell>
-                                          <Table.Cell>
-                                            {formatDate(rewardCodeEntry.redemptionDate)}
+                                            {ach.earnedAt
+                                              ? new Date(ach.earnedAt).toLocaleDateString()
+                                              : '—'}
                                           </Table.Cell>
                                         </Table.Row>
                                       );
                                     })}
-                                  </Table.Body>
-                                </Table.Root>
-                              </Flex>
+                                    </Table.Body>
+                                  </Table.Root>
+                                </Flex>
+                                
 
-                              {/* Matches Table */}
-                              <Flex direction={'column'} mb={'5'} mt={'9'}>
-                                <Text size={'4'} mb={'-4'} weight={'bold'}>Match History</Text>
-                                <MatchHistory userId={player._id.toString()} userName={player.name} locationId={location._id.toString()}/>
-                              </Flex>
+                                {/* Rewards Table */}
+                                <Flex direction={'column'} my={'5'}>
+                                  <Text size={'4'} mb={'4'} weight={'bold'}>Rewards</Text>
 
-                            </Accordion.Content>
-                          </Accordion.Item>
-                        </Card>
-                      );
-                    })}
-                  </Flex>
-                </Accordion.Root>
-              </Flex>
-            )}
+                                  {redeemError && (
+                                    <Callout.Root color="red" mb="3">
+                                      <Callout.Icon><InfoCircledIcon /></Callout.Icon>
+                                      <Callout.Text>{redeemError}</Callout.Text>
+                                    </Callout.Root>
+                                  )}
+                                  {playerRewards && playerRewards.length > 0 ? (
+                                    <Table.Root size="1" variant="surface">
+                                      <Table.Header>
+                                        <Table.Row>
+                                          <Table.ColumnHeaderCell>Name</Table.ColumnHeaderCell>
+                                          <Table.ColumnHeaderCell>Code</Table.ColumnHeaderCell>
+                                          <Table.ColumnHeaderCell>Action</Table.ColumnHeaderCell>
+                                          <Table.ColumnHeaderCell></Table.ColumnHeaderCell>
+                                        </Table.Row>
+                                      </Table.Header>
+                                      <Table.Body>
+                                        {/* MAP OVER `playerRewards`*/}
+                                        {playerRewards.map((rewardCodeEntry) => {
+                                          const isCurrentButtonLoading = isRedeeming === rewardCodeEntry.code;
+                                          
+                                          // The `reward` details are embedded in the rewardCodeEntry
+                                          const reward = rewardCodeEntry.reward; 
+
+                                          return (
+                                            <Table.Row key={rewardCodeEntry._id.toString()}>
+                                              <Table.RowHeaderCell>
+                                                <Flex direction={'column'}>
+                                                  <Text>{reward.product !== 'custom' ? `${reward?.friendlyName} ${reward?.product}` : reward?.friendlyName }</Text>
+                                                  {reward.product !== 'custom' && (
+                                                    <Text>{reward.productDescription ? reward.productDescription : "All products"}</Text>
+                                                  )}
+                                                
+                                                </Flex>
+                                                </Table.RowHeaderCell>
+                                              <Table.Cell style={{alignContent: 'center'}}>{rewardCodeEntry.code ?? '—'}</Table.Cell>
+                                              <Table.Cell>
+                                                {rewardCodeEntry.redeemed ? (
+                                                  <Badge color="green">Redeemed</Badge>
+                                                ) : (
+                                                  <Button size={'1'}
+                                                    onClick={() => {
+                                                      if (rewardCodeEntry.code) {
+                                                        handleRedeem(rewardCodeEntry.code);
+                                                      }
+                                                    }}
+                                                    disabled={isCurrentButtonLoading}
+                                                  >
+                                                    {isCurrentButtonLoading ? <Spinner size="1"/> : 'Redeem'}
+                                                  </Button>
+                                                )}
+                                              </Table.Cell>
+                                              <Table.Cell>
+                                                {formatDate(rewardCodeEntry.redemptionDate)}
+                                              </Table.Cell>
+                                            </Table.Row>
+                                          );
+                                        })}
+                                      </Table.Body>
+                                    </Table.Root>
+                                    ) : (
+                                    <Card>
+                                      <Text as="p" size="2" color="gray" align="center">
+                                        This player has not earned any rewards yet.
+                                      </Text>
+                                    </Card>
+                                  )}
+                                </Flex>
+
+                                {/* Matches Table */}
+                                <Flex direction={'column'} mb={'5'} mt={'9'}>
+                                  <Text size={'4'} mb={'-4'} weight={'bold'}>Match History</Text>
+                                  <MatchHistory userId={player._id.toString()} userName={player.name} locationId={location._id.toString()}/>
+                                </Flex>
+
+                              </Accordion.Content>
+                            </Accordion.Item>
+                          </Card>
+                        );
+                      })}
+                    </Flex>
+                  </Accordion.Root>
+                </Flex>
+              )}
+            </Flex>
           </Flex>
         ) : null}
       </Flex>
