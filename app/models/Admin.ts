@@ -1,11 +1,18 @@
 import mongoose, { Schema } from "mongoose";
-import { IAdmin } from "../types/databaseTypes";
+import { ADMIN_PERMISSION_TYPES, IAdmin } from "../types/databaseTypes";
 
 
 const AdminSchema = new Schema<IAdmin>(
   {
     user: { type: Schema.Types.ObjectId, ref: 'User' },
     location: { type: Schema.Types.ObjectId, ref: 'Client' },
+    permission: {
+      type: String,
+      enum: ADMIN_PERMISSION_TYPES, 
+      default: "associate"
+    },
+    clientName: { type: String },
+    name: { type: String },
   }
 );
 
