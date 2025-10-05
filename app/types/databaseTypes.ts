@@ -6,6 +6,9 @@ export type RewardProductName = typeof REWARD_PRODUCT_NAMES[number];
 export const REWARD_CATEGORY_NAMES = ["retail", "programming", "custom"] as const;
 export type RewardCategoryName = typeof REWARD_CATEGORY_NAMES[number];
 
+export const ADMIN_PERMISSION_TYPES = ["admin", "associate", null] as const;
+export type AdminPermissionType = typeof ADMIN_PERMISSION_TYPES[number];
+
 export interface AchievementEarned {
   key: string;
   repeatable: boolean;
@@ -166,6 +169,9 @@ export interface IAdmin extends Document {
   _id: Types.ObjectId;
   user: Types.ObjectId;
   location: Types.ObjectId;
+  permission: AdminPermissionType;
+  clientName: string;
+  name: string;
 }
 
 export interface IRewardCode {

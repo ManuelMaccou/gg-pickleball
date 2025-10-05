@@ -66,6 +66,11 @@ export default function GgpickleballAdminRewards() {
         if (!response.ok) {
           throw new Error(data.error || "Failed to fetch admin data");
         }
+
+         if (data.admin.permission != "admin") {
+          setAdminError("You don't have permission to access this page.");
+          return;
+        };
   
         setLocation(data.admin.location);
       } catch (error: unknown) {
@@ -500,6 +505,9 @@ export default function GgpickleballAdminRewards() {
                   </Flex>
                   <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
                     <Link href={'/admin/rewards'} style={{backgroundColor: 'white', borderRadius: '10px'}}>Configure rewards</Link>
+                  </Flex>
+                  <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
+                    <Link href={'/admin/upload-matches'}>Bulk upload matches</Link>
                   </Flex>
                 </Flex>
               </Flex>

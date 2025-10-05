@@ -9,7 +9,7 @@ import { InfoCircledIcon } from "@radix-ui/react-icons"
 import * as Accordion from '@radix-ui/react-accordion';
 import Image from "next/image";
 import darkGgLogo from '../../../public/logos/gg_logo_black_transparent.png'
-import { IAchievement, IClient, IRewardCode, IUser } from "@/app/types/databaseTypes";
+import { AdminPermissionType, IAchievement, IClient, IRewardCode, IUser } from "@/app/types/databaseTypes";
 import { Types } from "mongoose";
 import Link from "next/link";
 import { useIsMobile } from "@/app/hooks/useIsMobile";
@@ -87,6 +87,7 @@ export default function GgpickleballAdmin() {
   const { user: auth0User, isLoading: auth0IsLoading } = useAuth0User();
   const [location, setLocation] = useState<IClient | null>(null);
   const [isGettingAdmin, setIsGettingAdmin] = useState<boolean>(true);
+  const [adminPermission, setAdminPermission] = useState<AdminPermissionType>(null);
   const [isGettingMatches, setIsGettingMatches] = useState<boolean>(true);
   const [isGettingAchievementsAndRewards, setIsGettingAchievementsAndRewards] = useState<boolean>(true);
   const [matches, setMatches] = useState<IPopulatedMatch[] | []>([]);
@@ -200,6 +201,10 @@ export default function GgpickleballAdmin() {
         if (!response.ok) {
           throw new Error(data.error || "Failed to fetch admin data");
         }
+
+        if (data.admin.permission) {
+          setAdminPermission(data.admin.permission)
+        };
   
         setLocation(data.admin.location);
       } catch (error: unknown) {
@@ -430,7 +435,7 @@ export default function GgpickleballAdmin() {
           <Flex direction={'row'} height={'100%'} gap={'4'} wrap={'wrap'} align={'stretch'}>
             
             {/* Left sidebar nav */}
-            {!isMobile && (
+            {!isMobile && adminPermission === 'admin' && (
               <Flex direction={'column'} width={'250px'} py={'4'} px={'2'} style={{backgroundColor: '#F1F1F1', borderRight: '1px solid #d3d3d3'}}>
                 <Flex direction={'column'} gap={'3'} px={'2'}>
                   <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
@@ -441,6 +446,9 @@ export default function GgpickleballAdmin() {
                   </Flex>
                   <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
                     <Link href={'/admin/rewards'}>Configure rewards</Link>
+                  </Flex>
+                  <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
+                    <Link href={'/admin/upload-matches'}>Bulk upload matches</Link>
                   </Flex>
                 </Flex>
               </Flex>

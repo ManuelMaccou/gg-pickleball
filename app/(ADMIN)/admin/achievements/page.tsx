@@ -85,6 +85,11 @@ export default function GgPickleballAdminAchievements() {
         if (!response.ok) {
           throw new Error(data.error || "Failed to fetch admin data");
         }
+
+        if (data.admin.permission != "admin") {
+          setAdminError("You don't have permission to access this page.");
+          return;
+        };
   
         setLocation(data.admin.location);
       } catch (error: unknown) {
@@ -307,6 +312,8 @@ export default function GgPickleballAdminAchievements() {
     return null;
   }
 
+
+
   return (
     <Flex direction={'column'} height={'100vh'}>
 
@@ -396,6 +403,9 @@ export default function GgPickleballAdminAchievements() {
                   </Flex>
                   <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
                     <Link href={'/admin/rewards'}>Configure rewards</Link>
+                  </Flex>
+                  <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
+                    <Link href={'/admin/upload-matches'}>Bulk upload matches</Link>
                   </Flex>
                 </Flex>
               </Flex>
