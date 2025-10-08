@@ -535,7 +535,9 @@ function GgpickleballMatchPage() {
 
             {isWaiting && (
               <Flex direction={'column'} mt={'4'}>
-                <Badge color="blue" size={'3'} mb={'5'}>Waiting for players to join...</Badge>
+                <Badge color="blue" size={'3'} mb={'5'}>
+                  Waiting for {4 - players.length} more player(s) to join...
+                </Badge>
               </Flex>
             )}
 
@@ -600,6 +602,7 @@ function GgpickleballMatchPage() {
                     }
                   }}
                   columns={{ initial: "1", sm: "2" }}
+                  disabled={isWaiting}
                 >
                   {players
                   .filter(player => player.userName !== user.name)
