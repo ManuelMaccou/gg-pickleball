@@ -467,10 +467,10 @@ export default function GgpickleballAdmin() {
               <Flex direction={'column'} width={{initial: '100%', md: '50%'}} gap={{initial:'8', md: '6'}}>
 
                 {/* Totals */}
-                <Flex direction={'row'} mt={'4'} gap={'4'}>
+                <Flex direction={'row'} mt={'4'} gap={'4'} justify={'between'}>
 
                   {/* Total players */}
-                  <Flex direction={'column'} flexGrow={'1'} minWidth={'200px'}>
+                  <Flex direction={'column'} width={'50%'}>
                     <Card variant="classic" style={{height: '100%', alignContent: 'end'}}>
                       <Flex direction={'column'} gap={'4'}>
                         <Text size={'9'} align={'center'} weight={'bold'}>{uniquePlayerCount}</Text>
@@ -480,7 +480,7 @@ export default function GgpickleballAdmin() {
                   </Flex>
                   
                   {/* Total Matches */}
-                  <Flex direction={'column'} flexGrow={'1'} minWidth={'150px'}>
+                  <Flex direction={'column'} width={'50%'}>
                     <Card variant="classic" style={{height: '100%', alignContent: 'end'}}>
                       <Flex direction={'column'} gap={'4'}>
                         <Text size={'9'} align={'center'} weight={'bold'}>{matches.length}</Text>
