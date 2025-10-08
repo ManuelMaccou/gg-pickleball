@@ -19,6 +19,7 @@ import { useLocationRewardCodes } from '@/app/hooks/useLocationRewardCodes';
 import MatchHistory from "@/components/sections/MatchHistory";
 import { DateTime } from "luxon";
 import { logError } from "@/lib/sentry/logger";
+import AllRewardsSection from "./components/AllRewardsSection";
 
 interface ClientStats {
   visits?: Date[];
@@ -336,7 +337,15 @@ export default function GgpickleballAdmin() {
     });
     return map;
   }, [allRewardCodes]);
-  
+
+  const playerMap = useMemo(() => {
+    const map = new Map<string, IUser>();
+    allPlayers.forEach(player => {
+      map.set(player._id.toString(), player);
+    });
+    return map;
+  }, [allPlayers]);
+    
   // Final loading status
   useEffect(() => {
     if (!isGettingAdmin && !isGettingMatches && !isAnalyzingPlayers && !isGettingAchievementsAndRewards && !isGettingRewardCodes) {
@@ -355,10 +364,10 @@ export default function GgpickleballAdmin() {
   }
 
   return (
-    <Flex direction={'column'} minHeight={'100vh'}>
+    <Flex direction={'column'} style={{backgroundColor: "#F6F8FA"}} height={'100vh'}>
 
       {/* Header */}
-      <Flex justify={"between"} align={'center'} direction={"row"} py={'4'} px={{initial: '3', md: '9'}}>
+      <Flex justify={"between"} align={'center'} height={'70px'} direction={"row"} px={{initial: '3', md: '9'}}>
         <Flex direction={'column'} position={'relative'} maxWidth={'80px'}>
           <Image
             src={darkGgLogo}
@@ -379,18 +388,17 @@ export default function GgpickleballAdmin() {
               ) : ''}
             </Text>
 
-            {isMobile && (
+            {isMobile && adminPermission === 'admin' && (
               <MobileMenu />
             )}
-
           </Flex>
         )}
       </Flex>
        
       {/* Location Logo */}
       {location && (
-        <Flex direction={'column'} style={{backgroundColor: location?.bannerColor, boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)', zIndex: 2}}>
-          <Flex direction={'column'} position={'relative'} height={{initial: '60px', md: '80px'}} my={'5'}>
+        <Flex direction={'column'} height={'120px'} justify={'center'} style={{backgroundColor: location?.bannerColor, boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)', zIndex: 2}}>
+          <Flex direction={'column'} position={'relative'} height={{initial: '60px', md: '80px'}}>
             <Image
               src={location.admin_logo}
               alt="Location logo"
@@ -402,8 +410,8 @@ export default function GgpickleballAdmin() {
         </Flex>
       )}
 
-      {/* Dashboard */}
-      <Flex direction={'column'} flexGrow={'1'} height={'600px'} width={'100vw'} maxWidth={'1500px'} px={'4'} style={{alignSelf: 'center'}}>
+      {/* Dashboard and Menu */}
+      <Flex direction={'column'} maxWidth={'1500px'}>
        {matchError ?? adminError ? (
           <>
             <Flex direction={'column'} justify={'center'} gap={'4'} display={adminError ? 'flex' : 'none'}>
@@ -432,11 +440,12 @@ export default function GgpickleballAdmin() {
             <Spinner size={'3'} style={{color: 'black'}} />
           </Flex>
           ) : matches ? (
-          <Flex direction={'row'} height={'100%'} gap={'4'} wrap={'wrap'} align={'stretch'}>
+
+          <Flex direction={'row'} height={"calc(100vh - 190px)"}>
             
             {/* Left sidebar nav */}
             {!isMobile && adminPermission === 'admin' && (
-              <Flex direction={'column'} width={'250px'} py={'4'} px={'2'} style={{backgroundColor: '#F1F1F1', borderRight: '1px solid #d3d3d3'}}>
+              <Flex direction={'column'} width={'200px'} py={'4'} px={'2'} style={{backgroundColor: '#F1F1F1', borderRight: '1px solid #d3d3d3'}}>
                 <Flex direction={'column'} gap={'3'} px={'2'}>
                   <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
                     <Link href={'/admin'} style={{backgroundColor: 'white', borderRadius: '10px'}}>Dashboard</Link>
@@ -447,21 +456,20 @@ export default function GgpickleballAdmin() {
                   <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
                     <Link href={'/admin/rewards'}>Configure rewards</Link>
                   </Flex>
-                  <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
-                    <Link href={'/admin/upload-matches'}>Bulk upload matches</Link>
-                  </Flex>
                 </Flex>
               </Flex>
             )}
-           
-            <Flex direction={'row'} flexGrow={'1'} gap={'4'} maxHeight={{initial: "200px", md: '100%'}} pb={'7'}>
-              <Flex>
-              {/* PUT THE GROUP BELOW IN THIS, MAKE IT A COLUMN, AND ADD "ALL REWARDS" */}
 
-              </Flex>
-              <Flex direction={'row'} width={'50%'} gap={'4'}>
-                {/* Total players and matches */}
-                <Flex direction={{initial: 'row', md: 'column'}} maxHeight={'80%'} mt={'4'} flexGrow={'1'} gap={'4'}>
+            {/* Dashboard */}
+            <Flex direction={{initial: 'column', md: 'row'}} width={'100%'} overflowY={'auto'} gap={{initial: '8', md: '6'}} my={'4'} mx={'4'}>
+                          
+              {/* Left Half */}         
+              <Flex direction={'column'} width={{initial: '100%', md: '50%'}} gap={{initial:'8', md: '6'}}>
+
+                {/* Totals */}
+                <Flex direction={'row'} mt={'4'} gap={'4'}>
+
+                  {/* Total players */}
                   <Flex direction={'column'} flexGrow={'1'} minWidth={'200px'}>
                     <Card variant="classic" style={{height: '100%', alignContent: 'end'}}>
                       <Flex direction={'column'} gap={'4'}>
@@ -471,6 +479,7 @@ export default function GgpickleballAdmin() {
                     </Card>
                   </Flex>
                   
+                  {/* Total Matches */}
                   <Flex direction={'column'} flexGrow={'1'} minWidth={'150px'}>
                     <Card variant="classic" style={{height: '100%', alignContent: 'end'}}>
                       <Flex direction={'column'} gap={'4'}>
@@ -481,9 +490,9 @@ export default function GgpickleballAdmin() {
                   </Flex>
                 </Flex>
 
-                  {/* Top players */}
-                <Flex direction={'column'} mt={'4'} flexGrow={'1'} height={'100%'} maxHeight={{initial: "fit-content", md: '80%'}} minWidth={"300px"} width={'100%'} gap={'4'}>
-                  <Text size={'4'} align={'center'} weight={'bold'} style={{color: 'black'}}>Top players by wins</Text>
+                {/* Top players */}
+                <Flex direction={'column'} height={'fit-content'} maxHeight={{initial: "fit-content", md: '80%'}} minWidth={"300px"} width={'100%'}>
+                  <Text ml={'2'} size={'4'} weight={'bold'} mb={'4'} style={{color: 'black'}}>Top players by wins</Text>
                   <Card variant="classic" style={{flexGrow: 'inherit'}}>
                     <Flex direction={'column'} gap={'4'}>
                       <Table.Root size="1">
@@ -505,12 +514,23 @@ export default function GgpickleballAdmin() {
                     </Flex>
                   </Card>
                 </Flex>
+
+                 {location && allRewardCodes && (
+                  <AllRewardsSection
+                    allRewardCodes={allRewardCodes}
+                    playerMap={playerMap}
+                    handleRedeem={handleRedeem}
+                    isRedeeming={isRedeeming}
+                    redeemError={redeemError}
+                  />
+                )}
               </Flex>
-            
+
+              {/* Right Half */}
               {/* All players */}
               {location && (
-                <Flex direction={'column'} mt={'4'} pb={'9'} flexGrow={'1'} height={{md: '100%'}} width={'50%'} overflow={{initial: 'visible', md: 'scroll'}}>
-                  <Text size={'4'} weight={'bold'} style={{color: 'black'}} mb={'4'}>All players</Text>
+                <Flex direction={'column'} width={{initial: '100%', md: '50%'}}>
+                  <Text ml={'2'} size={'4'} weight={'bold'} style={{color: 'black'}} mb={'4'}>All players</Text>
                   <Accordion.Root type="multiple" value={openAccordion} onValueChange={setOpenAccordion}>
                     <Flex direction={'column'} gap={'1'}>
                       {allPlayers.map(player => {
@@ -663,6 +683,8 @@ export default function GgpickleballAdmin() {
                 </Flex>
               )}
             </Flex>
+            
+            
           </Flex>
         ) : null}
       </Flex>

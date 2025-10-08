@@ -8,7 +8,7 @@ import { AlertDialog, Badge, Button, Callout, Em, Flex, Heading, SegmentedContro
 import { InfoCircledIcon } from "@radix-ui/react-icons"
 import Image from "next/image";
 import darkGgLogo from '../../../../public/logos/gg_logo_black_transparent.png'
-import { IAchievement, IClient, IReward } from "@/app/types/databaseTypes";
+import { AdminPermissionType, IAchievement, IClient, IReward } from "@/app/types/databaseTypes";
 import Link from "next/link";
 import { useIsMobile } from "@/app/hooks/useIsMobile";
 import MobileMenu from "../components/MobileMenu";
@@ -30,6 +30,7 @@ export default function GgpickleballAdminRewards() {
   const [isMobileRewardOpen, setIsMobileRewardOpen] = useState(false);
   const [location, setLocation] = useState<IClient | null>(null);
   const [isGettingAdmin, setIsGettingAdmin] = useState<boolean>(true);
+  const [adminPermission, setAdminPermission] = useState<AdminPermissionType>(null);
   const [selectedAchievement, setSelectedAchievement] = useState<IAchievement | null>(null);
   const [configuredClientAchievements, setConfiguredClientAchievements] = useState<IAchievement[]>([]);
   const [configuredClientRewards, setConfiguredClientRewards] = useState<Record<string, IReward> | null>(null);
@@ -67,7 +68,11 @@ export default function GgpickleballAdminRewards() {
           throw new Error(data.error || "Failed to fetch admin data");
         }
 
-         if (data.admin.permission != "admin") {
+        if (data.admin.permission) {
+          setAdminPermission(data.admin.permission)
+        };
+
+        if (data.admin.permission != "admin") {
           setAdminError("You don't have permission to access this page.");
           return;
         };
@@ -417,7 +422,7 @@ export default function GgpickleballAdminRewards() {
   }
   
   return (
-    <Flex direction={'column'} height={'100vh'} >
+    <Flex direction={'column'} style={{backgroundColor: "#F6F8FA"}} height={'100vh'}>
 
       {/* Header */}
       <Flex justify={"between"} align={'center'} direction={"row"} px={{initial: '3', md: '9'}} py={'4'}>
@@ -441,10 +446,9 @@ export default function GgpickleballAdminRewards() {
               ) : ''}
             </Text>
 
-            {isMobile && (
+            {isMobile && adminPermission === 'admin' && (
               <MobileMenu />
             )}
-
           </Flex>
         )}
       </Flex>
@@ -472,7 +476,7 @@ export default function GgpickleballAdminRewards() {
       )}
 
       {/* Dashboard */}
-      <Flex direction={'column'} height={"100%"} width={'100vw'} maxWidth={'1500px'} overflow={'hidden'} px={'4'} style={{alignSelf: 'center'}}>
+      <Flex direction={'column'} height={"100%"} width={'100vw'} maxWidth={'1500px'} overflow={'hidden'} style={{alignSelf: 'center'}}>
         {adminError ? (
           <>
             <Flex direction={'column'} justify={'center'} gap={'4'} display={'flex'}>
@@ -494,8 +498,8 @@ export default function GgpickleballAdminRewards() {
           <Flex direction={'row'} height={'100%'}>
             
             {/* Left sidebar nav */}
-            {!isMobile && (
-              <Flex direction={'column'} width={'250px'} py={'4'} px={'2'} style={{backgroundColor: '#F1F1F1', borderRight: '1px solid #d3d3d3'}}>
+            {!isMobile && adminPermission === 'admin' && (
+              <Flex direction={'column'} width={'200px'} py={'4'} px={'2'} style={{backgroundColor: '#F1F1F1', borderRight: '1px solid #d3d3d3'}}>
                 <Flex direction={'column'} gap={'3'} px={'2'}>
                   <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
                     <Link href={'/admin'}>Dashboard</Link>
@@ -505,9 +509,6 @@ export default function GgpickleballAdminRewards() {
                   </Flex>
                   <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
                     <Link href={'/admin/rewards'} style={{backgroundColor: 'white', borderRadius: '10px'}}>Configure rewards</Link>
-                  </Flex>
-                  <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
-                    <Link href={'/admin/upload-matches'}>Bulk upload matches</Link>
                   </Flex>
                 </Flex>
               </Flex>
