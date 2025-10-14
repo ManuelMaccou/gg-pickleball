@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 import { jwtVerify } from 'jose'
 import { getOrCreateAuthenticatedUser, getOrCreateGuestUser } from '../db/users'
 import { ResolvedUser } from '@/app/types/databaseTypes'
+import Admin from '@/app/models/Admin'
 
 const GUEST_SECRET = process.env.GUEST_SECRET!
 const secret = new TextEncoder().encode(GUEST_SECRET)
@@ -26,12 +27,23 @@ export async function getAuthorizedUser(req: NextRequest): Promise<ResolvedUser 
       const auth0Id = session.user.sub
       const user = await getOrCreateAuthenticatedUser(auth0Id, session, guestUsername)
 
+      if (!user) {
+        console.warn(`No user document found for auth0Id: ${auth0Id}`);
+        return null;
+      }
+
+      const adminRecord = await Admin.findOne({ user: user._id });
+
       return {
         id: user._id.toString(),
         name: user.name,
         email: session.user.email,
         isGuest: false,
-      }
+        superAdmin: user.superAdmin === true,
+        permission: adminRecord ? adminRecord.permission : null,
+        adminLocationId: adminRecord ? adminRecord.location.toString() : null,
+      };
+
     } catch (err) {
       console.error('Failed to resolve authenticated user in API route:', err)
       return null

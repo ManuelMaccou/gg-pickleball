@@ -18,6 +18,7 @@ interface UserEarnedData {
     friendlyName: string;
     product: RewardProductName
     discount?: number;
+    productDescription?: string;
   }[];
 }
 
@@ -32,6 +33,7 @@ type Step =
         friendlyName: string;
         product: RewardProductName
         discount?: number;
+        productDescription?: string;
       };
     };
 
@@ -134,6 +136,13 @@ export default function SuccessDialog({
                         {currentStep.data.product}
                       </Text>
                     )}
+
+                    {currentStep.data.productDescription && (
+                      <Text mt={'4'} size="4" style={{textTransform: "uppercase"}}>
+                        {currentStep.data.productDescription}
+                      </Text>
+                    )}
+                    
                    
                   </Flex>
                 )}

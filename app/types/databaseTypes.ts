@@ -65,6 +65,8 @@ export type ResolvedUser = {
   email?: string
   isGuest: boolean
   superAdmin?: boolean
+  permission?: AdminPermissionType;
+  adminLocationId?: string | null;
 }
 
 export interface IMatch extends Document {
