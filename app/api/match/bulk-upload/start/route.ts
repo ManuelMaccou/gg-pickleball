@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser';
 import { updateUserAndAchievements } from '@/utils/achievementFunctions/updateUserAndAchievements';
 import { logError } from '@/lib/sentry/logger';
-import { v4 as uuidv4 } from 'uuid';
 import { BulkUploadPayload, JobResult, RowContextData } from '@/app/types/bulkUploadTypes';
 import { validateCsvData } from '@/lib/services/matchBulkUpload/validationService';
 import { findOrCreateUserForUpload } from '@/lib/services/matchBulkUpload/userService';
