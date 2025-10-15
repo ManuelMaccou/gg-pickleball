@@ -456,6 +456,9 @@ export default function GgpickleballAdmin() {
                   <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
                     <Link href={'/admin/rewards'}>Configure rewards</Link>
                   </Flex>
+                  <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
+                    <Link href={'/admin/upload-matches'}>Upload matches</Link>
+                  </Flex>
                 </Flex>
               </Flex>
             )}

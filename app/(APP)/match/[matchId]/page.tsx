@@ -43,6 +43,7 @@ interface UserEarnedData {
     friendlyName: string;
     product: RewardProductName;
     discount?: number;
+    productDescription?: string;
   }[];
 }
 
@@ -317,6 +318,7 @@ function GgpickleballMatchPage() {
               friendlyName: reward.friendlyName,
               product: reward.product,
               discount: reward.discount,
+              productDescription: reward.productDescription,
             }));
           
             setUserEarnedData({

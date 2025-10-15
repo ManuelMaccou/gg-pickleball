@@ -59,6 +59,12 @@ const rewardCode = reward.codes?.find(c => c._id === earnedInstance._id)?.code;
           <Flex direction={'column'}>
             <Text size={reward.product === 'custom' ? '7' : '9'} weight={'bold'} align={'center'}>{reward.friendlyName}</Text>
           </Flex>
+
+          {reward.productDescription && (
+            <Flex direction={'column'} align={'center'} mt={'3'}>
+              <Text align={'center'}>{reward.productDescription}</Text>
+            </Flex>
+          )}
           
           {reward.minimumSpend && reward.product === 'pro shop' ? (
             <Flex direction={'column'} align={'center'} mt={'3'}>
