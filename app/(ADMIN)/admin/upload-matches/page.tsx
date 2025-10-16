@@ -13,6 +13,7 @@ import { AdminPermissionType, IClient } from '@/app/types/databaseTypes';
 import { useIsMobile } from '@/app/hooks/useIsMobile';
 import MobileMenu from '../components/MobileMenu';
 import { JobResult } from '@/app/types/bulkUploadTypes';
+import { useRouter } from 'next/navigation';
 
 interface CsvRow {
   [key: string]: string; // All values from CSV are initially strings
@@ -22,6 +23,7 @@ interface CsvRow {
 export default function BulkUploadPage() {
 
   const { user } = useUserContext();
+  const router = useRouter();
   const isMobile =useIsMobile();
   const { user: auth0User, isLoading: auth0IsLoading } = useAuth0User();
   
@@ -66,7 +68,9 @@ export default function BulkUploadPage() {
 
   // Get admin data
     useEffect(() => {
+      console.log('user or auth0 loading')
       if (!userId) return;
+       console.log('loaded')
     
       const getAdminUser = async () => {
         setAdminError(null);
@@ -79,6 +83,7 @@ export default function BulkUploadPage() {
           }
   
           const data = await response.json();
+          console.log('admin data:', data)
     
           if (!response.ok) {
             throw new Error(data.error || "Failed to fetch admin data");
@@ -184,9 +189,16 @@ export default function BulkUploadPage() {
   const serverErrors = jobResults.filter(r => r.status === 'server_error');
   const isComplete = !isSubmitting && jobResults.length > 0;
 
+  useEffect(() => {
+    if (!auth0IsLoading && !user) {
+      router.push(`/auth/login?returnTo=/admin/upload-matches`)
+    }
+  })
+
     if (isMobile === null) {
       return null;
     }
+    
     
     return (
       <Flex direction={'column'} style={{backgroundColor: "#F6F8FA"}} height={'100vh'}>
@@ -254,7 +266,7 @@ export default function BulkUploadPage() {
             </Flex>
           ) : (
               
-            <Flex direction={'row'}>
+           <Flex direction={'row'} height={"calc(100vh - 190px)"}>
             
               {/* Left sidebar nav */}
               {!isMobile && adminPermission === 'admin' && (
@@ -276,7 +288,8 @@ export default function BulkUploadPage() {
                 </Flex>
               )}
 
-               <Flex direction={{initial: 'column', md: 'row'}} height={"calc(100vh - 190px)"} width={'100%'} gap={'4'} mt={'6'} mx={{initial: '4', md: '6'}}>
+              <Flex direction={{initial: 'column', md: 'row'}} width={'100%'} overflowY={'auto'} gap={{initial: '8', md: '6'}} my={'4'} mx={'4'}>
+                
                 {/* UPLOAD MATCHES */}
                 <Flex direction={'column'} width={{initial: '100%', md: '50%'}} gap={'4'}>
 
