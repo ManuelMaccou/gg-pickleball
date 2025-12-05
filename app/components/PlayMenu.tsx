@@ -18,24 +18,21 @@ import { Cross2Icon, HamburgerMenuIcon } from "@radix-ui/react-icons";
 import { FrontendUser } from "../types/frontendTypes";
 import { useUserContext } from "../contexts/UserContext";
 
-interface LocationDrawerProps {
+
+interface PlayMenuProps {
   user: FrontendUser | null;
   isAuthorized: boolean;
   onUserUpdate: (user: FrontendUser | null) => void;
+  onInitiateDuprLogin: () => void;
 }
 
-export default function PlayMenu({ user, isAuthorized, onUserUpdate }: LocationDrawerProps) {
+export default function PlayMenu({ user, isAuthorized, onUserUpdate, onInitiateDuprLogin }: PlayMenuProps) {
   const { user:userContextUser } = useUserContext()
   
   const [displayName, setDisplayName] = useState(user?.name || "");
   const [displayNameLoading, setDisplayNameLoading] = useState(false);
   const [displayNameError, setDisplayNameError] = useState<string | null>(null);
   const [displayNameSuccess, setDisplayNameSuccess] = useState(false);
-
-  const [duprId, setDuprId] = useState<string>(user?.dupr?.duprId || "");
-  const [duprIdLoading, setDuprIdLoading] = useState(false);
-  const [duprIdError, setDuprIdError] = useState<string | null>(null);
-  const [duprIdSuccess, setDuprIdSuccess] = useState(false);
 
   const [duprActivated, setDuprActivated] = useState<boolean>(user?.dupr?.activated || false);
   const [duprActivationError, setDuprActivationError] = useState<string | null>(null);
@@ -86,10 +83,10 @@ export default function PlayMenu({ user, isAuthorized, onUserUpdate }: LocationD
     }
   };
 
-  const handleSaveDuprId = async () => {
-    setDuprIdLoading(true);
-    setDuprIdError(null);
-    setDuprIdSuccess(false);
+  const handleToggleDuprActivation = async (newValue: boolean) => {
+    setDuprActivationError(null);
+    setDuprActivationSuccess(false);
+    setDuprActivated(newValue);
 
     try {
       const response = await fetch("/api/user", {
@@ -101,8 +98,8 @@ export default function PlayMenu({ user, isAuthorized, onUserUpdate }: LocationD
           findBy: "userId",
           userId: user?._id,
           dupr: {
-            duprId
-          }
+            activated: newValue,
+          },
         }),
       });
 
@@ -111,213 +108,168 @@ export default function PlayMenu({ user, isAuthorized, onUserUpdate }: LocationD
         throw new Error(error || "Failed to update user.");
       }
 
-      setDuprIdSuccess(true);
+      setDuprActivationSuccess(true);
     } catch (err: unknown) {
+      setDuprActivated(!newValue); // revert toggle
       if (err instanceof Error) {
-        setDuprIdError(err.message);
+        setDuprActivationError(err.message);
       } else {
-        setDuprIdError("An unknown error occurred.");
+        setDuprActivationError("An unknown error occurred.");
       }
-    } finally {
-      setDuprIdLoading(false);
     }
   };
 
-const handleToggleDuprActivation = async (newValue: boolean) => {
-  setDuprActivationError(null);
-  setDuprActivationSuccess(false);
-  setDuprActivated(newValue);
-
-  try {
-    const response = await fetch("/api/user", {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        findBy: "userId",
-        userId: user?._id,
-        dupr: {
-          activated: newValue,
-        },
-      }),
-    });
-
-    if (!response.ok) {
-      const { error } = await response.json();
-      throw new Error(error || "Failed to update user.");
-    }
-
-    setDuprActivationSuccess(true);
-  } catch (err: unknown) {
-    setDuprActivated(!newValue); // revert toggle
-    if (err instanceof Error) {
-      setDuprActivationError(err.message);
-    } else {
-      setDuprActivationError("An unknown error occurred.");
-    }
-  }
-};
+  const isDuprConnected = !!user?.dupr?.id;
 
   return (
+    <Flex direction={'column'}>
+      <Dialog.Root>
+        <Dialog.Trigger>
+          <Flex direction="column" justify="center" align="center" mx="4">
+            <HamburgerMenuIcon width="30px" height="30px" />
+          </Flex>
+        </Dialog.Trigger>
 
-    <Dialog.Root>
-      <Dialog.Trigger>
-        <Flex direction="column" justify="center" align="center" mx="4">
-        <HamburgerMenuIcon width="30px" height="30px" />
-      </Flex>
-      </Dialog.Trigger>
-
-      <Dialog.Content onOpenAutoFocus={(event) => event.preventDefault()}>
-       <Flex direction="column">
-        <VisuallyHidden>
-          <Dialog.Title>Edit profile</Dialog.Title>
-          <Dialog.Description>Edit profile</Dialog.Description>
-        </VisuallyHidden>
-         
-          <Flex direction="column" gap="4" height={'80vh'}>
-            <Flex direction={isAuthorized ? 'row' : 'column'} justify={isAuthorized ? 'between' : 'start'} align={isAuthorized ? 'center' : 'end'} mb={'5'}>
-              {isAuthorized && (
-                <Button variant="outline" asChild>
-                  <a href={'/auth/logout'}>Log out</a>
-                </Button>
-              )}
-              
-              <Dialog.Close>
-                <Cross2Icon height={25} width={25} />
-              </Dialog.Close>
-            </Flex>
-            
-            {isAuthorized ? (
-              <>
-                <Flex direction="column" gap={'2'}>
-                  <Text size={'3'} weight={'bold'} style={{color: 'white'}}>Display name</Text>
-                  <TextField.Root
-                    size={'3'}
-                    type="text"
-                    radius="large"
-                    value={displayName}
-                    placeholder="Enter your display name"
-                    onChange={(e) => setDisplayName(e.target.value)}
-                  />
-                  <Flex direction={'row'} justify={displayNameError || displayNameSuccess ? 'between' : 'end'} mt={'2'}>
-                    {displayNameError && <Text color="red">{displayNameError}</Text>}
-                    {displayNameSuccess && <Text color="green">Profile updated</Text>}
-
-                    <Button onClick={handleSaveDisplayName} disabled={displayNameLoading || displayName.trim() === ""} style={{backgroundColor: 'white', color: "#111827", width: 'fit-content', paddingLeft: '20px', paddingRight: '20px', alignSelf: 'end'}}>
-                      {displayNameLoading ? "Saving..." : "Save"}
-                    </Button>
-                  </Flex>
-                </Flex>
-
-                <Flex direction={'column'} my={'6'}>
-                  <Separator orientation={'horizontal'} size={'4'} color="blue"  />
-                </Flex>
+        <Dialog.Content onOpenAutoFocus={(event) => event.preventDefault()}>
+        <Flex direction="column">
+          <VisuallyHidden>
+            <Dialog.Title>Edit profile</Dialog.Title>
+            <Dialog.Description>Edit profile</Dialog.Description>
+          </VisuallyHidden>
+          
+            <Flex direction="column" gap="4" height={'80vh'}>
+              <Flex direction={isAuthorized ? 'row' : 'column'} justify={isAuthorized ? 'between' : 'start'} align={isAuthorized ? 'center' : 'end'} mb={'5'}>
+                {isAuthorized && (
+                  <Button variant="outline" asChild>
+                    <a href={'/auth/logout'}>Log out</a>
+                  </Button>
+                )}
                 
-                <Flex direction={'column'} gap={'6'}>
-                  <Flex direction={'column'} gap={'3'}>
-                    <Flex direction={'row'} position={'relative'}>
-                      <Image
-                        src={'/partnerLogos/dupr_logo.png'}
-                        alt="dupr logo"
-                        priority
-                        height={500}
-                        width={1683}
-                        style={{maxHeight: '35px', width: 'auto'}}
-                      />
-                    </Flex>
-                    <Text size={'3'}>
-                      Optionally provide your DUPR ID to have your matches uploaded. 
-                      All players in the match must have this option toggled.
-                    </Text>
-                  </Flex>
-
-                  <Flex direction={'column'} gap={'1'}>
-                    <Text size={'5'} weight={'bold'}>Step 1</Text>
-                    <Text size={'3'} weight={'bold'}>Join our club</Text>
-                    <Text size={'3'}>
-                      We can&apos;t upload your match until you&apos;ve joined our club on DUPR.
-                    </Text>
-                    <Button size={'2'} asChild mt={'2'} style={{backgroundColor: 'white'}}>
-                      <a href={'https://dashboard.dupr.com/dashboard/browse/clubs/7456531284'} target="blank" rel="noopener noreferrer">Join</a>
-                    </Button>
-                  </Flex>
-
-                  <Flex direction={'column'} gap={'2'}>
-                    <Text size={'5'} weight={'bold'}>Step 2</Text>
-                    <Text size={'3'} weight={'bold'}>Enter your DUPR ID</Text>
+                <Dialog.Close>
+                  <Cross2Icon height={25} width={25} />
+                </Dialog.Close>
+              </Flex>
+              
+              {isAuthorized ? (
+                <>
+                  <Flex direction="column" gap={'2'}>
+                    <Text size={'3'} weight={'bold'} style={{color: 'white'}}>Display name</Text>
                     <TextField.Root
                       size={'3'}
                       type="text"
                       radius="large"
-                      value={duprId ?? ""}
-                      placeholder="123ABC"
-                      onChange={(e) => setDuprId(e.target.value)}
+                      value={displayName}
+                      placeholder="Enter your display name"
+                      onChange={(e) => setDisplayName(e.target.value)}
                     />
-                    <Flex direction={'row'} justify={duprIdError || duprIdSuccess ? 'between' : 'end'} mt={'2'}>
-                      {duprIdError && <Text color="red">{duprIdError}</Text>}
-                      {duprIdSuccess && <Text color="green">DUPR ID Saved</Text>}
+                    <Flex direction={'row'} justify={displayNameError || displayNameSuccess ? 'between' : 'end'} mt={'2'}>
+                      {displayNameError && <Text color="red">{displayNameError}</Text>}
+                      {displayNameSuccess && <Text color="green">Profile updated</Text>}
 
-                      <Button onClick={handleSaveDuprId} disabled={duprIdLoading || displayName.trim() === ""} style={{backgroundColor: 'white', color: "#111827", width: 'fit-content', paddingLeft: '20px', paddingRight: '20px', alignSelf: 'end'}}>
-                        {duprIdLoading ? "Saving..." : "Save"}
+                      <Button onClick={handleSaveDisplayName} disabled={displayNameLoading || displayName.trim() === ""} style={{backgroundColor: 'white', color: "#111827", width: 'fit-content', paddingLeft: '20px', paddingRight: '20px', alignSelf: 'end'}}>
+                        {displayNameLoading ? "Saving..." : "Save"}
                       </Button>
                     </Flex>
                   </Flex>
 
-                  <Flex direction={'column'} gap={'4'}>
-                    <Text size={'5'} weight={'bold'}>Step 3</Text>
-                    <Flex direction={'row'} gap={'4'} align={'center'}>
-                      <Switch
-                        size={'3'}
-                        color="blue"
-                        checked={duprActivated}
-                        onCheckedChange={handleToggleDuprActivation}
-                        disabled={!(duprIdSuccess || user?.dupr?.duprId)}
-                      />
-                      <Text size={'3'}>Upload my matches to DUPR</Text>
+                  <Flex direction={'column'} my={'6'}>
+                    <Separator orientation={'horizontal'} size={'4'} color="blue"  />
+                  </Flex>
+                  
+                  <Flex direction={'column'} gap={'6'}>
+                    <Flex direction={'column'} gap={'3'}>
+                      <Flex direction={'row'} position={'relative'}>
+                        <Image
+                          src={'/partnerLogos/dupr_logo.png'}
+                          alt="dupr logo"
+                          priority
+                          height={500}
+                          width={1683}
+                          style={{maxHeight: '35px', width: 'auto'}}
+                        />
+                      </Flex>
+                      <Text size={'3'}>
+                        Optionally provide your DUPR ID to have your matches uploaded. 
+                        All players in the match must have this option toggled.
+                      </Text>
                     </Flex>
+
+                    <Flex direction={'column'} gap={'2'}>
+                      
+                        {!isDuprConnected ? (
                     <Flex direction={'column'}>
-                      {duprActivationError && <Text color="red">{duprIdError}</Text>}
-                      {duprActivationSuccess && <Text color="green">Updated</Text>}
+                      <Text size={'5'} weight={'bold'}>Step 1</Text>
+                      <Text size={'3'} weight={'bold'}>Log in to DUPR</Text>
+                      {/* This button now triggers the parent */}
+                      <Dialog.Close>
+                        <Button onClick={onInitiateDuprLogin}>Login with DUPR</Button>
+                      </Dialog.Close>
+                    </Flex>
+                  ) : (
+                    <Flex direction={'column'}>
+                      <Text size={'5'} weight={'bold'}>Step 1 Complete</Text>
+                      <Text size={'3'}>Connected as DUPR ID: {user?.dupr?.id}</Text>
+                    </Flex>
+                  )}
+                  
+                  {/* This part can be shown always, but disabled if not connected */}
+                  <Flex direction={'row'} gap={'4'} align={'center'} mt={'4'}>
+                    <Switch
+                      size={'3'}
+                      color="blue"
+                      checked={duprActivated}
+                      disabled={!isDuprConnected} // Disable if not connected
+                      onCheckedChange={handleToggleDuprActivation}
+                    />
+                    <Text size={'3'} color={!isDuprConnected ? 'gray' : undefined}>
+                      Upload my matches to DUPR
+                    </Text>
+                  </Flex>
+                  {!isDuprConnected && <Text size="2" color="gray">You must log in to DUPR to enable this.</Text>}
+                      
+             
+                      
+                      
+                    </Flex>
+
+                    <Flex direction={'column'} my={'6'}>
+                      <Separator orientation={'horizontal'} size={'4'} color="blue"  />
                     </Flex>
                   </Flex>
+                  <Flex direction={'column'}>
+                    <Heading weight={'bold'} mb={'4'} style={{color: 'white'}}>Contact us</Heading>
+                    <Text>Questions, comments, or issues? We would love to hear from you!</Text>
+                    <Button mt={'6'} mb={'9'} asChild>
+                      <a
+                        href="mailto:play@ggpickleball.co"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Send us an email
+                      </a>
+                    </Button>
+                  </Flex>
+                </>
+              ) : (
+                <Flex direction="column" align={'center'} gap={'7'} mt={'9'} height={'100%'}>
+                  <Flex direction={'column'} gap={'3'} align={'center'}>
+                    <Text weight={'bold'} align={'center'}>You are currently logged in as a guest</Text>
+                    <Text size={'3'} align={'center'}>
+                      To ensure your stats are not lost and to connect to DUPR, create an account.
+                    </Text>
+                  </Flex>
+                  <Button size={'3'} variant='outline' asChild>
+                    <a href={loginUrl}>Create account</a>
+                  </Button> 
                 </Flex>
-
-                <Flex direction={'column'} my={'6'}>
-                  <Separator orientation={'horizontal'} size={'4'} color="blue"  />
-                </Flex>
-
-                <Flex direction={'column'}>
-                  <Heading weight={'bold'} mb={'4'} style={{color: 'white'}}>Contact us</Heading>
-                  <Text>Questions, comments, or issues? We would love to hear from you!</Text>
-                  <Button mt={'6'} mb={'9'} asChild>
-                    <a
-                      href="mailto:play@ggpickleball.co"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Send us an email
-                    </a>
-                  </Button>
-                </Flex>
-              </>
-            ) : (
-              <Flex direction="column" align={'center'} gap={'7'} mt={'9'} height={'100%'}>
-                <Flex direction={'column'} gap={'3'} align={'center'}>
-                  <Text weight={'bold'} align={'center'}>You are currently logged in as a guest</Text>
-                  <Text size={'3'} align={'center'}>
-                    To ensure your stats are not lost and to connect to DUPR, create an account.
-                  </Text>
-                </Flex>
-                <Button size={'3'} variant='outline' asChild>
-                  <a href={loginUrl}>Create account</a>
-                </Button> 
-              </Flex>
-            )}
+              )}
+            </Flex>
           </Flex>
-        
-        </Flex>
-      </Dialog.Content>
-    </Dialog.Root>
+
+          
+        </Dialog.Content>
+      </Dialog.Root>
+         
+    </Flex>
   );
 }
