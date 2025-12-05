@@ -227,7 +227,10 @@ export default function PlayMenu({ user, isAuthorized, onUserUpdate, onInitiateD
                   </Flex>
                   {!isDuprConnected && <Text size="2" color="gray">You must log in to DUPR to enable this.</Text>}
                       
-             
+                  <Flex direction={'column'}>
+                    {duprActivationError && <Text color="red">{duprActivationError}</Text>}
+                    {duprActivationSuccess && <Text color="green">Updated</Text>}
+                  </Flex>
                       
                       
                     </Flex>
