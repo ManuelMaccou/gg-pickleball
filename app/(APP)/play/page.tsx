@@ -384,9 +384,10 @@ export default function Play() {
             {/* The PlayMenu should only render when we have a confirmed user */}
             {(authenticationStatus === 'authenticated' || authenticationStatus === 'guest') && dbUser && (
               <PlayMenu
-                isAuthorized={authenticationStatus === 'authenticated'}
                 user={dbUser}
-                onUserUpdate={setDbUser}
+                isAuthorized={true}
+                onUserUpdate={handleUserUpdate}
+                onInitiateDuprLogin={handleInitiateDuprLogin}
               />
             )}
 
