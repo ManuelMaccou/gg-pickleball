@@ -114,7 +114,7 @@ export default function PlayMenu({ user, isAuthorized, onUserUpdate, onInitiateD
       if (err instanceof Error) {
         setDuprActivationError(err.message);
       } else {
-        setDuprActivationError("An unknown error occurred.");
+        setDuprActivationError("An unknown error occurred");
       }
     }
   };
