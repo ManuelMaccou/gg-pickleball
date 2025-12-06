@@ -35,6 +35,7 @@ export default function Play() {
   const [showHowToDialog, setShowHowToDialog] = useState<boolean>(false)
   const [isFetchingDbUser, setIsFetchingDbUser] = useState(true);
   const { isLoading: isGettingLocation, error: locationError } = useGeolocation();
+  const [showDuprFrame, setShowDuprFrame] = useState(false);
     
   const authenticationStatus = useMemo(() => {
     if (auth0IsLoading || isFetchingDbUser) {
@@ -50,6 +51,97 @@ export default function Play() {
   }, [auth0IsLoading, isFetchingDbUser, auth0User, dbUser, contextUser]);
 
   const clientId: string | undefined = currentClient?._id?.toString();
+  const duprClientId = process.env.NEXT_PUBLIC_DUPR_CLIENT_ID;
+
+  const duprConfig = useMemo(() => {
+    // 1. Determine the base URL based on the environment
+    const appEnv = process.env.NEXT_PUBLIC_APP_ENV;
+    const baseUrl = appEnv === 'production' 
+      ? 'https://dashboard.dupr.com' 
+      : 'https://uat.dupr.gg'; // Default to UAT for development or if env is not set
+
+    if (!duprClientId) {
+      return { loginUrl: '', origin: '' };
+    }
+
+    const encodedClientId = btoa(duprClientId);
+    
+    // 2. Return both the full login URL and the origin for the security check
+    return {
+      loginUrl: `${baseUrl}/login-external-app/${encodedClientId}`,
+      origin: baseUrl 
+    };
+  }, [duprClientId]);
+
+    useEffect(() => {
+    // This effect listens for the message from the DUPR iframe
+    const handleDuprMessage = async (event: MessageEvent) => {
+      // 3. Use the dynamic origin from our duprConfig object for the security check
+      if (event.origin !== duprConfig.origin) {
+        return; // Security: only accept messages from the correct DUPR environment
+      }
+
+      const data = event.data;
+      if (data && data.userToken && data.duprId) {
+        console.log("DUPR login successful, data received:", data);
+        
+        // Hide the iframe
+        setShowDuprFrame(false);
+
+        // --- IMPORTANT ---
+        // Now, send this data to your backend to save it against the user's profile
+        try {
+          const response = await fetch("/api/user", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              findBy: "userId",
+              userId: dbUser?._id, // Make sure you have the user's ID
+              dupr: {
+                id: data.duprId,
+                userToken: data.userToken,
+                refreshToken: data.refreshToken,
+                // Add any other fields you want to save
+              },
+            }),
+          });
+
+          if (!response.ok) throw new Error("Failed to save DUPR info.");
+
+          const updatedUser = await response.json();
+          setDbUser(updatedUser); // Update the local user state with the new info
+          
+        } catch (error) {
+          console.error("Error saving DUPR info:", error);
+          // Optionally show an error message to the user
+        }
+      }
+    };
+
+    if (duprConfig.origin) {
+      window.addEventListener('message', handleDuprMessage);
+    }
+
+    return () => {
+      if (duprConfig.origin) {
+        window.removeEventListener('message', handleDuprMessage);
+      }
+    };
+    // 4. Add duprConfig to the dependency array
+  }, [dbUser, duprConfig]);
+
+  const handleInitiateDuprLogin = () => {
+    // 5. Use the dynamic URL from our duprConfig object
+    if (!duprConfig.loginUrl) {
+      alert("DUPR integration is not configured correctly.");
+      return;
+    }
+    setShowDuprFrame(true);
+  };
+
+  const handleUserUpdate = (updatedUser: FrontendUser | null) => {
+    setDbUser(updatedUser);
+  };
 
   const rawAchievements = clientId ? dbUser?.stats?.[clientId]?.achievements : [];
 
@@ -297,6 +389,34 @@ export default function Play() {
                 onUserUpdate={setDbUser}
               />
             )}
+
+            {showDuprFrame && (
+        <Flex
+          // Optional: style it as an overlay so it's clear to the user
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            zIndex: 9999,
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+        >
+          <div style={{width: '90%', maxWidth: '500px', height: '80%', backgroundColor: 'white', position: 'relative'}}>
+             
+             <iframe
+                src={duprConfig.loginUrl}
+                title="DUPR Login"
+                width="100%"
+                height="100%"
+                style={{ border: 'none' }}
+             ></iframe>
+          </div>
+        </Flex>
+      )}
           </Flex>
         )}
       </Flex>
