@@ -43,6 +43,7 @@ export interface ClientStats {
 
 export interface IDupr {
   duprId: string;
+  id: string;
   email: string;
   activated: boolean;
 }
@@ -140,9 +141,14 @@ export interface PlayByPointData {
   affiliations: string[];
 }
 
+export interface DuprData {
+  id: string;
+}
+
 export interface IClient extends Document {
   _id: Types.ObjectId;
   active?: boolean;
+  dupr?: DuprData;
   name: string;
   latitude: number;
   longitude: number;
