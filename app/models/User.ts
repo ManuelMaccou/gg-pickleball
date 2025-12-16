@@ -35,7 +35,7 @@ const ClientStatsSubSchema = new Schema({
 }, { _id: false })
 
 const DuprSchema = new Schema({
-  duprId: { type: String },
+  id: { type: String },
   email: { type: String },
   activated: { type: Boolean, default: false },
 })
