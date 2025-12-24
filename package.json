@@ -1,13 +1,10 @@
 {
   "name": "gg-pickleball",
   "version": "0.1.0",
-  "engines": {
-    "node": "20.x"
-  },
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "next lint"
   },
