@@ -3,6 +3,10 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ['https://gg-pickleball.sentry.io'],
+  experimental: {
+    workerThreads: false,
+    cpus: 1
+  }
 };
 
 export default withSentryConfig(nextConfig, {
