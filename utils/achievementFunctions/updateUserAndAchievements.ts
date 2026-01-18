@@ -1,8 +1,8 @@
 'use server'
 
-import { Types, UpdateQuery } from 'mongoose';
+import { ClientSession, Types, UpdateQuery } from 'mongoose';
 import User from '@/app/models/User';
-import { ClientStats, IAchievement, IReward, IUser, SerializedAchievement } from '@/app/types/databaseTypes';
+import { ClientStats, IAchievement, IClient, IReward, ISourceRewardSponsorship, IUser, SerializedAchievement } from '@/app/types/databaseTypes';
 import connectToDatabase from '@/lib/mongodb';
 import Client from '@/app/models/Client';
 import { DateTime } from 'luxon';
@@ -11,6 +11,8 @@ import Reward from '@/app/models/Reward';
 import { getRewardCodeGenerator } from '@/lib/rewards/rewardCodeGenerators';
 import Match from '@/app/models/Match';
 import { achievementDefinitions } from '@/lib/achievements/definitions';
+import RewardCode from '@/app/models/RewardCode';
+import SourceRewardConfig from '@/app/models/SourceRewardConfig';
 
 interface MatchData {
   team1Ids: string[];
@@ -20,6 +22,7 @@ interface MatchData {
   matchId: string;
   team1Score: number;
   team2Score: number;
+  matchDate: Date;
 }
 
 type AchievementEarned = {
@@ -33,7 +36,13 @@ type VisitResult = {
   visitDate?: Date;
 };
 
-type CheckFunction = (user: IUser, match: MatchData) => Promise<AchievementEarned[] | VisitResult> | AchievementEarned[] | VisitResult;
+type CheckFunction = (
+  user: IUser,
+  match: MatchData,
+  options: { session: ClientSession }
+) => Promise<AchievementEarned[] | VisitResult> | AchievementEarned[] | VisitResult;
+
+type RequiredDbOptions = { session: ClientSession };
 
 function ensureClientStats(user: IUser, clientId: string): ClientStats {
   if (!user.stats || !(user.stats instanceof Map)) {
@@ -62,55 +71,43 @@ function ensureClientStats(user: IUser, clientId: string): ClientStats {
 function visit(user: IUser, match: MatchData): VisitResult {
   const VISIT_MILESTONES = [1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 100];
   const userStatsForClient = ensureClientStats(user, match.location);
-  
-   const visitsBeforeThisOne = (userStatsForClient.visits ?? []).length;
+  const currentVisits = (userStatsForClient.visits ?? []).length; // Get CURRENT visit count
 
   for (const milestone of VISIT_MILESTONES) {
-    if (visitsBeforeThisOne === milestone - 1) {
+    if (currentVisits === milestone) { // Check CURRENT value
       return {
         achievements: [{ key: `visit-${milestone}`, repeatable: false }],
-        didVisit: false // This value is now ignored by the main loop anyway
+        didVisit: false
       };
     }
   }
-
   return { achievements: [], didVisit: false };
 }
 
-function updateLastVisit(user: IUser, location: string): boolean {
-  const LA_TIMEZONE = "America/Los_Angeles";
-  const now = new Date();
-
-  const nowInLA = DateTime.fromJSDate(now).setZone(LA_TIMEZONE);
-  const todayStartInLA = nowInLA.startOf("day");
-  const todayEndInLA = nowInLA.endOf("day");
-
+function updateLastVisit(user: IUser, location: string, dateToLog: Date): boolean {
   const stats = ensureClientStats(user, location);
+  const existingLastVisit = stats.lastVisit;
 
-  const lastVisitDate = stats?.lastVisit
-    ? DateTime.fromJSDate(stats?.lastVisit).setZone(LA_TIMEZONE)
-    : null;
-
-  const alreadyUpdated = lastVisitDate &&
-    lastVisitDate >= todayStartInLA &&
-    lastVisitDate <= todayEndInLA;
-
-  if (!alreadyUpdated) {
-    stats.lastVisit = now;
-    return true; // updated
+  // This single condition handles all scenarios correctly.
+  // We only update if:
+  //   a) There is no existing last visit, OR
+  //   b) The new date we are logging is strictly more recent than the existing one.
+  if (!existingLastVisit || dateToLog > existingLastVisit) {
+    stats.lastVisit = dateToLog;
+    return true; // An update occurred.
   }
 
-  return false; // not updated
+  // If the new date is older or the same, we do nothing to preserve the true last visit.
+  return false; // No update occurred.
 }
 
 function firstWin(user: IUser, match: MatchData): AchievementEarned[] {
   const userIdStr = user._id.toString();
-  const clientId = match.location;
-
-  const userStatsForClient = ensureClientStats(user, clientId);
+  const userStatsForClient = ensureClientStats(user, match.location);
   const { wins } = userStatsForClient;
 
-  if (match.winners.includes(userIdStr) && (!wins || wins === 0)) {
+  // With the new pattern, if this is their first win, the `wins` count will be exactly 1.
+  if (match.winners.includes(userIdStr) && wins === 1) { 
     return [{ key: 'first-win', repeatable: false }];
   }
   return [];
@@ -118,27 +115,21 @@ function firstWin(user: IUser, match: MatchData): AchievementEarned[] {
 
 function totalWins(user: IUser, match: MatchData): AchievementEarned[] {
   const WIN_MILESTONES = [5, 10, 20, 30, 40, 50, 100, 200];
-
   const userIdStr = user._id.toString();
 
-  // This achievement is only for winners.
   if (!match.winners.includes(userIdStr)) {
     return [];
   }
 
   const clientId = match.location;
   const userStatsForClient = ensureClientStats(user, clientId);
-  
-  const winsBeforeThisMatch = userStatsForClient.wins || 0;
-
-  const newWinCount = winsBeforeThisMatch + 1;
+  const currentWins = userStatsForClient.wins || 0; // Get the CURRENT win count
 
   for (const milestone of WIN_MILESTONES) {
-    if (newWinCount === milestone) {
+    if (currentWins === milestone) { // Check the CURRENT value
       return [{ key: `${milestone}-wins`, repeatable: false }];
     }
   }
-
   return [];
 }
 
@@ -158,38 +149,59 @@ function pickle(user: IUser, match: MatchData): AchievementEarned[] {
   return [];
 }
 
-/**
- * Checks if a user has reached a win streak milestone.
- * @param user The user document.
- * @param match The data for the current match.
- * @returns An array with the earned achievement, or an empty array.
- */
-function winStreak(user: IUser, match: MatchData): AchievementEarned[] {
-  const STREAK_MILESTONES = [2, 5, 7, 10, 15];
-
+function duprWins(user: IUser, match: MatchData): AchievementEarned[] {
+  const DUPR_WIN_MILESTONES = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50];
   const userIdStr = user._id.toString();
 
   if (!match.winners.includes(userIdStr)) {
     return [];
   }
 
-  const clientId = match.location;
-  const userStatsForClient = ensureClientStats(user, clientId);
-  
-  const streakBeforeThisMatch = userStatsForClient.winStreak || 0;
+  const userGlobalStats = ensureClientStats(user, 'global');
+  const currentGlobalWins = userGlobalStats.wins || 0; // Get CURRENT global wins
 
-  const newWinStreak = streakBeforeThisMatch + 1;
-
-  for (const milestone of STREAK_MILESTONES) {
-    if (newWinStreak === milestone) {
-      return [{ key: `${milestone}-win-streak`, repeatable: true }];
+  for (const milestone of DUPR_WIN_MILESTONES) {
+    if (currentGlobalWins === milestone) { // Check CURRENT value
+      const achievementKey = `${milestone}-dupr-matches-won`;
+      return [{ key: achievementKey, repeatable: false }];
     }
   }
-
   return [];
 }
 
-async function winStreakBreaker(user: IUser, match: MatchData): Promise<AchievementEarned[]> {
+/**
+ * Checks if a user has reached a win streak milestone.
+ * @param user The user document.
+ * @param match The data for the current match.
+ * @returns An array with the earned achievement, or an empty array.
+ */
+function winStreak(
+  user: IUser,
+  match: MatchData,
+): AchievementEarned[] {
+  const STREAK_MILESTONES = [2, 5, 7, 10, 15];
+  const userIdStr = user._id.toString();
+
+  if (!match.winners.includes(userIdStr)) {
+    return [];
+  }
+
+  const userStatsForClient = ensureClientStats(user, match.location);
+  const currentWinStreak = userStatsForClient.winStreak || 0; // Get CURRENT streak
+
+  for (const milestone of STREAK_MILESTONES) {
+    if (currentWinStreak === milestone) { // Check CURRENT value
+      return [{ key: `${milestone}-win-streak`, repeatable: true }];
+    }
+  }
+  return [];
+}
+
+async function winStreakBreaker(
+  user: IUser,
+  match: MatchData,
+  options: { session: ClientSession }
+): Promise<AchievementEarned[]> {
   
   const earned: AchievementEarned[] = [];
   const userIdStr = user._id.toString();
@@ -204,7 +216,7 @@ async function winStreakBreaker(user: IUser, match: MatchData): Promise<Achievem
   try {
     const losingUsers = await User.find({
       _id: { $in: losingTeam.map(id => new Types.ObjectId(id)) },
-    });
+    }).session(options.session);
 
     console.log('losing users:', losingUsers)
 
@@ -235,24 +247,37 @@ async function winStreakBreaker(user: IUser, match: MatchData): Promise<Achievem
   }
 }
 
-async function matchesPlayed(user: IUser, match: MatchData): Promise<AchievementEarned[]> {
+async function matchesPlayed(
+  user: IUser,
+  match: MatchData,
+  options: { session: ClientSession }
+): Promise<AchievementEarned[]> {
   const MATCH_MILESTONES = [1, 10, 20, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 600, 700, 800, 900, 1000];
-
-  const clientId = match.location;
   const userId = new Types.ObjectId(user._id);
   
-  const totalMatchesPlayed = await Match.countDocuments({
-    location: new Types.ObjectId(clientId), // Also ensure location is queried as an ObjectId
+  const query: any = {
     $or: [
       { 'team1.players': userId },
       { 'team2.players': userId }
     ]
-  });
+  };
+
+  // If location is 'global', do not filter by location.
+  if (match.location !== 'global') {
+    query.location = new Types.ObjectId(match.location);
+  }
+
+  // This counts matches BEFORE the current one is saved.
+  const matchesPlayedBeforeThisOne = await Match.countDocuments(query)
+    .session(options.session);
+  
+  // We simulate the new total here because the match isn't saved yet when this check is planned to run.
+  // This is a special case compared to other stats.
+  const totalMatchesAfterThisOne = matchesPlayedBeforeThisOne + 1;
 
   for (const milestone of MATCH_MILESTONES) {
-    if (totalMatchesPlayed === milestone) {
+    if (totalMatchesAfterThisOne === milestone) {
       const achievementKey = `${milestone}-matches-played`;
-      
       return [{ key: achievementKey, repeatable: false }];
     }
   }
@@ -261,36 +286,21 @@ async function matchesPlayed(user: IUser, match: MatchData): Promise<Achievement
 }
 
 function pointsWon(user: IUser, match: MatchData): AchievementEarned[] {
-  const userIdStr = user._id.toString();
   const clientId = match.location;
   const userStatsForClient = ensureClientStats(user, clientId);
-
-  const { pointsWon } = userStatsForClient;
-  const { achievements } = userStatsForClient;
-
-  const isOnTeam1 = match.team1Ids.includes(userIdStr);
-  const isOnTeam2 = match.team2Ids.includes(userIdStr);
-
-  const teamScore = isOnTeam1
-    ? match.team1Score
-    : isOnTeam2
-    ? match.team2Score
-    : 0;
-
-    const totalPointsWon = (pointsWon || 0) + teamScore;
-
-    const milestones = [50, 100, 200, 300, 400, 500];
+  const currentPointsWon = userStatsForClient.pointsWon || 0; // Get CURRENT points
+  const achievements = userStatsForClient.achievements;
+  const milestones = [50, 100, 200, 300, 400, 500];
   
-    for (const threshold of milestones) {
-      const achievementKey = `${threshold}-points-won`;
-      const alreadyHas = achievements?.some(ach => ach.name === achievementKey);
-  
-      if (totalPointsWon >= threshold && !alreadyHas) {
-        return [{ key: achievementKey, repeatable: false }];
-      }
+  for (const threshold of milestones) {
+    const achievementKey = `${threshold}-points-won`;
+    const alreadyHas = achievements?.some(ach => ach.name === achievementKey);
+
+    if (currentPointsWon >= threshold && !alreadyHas) { // Check CURRENT value
+      return [{ key: achievementKey, repeatable: false }];
     }
-  
-    return [];
+  }
+  return [];
 }
 
 const functionImplementations: Record<string, CheckFunction> = {
@@ -302,6 +312,7 @@ const functionImplementations: Record<string, CheckFunction> = {
   matchesPlayed,
   pickle,
   pointsWon,
+  duprWins,
 };
 
 const achievementFunctionMap = achievementDefinitions.reduce((acc, def) => {
@@ -328,231 +339,255 @@ const achievementFunctionMap = achievementDefinitions.reduce((acc, def) => {
  * @param location - Location string for the match.
  * @returns An object with success status, message, and list of updated user IDs.
  */
-export async function updateUserAndAchievements(
-  team1Ids: string[],
-  team2Ids: string[],
-  winners: string[],
-  location: string,
-  matchId: string,
-  team1Score: number,
-  team2Score: number,
-): Promise<{
-  success: boolean;
-  earnedAchievements: { userId: string; achievements: SerializedAchievement[] }[];
-  message: string; updatedUsers: string[]
-}> {
 
-  await connectToDatabase();
+type UpdateOptions = {
+  team1Ids: string[];
+  team2Ids: string[];
+  winners: string[];
+  location: string;
+  matchId: string;
+  team1Score: number;
+  team2Score: number;
+  matchDate: Date;
+  isHistorical: boolean;
+  triggeringEvent?: string;
+  dataSourceId?: string;
+  targetUserIds?: string[];
+};
+
+
+
+async function processLocalMatch(
+  options: Omit<UpdateOptions, 'isGlobalContext'>,
+  dbOptions: RequiredDbOptions
+) {
+  const {
+    team1Ids, team2Ids, winners, location, matchId,
+    team1Score, team2Score, matchDate, isHistorical
+  } = options;
+
+    await connectToDatabase();
+
+    const session = dbOptions.session;
+
   try {
+    console.log("[TRANSACTION_DEBUG] Transaction started.");
+
     if (team1Ids.length !== 2 || team2Ids.length !== 2) {
       throw new Error('Each team must have exactly 2 members.');
     }
 
-    // Combine all participant IDs into a unique set.
     const participantIdsSet = new Set<string>([...team1Ids, ...team2Ids]);
     const participantObjIds = Array.from(participantIdsSet).map((id) => new Types.ObjectId(id));
-    const users = await User.find({ _id: { $in: participantObjIds } });
 
-    if (!users || users.length === 0) {
-      throw new Error('No user documents found for the given participants.');
+    // --- Initial Fetches ---
+    let initialUsers: IUser[], client: IClient | null;
+
+    try {
+      console.log("[TRANSACTION_DEBUG] START: Initial User and Client fetch.");
+
+      [initialUsers, client] = await Promise.all([
+        User.find({ _id: { $in: participantObjIds } }).session(session),
+        Client.findById(location).session(session)
+      ]);
+
+      console.log("[TRANSACTION_DEBUG] SUCCESS: Initial User and Client fetch.");
+    } catch (e) {
+      console.error("[TRANSACTION_DEBUG] FAILURE: Initial User and Client fetch.", e);
+      throw e;
     }
 
-    const client = await Client.findById(location);
-    if (!client) {
-      throw new Error(`Client with id ${location} not found`);
+    if (!initialUsers || initialUsers.length === 0) throw new Error('No user documents found.');
+    if (!client) throw new Error(`Client with id ${location} not found`);
+
+    // --- PHASE 1: PREPARE AND EXECUTE CORE STAT UPDATES ---
+    const statUpdateOps: any[] = [];
+    const visitDataPerUser = new Map<string, { didVisit: boolean, visitDate?: Date, lastVisitDate?: Date }>();
+
+    // Pre-calculate visit data before building the update
+    for (const user of initialUsers) {
+      const clientStats = ensureClientStats(user, location);
+      const dateForVisit = isHistorical ? matchDate : new Date();
+      
+      const LA_TIMEZONE = "America/Los_Angeles";
+      const dayOfMatchInLA = DateTime.fromJSDate(dateForVisit).setZone(LA_TIMEZONE);
+      const startOfDayOfMatch = dayOfMatchInLA.startOf('day');
+      const endOfDayOfMatch = dayOfMatchInLA.endOf('day');
+
+      const alreadyCheckedInForThisDay = (clientStats.visits ?? []).some((visitDate) => {
+        const visitInLA = DateTime.fromJSDate(visitDate).setZone(LA_TIMEZONE);
+        return visitInLA >= startOfDayOfMatch && visitInLA <= endOfDayOfMatch;
+      });
+
+      const didVisit = !alreadyCheckedInForThisDay;
+      const lastVisitDate = updateLastVisit(user, location, dateForVisit) ? dateForVisit : undefined;
+      visitDataPerUser.set(user._id.toString(), { didVisit, visitDate: didVisit ? dateForVisit : undefined, lastVisitDate });
     }
 
-    const enabledAchievementKeys = new Set(
-      (await Achievement.find({ _id: { $in: client.achievements } })).map(a => a.name)
-    );
+    // Build the bulk update operations
+    for (const user of initialUsers) {
+      const userIdStr = user._id.toString();
+      const isWinner = winners.includes(userIdStr);
+      const teamScore = team1Ids.includes(userIdStr) ? team1Score : team2Score;
+      const userVisitData = visitDataPerUser.get(userIdStr)!;
+      const statsPrefix = `stats.${location}`;
+      
+      const update: UpdateQuery<IUser> = { $inc: {}, $set: {}, $push: {} };
 
-    const enabledCheckFunctions = new Set<CheckFunction>();
-    for (const key of enabledAchievementKeys) {
-      const func = achievementFunctionMap[key];
-      if (func) {
-        enabledCheckFunctions.add(func);
+      // Set operations
+      if (userVisitData.lastVisitDate) {
+        update.$set![`${statsPrefix}.lastVisit`] = userVisitData.lastVisitDate;
+      }
+      if (!isWinner && !isHistorical) { // Don't reset streak for historical matches
+        update.$set![`${statsPrefix}.winStreak`] = 0;
+      }
+
+      // Increment operations
+      update.$inc![`${statsPrefix}.${isWinner ? "wins" : "losses"}`] = 1;
+      update.$inc![`${statsPrefix}.pointsWon`] = teamScore;
+      if (isWinner && !isHistorical) {
+        update.$inc![`${statsPrefix}.winStreak`] = 1;
+      }
+      
+      // Push operations
+      if (userVisitData.didVisit && userVisitData.visitDate) {
+        update.$push![`${statsPrefix}.visits`] = userVisitData.visitDate;
+      }
+
+      // Clean up empty operators
+      if (Object.keys(update.$set!).length === 0) delete update.$set;
+      if (Object.keys(update.$inc!).length === 0) delete update.$inc;
+      if (Object.keys(update.$push!).length === 0) delete update.$push;
+      
+      statUpdateOps.push({ updateOne: { filter: { _id: user._id }, update, upsert: true } });
+    }
+
+    if (statUpdateOps.length > 0) {
+      try {
+        await User.bulkWrite(statUpdateOps, { session });
+        console.log("[TRANSACTION_DEBUG] SUCCESS: Phase 1 User.bulkWrite for stats.");
+      } catch (e) {
+        console.error("[TRANSACTION_DEBUG] FAILURE: Phase 1 User.bulkWrite for stats.", e);
+        throw e;
       }
     }
 
-    // Build match data to be passed into each achievement function.
-    const matchData: MatchData = {
-      team1Ids,
-      team2Ids,
-      winners,
-      location,
-      matchId,
-      team1Score,
-      team2Score,
-    };
+    // --- PHASE 2: CALCULATE ACHIEVEMENTS AND REWARDS WITH UPDATED STATS ---
+    let updatedUsers;
 
-    const newAchievementsPerUser: {
-      user: IUser;
-      newAchievements: AchievementEarned[];
-      didVisit: boolean;
-      visitDate?: Date;
-      lastVisitDate?: Date;
-    }[] = [];
+    try {
+      updatedUsers = await User.find({ _id: { $in: participantObjIds } }).session(session);
+      console.log("[TRANSACTION_DEBUG] SUCCESS: Refetched users for Phase 2.");
+    } catch (e) {
+      console.error("[TRANSACTION_DEBUG] FAILURE: Refetching users for Phase 2.", e);
+      throw e;
+    }
 
-    for (const user of users) {
+    let enabledAchievementKeys;
+    
+    try {
+      enabledAchievementKeys = new Set((await Achievement.find({ _id: { $in: client.achievements } }).session(session)).map(a => a.name));
+      console.log("[TRANSACTION_DEBUG] SUCCESS: Fetched enabled achievements.");
+    } catch (e) {
+      console.error("[TRANSACTION_DEBUG] FAILURE: Fetching enabled achievements.", e);
+      throw e;
+    }
+    
+    const enabledCheckFunctions = new Set<CheckFunction>();
+    for (const key of enabledAchievementKeys) {
+      const func = achievementFunctionMap[key as string];
+      if (func) enabledCheckFunctions.add(func);
+    }
+    
+    const matchData: MatchData = { team1Ids, team2Ids, winners, location, matchId, team1Score, team2Score, matchDate };
+    const newAchievementsPerUser = new Map<string, AchievementEarned[]>();
+    const allNewKeys = new Set<string>();
+
+    for (const user of updatedUsers) {
       const clientStats = ensureClientStats(user, location);
       const allAchievements: AchievementEarned[] = [];
 
-      function isVisitResult(val: unknown): val is VisitResult {
-        return typeof val === 'object' &&
-          val !== null &&
-          'achievements' in val &&
-          'didVisit' in val;
-      }
-
       for (const checkFn of enabledCheckFunctions) {
-        const result = await checkFn(user, matchData);
-        
-        // Your logic to handle the result is correct.
-        if (isVisitResult(result)) {
-          allAchievements.push(...result.achievements);
-        } else {
-          allAchievements.push(...result);
+        if (isHistorical && (checkFn === winStreak || checkFn === winStreakBreaker)) continue;
+
+        try {
+          // IMPORTANT: This calls helper functions that might have DB queries
+          const result = await checkFn(user, matchData, { session });
+          allAchievements.push(...(Array.isArray(result) ? result : result.achievements));
+        } catch (e) {
+          console.error(`[TRANSACTION_DEBUG] FAILURE: Inside check function '${checkFn.name}'.`, e);
+          throw e;
         }
       }
-      
-      const LA_TIMEZONE = "America/Los_Angeles";
-      const now = new Date();
-      const nowInLA = DateTime.fromJSDate(now).setZone(LA_TIMEZONE);
-      const todayStartInLA = nowInLA.startOf('day');
-      const todayEndInLA = nowInLA.endOf('day');
-
-      clientStats.visits ??= [];
-      const alreadyCheckedInToday = clientStats.visits.some((visitDate) => {
-        const visitInLA = DateTime.fromJSDate(visitDate).setZone(LA_TIMEZONE);
-        return visitInLA >= todayStartInLA && visitInLA <= todayEndInLA;
-      });
-
-      const didVisit = !alreadyCheckedInToday;
-      if (didVisit) {
-        clientStats.visits.push(now);
-      }
-
-      const lastVisitWasUpdated = updateLastVisit(user, location);
-      const lastVisitDate = lastVisitWasUpdated ? new Date() : undefined;
 
       const newAchievements = allAchievements.filter(a => {
         const existing = clientStats.achievements?.some(ach => ach.name === a.key);
         return a.repeatable || !existing;
       });
-
-      newAchievementsPerUser.push({
-        user,
-        newAchievements,
-        didVisit,
-        visitDate: didVisit ? now : undefined,
-        lastVisitDate
-      });
+      if (newAchievements.length > 0) {
+        newAchievementsPerUser.set(user._id.toString(), newAchievements);
+        newAchievements.forEach(a => allNewKeys.add(a.key));
+      }
+    }
+    
+    if (newAchievementsPerUser.size === 0) {
+      return {
+        success: true,
+        earnedAchievements: [],
+        message: 'Match stats updated. No new achievements.',
+        updatedUsers: Array.from(participantIdsSet)
+      };
     }
 
-    const allNewKeys = [
-      ...new Set(newAchievementsPerUser.flatMap((u) => u.newAchievements.map((a) => a.key))),
-    ];
-
-    console.log('allNewKeys:', allNewKeys);
-
-    const achievementMap = new Map(
-      (await Achievement.find({ name: { $in: allNewKeys } })).map((a) => [a.name, a])
-    );
-
-    console.log('achievementMap keys:', [...achievementMap.keys()]);
-
-    const earnedAchievementsList: {
-      userId: string;
-      achievements: SerializedAchievement[];
-    }[] = [];
-
-    // Prepare bulk update operations.
-    const bulkOperations: {
-      updateOne: { filter: { _id: Types.ObjectId }; update: UpdateQuery<IUser> };
-    }[] = [];
-
-    for (const { user, newAchievements, didVisit, visitDate, lastVisitDate } of newAchievementsPerUser) {
-      console.log('new achievements:', newAchievements, 'for user:', user.name);
-
-      const userIdStr = user._id.toString();
-      const isWinner = winners.includes(userIdStr);
-      const isOnTeam1 = team1Ids.includes(userIdStr);
-      const isOnTeam2 = team2Ids.includes(userIdStr);
+    let achievementMap;
+    try {
+      achievementMap = new Map((await Achievement.find({ name: { $in: Array.from(allNewKeys) } }).session(session)).map(a => [a.name, a]));
+      console.log("[TRANSACTION_DEBUG] SUCCESS: Built achievementMap.");
+    } catch (e) {
+      console.error("[TRANSACTION_DEBUG] FAILURE: Building achievementMap.", e);
+      throw e;
+    }
+    
+    const earnedAchievementsList: { userId: string; achievements: SerializedAchievement[] }[] = [];
+    const achievementBulkOps: any[] = [];
+    
+    for (const user of updatedUsers) {
+      const newAchievements = newAchievementsPerUser.get(user._id.toString());
+      if (!newAchievements || newAchievements.length === 0) continue;
       
-      const statsPrefix = `stats.${location}`;
-
       const updateOps: UpdateQuery<IUser> = {};
-
-      const teamScore = isOnTeam1
-        ? matchData.team1Score
-        : isOnTeam2
-        ? matchData.team2Score
-        : 0;
-
-      // --- Group all $set operations ---
-      if (lastVisitDate) {
-        updateOps.$set ??= {};
-        updateOps.$set[`${statsPrefix}.lastVisit`] = lastVisitDate;
-      }
-      if (!isWinner) {
-        updateOps.$set ??= {};
-        updateOps.$set[`${statsPrefix}.winStreak`] = 0;
-      }
-
-      // --- Group all $inc operations ---
-      updateOps.$inc ??= {};
-      updateOps.$inc[`${statsPrefix}.${isWinner ? "wins" : "losses"}`] = 1;
-      updateOps.$inc[`${statsPrefix}.pointsWon`] = teamScore;
-      if (isWinner) {
-        updateOps.$inc[`${statsPrefix}.winStreak`] = 1;
-      }
+      const pushOps: any = {};
       
-      // --- Group all $addToSet operations ---
-      updateOps.$addToSet ??= {};
+      const achievementEntries = newAchievements.map(a => {
+        const achievementDoc = achievementMap.get(a.key);
+        if (!achievementDoc) return null;
+        return { achievementId: achievementDoc._id, name: achievementDoc.name, earnedAt: matchDate };
+      }).filter((entry): entry is { achievementId: Types.ObjectId; name: string; earnedAt: Date; } => entry !== null);
       
-      // --- Group all $push operations ---
-      if (didVisit && visitDate) {
-        updateOps.$push ??= {};
-        updateOps.$push[`${statsPrefix}.visits`] = visitDate;
-      }
-
-      const existingAchievementsRaw = user.stats?.get(location)?.achievements;
-      const existingAchievements = Array.isArray(existingAchievementsRaw) ? existingAchievementsRaw : [];
-
-
-      const achievementEntries = newAchievements
-        .map(a => {
-          const achievementDoc = achievementMap.get(a.key);
-          if (!achievementDoc) return null;
-
-          const alreadyEarned = existingAchievements.some(
-            entry => entry.name === a.key
-          );
-
-          if (!a.repeatable && alreadyEarned) {
-            return null; // skip non-repeatables already earned
-          }
-
-          return {
-            achievementId: achievementDoc._id,
-            name: achievementDoc.name,
-            earnedAt: new Date()
-          };
-        })
-        .filter((entry): entry is {
-          achievementId: Types.ObjectId;
-          name: string;
-          earnedAt: Date;
-        } => !!entry);
-
       if (achievementEntries.length > 0) {
-        updateOps.$push ??= {};
-        (updateOps.$push as any)[`${statsPrefix}.achievements`] = { $each: achievementEntries };
+        pushOps[`stats.${location}.achievements`] = { $each: achievementEntries };
       }
 
+      const fullAchievements: SerializedAchievement[] = newAchievements
+        .map(a => achievementMap.get(a.key))
+        .filter((a): a is IAchievement => !!a)
+        .map(a => ({
+          _id: a._id.toString(),
+          index: a.index,
+          name: a.name,
+          friendlyName: a.friendlyName,
+          badge: a.badge,
+        }));
 
+      if (fullAchievements.length > 0) {
+        earnedAchievementsList.push({
+          userId: user._id.toString(),
+          achievements: fullAchievements,
+        });
+      }
+
+      // Reward generation logic (same as before, remains correct)
       const rewardToAchievementId = new Map<string, Types.ObjectId>();
-
       for (const a of newAchievements) {
         const rewardId = client.rewardsPerAchievement?.get?.(a.key);
         const achievementDoc = achievementMap.get(a.key);
@@ -560,127 +595,473 @@ export async function updateUserAndAchievements(
           rewardToAchievementId.set(rewardId.toString(), achievementDoc._id);
         }
       }
-
-      const clientId = new Types.ObjectId(location);
-
-      const earnedRewardIds = newAchievements
-        .map(a => client.rewardsPerAchievement?.get?.(a.key))
-        .filter(Boolean) as Types.ObjectId[];
-
-      const rewards = await Reward.find({ _id: { $in: earnedRewardIds } });
-
-      // Group rewards by category (retail, programming, etc.)
+      const earnedRewardIds = newAchievements.map(a => client.rewardsPerAchievement?.get?.(a.key)).filter(Boolean) as Types.ObjectId[];
+      
+      let rewards;
+      try {
+        rewards = await Reward.find({ _id: { $in: earnedRewardIds } }).session(session);
+        console.log(`[TRANSACTION_DEBUG] SUCCESS: Fetched rewards for user ${user.name}.`);
+      } catch (e) {
+        console.error(`[TRANSACTION_DEBUG] FAILURE: Fetching rewards for user ${user.name}.`, e);
+        throw e;
+      }
+      
       const rewardsByCategory = new Map<string, IReward[]>();
       for (const reward of rewards) {
-        if (!rewardsByCategory.has(reward.category)) {
-          rewardsByCategory.set(reward.category, []);
-        }
+        if (!rewardsByCategory.has(reward.category)) rewardsByCategory.set(reward.category, []);
         rewardsByCategory.get(reward.category)!.push(reward);
       }
-
-      let rewardCodeIdMap: Map<string, Types.ObjectId> = new Map();
-
+      let rewardCodeIdMap = new Map<string, Types.ObjectId>();
       for (const [category, rewardsInCategory] of rewardsByCategory.entries()) {
-        const software =
-          category === 'retail'
-            ? client.retailSoftware
-            : client.reservationSoftware;
-
+        const software = category === 'retail' ? client.retailSoftware : client.reservationSoftware;
         const generator = getRewardCodeGenerator(category, software);
         
         if (generator && rewardsInCategory.length > 0) {
-          const tasks = rewardsInCategory.map(reward => {
-            const achievementId = rewardToAchievementId.get(reward._id.toString());
-
-            if (!achievementId) {
-              throw new Error(`Missing achievementId for reward ${reward._id}`);
+          try {
+            const tasks = rewardsInCategory.map(reward => {
+              const achievementId = rewardToAchievementId.get(reward._id.toString());
+              if (!achievementId) throw new Error(`Missing achievementId for reward ${reward._id}`);
+              return {
+                rewardId: reward._id,
+                reward, achievementId,
+                userId: user._id,
+                clientId: client._id,
+                isGlobalReward: false,
+              };
+            });
+          
+            const map = await generator(tasks, client._id, { session });
+          
+            for (const [rewardId, codeId] of map.entries()) {
+              rewardCodeIdMap.set(rewardId.toString(), codeId);
             }
-
-            return {
-              rewardId: reward._id,
-              reward,
-              achievementId,
-              userId: user._id,
-              clientId,
-            };
-          });
-
-          console.log(`Generating ${category} codes using ${software}`, tasks);
-
-          const map = await generator(tasks, clientId);
-
-          // Merge results into one map
-          for (const [rewardId, codeId] of map.entries()) {
-            rewardCodeIdMap.set(rewardId.toString(), codeId);
+            
+          } catch (e) {
+            console.error(`[TRANSACTION_DEBUG] FAILURE: Inside generator for category '${category}'.`, e);
+            throw e;
           }
-        } else {
-          console.warn(`No generator found for ${category}:${software}`);
         }
       }
-      
       const rewardEntries = earnedRewardIds.map(rewardId => ({
-        rewardId,
-        earnedAt: new Date(),
-        redeemed: false,
-        rewardCodeId: rewardCodeIdMap.get(rewardId.toString())
+        rewardId, earnedAt: matchDate, redeemed: false, rewardCodeId: rewardCodeIdMap.get(rewardId.toString())
       }));
-      
       if (rewardEntries.length > 0) {
-        updateOps.$push ??= {};
-        updateOps.$push[`${statsPrefix}.rewards`] = { $each: rewardEntries };
+        pushOps[`stats.${location}.rewards`] = { $each: rewardEntries };
       }
 
-      if (updateOps.$set && Object.keys(updateOps.$set).length === 0) delete updateOps.$set;
-      if (updateOps.$inc && Object.keys(updateOps.$inc).length === 0) delete updateOps.$inc;
-      if (updateOps.$push && Object.keys(updateOps.$push).length === 0) delete updateOps.$push;
-      if (updateOps.$addToSet && Object.keys(updateOps.$addToSet).length === 0) delete updateOps.$addToSet;
-
-      if (Object.keys(updateOps).length > 0) {
-        bulkOperations.push({
-          updateOne: {
-            filter: { _id: user._id },
-            update: updateOps,
-          }
-        });
+      if (Object.keys(pushOps).length > 0) {
+        updateOps.$push = pushOps;
+        achievementBulkOps.push({ updateOne: { filter: { _id: user._id }, update: updateOps } });
       }
-
-      const fullAchievements: SerializedAchievement[] = newAchievements
-      .map(a => achievementMap.get(a.key))
-      .filter((a): a is IAchievement => !!a)
-      .map(a => ({
-        _id: a._id.toString(),
-        index: a.index,
-        name: a.name,
-        friendlyName: a.friendlyName,
-        badge: a.badge,
-      }));
-
-      earnedAchievementsList.push({
-        userId: user._id.toString(),
-        achievements: fullAchievements,
-      });
+    }
+    
+    if (achievementBulkOps.length > 0) {
+      try {
+        await User.bulkWrite(achievementBulkOps, { session });
+        console.log("[TRANSACTION_DEBUG] SUCCESS: Phase 2 User.bulkWrite for achievements/rewards.");
+      } catch (e) {
+        console.error("[TRANSACTION_DEBUG] FAILURE: Phase 2 User.bulkWrite for achievements/rewards.", e);
+        throw e;
+      }
     }
 
-    if (!bulkOperations.length) {
+    console.log("[TRANSACTION_DEBUG] Transaction committed successfully.");
+
+    return { success: true,
+      earnedAchievements: earnedAchievementsList,
+      message: 'User achievements updated successfully.',
+      updatedUsers: Array.from(participantIdsSet)
+    };
+
+  } catch (error) {
+    console.log("[TRANSACTION_DEBUG] An error occurred, aborting transaction.");
+    console.error('Error in processLocalMatch:', error);
+    throw error;
+  }
+}
+
+async function processGlobalMatch(
+  options: Omit<UpdateOptions, 'isGlobalContext' | 'location'> & { dataSourceId: string },
+  dbOptions: RequiredDbOptions 
+) {
+
+  console.log(`[DEBUG] Starting processGlobalMatch for dataSourceId: ${options.dataSourceId}...`);
+
+  const session = dbOptions.session;
+
+  const {
+    team1Ids, team2Ids, winners, matchId,
+    team1Score, team2Score, matchDate, triggeringEvent,
+    dataSourceId
+  } = options;
+
+  await connectToDatabase();
+  try {
+     if (team1Ids.length !== 2 || team2Ids.length !== 2) {
+      throw new Error('Each team must have exactly 2 members.');
+    }
+
+    const participantIdsSet = new Set<string>([...team1Ids, ...team2Ids]);
+    const participantObjIds = Array.from(participantIdsSet)
+      // FIX: Only convert valid ObjectIds
+      .filter(id => Types.ObjectId.isValid(id)) 
+      .map((id) => new Types.ObjectId(id));
+
+    const sourceConfigs = await SourceRewardConfig.find({ dataSourceId: dataSourceId }).session(session);
+
+    if (!sourceConfigs || sourceConfigs.length === 0) {
+      console.warn(`[DEBUG] EXIT: No SourceRewardConfigs found for dataSourceId: ${dataSourceId}.`);
+      return { success: true, earnedAchievements: [], message: 'No source config found.', updatedUsers: [] };
+    }
+
+    const sourceRewardConfigMap = new Map<string, ISourceRewardSponsorship[]>();
+    for (const config of sourceConfigs) {
+      sourceRewardConfigMap.set(config.achievementName, config.sponsorships);
+    }
+
+    console.log(`[DEBUG] SourceRewardConfig loaded with ${sourceRewardConfigMap.size} achievement keys.`);
+
+    // --- PHASE 1: UPDATE CORE STATS (WINS, LOSSES, POINTS) ---
+    console.log('\n--- [DEBUG] PHASE 1: Updating core stats ---');
+    const statUpdateOps: any[] = [];
+    for (const userId of participantIdsSet) {
+      if (options.targetUserIds && !options.targetUserIds.includes(userId)) {
+          console.log(`[DEBUG] Skipping stat update for user ${userId} (Not in target list)`);
+          continue;
+        }
+
+        const isWinner = winners.includes(userId);
+        const isOnTeam1 = team1Ids.includes(userId);
+        const teamScore = isOnTeam1 ? team1Score : team2Score;
+        
+        statUpdateOps.push({
+            updateOne: {
+                filter: { _id: new Types.ObjectId(userId) },
+                update: {
+                    $inc: {
+                        'stats.global.wins': isWinner ? 1 : 0,
+                        'stats.global.losses': isWinner ? 0 : 1,
+                        'stats.global.pointsWon': teamScore,
+                    }
+                },
+                upsert: true // Ensures stats.global object is created
+            }
+        });
+    }
+
+    if (statUpdateOps.length > 0) {
+      console.log('[DEBUG] Executing initial stat update bulkWrite...');
+      await User.bulkWrite(statUpdateOps, { session });
+      console.log('[DEBUG] Stat update complete.');
+    }
+
+    // --- PHASE 2: CALCULATE ACHIEVEMENTS AND REWARDS WITH UPDATED STATS ---
+    console.log('\n--- [DEBUG] PHASE 2: Calculating achievements ---');
+    
+    const updatedUsers = await User.find({ _id: { $in: participantObjIds } }).session(session);
+    if (!updatedUsers || updatedUsers.length === 0) {
+      console.error('[DEBUG] EXIT: Could not find users after stat update.');
+      throw new Error('Could not find users after stat update.');
+    }
+
+    // Determine which global achievements are enabled based on ggrConfig.globalRewardConfig
+    const enabledGlobalAchievementKeys = new Set(Array.from(sourceRewardConfigMap.keys()));
+    const enabledCheckFunctions = new Set<CheckFunction>();
+
+    for (const key of enabledGlobalAchievementKeys) {
+     const func = achievementFunctionMap[key as string]; 
+      if (func) {
+        enabledCheckFunctions.add(func);
+      } 
+    }
+
+    console.log(`[DEBUG] Enabled ${enabledCheckFunctions.size} achievement check functions.`);
+
+    if (enabledCheckFunctions.size === 0) {
+        console.warn("[DEBUG] WARNING: No check functions were enabled. The `achievementFunctionMap` might be missing keys from GGRConfig.");
+    }
+
+    const matchData: MatchData = {
+      team1Ids,
+      team2Ids,
+      winners,
+      location: 'global',
+      matchId,
+      team1Score,
+      team2Score,
+      matchDate,
+    };
+
+    const newAchievementsPerUser = new Map<string, AchievementEarned[]>();
+    const allNewKeys = new Set<string>();
+
+    for (const user of updatedUsers) {
+      console.log(`\n--- [DEBUG] Processing user: ${user.name} (${user._id}) ---`);
+
+      const userGlobalStats = ensureClientStats(user, 'global');
+      console.log('[DEBUG] User stats AFTER stat update:', JSON.stringify(userGlobalStats, null, 2));
+      
+      const allAchievements: AchievementEarned[] = [];
+
+      for (const checkFn of enabledCheckFunctions) {
+        const result = await checkFn(user, matchData, { session });
+
+         if (Array.isArray(result) && result.length > 0) {
+            console.log(`[DEBUG] Check function '${checkFn.name}' returned achievements:`, result);
+        }
+
+        allAchievements.push(...result as AchievementEarned[]);
+      }
+
+      console.log(`[DEBUG] Total potential achievements for ${user.name}:`, allAchievements);
+
+      const newAchievements = allAchievements.filter(a => {
+        const existing = userGlobalStats.achievements?.some(ach => ach.name === a.key);
+       if (!a.repeatable && existing) {
+            console.log(`[DEBUG] Filtering out already earned achievement: ${a.key}`);
+            return false;
+        }
+        return true;
+      });
+
+      console.log(`[DEBUG] FINAL new achievements for ${user.name}:`, newAchievements);
+
+     if (newAchievements.length > 0) {
+        newAchievementsPerUser.set(user._id.toString(), newAchievements);
+        newAchievements.forEach(a => allNewKeys.add(a.key));
+      }
+    }
+
+   if (newAchievementsPerUser.size === 0) {
+      console.log('[DEBUG] No new achievements were earned by any user. Process complete.');
       return {
         success: true,
         earnedAchievements: [],
-        message: 'No updates required.',
-        updatedUsers: [],
+        message: 'Match stats updated. No new achievements.',
+        updatedUsers: Array.from(participantIdsSet)
       };
     }
 
-    await User.bulkWrite(bulkOperations);
+    console.log('\n\n--- [DIAGNOSTIC BLOCK 1] ---');
+    console.log('[DIAGNOSTIC] Keys of ALL new achievements found by check functions:', Array.from(allNewKeys));
+    
+    const achievementDocs = await Achievement.find({ name: { $in: Array.from(allNewKeys) } }).session(session);
+    const achievementMap = new Map(achievementDocs.map((a) => [a.name, a]));
 
+    console.log(`[DIAGNOSTIC] Querying Achievement collection for names: ${JSON.stringify(Array.from(allNewKeys))}`);
+    console.log(`[DIAGNOSTIC] Found ${achievementDocs.length} matching documents in the Achievement collection.`);
+    console.log('[DIAGNOSTIC] Names of achievements FOUND IN DATABASE:', achievementDocs.map(a => a.name));
+    console.log('--- [END DIAGNOSTIC BLOCK 1] ---\n\n');
+
+    const earnedAchievementsList: { userId: string; achievements: SerializedAchievement[] }[] = [];
+    const achievementBulkOps: any[] = [];
+
+    for (const user of updatedUsers) {
+      const newAchievements = newAchievementsPerUser.get(user._id.toString());
+      if (!newAchievements || newAchievements.length === 0) continue;
+
+      console.log(`\n--- [DEBUG] Building achievement/reward update for: ${user.name} ---`);
+
+      const userGlobalStats = ensureClientStats(user, 'global');
+      const existingAchievements = userGlobalStats.achievements || [];
+      const existingRewards = userGlobalStats.rewards || [];
+
+      const newAchievementEntries = newAchievements.map(a => {
+        const achievementDoc = achievementMap.get(a.key);
+
+         if (!achievementDoc) {
+          console.error(`[DIAGNOSTIC] 🔴 CRITICAL FAILURE for user ${user.name}: Could not find achievement with key '${a.key}' in the achievementMap. THIS IS THE PROBLEM. Check for a name mismatch in the database!`);
+        }
+
+        if (!achievementDoc) return null;
+          return {
+            achievementId: achievementDoc._id,
+            name: achievementDoc.name,
+            earnedAt: matchDate,
+            ...(triggeringEvent && { triggeringEvent: triggeringEvent })
+          };
+        }).filter((entry): entry is {
+          achievementId: Types.ObjectId;
+          name: string;
+          earnedAt: Date;
+          triggeringEvent?: string;
+        } => entry !== null);
+
+      console.log(`[DIAGNOSTIC] For user ${user.name}, newAchievementEntries has ${newAchievementEntries.length} items.`);
+      if(newAchievementEntries.length === 0 && newAchievements.length > 0) {
+        console.warn(`[DIAGNOSTIC] 🟡 WARNING: User ${user.name} earned ${newAchievements.length} achievements, but after DB lookup, there are 0 valid entries. This confirms the name mismatch.`);
+      }
+
+      const finalAchievements = [...existingAchievements, ...newAchievementEntries];
+
+      const rewardToAchievementId = new Map<string, Types.ObjectId>();
+      const earnedRewardSponsorships: { rewardId: Types.ObjectId; sponsoringClientId: Types.ObjectId }[] = [];
+
+      for (const a of newAchievements) {
+        const globalSponsorships = sourceRewardConfigMap.get(a.key); 
+        const achievementDoc = achievementMap.get(a.key);
+        if (globalSponsorships && achievementDoc) {
+          for (const sponsorship of globalSponsorships) {
+            if (!a.repeatable) {
+              const existingCode = await RewardCode.findOne({
+                userId: user._id,
+                achievementId: achievementDoc._id,
+                isGlobalReward: true,
+                clientId: sponsorship.sponsoringClientId // Check if sponsored by this specific client
+              }).session(session);
+              if (existingCode) {
+                console.log(`Skipping already issued global reward for ${user.name}, achievement ${a.key}, sponsored by ${sponsorship.sponsoringClientId}`);
+                continue; // Skip this reward, it's already been given
+              }
+            }
+            earnedRewardSponsorships.push(sponsorship);
+            rewardToAchievementId.set(sponsorship.rewardId.toString(), achievementDoc._id);
+          }
+        }
+      }
+
+      const uniqueRewardIds = [...new Set(earnedRewardSponsorships.map(s => s.rewardId.toString()))].map(id => new Types.ObjectId(id));
+      const uniqueSponsoringClientIds = [...new Set(earnedRewardSponsorships.map(s => s.sponsoringClientId.toString()))].map(id => new Types.ObjectId(id));
+      
+      const [rewards, sponsoringClients] = await Promise.all([
+        Reward.find({ _id: { $in: uniqueRewardIds } }).session(session),
+        Client.find({ _id: { $in: uniqueSponsoringClientIds } }).session(session),
+      ]);
+
+      const rewardsById = new Map(rewards.map(r => [r._id.toString(), r]));
+      const clientsById = new Map(sponsoringClients.map(c => [c._id.toString(), c]));
+      const tasksByClient = new Map<string, any[]>();
+
+      for (const sponsorship of earnedRewardSponsorships) {
+        const clientIdStr = sponsorship.sponsoringClientId.toString();
+        if (!tasksByClient.has(clientIdStr)) {
+          tasksByClient.set(clientIdStr, []);
+        }
+        tasksByClient.get(clientIdStr)!.push(sponsorship);
+      }
+    
+      let rewardCodeIdMap = new Map<string, Types.ObjectId>();
+
+      for (const [clientIdStr, sponsorshipsForClient] of tasksByClient.entries()) {
+        const client = clientsById.get(clientIdStr);
+        if (!client) {
+          console.warn(`Sponsoring client with ID ${clientIdStr} not found. Skipping reward generation.`);
+          continue;
+        }
+
+        const tasksByCategory = new Map<string, any[]>();
+        for (const sponsorship of sponsorshipsForClient) {
+          const reward = rewardsById.get(sponsorship.rewardId.toString());
+          if (!reward) continue;
+          if (!tasksByCategory.has(reward.category)) {
+            tasksByCategory.set(reward.category, []);
+          }
+          const achievementId = rewardToAchievementId.get(reward._id.toString());
+          if (!achievementId) continue;
+
+          tasksByCategory.get(reward.category)!.push({
+            rewardId: reward._id,
+            reward, achievementId,
+            userId: user._id,
+            clientId: sponsorship.sponsoringClientId,
+            isGlobalReward: true,
+            dataSourceId: new Types.ObjectId(dataSourceId),
+          });
+        }
+
+        for (const [category, tasks] of tasksByCategory.entries()) {
+          const software = category === 'retail' ? client.retailSoftware : client.reservationSoftware;
+          const generator = getRewardCodeGenerator(category, software);
+
+          if (generator) {
+            const map = await generator(tasks, client._id, { session }); 
+              
+            for (const [rewardId, codeId] of map.entries()) {
+              rewardCodeIdMap.set(rewardId, codeId);
+            }            
+          } else {
+            console.warn(`No generator for client ${client.name}, category:${category}, software:${software}`);
+          }
+        }
+      }
+      
+      const newRewardEntries = earnedRewardSponsorships.map(sponsorship => ({
+        rewardId: sponsorship.rewardId,
+        earnedAt: matchDate,
+        redeemed: false,
+        rewardCodeId: rewardCodeIdMap.get(sponsorship.rewardId.toString()), // Make sure this map is populated!
+        sponsoringClientId: sponsorship.sponsoringClientId,
+        triggeringEvent: triggeringEvent,
+      })).filter(entry => entry.rewardCodeId); // Important: only add rewards for which a code was generated
+
+      const finalRewards = [...existingRewards, ...newRewardEntries];
+
+      
+      const setOps: any = {};
+
+      if (newAchievementEntries.length > 0) {
+        setOps['stats.global.achievements'] = finalAchievements;
+      }
+
+      if (newRewardEntries.length > 0) {
+        setOps['stats.global.rewards'] = finalRewards;
+      }
+      
+      if (Object.keys(setOps).length > 0) {
+        const updateOperation = {
+          updateOne: {
+            filter: { _id: user._id },
+            update: { $set: setOps }
+          }
+        };
+        console.log(`[DEBUG] Pushing achievement/reward update for ${user.name}:`, JSON.stringify(updateOperation, null, 2));
+        achievementBulkOps.push(updateOperation);
+      }
+    }
+
+    if (achievementBulkOps.length > 0) {
+      console.log(`[DEBUG] Executing achievement/reward bulkWrite...`);
+      await User.bulkWrite(achievementBulkOps, { session });
+      console.log('[DEBUG] Achievement/reward update complete.');
+    }
 
     return {
-      success: true,
-      earnedAchievements: earnedAchievementsList,
-      message: 'User achievements updated successfully.',
-      updatedUsers: Array.from(participantIdsSet),
+        success: true,
+        earnedAchievements: earnedAchievementsList,
+        message: 'Global match processed successfully.',
+        updatedUsers: Array.from(participantIdsSet),
     };
   } catch (error) {
-    console.error('Error in updateUserAchievements:', error);
-    throw new Error('Failed to update achievements.');
+    console.error('Error in processGlobalMatch:', error);
+    throw error;
+  }
+}
+
+// The options for the match data itself remain the same
+type UpdateOptionsWithContext = UpdateOptions & { isGlobalContext: boolean };
+
+export async function updateUserAndAchievements(
+  options: UpdateOptionsWithContext, 
+  dbOptions: RequiredDbOptions 
+) {
+  const { isGlobalContext, ...restOfOptions } = options;
+
+  console.log("global context?", isGlobalContext);
+
+  if (isGlobalContext) {
+    if (!restOfOptions.dataSourceId) {
+      throw new Error("dataSourceId is required for global match processing.");
+    }
+    // 2. Pass the dbOptions object down to the next function
+    return await processGlobalMatch(
+      restOfOptions as Omit<UpdateOptions, 'isGlobalContext' | 'location'> & { dataSourceId: string },
+      dbOptions 
+    );
+  } else {
+    if (!options.location) {
+      throw new Error("locationId is required for local match processing.");
+    }
+    // 2. Also pass it to the local match function for consistency
+    return await processLocalMatch(restOfOptions, dbOptions); 
   }
 }

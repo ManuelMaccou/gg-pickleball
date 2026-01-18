@@ -4,24 +4,50 @@ import { useEffect, useState } from "react";
 import { useUser as useAuth0User } from '@auth0/nextjs-auth0';
 import { useUserContext } from "@/app/contexts/UserContext";
 import { useRouter } from "next/navigation";
-import { Avatar, Box, Button, Callout, Card, Checkbox, Dialog, Flex, Heading, Select, Spinner, Text, TextField, Tooltip } from "@radix-ui/themes";
-import { InfoCircledIcon, Pencil2Icon } from "@radix-ui/react-icons"
+import { 
+  Avatar, 
+  Badge, 
+  Box, 
+  Button, 
+  Callout, 
+  Card, 
+  Checkbox, 
+  Dialog, 
+  DropdownMenu, // <--- New Import
+  Flex, 
+  Heading, 
+  Select, 
+  Spinner, 
+  Text, 
+  TextField, 
+  Tooltip 
+} from "@radix-ui/themes";
+import { 
+  InfoCircledIcon, 
+  DotsHorizontalIcon, // <--- New Icon
+  GearIcon,          // <--- New Icon
+  MagicWandIcon,      // <--- New Icon
+  ExclamationTriangleIcon,
+  CheckCircledIcon
+} from "@radix-ui/react-icons"
 import Image from "next/image";
 import darkGgLogo from '../../../../../public/logos/gg_logo_black_transparent.png'
 import { useIsMobile } from "@/app/hooks/useIsMobile";
-import { IClient, PodplayData, ShopifyData } from "@/app/types/databaseTypes";
-import GGAdminSidebar from "../components/GGAdminSidebar";
+import { AdminPermissionType, IClient, PodplayData, ShopifyData } from "@/app/types/databaseTypes";
+import { AdminSidebar } from "../../components/AdminSidebar";
+import { REWARD_PRODUCT_NAMES, RewardProductName } from "@/app/types/rewardTypes";
+import { RewardCardPreview } from "../components/ReviewCardPreview";
+import ManageWebhooks from "../components/ManageWebhooks";
 
-
-const PRODUCT_NAMES = ["open play", "reservations", "guest reservations", "classes and clinics", "pro shop", "custom"] as const;
-type ProductName = typeof PRODUCT_NAMES[number];
-
-const PRODUCT_DISPLAY_NAMES: Record<ProductName, string> = {
+// ... [Keep your PRODUCT_DISPLAY_NAMES and Types exactly as they were] ...
+const PRODUCT_DISPLAY_NAMES: Record<RewardProductName, string> = {
   "open play": "Open Play",
   "reservations": "Reservations",
   "guest reservations": "Guest Reservations",
   "classes and clinics": "Classes and Clinics",
   "pro shop": "Pro Shop",
+  "online store": "Online Store",
+  "in store": "In Store",
   "custom": "Custom",
 };
 
@@ -33,7 +59,7 @@ type FormState = {
   icon: string;
   latitude: string;
   longitude: string;
-  products: Record<ProductName, boolean>;
+  products: Record<RewardProductName, boolean>;
   retailSoftware?: 'shopify' | 'playbypoint';
   reservationSoftware?: 'playbypoint' | 'podplay' | 'courtreserve';
   shopify: ShopifyData;
@@ -42,20 +68,23 @@ type FormState = {
     facilityId: number | string;
     affiliations: string;
   };
+  cardBackgroundImage?: string;
+  cardTextColor?: string;
 };
 
-// Define an initial state that strictly conforms to FormState
 const initialClientState: FormState = {
   name: '',
   logo: '',
   admin_logo: '',
   icon: '',
-  products: { // Initialize checkbox state
+  products: {
     "open play": false,
     "reservations": false,
     "guest reservations": false,
     "classes and clinics": false,
     "pro shop": false,
+    "online store": false,
+    "in store": false,
     "custom": false
   },
   latitude: '',
@@ -64,7 +93,13 @@ const initialClientState: FormState = {
   reservationSoftware: undefined,
   shopify: { shopDomain: '', accessToken: '', secret: '' },
   playbypoint: { facilityId: '', affiliations: '' },
-  podplay: { accessToken: '' }
+  podplay: { accessToken: '' },
+  cardBackgroundImage: '',
+  cardTextColor: '#ffffff',
+};
+
+type ExtendedClient = Omit<IClient, 'needsRetroactiveSweep'> & {
+  needsRetroactiveSweep?: boolean;
 };
 
 export default function GgpickleballAdminClients() {
@@ -72,7 +107,7 @@ export default function GgpickleballAdminClients() {
   const router = useRouter();
   const isMobile = useIsMobile();
   const { user: auth0User, isLoading: auth0IsLoading } = useAuth0User();
-  const [clients, setClients] = useState<IClient[]>([]);
+  const [clients, setClients] = useState<ExtendedClient[]>([]);
   const [isFetchingClients, setIsFetchingClients] = useState<boolean>(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -80,8 +115,9 @@ export default function GgpickleballAdminClients() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [selectedClientForEdit, setSelectedClientForEdit] = useState<IClient | null>(null);
   const [formData, setFormData] = useState<FormState>(initialClientState);
+  const [adminPermission, setAdminPermission] = useState<AdminPermissionType>(null);
 
-  // Fetch all clients on component mount
+  // ... [Keep your fetchClients function exactly as is] ...
   const fetchClients = async () => {
     setIsFetchingClients(true);
     setFetchError(null);
@@ -101,18 +137,42 @@ export default function GgpickleballAdminClients() {
     }
   };
 
+  const handleToggleSweepFlag = async (client: ExtendedClient, newValue: boolean) => {
+    try {
+      const response = await fetch('/api/client/update', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          clientId: client._id, 
+          needsRetroactiveSweep: newValue 
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to update status");
+
+      // Optimistic Update
+      setClients(prev => prev.map(c => 
+        c._id === client._id 
+          ? { ...c, needsRetroactiveSweep: newValue } as ExtendedClient 
+          : c
+      ));
+
+    } catch (error) {
+      console.error(error);
+      alert("Failed to update client status");
+    }
+  };
+
   useEffect(() => {
     fetchClients();
   }, []);
 
-  // Auth redirection
   useEffect(() => {
     if (!auth0IsLoading && !user) {
       router.push(`/auth/login?returnTo=/admin/gg/config`);
     }
   }, [auth0IsLoading, user, router]);
 
-  // Handler for opening the 'Create' dialog
   const handleOpenCreateDialog = () => {
     setSelectedClientForEdit(null);
     setFormData(initialClientState);
@@ -123,10 +183,10 @@ export default function GgpickleballAdminClients() {
   const handleOpenEditDialog = (client: IClient) => {
     setSelectedClientForEdit(client);
 
-    const productsForForm: Record<ProductName, boolean> = { ...initialClientState.products };
+    const productsForForm: Record<RewardProductName, boolean> = { ...initialClientState.products };
     client.rewardProducts?.forEach(productName => {
       if (productName in productsForForm) {
-        productsForForm[productName as ProductName] = true;
+        productsForForm[productName as RewardProductName] = true;
       }
     });
 
@@ -147,6 +207,8 @@ export default function GgpickleballAdminClients() {
         facilityId: client.playbypoint?.facilityId || '',
         affiliations: client.playbypoint?.affiliations?.join(', ') || ''
       },
+      cardBackgroundImage: client.cardBackgroundImage || '',
+      cardTextColor: client.cardTextColor || '#ffffff',
     };
 
     setFormData(formDataForEdit);
@@ -154,7 +216,6 @@ export default function GgpickleballAdminClients() {
     setIsFormOpen(true);
     };
 
-  // Generic input change handler for top-level and nested fields
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     if (name.includes('.')) {
@@ -168,13 +229,34 @@ export default function GgpickleballAdminClients() {
     }
   };
 
-  // Select change handler
+  const handleShopDomainBlur = () => {
+    const currentDomain = formData.shopify.shopDomain;
+    
+    if (!currentDomain || currentDomain.trim() === '') return;
+
+    // 1. Remove protocol (http:// or https://)
+    // 2. Remove trailing slashes
+    const cleanDomain = currentDomain.trim()
+      .replace(/^https?:\/\//, '')
+      .replace(/\/$/, '');
+
+    // 3. Update only if it changed
+    if (cleanDomain !== currentDomain) {
+      setFormData(prev => ({
+        ...prev,
+        shopify: {
+          ...prev.shopify,
+          shopDomain: cleanDomain
+        }
+      }));
+    }
+  };
+
   const handleSelectChange = (value: string, name: 'retailSoftware' | 'reservationSoftware') => {
-    // Treat 'none' as undefined to match the schema
     setFormData(prev => ({ ...prev, [name]: value === 'none' ? undefined : value as FormState[typeof name] }));
   };
 
-  const handleCheckboxChange = (checked: boolean, name: ProductName) => {
+  const handleCheckboxChange = (checked: boolean, name: RewardProductName) => {
     setFormData(prev => ({
       ...prev,
       products: {
@@ -184,7 +266,6 @@ export default function GgpickleballAdminClients() {
     }));
   };
 
-  // Form submission handler
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -193,16 +274,16 @@ export default function GgpickleballAdminClients() {
     try {
       const {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        _id: _, // Intentionally unused
+        _id: _, 
         products,
         playbypoint: formPlayByPointData,
-        latitude: latString, // Give the strings unique names
+        latitude: latString, 
         longitude: lngString,
-        ...basePayload // The rest of the data is already correctly typed
+        ...basePayload 
       } = formData;
 
       const rewardProductsPayload: string[] = [];
-      for (const name of PRODUCT_NAMES) {
+      for (const name of REWARD_PRODUCT_NAMES) {
         if (products[name]) {
           rewardProductsPayload.push(name);
         }
@@ -230,7 +311,6 @@ export default function GgpickleballAdminClients() {
         playbypoint: playbypointPayload,
       };
         
-      // 4. Clean up other conditional fields.
       if (payload.retailSoftware !== 'shopify') delete payload.shopify;
       if (payload.reservationSoftware !== 'podplay') delete payload.podplay;
       
@@ -265,13 +345,24 @@ export default function GgpickleballAdminClients() {
     }
   };
 
+  useEffect(() => {
+    if (!user) return;
+    if (user.superAdmin) {
+      setAdminPermission('admin')
+    } else {
+      setAdminPermission('associate')
+    }
+  }, [user])
+
   const userName = user?.name;
   if (isMobile === null) return null;
 
-   if (user && !user.superAdmin) {
+  // ... [Keep your Access Denied Render logic exactly as is] ...
+  if (user && !user.superAdmin) {
       return (
         <Flex direction="column" height="100vh">
-          <Flex
+             {/* ... (Kept existing header code) ... */}
+           <Flex
             justify="between"
             align="center"
             direction="row"
@@ -308,7 +399,7 @@ export default function GgpickleballAdminClients() {
           </Flex>
         </Flex>
       );
-    }
+  }
 
   return (
     <Flex direction="column" minHeight="100vh">
@@ -347,9 +438,7 @@ export default function GgpickleballAdminClients() {
       </Flex>
       <Flex direction={'column'} width={'100vw'}>
         <Flex direction={'row'} height={'100%'}>
-          {!isMobile && (
-            <GGAdminSidebar />
-          )}
+          {!isMobile && <AdminSidebar adminPermission={adminPermission} />}
 
             {/* Main Content Area */}
             <Flex direction={'column'} py={'4'} px={{initial: '2', md: '6'}} width={'100%'} overflow={'auto'}>
@@ -363,6 +452,7 @@ export default function GgpickleballAdminClients() {
               ) : fetchError ? (
                 <Callout.Root color="red"><Callout.Icon><InfoCircledIcon /></Callout.Icon><Callout.Text>{fetchError}</Callout.Text></Callout.Root>
               ) : (
+                <>
                 <Flex direction="column" gap="3">
                   {clients.length > 0 ? clients.map(client => (
                     <Card key={client._id.toString()}>
@@ -370,23 +460,78 @@ export default function GgpickleballAdminClients() {
                         <Avatar radius="full" size="3" src={client.icon || undefined} fallback={client.name.charAt(0).toUpperCase()}/>
                         <Box flexGrow={'1'}>
                           <Text as="div" weight="bold">{client.name}</Text>
+                          {client.needsRetroactiveSweep && (
+                            <Badge color="amber" variant="solid" size="1">
+                                <ExclamationTriangleIcon /> Sweep Needed
+                            </Badge>
+                            )}
                           <Text as="div" size="2" color="gray">ID: {client._id.toString()}</Text>
                         </Box>
-                        <Button variant="soft" onClick={() => handleOpenEditDialog(client)}><Pencil2Icon /> Edit</Button>
+                        
+                        {/* --- UPDATED: Actions Dropdown --- */}
+                        <DropdownMenu.Root>
+                          <DropdownMenu.Trigger>
+                            <Button variant="soft" color="gray">
+                              <DotsHorizontalIcon /> Actions
+                            </Button>
+                          </DropdownMenu.Trigger>
+                          <DropdownMenu.Content>
+                            
+                          <DropdownMenu.Item onClick={() => handleOpenEditDialog(client as IClient)}>
+                            <GearIcon /> Edit Configuration
+                          </DropdownMenu.Item>
+                            
+                            <DropdownMenu.Separator />
+                            
+                            <DropdownMenu.Item 
+                              color="blue"
+                              onClick={() => router.push(`/admin/client/${client._id.toString()}/retroactive`)}
+                            >
+                              <MagicWandIcon /> Retroactive Sweep
+                            </DropdownMenu.Item>
+
+                            {/* Action to Dismiss Warning */}
+                            {client.needsRetroactiveSweep && (
+                              <DropdownMenu.Item 
+                                color="gray"
+                                onClick={() => handleToggleSweepFlag(client, false)}
+                              >
+                                <CheckCircledIcon /> Mark as Complete (Ignore)
+                              </DropdownMenu.Item>
+                            )}
+
+                             {/* Action to Manually Flag (Debugging or Re-run) */}
+                            {!client.needsRetroactiveSweep && (
+                              <DropdownMenu.Item 
+                                onClick={() => handleToggleSweepFlag(client, true)}
+                              >
+                                Flag for Sweep
+                              </DropdownMenu.Item>
+                            )}
+
+
+                          </DropdownMenu.Content>
+                        </DropdownMenu.Root>
+
                       </Flex>
                     </Card>
                   )) : (
                     <Text color="gray">No clients found. Create one to get started.</Text>
                   )}
                 </Flex>
+
+                {/* Manage Webhooks */}
+                <ManageWebhooks />
+                </>
               )}
             </Flex>
           </Flex>
       </Flex>
 
-      {/* Create/Edit Client Dialog */}
+      {/* ... [Keep your Dialog logic exactly as is] ... */}
       <Dialog.Root open={isFormOpen} onOpenChange={setIsFormOpen}>
         <Dialog.Content maxWidth="550px">
+           {/* ... existing form content ... */}
           <Dialog.Title>{selectedClientForEdit ? 'Edit Client' : 'Create New Client'}</Dialog.Title>
           <Dialog.Description size="2" mb="4">
             {selectedClientForEdit ? `Editing details for ${selectedClientForEdit.name}.` : 'Fill in the details for the new client location.'}
@@ -411,13 +556,61 @@ export default function GgpickleballAdminClients() {
                 <Text as="div" size="2" mb="1" weight="bold">Icon URL</Text>
                 <TextField.Root  name="icon" value={formData.icon || ''} onChange={handleInputChange} />
               </label>
+
+              <Box p="3" style={{ border: '1px solid var(--gray-a5)', borderRadius: 'var(--radius-3)' }}>
+                <Heading size="3" mb="3">Reward Card Design</Heading>
+                
+                <Flex gap="5" direction={{ initial: 'column', sm: 'row' }}>
+                  
+                  {/* Left: Controls */}
+                  <Flex direction="column" gap="3" flexGrow="1">
+                    <label>
+                      <Text as="div" size="2" mb="1" weight="bold">Background Image URL</Text>
+                      <TextField.Root 
+                        name="cardBackgroundImage" 
+                        value={formData.cardBackgroundImage || ''} 
+                        onChange={handleInputChange} 
+                        placeholder="https://..."
+                      />
+                    </label>
+                    
+                    <label>
+                      <Text as="div" size="2" mb="1" weight="bold">Text Color</Text>
+                      <Select.Root 
+                        name="cardTextColor" 
+                        value={formData.cardTextColor || '#ffffff'} 
+                        // No mapping needed here anymore
+                        onValueChange={(val) => setFormData(prev => ({ ...prev, cardTextColor: val }))}
+                      >
+                        <Select.Trigger />
+                        <Select.Content>
+                          {/* Pass the actual CSS values */}
+                          <Select.Item value="#ffffff">White (Dark Backgrounds)</Select.Item>
+                          <Select.Item value="#000000">Black (Light Backgrounds)</Select.Item>
+                        </Select.Content>
+                      </Select.Root>
+                    </label>
+                  </Flex>
+
+                  {/* Right: Live Preview */}
+                  <Flex direction="column" align="center" gap="2">
+                    <Text size="1" weight="bold" color="gray">LIVE PREVIEW</Text>
+                    <RewardCardPreview 
+                      backgroundImage={formData.cardBackgroundImage}
+                      textColor={formData.cardTextColor}
+                      clientName={formData.name || "Client Name"}
+                    />
+                  </Flex>
+
+                </Flex>
+              </Box>
               
               <Box>
                 <Text as="div" size="2" mb="2" weight="bold">
                   Reward Products
                 </Text>
                 <Flex direction="column" gap="2">
-                  {PRODUCT_NAMES.map(productName => (
+                  {REWARD_PRODUCT_NAMES.map(productName => (
                     <Text as="label" size="2" key={productName}>
                       <Flex gap="2" align="center">
                         <Checkbox
@@ -461,7 +654,7 @@ export default function GgpickleballAdminClients() {
                 <Box p="3" style={{ border: '1px solid var(--gray-a5)', borderRadius: 'var(--radius-3)' }}>
                   <Heading size="3" mb="2">Shopify Config</Heading>
                   <Flex direction="column" gap="2">
-                    <label><Text as="div" size="2" mb="1" weight="bold">Shop Domain</Text><TextField.Root name="shopify.shopDomain" value={formData.shopify.shopDomain || ''} onChange={handleInputChange} placeholder="example.myshopify.com" /></label>
+                    <label><Text as="div" size="2" mb="1" weight="bold">Shop Domain</Text><TextField.Root name="shopify.shopDomain" value={formData.shopify.shopDomain || ''} onChange={handleInputChange} onBlur={handleShopDomainBlur} placeholder="example.myshopify.com" /></label>
                     <label><Text as="div" size="2" mb="1" weight="bold">Access Token</Text><TextField.Root name="shopify.accessToken" value={formData.shopify.accessToken || ''} onChange={handleInputChange} /></label>
                     <label><Text as="div" size="2" mb="1" weight="bold">Secret</Text><TextField.Root name="shopify.secret" value={formData.shopify.secret || ''} onChange={handleInputChange} /></label>
                   </Flex>

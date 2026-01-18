@@ -199,10 +199,10 @@ export default function PlayMenu({ user, isAuthorized, onUserUpdate, onInitiateD
                         {!isDuprConnected ? (
                     <Flex direction={'column'}>
                       <Text size={'5'} weight={'bold'}>Step 1</Text>
-                      <Text size={'3'} weight={'bold'}>Log in to DUPR</Text>
+                      <Text size={'3'} weight={'bold'}>Connect to DUPR</Text>
                       {/* This button now triggers the parent */}
                       <Dialog.Close>
-                        <Button onClick={onInitiateDuprLogin}>Login with DUPR</Button>
+                        <Button onClick={onInitiateDuprLogin}>Connect</Button>
                       </Dialog.Close>
                     </Flex>
                   ) : (

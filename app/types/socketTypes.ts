@@ -73,6 +73,7 @@ export interface ServerToClientEvents {
   }) => void;
   "room-expired": (data: { matchId: string }) => void;
   "match-save-successful": (data: {
+    matchDate: Date;
     team1Ids: string[];
     team2Ids: string[];
     winners: string[];
@@ -80,6 +81,7 @@ export interface ServerToClientEvents {
     newMatchId: string;
     team1Score: number;
     team2Score: number;
+    isHistorical: boolean;
   }) => void;
   "permission-granted-for-update": (data: AchievementUpdateData) => void;
 }

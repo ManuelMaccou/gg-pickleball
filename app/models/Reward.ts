@@ -17,7 +17,7 @@ export const RewardSchema = new Schema<IReward>(
     },
     product: {
       type: String,
-      enum: ['open play', 'reservations', 'guest reservations', 'classes and clinics', 'pro shop', 'custom'],
+      enum: ['open play', 'reservations', 'guest reservations', 'classes and clinics', 'pro shop', 'online store', 'in store', 'custom'],
     },
     productDescription: { type: String },
     discount: { type: Number },

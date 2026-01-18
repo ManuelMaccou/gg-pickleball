@@ -11,9 +11,12 @@ const RewardCodeSchema = new Schema<IRewardCode>({
   redeemed: { type: Boolean, default: false },
   redemptionDate: { type: Date },
   addedToPos: { type: Boolean },
+  dataSourceId: { type: Schema.Types.ObjectId, ref: 'DataSource' },
+  isGlobalReward: { type: Boolean, default: false },
 }, { timestamps: true });
 
 RewardCodeSchema.index({ code: 1 });
 RewardCodeSchema.index({ clientId: 1, 'reward.name': 1 });
+RewardCodeSchema.index({ userId: 1, isGlobalReward: 1 });
 
 export default mongoose.models.RewardCode || mongoose.model<IRewardCode>('RewardCode', RewardCodeSchema);

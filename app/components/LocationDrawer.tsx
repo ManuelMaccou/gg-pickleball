@@ -10,33 +10,29 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer"
-import { Box, Card, ChevronDownIcon, Flex, VisuallyHidden } from "@radix-ui/themes"
-import { IClient } from "../types/databaseTypes";
+import { Box, Card, ChevronDownIcon, Flex, Spinner, VisuallyHidden } from "@radix-ui/themes"
 import Image from "next/image";
+import { SelectableItem } from "../types/frontendTypes";
 
 interface LocationDrawerProps {
-  allClients: IClient[];
-  currentClient: IClient;
-  onLocationChange: (client: IClient) => void;
+  allSelectableItems: SelectableItem[];
+  currentItem: SelectableItem | null; // Can be null during initial load
+  onItemChange: (item: SelectableItem) => void;
 }
 
-const EXCLUDED_CLIENT_NAME = "Test Client";
+export default function LocationDrawer({ allSelectableItems, currentItem, onItemChange }: LocationDrawerProps) {
 
-export default function LocationDrawer({ allClients, currentClient, onLocationChange }: LocationDrawerProps) {
+  const handleSelectItem = (item: SelectableItem) => {
+    document.cookie = `lastLocation=${item._id}; path=/; max-age=${60 * 60 * 24 * 30}`;
+    onItemChange(item);
+  };
 
-  const handleSelectLocation = async(client: IClient) => {
-    document.cookie = `lastLocation=${client._id.toString()}; path=/; max-age=${60 * 60 * 24 * 30}`;
-    onLocationChange(client);
+  console.log('LocationDrawer received currentItem:', currentItem);
+
+  // Handle loading state gracefully
+  if (!currentItem) {
+    return <Spinner/>;
   }
-
-  const filteredClients = allClients.filter((client: IClient) =>
-    client.name !== EXCLUDED_CLIENT_NAME &&
-    client.active &&
-    Array.isArray(client.achievements) &&
-    client.achievements.length > 0 &&
-    client.rewardsPerAchievement &&
-    Object.keys(client.rewardsPerAchievement).length > 0
-  );
 
 
   return (
@@ -45,14 +41,14 @@ export default function LocationDrawer({ allClients, currentClient, onLocationCh
         <Flex direction={'row'} justify={'center'} align={'center'} gap={'6'} mx={'4'}>
           <Box position={'relative'} height={'70px'} width={'200px'}>
             <Image
-              src={currentClient.logo} 
-              alt={currentClient.name || "Location logo"}
+              src={currentItem.displayIcon} 
+              alt={currentItem.name || "Location logo"}
               fill
               priority
               style={{objectFit: 'contain'}}
             />
           </Box>
-          {filteredClients.length > 1 && (
+          {allSelectableItems.length > 1 && (
             <ChevronDownIcon width={'20px'} height={'20px'}/>
           )}
           
@@ -68,14 +64,16 @@ export default function LocationDrawer({ allClients, currentClient, onLocationCh
           </DrawerHeader>
 
           <Flex direction="column" gap="4" mt={'5'} style={{marginTop: '30px'}}>
-            {filteredClients.map((client: IClient) => (
-              <DrawerClose asChild key={client._id.toString()}>
-                <Card onClick={() => handleSelectLocation(client)}>
+            {allSelectableItems.map((item: SelectableItem) => (
+              <DrawerClose asChild key={item._id}>
+                {/* 3. UPDATE ONCLICK HANDLER */}
+                <Card onClick={() => handleSelectItem(item)}>
                   <Flex direction={'column'} align="center" style={{marginBottom: '30px'}}>
                     <Box position={'relative'} height={'70px'} width={'200px'}>
+                      {/* 4. UPDATE IMAGE SOURCE IN THE LIST */}
                       <Image
-                        src={client.logo}
-                        alt={`${client.name} logo`}
+                        src={item.displayIcon}
+                        alt={`${item.name} logo`}
                         fill
                         style={{objectFit: 'contain'}}
                       />

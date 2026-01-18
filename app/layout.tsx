@@ -8,12 +8,12 @@ import { UserProvider } from "./contexts/UserContext";
 import { CookieWarning } from "./components/CookieWarning";
 
 export const metadata: Metadata = {
-  title: "GG Pickleball",
-  description: "LA pickleball league",
+  title: "GG Pickleball: Your Game, Rewarded.",
+  description: "Turn every match into exclusive gear, discounts, and perks. The ultimate ecosystem for players, brands, and clubs.",
 };
 
 export const viewport: Viewport = {
-  themeColor: 'white',
+  themeColor: '#0f0f0f',
 }
 
 export default async function RootLayout({
@@ -33,6 +33,7 @@ export default async function RootLayout({
             </div>
           </UserProvider>
         </Theme>
+        <div id="modal-root" />
       </body>
     </html>
   );

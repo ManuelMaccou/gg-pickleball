@@ -43,7 +43,7 @@ export default function GgPickleballAdminAchievements() {
   useEffect(() => {
     const getAllAchievementCategories = async () => {
       try {
-        const response = await fetch('/api/achievement-category');
+        const response = await fetch('/api/achievement-category?scope=local');
         const data = await response.json();
 
         if (!response.ok) {
@@ -264,7 +264,7 @@ export default function GgPickleballAdminAchievements() {
       const removedRewardIds: string[] = patchData.removedRewardIds ?? [];
 
       for (const name of removedAchievements) {
-       const rewardId = client.rewardsPerAchievement && client.rewardsPerAchievement[name];
+       const rewardId = client.rewardsPerAchievement && client.rewardsPerAchievement.get(name);
         if (rewardId) {
           removedRewardIds.push(rewardId.toString());
         }
@@ -393,7 +393,7 @@ export default function GgPickleballAdminAchievements() {
             <Spinner size={'3'} style={{color: 'black'}} />
           </Flex>
           ) : (
-          <Flex direction={'row'} height={"calc(200vh - 190px)"}>
+          <Flex direction={'row'} height={"calc(100vh - 190px)"}>
             
             {/* Left sidebar nav */}
             {!isMobile && (

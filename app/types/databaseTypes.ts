@@ -1,6 +1,6 @@
 import { Types, Document } from 'mongoose';
 
-export const REWARD_PRODUCT_NAMES = ["open play", "reservations", "guest reservations", "classes and clinics", "pro shop", "custom"] as const;
+export const REWARD_PRODUCT_NAMES = ["open play", "reservations", "guest reservations", "classes and clinics", "pro shop", "online store", "in store", "custom"] as const;
 export type RewardProductName = typeof REWARD_PRODUCT_NAMES[number];
 
 export const REWARD_CATEGORY_NAMES = ["retail", "programming", "custom"] as const;
@@ -19,6 +19,7 @@ export interface AchievementData {
   name: string;
   earnedAt: Date;
   count?: number;
+  triggeringEvent?: string;
 }
 
 export interface RewardData {
@@ -27,6 +28,8 @@ export interface RewardData {
   redeemed: boolean;
   redemptionDate?: Date;
   rewardCodeId?: Types.ObjectId;
+  sponsoringClientId?: Types.ObjectId;
+  triggeringEvent?: string;
 }
 
 export interface ClientStats {
@@ -42,7 +45,6 @@ export interface ClientStats {
 }
 
 export interface IDupr {
-  duprId: string;
   id: string;
   email: string;
   activated: boolean;
@@ -72,6 +74,11 @@ export type ResolvedUser = {
 
 export interface IMatch extends Document {
   _id: Types.ObjectId;
+  dataSourceId: Types.ObjectId;
+  duprMatchId?: number;
+  duprGameNumber?: number;
+  processedUsers?: Types.ObjectId;
+  matchDate: Date;
   matchId?: number;
   team1: {
     players: Types.ObjectId[]; 
@@ -82,8 +89,16 @@ export interface IMatch extends Document {
     score: number;
   };
   winners: Types.ObjectId[];
-  location: Types.ObjectId;
+  location?: Types.ObjectId;
   logToDupr: boolean;
+}
+
+export interface ISkippedDuprEntry extends Document {
+  duprMatchId: string;
+  duprId: string;
+  playerName: String;
+  reason: String;
+  importJobId: Types.ObjectId;
 }
 
 export type SerializedAchievement = {
@@ -99,6 +114,7 @@ export interface IAchievement extends Document {
   index: number;
   categoryId: Types.ObjectId;
   friendlyName: string;
+  task: string;
   name: string;
   badge: string;
 }
@@ -108,6 +124,7 @@ export interface IAchievementCategory extends Document {
   name: string;
   description: string;
   milestones?: string[];
+  scope?: "local" | "global"
 }
 
 
@@ -148,29 +165,39 @@ export interface DuprData {
 export interface IClient extends Document {
   _id: Types.ObjectId;
   active?: boolean;
+  locationType?: boolean;
   dupr?: DuprData;
   name: string;
   latitude: number;
   longitude: number;
   logo: string;
+  cardBackgroundImage?: string;
+  cardTextColor: string;
   rewardProducts: string[];
   admin_logo: string;
   bannerColor: string;
   icon: string;
   altAchievements?: Types.ObjectId[];
-  altRewardsPerAchievement?: {
-    [achievementId: string]: IReward;
-  };
+  altRewardsPerAchievement?: Map<string, Types.ObjectId | IReward>;
+
+  // altRewardsPerAchievement?: {
+    // [achievementId: string]: IReward;
+  // };
+
   achievements?: Types.ObjectId[];
-  rewardsPerAchievement?: {
-    [achievementId: string]: IReward;
-  };
+  rewardsPerAchievement?: Map<string, Types.ObjectId | IReward>;
+
+  // rewardsPerAchievement?: {
+    // [achievementId: string]: IReward;
+  // };
+  
   retailSoftware: "shopify" | "playbypoint" | undefined;
   reservationSoftware: "playbypoint" | "podplay" | "courtreserve" | undefined;
   rewardConfigStatus?: "pending" | "active";
   shopify?: ShopifyData;
   playbypoint?: PlayByPointData;
   podplay?: PodplayData;
+  needsRetroactiveSweep: boolean;
 }
 
 export interface IAdmin extends Document {
@@ -193,4 +220,49 @@ export interface IRewardCode {
   redemptionDate?: Date;
   addedToPos?: boolean;
   createdAt: Date;
+  dataSourceId?: Types.ObjectId;
+  isGlobalReward: boolean;
+}
+
+export interface IGGRConfigSponsorship {
+  sponsoringClientId: Types.ObjectId;
+  rewardId: Types.ObjectId;
+}
+
+export interface IGGRConfig {
+  _id: Types.ObjectId;
+  globalRewardConfig: Map<string, IGGRConfigSponsorship[]>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IDataSourceCredentials {
+  apiKey?: string;
+  apiSecret?: string;
+}
+
+export interface IDataSource {
+  _id: Types.ObjectId;
+  name: string;
+  type: 'dupr' | 'silly_pickles' | 'swish'; 
+  logo: string;
+  icon: string;
+  credentials?: IDataSourceCredentials;
+  active: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ISourceRewardSponsorship {
+  sponsoringClientId: Types.ObjectId;
+  rewardId: Types.ObjectId;
+}
+
+export interface ISourceRewardConfig {
+  _id: Types.ObjectId;
+  dataSourceId: Types.ObjectId;
+  achievementName: string; // e.g., "5-dupr-matches-won"
+  sponsorships: ISourceRewardSponsorship[];
+  createdAt: Date;
+  updatedAt: Date;
 }

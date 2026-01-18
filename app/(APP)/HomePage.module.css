@@ -1,0 +1,69 @@
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.fadeIn {
+  animation: fadeIn 0.8s ease-out forwards;
+}
+
+.slideUp {
+  animation: slideUp 0.8s ease-out forwards;
+}
+
+/* Hero Section */
+.heroBackground {
+  position: absolute;
+  inset: 0;
+  background-image: url('/hero_background.jpg');
+  background-size: 70% auto;
+  background-repeat: no-repeat;
+  background-position: right center;
+  background-attachment: fixed; /* Parallax-like effect */
+  transform: scale(1.05);
+}
+
+.heroGradientOverlay {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(
+    to right, 
+    rgba(0, 0, 0) 30%, 
+    rgba(0, 0, 0, 0.85) 50%, 
+    transparent 80%
+  );
+}
+
+.heroTextGradient {
+  color: transparent;
+  background-clip: text;
+  -webkit-background-clip: text;
+  background-image: linear-gradient(to right, var(--lime-9), var(--teal-8));
+}
+
+.benefitCard {
+  transition: all 0.2s ease-in-out;
+  border: 1px solid var(--gray-a3);
+}
+.benefitCard:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-4);
+  background-color: var(--color-panel-solid); /* This is the theme-aware way to say 'white' or the elevated panel color */
+}
+
+/* Social Proof Section */
+.socialProofLogos {
+  opacity: 0.6;
+  filter: grayscale(1);
+  transition: all 500ms;
+}
+
+.socialProofLogos:hover {
+  opacity: 1;
+  filter: grayscale(0);
+}

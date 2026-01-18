@@ -1,11 +1,11 @@
 export interface CsvRowData {
+  match_date: string;
   team1_player1_name: string; team1_player1_email: string;
   team1_player2_name: string; team1_player2_email: string;
   team2_player1_name: string; team2_player1_email: string;
   team2_player2_name: string; team2_player2_email: string;
   team1_score: string;
   team2_score: string;
-  winner_team: 'team1' | 'team2';
 }
 
 export interface BulkUploadPayload {
@@ -21,7 +21,7 @@ export interface Job {
 
 export interface JobResult {
   row: number;
-  status: 'success' | 'user_error' | 'server_error';
+  status: 'success' | 'user_error' | 'server_error' | 'skipped';
   message: string;
   data: {
     players: string[];

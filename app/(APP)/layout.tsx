@@ -14,7 +14,7 @@ export default async function RootLayout({
 }>) {
   return (
     <Theme appearance="dark" accentColor="yellow">
-      <div style={{ background: 'linear-gradient(135deg,rgb(4, 19, 86),rgb(1, 107, 245))' }}>
+      <div style={{ background: '#0f0f0f' }}>
         {children}
       </div>
     </Theme>

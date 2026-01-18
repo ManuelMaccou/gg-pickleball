@@ -37,6 +37,8 @@ async function fetchMatchData({
   const res = await fetch(url.toString(), { signal });
   const data = await res.json();
 
+  console.log('found matches:', data.matches)
+
   if (!res.ok) throw new Error(data.error || "Failed to fetch matches");
   return { matches: data.matches, hasNextPage: data.hasNextPage };
 }
@@ -61,16 +63,15 @@ export default function MatchHistory({ userId, userName, locationId }: MatchHist
         cursor,
       });
 
-      const existing = new Set(matches.map((m) => m._id.toString()));
-      const deduped = newMatches.filter((m) => !existing.has(m._id.toString()));
+      console.log ('matches after the return:', newMatches)
 
-      setMatches((prev) => [...prev, ...deduped]);
+      setMatches((prevMatches) => [...prevMatches, ...newMatches]);
 
-      if (deduped.length > 0) {
-        const last = deduped[deduped.length - 1];
+      if (newMatches.length > 0) {
+        const lastMatch = newMatches[newMatches.length - 1];
         setCursor({
-          after: new Date(last.createdAt).toISOString(),
-          lastId: last._id.toString(),
+          after: new Date(lastMatch.matchDate).toISOString(),
+          lastId: lastMatch._id.toString(),
         });
       }
 
@@ -81,7 +82,11 @@ export default function MatchHistory({ userId, userName, locationId }: MatchHist
     } finally {
       setLoading(false);
     }
-  }, [userId, locationId, cursor, hasNextPage, loading, matches]);
+  }, [userId, locationId, cursor, hasNextPage, loading]);
+
+  useEffect (() => {
+    console.log('matches from useEffect:', matches)
+  }, [matches])
 
   useEffect(() => {
     if (!locationId) return;
@@ -108,7 +113,7 @@ export default function MatchHistory({ userId, userName, locationId }: MatchHist
         if (initialMatches.length > 0) {
           const last = initialMatches[initialMatches.length - 1];
           setCursor({
-            after: new Date(last.createdAt).toISOString(),
+            after: new Date(last.matchDate).toISOString(),
             lastId: last._id.toString(),
           });
         }
@@ -145,7 +150,7 @@ export default function MatchHistory({ userId, userName, locationId }: MatchHist
               let lastRenderedDate: string | null = null;
 
               return matches.map((match) => {
-                const matchDate = new Date(match.createdAt);
+                const matchDate = new Date(match.matchDate);
                 const matchDateString = matchDate.toLocaleDateString();
 
                 const showDate = matchDateString !== lastRenderedDate;
@@ -156,7 +161,9 @@ export default function MatchHistory({ userId, userName, locationId }: MatchHist
                 const opponentTeam = isTeam1 ? match.team2 : match.team1;
                 const didWin = match.winners.some((w) => w._id.toString() === userId);
 
+                const userPlayer = userTeam.players.find((p) => p._id.toString() === userId);
                 const partner = userTeam.players.find((p) => p._id.toString() !== userId);
+                const userPlayerName = userPlayer?.name ?? userName;
                 const partnerName = partner?.name ?? "[Partner]";
                 const oppNames = opponentTeam.players.map((p) => p.name);
 
@@ -174,7 +181,7 @@ export default function MatchHistory({ userId, userName, locationId }: MatchHist
                       <Table.Cell>
                         <Flex direction="row" align="center" gap="6">
                           <Flex direction="column">
-                            <Text>{userName}</Text>
+                            <Text>{userPlayerName}</Text>
                             <Text>{partnerName}</Text>
                           </Flex>
                           <Text>{userTeam.score}</Text>
@@ -193,7 +200,7 @@ export default function MatchHistory({ userId, userName, locationId }: MatchHist
 
                       <Table.Cell>
                         <Flex direction="column" justify="center" height="100%">
-                          <Text>{didWin ? "Won" : "Lost"}</Text>
+                          <Text>{didWin ? "Win" : "Loss"}</Text>
                         </Flex>
                       </Table.Cell>
                     </Table.Row>
@@ -207,7 +214,7 @@ export default function MatchHistory({ userId, userName, locationId }: MatchHist
       ) : (
         <Flex direction="column" align="center" justify="center">
           <Text align="center" mt="7">
-            Ready for your first match?
+            No matches recorded yet.
           </Text>
         </Flex>
       )}

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useUser as useAuth0User } from '@auth0/nextjs-auth0';
 import { useUserContext } from "@/app/contexts/UserContext";
 import { useRouter } from "next/navigation";
-import { Badge, Button, Callout, Card, Flex, Spinner, Table, Text } from "@radix-ui/themes";
+import { AlertDialog, Badge, Button, Callout, Card, Flex, Spinner, Table, Text } from "@radix-ui/themes";
 import { InfoCircledIcon } from "@radix-ui/react-icons"
 import * as Accordion from '@radix-ui/react-accordion';
 import Image from "next/image";
@@ -637,20 +637,43 @@ export default function GgpickleballAdmin() {
                                                 </Flex>
                                                 </Table.RowHeaderCell>
                                               <Table.Cell style={{alignContent: 'center'}}>{rewardCodeEntry.code ?? '—'}</Table.Cell>
-                                              <Table.Cell>
+                                              <Table.Cell style={{alignContent: 'center'}}>
                                                 {rewardCodeEntry.redeemed ? (
                                                   <Badge color="green">Redeemed</Badge>
                                                 ) : (
-                                                  <Button size={'1'}
-                                                    onClick={() => {
-                                                      if (rewardCodeEntry.code) {
-                                                        handleRedeem(rewardCodeEntry.code);
-                                                      }
-                                                    }}
-                                                    disabled={isCurrentButtonLoading}
-                                                  >
-                                                    {isCurrentButtonLoading ? <Spinner size="1"/> : 'Redeem'}
-                                                  </Button>
+                                                  <AlertDialog.Root>
+                                                    <AlertDialog.Trigger>
+                                                      <Button size={'1'}
+                                                      >
+                                                        Redeem
+                                                      </Button>
+                                                    </AlertDialog.Trigger>
+                                                    <AlertDialog.Content maxWidth="450px">
+                                                      <AlertDialog.Title>Please confirm</AlertDialog.Title>
+                                                      <AlertDialog.Description>
+                                                        Are you sure you want to redeem this reward?
+                                                      </AlertDialog.Description>
+                                                      <Flex gap="4" mt="4" justify="end">
+                                                        <AlertDialog.Cancel>
+                                                          <Button variant="soft" color="gray">
+                                                            Cancel
+                                                          </Button>
+                                                        </AlertDialog.Cancel>
+                                                        <AlertDialog.Action>
+                                                          <Button
+                                                            onClick={() => {
+                                                              if (rewardCodeEntry.code) {
+                                                                handleRedeem(rewardCodeEntry.code);
+                                                              }
+                                                            }}
+                                                            disabled={isCurrentButtonLoading}
+                                                          >
+                                                            {isCurrentButtonLoading ? <Spinner size="1"/> : 'Redeem'}
+                                                          </Button>
+                                                        </AlertDialog.Action>
+                                                      </Flex>
+                                                    </AlertDialog.Content>
+                                                  </AlertDialog.Root>
                                                 )}
                                               </Table.Cell>
                                               <Table.Cell>

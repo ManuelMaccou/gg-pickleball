@@ -1,524 +1,354 @@
 'use client'
 
-import { Box, Button, Callout, Flex, Spinner, Text } from "@radix-ui/themes";
+import { Box, Button, Flex, Spinner, Text, Select, Card, Heading, Badge } from "@radix-ui/themes";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import lightGgLogo from '../../../public/logos/gg_logo_white_transparent.png'
 import { useUser as useAuth0User } from '@auth0/nextjs-auth0';
 import { useUserContext } from '@/app/contexts/UserContext';
 import { useEffect, useMemo, useState } from 'react';
-import AchievementsGrid from '@/components/sections/AchievementsGrid';
-import { AchievementData, IClient } from '@/app/types/databaseTypes';
-import RewardsGrid from '@/components/sections/RewardsGrid';
-import LocationDrawer from '@/app/components/LocationDrawer';
-import { FrontendUser } from '@/app/types/frontendTypes';
-import { useIsMobile } from '@/app/hooks/useIsMobile';
+import { IClient, IDataSource } from '@/app/types/databaseTypes';
+import { FrontendUser, SelectableItem } from '@/app/types/frontendTypes';
 import { Types } from "mongoose";
 import MatchHistory from "@/components/sections/MatchHistory";
 import { HowToDialog } from "./components/HowToDialog";
 import PlayMenu from "@/app/components/PlayMenu";
-import { useGeolocation } from "@/app/hooks/useGeolocation";
-import { isClientSelectable } from "@/utils/isClientAccessible";
+import GlobalRewardsWallet from "@/components/sections/GlobalRewardsWallet";
+import { ReloadIcon, ChevronDownIcon, CaretSortIcon } from "@radix-ui/react-icons";
+import { checkNewRewards } from "@/app/actions/dupr-action";
+import { useIsMobile } from "@/app/hooks/useIsMobile";
+
+export type SelectableLocation = Omit<IClient, '_id'> & {
+  _id: Types.ObjectId | string;
+};
 
 export default function Play() {
 
-  const isMobile = useIsMobile();
   const router = useRouter();
+  const isMobile = useIsMobile();
   const { user: auth0User, isLoading: auth0IsLoading } = useAuth0User();
   const { user: contextUser } = useUserContext(); 
 
   const [allClients, setAllClients] = useState<IClient[]>([])
-  const [currentClient, setCurrentClient] = useState<IClient | null>(null)
+  const [allDataSources, setAllDataSources] = useState<IDataSource[]>([]);
+  const [selectedItem, setSelectedItem] = useState<SelectableItem | null>(null);
   const [dbUser, setDbUser] = useState<FrontendUser | null>(null)
-  const [achievementsVariant, setAchievementsVariant] = useState<'full' | 'preview'>('preview')
-  const [rewardsVariant, setRewardsVariant] = useState<'full' | 'preview'>('preview')
   const [showHowToDialog, setShowHowToDialog] = useState<boolean>(false)
   const [isFetchingDbUser, setIsFetchingDbUser] = useState(true);
-  const { isLoading: isGettingLocation, error: locationError } = useGeolocation();
   const [showDuprFrame, setShowDuprFrame] = useState(false);
+  const [isDuprSyncing, setIsDuprSyncing] = useState(false);
     
+  // --- AUTH STATUS LOGIC ---
   const authenticationStatus = useMemo(() => {
-    if (auth0IsLoading || isFetchingDbUser) {
-      return 'loading';
-    }
-    if (auth0User && dbUser) {
-      return 'authenticated';
-    }
-    if (contextUser?.isGuest && dbUser) {
-      return 'guest';
-    }
+    if (auth0IsLoading || isFetchingDbUser) return 'loading';
+    if (auth0User && dbUser) return 'authenticated';
+    if (contextUser?.isGuest && dbUser) return 'guest';
     return 'anonymous';
   }, [auth0IsLoading, isFetchingDbUser, auth0User, dbUser, contextUser]);
 
-  const clientId: string | undefined = currentClient?._id?.toString();
+  // --- DUPR CONFIG ---
   const duprClientId = process.env.NEXT_PUBLIC_DUPR_CLIENT_ID;
-
   const duprConfig = useMemo(() => {
-    // 1. Determine the base URL based on the environment
     const appEnv = process.env.NEXT_PUBLIC_APP_ENV;
-    const baseUrl = appEnv === 'production' 
-      ? 'https://dashboard.dupr.com' 
-      : 'https://uat.dupr.gg'; // Default to UAT for development or if env is not set
-
-    if (!duprClientId) {
-      return { loginUrl: '', origin: '' };
-    }
-
-    const encodedClientId = btoa(duprClientId);
-    
-    // 2. Return both the full login URL and the origin for the security check
-    return {
-      loginUrl: `${baseUrl}/login-external-app/${encodedClientId}`,
-      origin: baseUrl 
-    };
+    const baseUrl = appEnv === 'production' ? 'https://dashboard.dupr.com' : 'https://uat.dupr.gg';
+    if (!duprClientId) return { loginUrl: '', origin: '' };
+    return { loginUrl: `${baseUrl}/login-external-app/${btoa(duprClientId)}`, origin: baseUrl };
   }, [duprClientId]);
 
-    useEffect(() => {
-    // This effect listens for the message from the DUPR iframe
+  // --- DUPR LISTENER ---
+  useEffect(() => {
     const handleDuprMessage = async (event: MessageEvent) => {
-      // 3. Use the dynamic origin from our duprConfig object for the security check
-      if (event.origin !== duprConfig.origin) {
-        return; // Security: only accept messages from the correct DUPR environment
-      }
-
+      if (event.origin !== duprConfig.origin) return;
       const data = event.data;
       if (data && data.userToken && data.duprId) {
-        console.log("DUPR login successful, data received:", data);
-        
-        // Hide the iframe
         setShowDuprFrame(false);
-
-        // --- IMPORTANT ---
-        // Now, send this data to your backend to save it against the user's profile
         try {
           const response = await fetch("/api/user", {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               findBy: "userId",
-              userId: dbUser?._id, // Make sure you have the user's ID
-              dupr: {
-                id: data.duprId,
-                userToken: data.userToken,
-                refreshToken: data.refreshToken,
-                // Add any other fields you want to save
-              },
+              userId: dbUser?._id,
+              dupr: { id: data.duprId, userToken: data.userToken, refreshToken: data.refreshToken },
             }),
           });
-
           if (!response.ok) throw new Error("Failed to save DUPR info.");
-
           const updatedUser = await response.json();
-          setDbUser(updatedUser); // Update the local user state with the new info
-          
-        } catch (error) {
-          console.error("Error saving DUPR info:", error);
-          // Optionally show an error message to the user
-        }
+          setDbUser(updatedUser); 
+        } catch (error) { console.error("Error saving DUPR info:", error); }
       }
     };
-
-    if (duprConfig.origin) {
-      window.addEventListener('message', handleDuprMessage);
-    }
-
-    return () => {
-      if (duprConfig.origin) {
-        window.removeEventListener('message', handleDuprMessage);
-      }
-    };
-    // 4. Add duprConfig to the dependency array
+    if (duprConfig.origin) window.addEventListener('message', handleDuprMessage);
+    return () => { if (duprConfig.origin) window.removeEventListener('message', handleDuprMessage); };
   }, [dbUser, duprConfig]);
 
   const handleInitiateDuprLogin = () => {
-    // 5. Use the dynamic URL from our duprConfig object
-    if (!duprConfig.loginUrl) {
-      alert("DUPR integration is not configured correctly.");
-      return;
-    }
+    if (!duprConfig.loginUrl) { alert("DUPR integration is not configured."); return; }
     setShowDuprFrame(true);
   };
 
-  const handleUserUpdate = (updatedUser: FrontendUser | null) => {
-    setDbUser(updatedUser);
-  };
+  const handleUserUpdate = (updatedUser: FrontendUser | null) => setDbUser(updatedUser);
+  const clientId: string | undefined = selectedItem?.type === 'client' ? selectedItem._id : undefined;
 
-  const rawAchievements = clientId ? dbUser?.stats?.[clientId]?.achievements : [];
-
-  const achievementsRaw: AchievementData[] = Array.isArray(rawAchievements)
-    ? rawAchievements
-    : Object.values(rawAchievements ?? {});
-
-
-    const earnedAchievements = useMemo(() => {
-      const grouped = new Map<string, { count: number; lastEarned: Date }>();
-    
-      for (const entry of achievementsRaw) {
-        const entryDate = new Date(entry.earnedAt);
-    
-        if (!grouped.has(entry.name)) {
-          grouped.set(entry.name, { count: 1, lastEarned: entryDate });
-        } else {
-          const group = grouped.get(entry.name)!;
-          group.count += 1;
-          group.lastEarned = entryDate > group.lastEarned ? entryDate : group.lastEarned;
-        }
-      }
-    
-      return Array.from(grouped.entries()).map(([name, { count, lastEarned }]) => ({
-        name,
-        earnedAt: lastEarned,
-        achievementId: new Types.ObjectId(),
-        count,
-      }));
-    }, [achievementsRaw]);
-    
-    
+  // --- INITIAL DATA FETCH ---
   useEffect(() => {
-    const hasSeenLocally = localStorage.getItem('howto') === 'seen';
-    const hasSeenViaStats = dbUser?.stats && Object.keys(dbUser.stats).length > 0;
-
-    if (!hasSeenLocally && !hasSeenViaStats) {
-      setShowHowToDialog(true);
-    }
-  }, [dbUser]);
-
-  const handleAchievementsVariantChange = () => {
-    setAchievementsVariant((prev) => (prev === 'preview' ? 'full' : 'preview'))
-  }
-
-  const handleRewardsVariantChange = () => {
-    setRewardsVariant((prev) => (prev === 'preview' ? 'full' : 'preview'))
-  }
-
-  // Fetch all clients
-  useEffect(() => {
-    const fetchClients = async () => {
+    const fetchInitialData = async () => {
       try {
-        const res = await fetch('/api/client')
-        if (!res.ok) {
-          throw new Error('Failed to fetch clients')
-        }
-        const data = await res.json()
-        
-        console.log('all clients:', data.clients)
-
-        setAllClients(data.clients || [])
-      } catch (error) {
-        console.error('Error fetching clients:', error)
-      }
-    }
-
-    fetchClients()
-  }, [])
-
-  // Set lastLocation cookie
-  useEffect(() => {
-    const validClients = allClients.filter(isClientSelectable);
-    
-    if (allClients.length === 0) return
-
-    const setClientFromCookie = async () => {
-      try {
-        if (allClients.length === 1) {
-          setCurrentClient(allClients[0])
-          return
-        }
-
-        const lastLocationCookie = document.cookie
-          .split('; ')
-          .find((row) => row.startsWith('lastLocation='))
-          ?.split('=')[1]
-
-        if (lastLocationCookie) {
-          const lastLocation = validClients.find((client) => client._id.toString() === lastLocationCookie);
-          
-          if (lastLocation) {
-            setCurrentClient(lastLocation);
-          } else {
-            setCurrentClient(validClients[0]);
-            document.cookie = `lastLocation=${validClients[0]._id}; path=/; max-age=${60 * 60 * 24 * 30}`;
-          }
-        } else {
-          setCurrentClient(validClients[0]);
-          document.cookie = `lastLocation=${validClients[0]._id}; path=/; max-age=${60 * 60 * 24 * 30}`;
-        }
-      } catch (error) {
-        console.error('Error setting client from cookie:', error);
-      }
+        const [clientsRes, dataSourcesRes] = await Promise.all([
+          fetch('/api/client'),
+          fetch('/api/data-source')
+        ]);
+        if (!clientsRes.ok) throw new Error('Failed to fetch clients');
+        const clientsData = await clientsRes.json();
+        const dataSourcesData = await dataSourcesRes.json().catch(() => ({ dataSources: [] }));
+        setAllClients(clientsData.clients || []);
+        setAllDataSources(dataSourcesData.dataSources || []);
+      } catch (error) { console.error('Error fetching initial page data:', error); }
     };
+    fetchInitialData();
+  }, []);
 
-    setClientFromCookie();
-  }, [allClients]);
+  // --- SELECTABLE ITEMS LOGIC ---
+  const selectableItems = useMemo(() => {
+    const isClientSelectable = (client: IClient) => 
+      client.active && Array.isArray(client.achievements) && client.achievements.length > 0 &&
+      client.rewardsPerAchievement && Object.keys(client.rewardsPerAchievement).length > 0;
 
-  // Fetch user details
+    const clientItems: SelectableItem[] = allClients.filter(isClientSelectable).map((client) => ({
+      _id: client._id.toString(), name: client.name, displayIcon: client.logo, type: 'client', originalData: client,
+    }));
+    const dataSourceItems: SelectableItem[] = allDataSources.filter(source => source.active).map((source) => ({
+      _id: source._id.toString(), name: source.name, displayIcon: source.icon, type: 'dataSource', originalData: source,
+    }));
+    return [...dataSourceItems, ...clientItems];
+  }, [allClients, allDataSources]);
+
+  // --- COOKIE LOGIC ---
+  useEffect(() => {
+    if (selectableItems.length === 0) return;
+    const setItemFromCookie = async () => {
+        if (selectableItems.length === 1) { setSelectedItem(selectableItems[0]); return; }
+        const lastLocationCookie = document.cookie.split('; ').find((row) => row.startsWith('lastLocation='))?.split('=')[1];
+        if (lastLocationCookie) {
+          const lastItem = selectableItems.find((item) => item._id === lastLocationCookie);
+          if (lastItem) { setSelectedItem(lastItem); } 
+          else { setSelectedItem(selectableItems[0]); document.cookie = `lastLocation=${selectableItems[0]._id}; path=/; max-age=${60 * 60 * 24 * 30}`; }
+        } else {
+          setSelectedItem(selectableItems[0]);
+          document.cookie = `lastLocation=${selectableItems[0]._id}; path=/; max-age=${60 * 60 * 24 * 30}`;
+        }
+    };
+    setItemFromCookie();
+  }, [selectableItems]);
+
+  // --- USER FETCH ---
   useEffect(() => {
     const fetchUser = async () => {
-      // Condition 1: We already have the correct authenticated user.
-      if (auth0User && dbUser && dbUser.auth0Id === auth0User.sub) {
-        setIsFetchingDbUser(false);
-        return;
-      }
-      // Condition 2: We already have the correct guest user.
-      if (contextUser?.isGuest && dbUser && dbUser.name === contextUser.name) {
-        setIsFetchingDbUser(false);
-        return;
-      }
-      // Condition 3: We're logged out and there's no guest. Nothing to fetch.
-      if (!auth0IsLoading && !auth0User && !contextUser) {
-        setIsFetchingDbUser(false);
-        setDbUser(null);
-        return;
-      }
+      if (auth0User && dbUser && dbUser.auth0Id === auth0User.sub) { setIsFetchingDbUser(false); return; }
+      if (contextUser?.isGuest && dbUser && dbUser.name === contextUser.name) { setIsFetchingDbUser(false); return; }
+      if (!auth0IsLoading && !auth0User && !contextUser) { setIsFetchingDbUser(false); setDbUser(null); return; }
       
       let query = '';
-      if (contextUser?.isGuest) {
-        query = `?name=${encodeURIComponent(contextUser.name)}`;
-      } else if (auth0User?.sub) {
-        query = `?auth0Id=${encodeURIComponent(auth0User.sub)}`;
-      }
-
+      if (contextUser?.isGuest) query = `?name=${encodeURIComponent(contextUser.name)}`;
+      else if (auth0User?.sub) query = `?auth0Id=${encodeURIComponent(auth0User.sub)}`;
       if (!query) return;
 
       try {
         setIsFetchingDbUser(true);
         const res = await fetch(`/api/user${query}`);
         const data = await res.json();
-        
-        if (res.ok) {
-          setDbUser(data.user);
-        } else {
-          console.error('Failed to fetch user:', data.error);
-          setDbUser(null);
-        }
-      } catch (err) {
-        console.error('Error fetching user:', err);
-      } finally {
-        setIsFetchingDbUser(false);
-      }
+        if (res.ok) setDbUser(data.user);
+        else setDbUser(null);
+      } catch (err) { console.error('Error fetching user:', err); } 
+      finally { setIsFetchingDbUser(false); }
     };
-  
     fetchUser();
   }, [contextUser, auth0User, auth0IsLoading, dbUser]);
 
-  const handleLogMatchClick = () => {
-    if (currentClient?._id) {
-      router.push(`/new?location=${currentClient._id}`);
-    } else {
-      console.error("Cannot log match: No location selected.");
+  // --- HOW TO DIALOG LOGIC ---
+  useEffect(() => {
+    const hasSeenLocally = localStorage.getItem('howto') === 'seen';
+    const hasSeenViaStats = dbUser?.stats && Object.keys(dbUser.stats).length > 0;
+    if (!hasSeenLocally && !hasSeenViaStats) setShowHowToDialog(true);
+  }, [dbUser]);
+
+  // --- SYNC HANDLER ---
+  const handleSync = async () => {
+    if (!dbUser?.dupr?.id) return;
+    
+    setIsDuprSyncing(true);
+
+    try {
+      // Call the NEW route we just created
+      const response = await fetch('/api/dupr/player/match-history', {
+          method: 'POST'
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok) {
+        console.log(`Sync complete. Processed ${result.count} new matches.`);
+        // Optional: Refresh user data to show new stats/rewards immediately
+        // fetchUser(); 
+      } else {
+        console.error("Sync failed:", result.error);
+      }
+    } catch (e) {
+      console.error("Unexpected error during sync", e);
+    } finally {
+      setIsDuprSyncing(false);
     }
   };
 
-  
-  const userStatsForClient = clientId ? dbUser?.stats?.[clientId] : undefined;
-  if (userStatsForClient && !Array.isArray(userStatsForClient.rewards)) {
-    userStatsForClient.rewards = Object.values(userStatsForClient.rewards ?? {});
-  }
-
-  if (isMobile === null) {
-    return null;
-  }
-
-  if (!isMobile) {
-    return (
-      <Flex direction={'column'} minHeight={'100vh'} p={'4'} justify={'center'} gap={'7'}>
-        <Flex direction={'column'} position={'relative'} align={'center'} p={'7'}>
-          <Image
-            src={lightGgLogo}
-            alt="GG Pickleball logo"
-            priority
-            height={540}
-            width={960}
-            style={{
-              width: 'auto',
-              maxHeight: '170px',
-            }}
-          />
-        </Flex>
-
-        <Flex direction={'column'} justify={'center'} align={'center'}>
-          <Text size={'6'} align={'center'}>This app is optimized for mobile devices only.</Text>
-        </Flex>
-      </Flex>
-    )
-  }
+  // --- RENDER HELPERS ---
+  const handleItemChange = (value: string) => {
+    const newItem = selectableItems.find(item => item._id === value);
+    if (newItem) {
+      setSelectedItem(newItem);
+      document.cookie = `lastLocation=${newItem._id}; path=/; max-age=${60 * 60 * 24 * 30}`;
+    }
+  };
 
   return (
-
-    <Flex direction={'column'} minHeight={'100vh'} p={'4'} style={{paddingBottom: '150px'}}>
-      <Flex justify={"between"} align={'center'} direction={"row"} pt={"2"} pb={"5"} px={'2'}>
-        <Flex direction={'column'} position={'relative'} maxWidth={'80px'}>
-          <Image
-            src={lightGgLogo}
-            alt="GG Pickleball light logo"
-            priority
-            height={540}
-            width={960}
-          />
+    <Flex direction={'column'} minHeight={'100vh'} p={{ initial: '4', md: '6' }} style={{ paddingBottom: '150px' }}>
+      
+      {/* --- HEADER --- */}
+      <Flex 
+        justify={"between"} 
+        align={'center'} 
+        direction={"row"} 
+        pt={"2"} 
+        pb={"5"} 
+        px={'2'} 
+        style={{ width: '100%', maxWidth: '1000px', margin: '0 auto' }}
+      >
+        <Flex direction={'column'} position={'relative'} maxWidth={{ initial: '80px', md: '100px' }}>
+          <Image src={lightGgLogo} alt="GG Pickleball light logo" priority height={540} width={960} />
         </Flex>
 
         {authenticationStatus === 'loading' ? (
           <Spinner />
         ) : (
-          <Flex direction={'row'} justify={'center'} align={'center'}>
-            {/* Display username if authenticated or guest */}
-            {(authenticationStatus === 'authenticated' || authenticationStatus === 'guest') && dbUser && (
-              <Text size={'3'} weight={'bold'} align={'right'}>
-                {String(dbUser.name).split('@')[0]}
-                {authenticationStatus === 'guest' && ' (guest)'}
-              </Text>
-            )}
-
-            {/* Display login button ONLY if truly anonymous */}
+          <Flex direction={'row'} justify={'center'} align={'center'} gap="3">
+            {/* Show login if anonymous */}
             {authenticationStatus === 'anonymous' && (
-              <Button
-                size={'2'}
-                variant="outline"
-                mt={'1'}
-                onClick={() => router.push('/auth/login?returnTo=/play')}
-              >
+              <Button size={'2'} variant="outline" mt={'1'} onClick={() => router.push('/auth/login?returnTo=/play')}>
                 Log in
               </Button>
             )}
             
-            {/* The PlayMenu should only render when we have a confirmed user */}
+            {/* User Menu */}
             {(authenticationStatus === 'authenticated' || authenticationStatus === 'guest') && dbUser && (
-              <PlayMenu
-                user={dbUser}
-                isAuthorized={true}
-                onUserUpdate={handleUserUpdate}
-                onInitiateDuprLogin={handleInitiateDuprLogin}
-              />
+              <>
+                {!isMobile && (
+                  <Text size="2" weight="bold" color="gray" style={{marginRight: '8px'}}>
+                    {String(dbUser.name).split('@')[0]}
+                  </Text>
+                )}
+                <PlayMenu
+                  user={dbUser}
+                  isAuthorized={true}
+                  onUserUpdate={handleUserUpdate}
+                  onInitiateDuprLogin={handleInitiateDuprLogin}
+                />
+              </>
             )}
-
-            {showDuprFrame && (
-        <Flex
-          // Optional: style it as an overlay so it's clear to the user
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100vw',
-            height: '100vh',
-            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-            zIndex: 9999,
-            justifyContent: 'center',
-            alignItems: 'center',
-          }}
-        >
-          <div style={{width: '90%', maxWidth: '500px', height: '80%', backgroundColor: 'white', position: 'relative'}}>
-             
-             <iframe
-                src={duprConfig.loginUrl}
-                title="DUPR Login"
-                width="100%"
-                height="100%"
-                style={{ border: 'none' }}
-             ></iframe>
-          </div>
-        </Flex>
-      )}
           </Flex>
         )}
       </Flex>
       
-      <Flex direction={'column'}>
-        {/* How To Dialog */}
+      {/* --- MAIN CONTENT --- */}
+      <Flex 
+        direction={'column'} 
+        width="100%" 
+        style={{ maxWidth: '1000px', margin: '0 auto' }}
+      >
         <HowToDialog open={showHowToDialog} onOpenChange={setShowHowToDialog}/>
 
-        {/* Select location dropdown */}
-        {currentClient && (
-          <Flex direction="row" justify="center" align="center" gap="6" mx="4">
-            {allClients.filter(client =>
-              Array.isArray(client.achievements) && client.achievements.length > 0 &&
-              client.rewardsPerAchievement && Object.keys(client.rewardsPerAchievement).length > 0
-            ).length > 1 ? (
-              <LocationDrawer
-                allClients={allClients}
-                currentClient={currentClient}
-                onLocationChange={setCurrentClient}
-              />
-            ) : (
-              <Box position="relative" height="70px" width="200px">
-                <Image
-                  src={currentClient.logo}
-                  alt={currentClient.name || "Location logo"}
-                  fill
-                  style={{ objectFit: 'contain' }}
+        {/* DUPR IFRAME */}
+        {showDuprFrame && (
+          <Flex style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0, 0, 0, 0.7)', zIndex: 9999, justifyContent: 'center', alignItems: 'center' }}>
+            <div style={{width: '90%', maxWidth: '500px', height: '80%', backgroundColor: 'white', position: 'relative', borderRadius: '8px', overflow: 'hidden'}}>
+              <iframe src={duprConfig.loginUrl} title="DUPR Login" width="100%" height="100%" style={{ border: 'none' }}></iframe>
+            </div>
+          </Flex>
+        )}
+
+        {selectedItem && (
+          <Flex direction={'column'} mb={'5'} mt={'2'}>
+            <style>{`@keyframes spin { 100% { transform: rotate(360deg); } } .spin { animation: spin 1s linear infinite; }`}</style>
+
+            {/* --- ACTION BAR: Location Selector + Sync Button --- */}
+            <Flex 
+              direction={{ initial: 'column', xs: 'row' }} 
+              justify={'between'} 
+              align={{ initial: 'start', xs: 'center' }} 
+              mb="5" 
+              gap="3"
+            >
+              
+              {/* Context Switcher - If multiple items exist */}
+              {selectableItems.length > 1 ? (
+                <Select.Root value={selectedItem._id} onValueChange={handleItemChange}>
+                  <Select.Trigger variant="ghost" style={{ fontSize: 'var(--font-size-6)', fontWeight: 'bold', padding: 0, height: 'auto', gap: '8px' }}>
+                    <Flex align="center" gap="2">
+                      {selectedItem.name}
+                      <CaretSortIcon width="24" height="24" />
+                    </Flex>
+                  </Select.Trigger>
+                  <Select.Content>
+                    {selectableItems.map(item => (
+                      <Select.Item key={item._id} value={item._id}>{item.name}</Select.Item>
+                    ))}
+                  </Select.Content>
+                </Select.Root>
+              ) : (
+                <Heading size="6">{selectedItem.name}</Heading>
+              )}
+
+              {/* Sync Button */}
+              {dbUser && dbUser.dupr && dbUser.dupr.id && (
+                <Button 
+                  variant="soft" 
+                  color="gray"
+                  onClick={handleSync} 
+                  disabled={isDuprSyncing}
+                  style={{ cursor: isDuprSyncing ? 'not-allowed' : 'pointer' }}
+                >
+                  <ReloadIcon className={isDuprSyncing ? "spin" : ""} />
+                  {isDuprSyncing ? "Checking..." : "Refresh Rewards"}
+                </Button>
+              )}
+            </Flex>
+            
+            {/* --- REWARDS WALLET --- */}
+            {/* The child handles its own Grid/Stack layout */}
+            <GlobalRewardsWallet user={dbUser} dataSourceId={selectedItem._id} />
+          </Flex>
+        )}
+
+        {/* --- MATCH HISTORY SECTION --- */}
+        {contextUser && selectedItem && (
+          <Flex direction={'column'} mb={'5'} mt={'6'}>
+            <Heading size={'4'} mb="3" color="gray">Activity History</Heading>
+            
+            <Card 
+              size="2" 
+              style={{
+                padding: 0, // Reset padding so MatchHistory can control it
+                overflow: 'hidden'
+              }}
+            >
+              <Box p={{ initial: '2', md: '4' }}>
+                <MatchHistory
+                  userId={contextUser.id}
+                  userName={contextUser.name}
+                  locationId={selectedItem._id}
                 />
               </Box>
-            )}
+            </Card>
           </Flex>
         )}
-              
-        <Flex direction={'column'} mt={'7'}>
-          <Flex direction={'column'} mx={'9'} mb={'7'}>
-            <Button 
-              onClick={handleLogMatchClick}
-              loading={isGettingLocation}
-              disabled={isGettingLocation || !currentClient}
-              size={'3'} style={{width: '100%'}}
-            >
-              Log match
-            </Button>
-            {locationError && (
-              <Callout.Root color="red" mt="2">
-                <Callout.Text>{locationError.message}</Callout.Text>
-              </Callout.Root>
-            )}
-
-          </Flex>
-          <Flex direction={'row'} width={'100%'} justify={'between'} mb={'5'}>
-            <Text size={'6'} weight={'bold'}>Achievements</Text>
-            <Button size={'3'}  color={achievementsVariant === 'preview' ? 'green' : 'amber'}
-              variant='soft'
-              style={{width: "fit-content"}}
-              onClick={handleAchievementsVariantChange}
-            >
-               {achievementsVariant === 'preview' ? "View all" : "View less"}
-            </Button>
-          </Flex>
-
-          {/* Acheivements */}
-          {currentClient && (
-            <AchievementsGrid
-              clientId={currentClient._id.toString()}
-              earnedAchievements={earnedAchievements}
-              variant={achievementsVariant}
-              maxCount={achievementsVariant === 'preview' ? 3 : undefined}
-            />
-          )}
-          
-        </Flex>
-
-         {/* Rewards */}
-        <Flex direction={'row'} width={'100%'} justify={'between'} mb={'5'} mt={'9'}>
-          <Text size={'6'} weight={'bold'}>Rewards</Text>
-          <Button size={'3'} color={rewardsVariant === 'preview' ? 'green' : 'amber'}
-            variant='soft'
-            style={{width: "fit-content"}}
-            onClick={handleRewardsVariantChange}
-          >
-            {rewardsVariant === 'preview' ? "View all" : "View less"}
-          </Button>
-        </Flex>
-        {currentClient && (
-          <RewardsGrid
-            user={dbUser}
-            location={currentClient}
-            variant={rewardsVariant}
-            maxCount={rewardsVariant === 'preview' ? 3 : undefined}
-          />
-        )}
-
-        {/* Match history */}
-        {contextUser && currentClient && (
-          <Flex direction={'column'} mb={'5'} mt={'9'}>
-            <Text size={'6'} weight={'bold'}>Match history</Text>
-            <MatchHistory userId={contextUser.id} userName={contextUser.name} locationId={currentClient._id.toString()}/>
-          </Flex>
-        )}
-         
       </Flex>
     </Flex>
   )

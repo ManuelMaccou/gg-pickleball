@@ -10,4 +10,5 @@ export const achievementFunctionMetadata: Record<string, { repeatable: boolean }
   'winStreak': { repeatable: true },
   'winStreakBreaker': { repeatable: true },
   'pickle': { repeatable: true },
+  'duprWins': { repeatable: false },
 };

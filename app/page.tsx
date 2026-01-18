@@ -1,388 +1,191 @@
-import { Button, Card, Flex, Inset, Link, Strong, Text } from "@radix-ui/themes";
-import Image from "next/image";
-import darkGgLogo from "../public/logos/gg_logo_black_transparent.png"
-import lightGgLogo from "../public/logos/gg_logo_white_transparent.png"
-import calabasasPbLogo from "../public/partnerLogos/calabasaspb_logo.png"
-import hero1 from "../public/home/hero1.jpg"
-import { Copyright } from "lucide-react";
+'use client'; // Add this if you use React hooks for animations in the future
 
-export default function GGPickleball() {
+import Link from 'next/link';
+import { Container, Flex, Grid, Box, Heading, Text, Card, Badge, Button } from '@radix-ui/themes';
+import { BarChartIcon, CheckCircledIcon, MagicWandIcon, RocketIcon } from '@radix-ui/react-icons';
+import styles from './(APP)/HomePage.module.css';
+import React from 'react';
+import { PartnerLogos } from './components/PartnerLogos';
+import { Sparkles, Trophy } from 'lucide-react';
 
-  return (
-    <Flex direction={'column'} align={'center'} justify={'center'}>
-      {/* Header + Hero Container with background image */}
+const Benefit = ({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) => (
+  // Use a Radix Card as the base
+  <Card size="3" className={styles.benefitCard}>
+    {/* Use Flex for the layout and `gap` for spacing */}
+    <Flex gap="5" align="start">
+      {/* Icon Container */}
       <Flex
-        direction="column"
-        position="relative"
-        width="100vw"
-        maxHeight={'100vh'}
-        style={{ overflow: 'hidden'}}
+        align="center"
+        justify="center"
+        // Use style prop with theme variables for custom looks
+        style={{
+          flexShrink: 0,
+          width: 56,
+          height: 56,
+          borderRadius: 'var(--radius-3)',
+          backgroundColor: 'var(--lime-9)', // gg-green
+          color: 'var(--slate-12)', // gg-navy
+          boxShadow: 'var(--shadow-3)',
+        }}
       >
-        {/* Background image behind both Header and Hero */}
-        <Image
-          src={hero1}
-          alt="Pickleball background"
-          priority
-          fill
-          style={{
-            objectFit: 'cover',
-            objectPosition: 'top',
-          }}
-        />
-
-        {/* Header */}
-        <Flex
-          direction="column"
-          width="100vw"
-          maxWidth="1500px"
-          style={{
-            position: 'relative',
-            zIndex: 1,
-          }}
-        >
-          <Flex
-            direction="row"
-            justify="between"
-            px={{ initial: '4', md: '9' }}
-            pt="5"
-            pb="4"
-          >
-            <Flex
-              direction="column"
-              position="relative"
-              justify="center"
-              align="center"
-              display={{initial: "flex", md: "none"}}
-            >
-              <Image
-                src={lightGgLogo}
-                alt="GG Pickleball logo"
-                height={540}
-                width={960}
-                style={{
-                  width: 'auto',
-                  maxHeight: 'clamp(40px, 6vw, 60px)',
-                }}
-              />
-            </Flex>
-             <Flex
-              direction="column"
-              position="relative"
-              justify="center"
-              align="center"
-              display={{initial: "none", md: "flex"}}
-            >
-              <Image
-                src={darkGgLogo}
-                alt="GG Pickleball logo"
-                height={540}
-                width={960}
-                style={{
-                  width: 'auto',
-                  maxHeight: 'clamp(40px, 6vw, 60px)',
-                }}
-              />
-            </Flex>
-
-              <Flex direction="column" justify="center">
-                <Button
-                  asChild
-                  color="gray"
-                  highContrast
-                  radius="full"
-                  style={{ paddingLeft: '20px', paddingRight: '20px' }}
-                >
-                  <Link href="/play" style={{ textDecoration: 'none' }}>
-                    Go to app
-                  </Link>
-                </Button>
-              </Flex>
-            
-          </Flex>
-        </Flex>
-
-        {/* Hero */}
-        <Flex
-          direction="column"
-          height={{
-            initial: '400px',
-            sm: '400px',
-            md: '800px',
-            lg: '800px',
-          }}
-          width="100vw"
-          maxWidth="1500px"
-          style={{
-            position: 'relative',
-            zIndex: 1,
-            justifyContent: 'flex-end', // This moves children to bottom
-          }}
-        >
-          {/* Hero text container pinned to bottom */}
-          <Flex
-            direction="column"
-            align="center"
-            width="100vw"
-            maxWidth="1500px"
-            pb={{initial: '5', md: '0'}}
-            
-          >
-            <Text
-              weight="bold"
-              align="center"
-              style={{
-                color: 'white',
-                fontSize: 'clamp(3rem, 6vw, 80px)',
-                lineHeight: '1',
-                textShadow: '2px 2px 8px rgba(0, 0, 0, 0.6)',
-              }}
-            >
-              Celebrate your progress.
-            </Text>
-            <Text
-              weight="bold"
-              align="center"
-              style={{
-                color: 'white',
-                fontSize: 'clamp(3rem, 6vw, 80px)',
-                textShadow: '2px 2px 8px rgba(0, 0, 0, 0.6)',
-              }}
-            >
-              Earn rewards.
-            </Text>
-
-            <Flex
-              direction="column"
-              gap="5"
-              align="center"
-              width="100vw"
-              maxWidth="1500px"
-              display={{initial: 'none', md: 'flex'}}
-              style={{
-                backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                padding: '2rem 1rem',
-                marginTop: '2rem',
-              }}
-            >
-              <Text align={'center'} weight={'bold'} size={'7'} style={{color: 'white'}}>A new dimension of pickleball</Text>
-              <Text
-                align="center"
-                size="6"
-                style={{
-                  color: 'white',
-                  maxWidth: '800px',
-                }}
-              >
-                Win or lose, GG Pickleball allows you to be recognized for your achievements and be rewarded for them. 
-                Play to earn discounts on reservations, programming, and gear.
-              </Text>
-              <Flex direction={'row'} width={'100%'} justify={'center'} gap={'5'} mt={'4'}>
-                <Button
-                  asChild
-                  size="4"
-                  highContrast
-                  radius="full"
-                  mb={'8'}
-                  style={{width: '250px'}}
-                >
-                  <Link href="/play" style={{ textDecoration: 'none' }}>
-                    Go to app
-                  </Link>
-                </Button>
-              <Button
-                asChild
-                size="4"
-                highContrast
-                radius="full"
-                mb={'8'}
-                style={{ width: '250px', backgroundColor: 'white', color: '#1F2D5C' }}
-              >
-                <Link
-                  target="_blank"
-                  href="mailto:play@ggpickleball.co?subject=Partner%20Facility%20Inquiry"
-                  style={{ textDecoration: 'none' }}
-                >
-                  Work with us
-                </Link>
-              </Button>
-              </Flex>
-            </Flex>
-          </Flex>
-        </Flex>
-
+        {icon}
       </Flex>
-
-      {/* Help text */}
-      <Flex direction={'column'} gap={'5'} maxWidth={'800px'} align={'center'} justify={'center'} my={'7'} mx={'4'} display={{initial: 'flex', md: 'none'}}>
-        <Text align={'center'} weight={'bold'} size={'6'}>A new dimension of pickleball</Text>
-        <Text align={'center'} size={'4'} wrap={'pretty'}>
-          Win or lose, GG Pickleball allows you to be recognized for your achievements and be rewarded for them. 
-          Play to earn discounts on reservations, programming, and gear.
+      {/* Text Container */}
+      <Flex direction="column">
+        <Heading as="h3" size="4" weight="bold">
+          {title}
+        </Heading>
+        <Text as="p" color="gray" mt="2" style={{ lineHeight: 1.7 }}>
+          {description}
         </Text>
-        <Flex direction={'column'} width={'100%'} align={'center'} justify={'center'} gap={'4'} mx={'4'}>
-          <Button
-            asChild
-            size="4"
-            highContrast
-            variant="outline"
-            radius="full"
-            style={{ width: '70%', backgroundColor: '#1F2D5C', color: 'white' }}
-          >
-            <Link href="/play" style={{ textDecoration: 'none' }}>
-              Go to app
-            </Link>
-          </Button>
-
-          <Button
-            asChild
-            size="4"
-            highContrast
-            radius="full"
-            style={{width: '70%'}}
-          >
-            <Link
-              target="_blank"
-              href="mailto:play@ggpickleball.co?subject=Partner%20Facility%20Inquiry"
-              style={{ textDecoration: 'none', backgroundColor: 'white', borderColor: '#1F2D5C', borderStyle: 'solid', borderWidth: '1px', color: '#1F2D5C' }}
-            >
-              Work with us
-            </Link>
-          </Button>
-        </Flex>
       </Flex>
-
-      <Flex direction={'column'} width={{initial: '100vw', md: '80vw'}} mt={'7'} mb={'5'} maxWidth={'1500px'}>
-        <Flex direction={'row'} gap={'3'} justify={'between'} wrap={'nowrap'} 
-          style={{overflowX: 'auto'}}
-        >
-          <Flex direction={'column'} flexGrow={'1'} maxWidth={'33.3%'} minWidth={"300px"}>
-            <Card m={'4'} style={{boxShadow: "0 4px 16px rgba(0, 0, 0, 0.1)"}}>
-              <Flex direction={'column'} height={'80px'} flexGrow={'1'} align={'center'} justify={'center'}>
-                <Text as="p" size="5" my={'3'} weight={'bold'} align={'center'} style={{maxWidth: '200px'}}>
-                  Visit a partnering facility
-                </Text>
-              </Flex>
-              <Inset clip="padding-box" side="bottom" pt={'current'}>
-                <Image
-                  priority
-                  src={'/home/calabasaspb-facility.jpg'}
-                  alt="PowerPlay Pickleball"
-                  width={900}
-                  height={600}
-                  style={{
-                    display: "block",
-                    objectFit: "cover",
-                    width: "100%",
-                    height: 300,
-                  }}
-                />
-              </Inset>
-            </Card>
-          </Flex>
-
-          <Flex direction={'column'} flexGrow={'1'} maxWidth={'33.3%'} minWidth={"300px"}>
-            <Card m={'4'} style={{boxShadow: "0 4px 16px rgba(0, 0, 0, 0.1)"}}>
-              <Flex direction={'column'} height={'80px'} flexGrow={'1'} align={'center'} justify={'center'}>
-                <Text as="p" size="5" my={'3'} weight={'bold'} align={'center'} style={{maxWidth: '200px'}}>
-                  Log your score after each match
-                </Text>
-              </Flex>
-              <Inset clip="padding-box" side="bottom" pt={'current'}>
-                <Image
-                  src={'/home/pickleball-share.jpg'}
-                  alt="Pickleball players"
-                  width={900}
-                  height={600}
-                  style={{
-                    display: "block",
-                    objectFit: "cover",
-                    width: "100%",
-                    height: 300,
-                  }}
-                />
-              </Inset>
-            </Card>
-          </Flex>
-
-          <Flex direction={'column'} flexGrow={'1'} maxWidth={'33.3%'} minWidth={"300px"}>
-            <Card m={'4'} style={{boxShadow: "0 4px 16px rgba(0, 0, 0, 0.1)"}}>
-              <Flex direction={'column'} height={'80px'} flexGrow={'1'} align={'center'} justify={'center'}>
-                <Text as="p" size="5" my={'3'} weight={'bold'} align={'center'} style={{maxWidth: '250px'}}>
-                  Get discounts on reservations and gear
-                </Text>
-              </Flex>
-              <Inset clip="padding-box" side="bottom" pt={'current'}>
-                <Image
-                  src={'/home/celebrate.jpg'}
-                  alt="Pickleball players"
-                  width={800}
-                  height={533}
-                  style={{
-                    display: "block",
-                    objectFit: "cover",
-                    width: "100%",
-                    height: 300,
-                  }}
-                />
-              </Inset>
-            </Card>
-          </Flex>
-        </Flex>
-      </Flex>
-      
-      <Flex direction={'column'} py={'7'} width={{initial: '95vw', md: '80vw'}} mb={'7'} maxWidth={'1500px'} style={{backgroundColor: "#313538", borderRadius: '8px'}}>
-        <Flex direction={{initial: 'column-reverse', md: 'row'}} justify={'center'} align={'center'} gap={{initial: '2', md: '9'}}>
-          <Flex direction={'column'} gap={'5'}>
-            <Text size={'5'} align={{initial: 'center', md: 'left'}} style={{color: 'white'}}>Play at our partner facility to start earning rewards.</Text>
-            <Button size={'3'} radius="full" asChild mx={'9'}>
-              <Link target="_blank" href="https://maps.app.goo.gl/5SQ4izAPSspzDUi87">Get directions</Link>
-            </Button>
-          </Flex>
-          <Flex direction={'column'} position={'relative'} align={'center'}>
-            <Image
-              src={calabasasPbLogo}
-              alt="Calabasas Pickleball Club Logo"
-              height={594}
-              width={594}
-              style={{
-                width: '150px',
-                height: 'auto',
-              }}
-            />
-          </Flex>
-        </Flex>
-
-      </Flex>
-
-      <Flex direction={'column'} py={'7'} width={'100vw'} style={{backgroundColor: "black"}}>
-        <Flex direction={{initial: 'column', md: 'row'}} mx={{initial: '4', md: '9'}} justify={'between'} gap={{initial: '5', md: '9'}}>
-          <Flex direction={'column'} position={'relative'} justify={'center'} align={'center'}>
-            <Image
-              src={lightGgLogo}
-              alt="GG Pickleball logo"
-              height={540}
-              width={960}
-              style={{
-                width: 'auto',
-                maxHeight: '60px',
-              }}
-            />
-          </Flex>
-          <Flex direction={'column'}>
-            <Button variant="ghost" size={'3'} asChild style={{width: '300px', alignSelf: 'center', color: 'white'}}>
-              <Link target="_blank" href="mailto:play@ggpickleball.co?subject=Partner%20Facility%20Inquiry">Work with us</Link>
-            </Button>
-          </Flex>
-        </Flex>
-        <Flex direction={'column'} gap={'4'}>
-          <Flex direction={'row'} gap={'3'} flexGrow={'1'} justify={'center'} align={'center'} mt={'5'}>
-            <Copyright style={{color: 'white'}} />
-            <Text size={'2'} align={'center'} style={{color: 'white'}}>2025 <Strong>GG Pickleball</Strong> all rights reserved.</Text>
-          </Flex>
-          <Link size={'2'} target="_blank" href="https://www.instagram.com/ocmedia.pb/" style={{alignSelf: 'center', textDecoration: 'underline', color: 'white'}}>Main image by OC Media</Link>
-        </Flex>
-      </Flex>
-
     </Flex>
-  )
+  </Card>
+);
+
+// Sub-component: StepCard
+const StepCard = ({ num, title, description, icon }: { num: string; title: string; description: string; icon: React.ReactNode }) => (
+    <Flex direction="column" align="center" p="4" position="relative">
+      <Box mb="5" position="relative">
+        <Flex 
+          align="center" justify="center" 
+          style={{ width: 80, height: 80, borderRadius: '9999px', backgroundColor: 'var(--slate-12)', color: 'white', boxShadow: '0 10px 15px -3px var(--lime-a4)', border: '4px solid var(--lime-9)' }}
+        >
+          {icon}
+        </Flex>
+        <Flex 
+          align="center" justify="center"
+          position="absolute"
+          style={{ top: -10, right: -10, width: 32, height: 32, borderRadius: '9999px', backgroundColor: 'white', color: 'var(--slate-12)', border: '2px solid var(--slate-3)', boxShadow: 'var(--shadow-2)' }}
+        >
+            <Text weight="bold">{num}</Text>
+        </Flex>
+      </Box>
+      <Heading as="h4" size="4" weight="bold" mb="2">{title}</Heading>
+      <Text as="p" color="gray" align="center" style={{lineHeight: '1.7'}}>{description}</Text>
+    </Flex>
+);
+
+export default function HomePage() {
+  return (
+    <Box>
+      {/* Hero Section */}
+      <Box style={{ minHeight: '90vh', position: 'relative', overflow: 'hidden' }}>
+        <div className={styles.heroBackground}></div>
+        <div className={styles.heroGradientOverlay}></div>
+        
+        <Container size="4" style={{ position: 'relative', zIndex: 10 }}>
+          <Flex align="center" style={{ minHeight: '90vh' }} pt="9">
+            <Box style={{ maxWidth: '600px' }}>
+              <Badge color="lime" variant="soft" highContrast size="2" mb="6" radius='full' style={{borderStyle: 'solid', borderWidth: '1px', borderColor: '#b2ff00'}} className={styles.fadeIn}>
+                <Text size={'4'}>🚀</Text><Text style={{color: "#b2ff00"}}>The #1 Rewards Platform for Pickleball</Text> 
+              </Badge>
+              <Heading as="h1" weight="bold" mb="5" style={{color: '#FFFFFF', fontSize: '90px', lineHeight: '1'}}  className={styles.slideUp}>
+                Your Game, <br/>
+                <span className={styles.heroTextGradient}>Rewarded.</span>
+              </Heading>
+              <Text as="p" size="6" mb="7" className={styles.slideUp} style={{ color: '#FFFFFF', animationDelay: '0.2s', lineHeight: 1.6 }}>
+                Sign up for free and turn your passion for pickleball into exclusive offers from the best brands in the sport.
+              </Text>
+              <Flex gap="4" direction={{ initial: 'column', xs: 'row' }} className={styles.slideUp} style={{ animationDelay: '0.4s' }}>
+                <Button asChild size={'4'} radius='full' color='lime'>
+                  <Link href="/players">Start Earning</Link>
+                </Button>
+                <Button asChild size="4" radius="full" variant="outline" color="lime" style={{ color: '#FFFFFF' }}>
+                  <Link href="mailto:play@ggpickleball.co">Partner With Us</Link>
+                </Button>
+              </Flex>
+            </Box>
+          </Flex>
+        </Container>
+      </Box>
+
+      {/* Partner Logos */}
+      <Box py="9" style={{backgroundColor: '#FFFFFF'}}>
+        <Container size="4">
+          <Flex direction="column" align="center" gap="3" mb="8">
+            <Heading align="center" size="8" weight="bold">Rewards From Top Brands</Heading>
+          </Flex>
+          <PartnerLogos />
+          <Flex direction={'column'} align={'center'} mt={'6'}>
+            <Text align={'center'} size={'5'} weight={'bold'}>...and more</Text>
+          </Flex>
+        </Container>
+      </Box>
+      
+      {/* How It Works */}
+      <Box py="9" style={{ backgroundColor: 'var(--gray-3)' }}>
+        <Container size="4">
+          <Flex direction="column" align="center" gap="2" mb="9">
+            <Text color="lime" weight="bold" size="2" style={{ letterSpacing: '0.1em' }}>SIMPLE PROCESS</Text>
+            <Heading align="center" size="8" weight="bold">How It Works</Heading>
+          </Flex>
+          <Grid columns={{ initial: '1', sm: '2', md: '4' }} gap="6">
+            <StepCard num="1" title="Play Matches" description="Compete in any partnered league, club, or tournament event." icon={<Trophy width="32" height="32" />} />
+            <StepCard num="2" title="We Verify" description="Our system identifies your participation and achievements automatically." icon={<MagicWandIcon width="32" height="32" />} />
+            <StepCard num="3" title="Unlock Perks" description="Receive exclusive offers from top pickleball brands." icon={<RocketIcon width="32" height="32" />} />
+            <StepCard num="4" title="Level Up" description="Use your rewards to get the best gear and keep improving." icon={<BarChartIcon width="32" height="32" />} />
+          </Grid>
+        </Container>
+      </Box>
+
+      {/* Benefits Section */}
+      <Box py="9" style={{ backgroundColor: 'var(--gray-1)' }}>
+        <Container size="4">
+          <Flex direction="column" align="center" gap="3" mb="9" style={{ textAlign: 'center' }}>
+            <Heading as="h2" size="8" weight="bold">
+              Play Hard, Get Rewarded
+            </Heading>
+            <Text color="gray" size="5" style={{ maxWidth: '45rem' }}>
+              GG Pickleball is a celebration of your commitment to the game.
+            </Text>
+          </Flex>
+    
+          {/* Use the Radix Grid component */}
+          <Grid columns={{ initial: '1', md: '2' }} gap="6">
+            <Benefit 
+              icon={<RocketIcon width="28" height="28" />} 
+              title="Exclusive Offers" 
+              description="Get access to deals and discounts you won't find anywhere else, from paddles to apparel." 
+            />
+            <Benefit 
+              icon={<Sparkles width="28" height="28" />} 
+              title="Discover New Gear" 
+              description="Be the first to know about new products from emerging and established sporting goods brands." 
+            />
+            <Benefit 
+              icon={<BarChartIcon width="28" height="28" />} 
+              title="Track Your Progress" 
+              description="See a history of your rewards and connect them to your match performance over time." 
+            />
+            <Benefit 
+              icon={<CheckCircledIcon width="28" height="28" />} 
+              title="100% Free for Players" 
+              description="No fees, no subscriptions. Just pure rewards for playing the game you love." 
+            />
+          </Grid>
+        </Container>
+      </Box>
+
+      {/* Final CTA */}
+      <Box py="9">
+        <Container size="3">
+          <Card size="5" style={{ backgroundColor: 'var(--lime-9)' }}>
+            <Flex direction="column" align="center" gap="4" p={{ initial: '4', sm: '8' }}>
+              <Heading align="center" size="9" weight="bold" style={{ color: 'var(--slate-12)' }}>Ready to Join the Fun?</Heading>
+              <Text align="center" size="5" style={{ color: 'var(--slate-a11)', maxWidth: '40rem' }} mb="5">
+                Signing up is fast, free, and connects you to a world of exclusive pickleball perks.
+              </Text>
+              <Flex gap="4" direction={{ initial: 'column', xs: 'row' }} width="100%" justify="center">
+                {/* Here we use Radix Buttons directly for custom colors */}
+                <Button asChild size="4" radius="full" style={{ backgroundColor: 'var(--slate-12)', color: 'white' }} className={styles.ctaButton}>
+                    <Link href="/auth">Sign Up For Free</Link>
+                </Button>
+              </Flex>
+            </Flex>
+          </Card>
+        </Container>
+      </Box>
+    </Box>
+  );
 }

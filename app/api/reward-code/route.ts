@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { logError } from '@/lib/sentry/logger'
 import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser'
 import { IRewardCode } from '@/app/types/databaseTypes'
+import { createRewardCodeInDB } from '@/lib/rewards/createRewardCodeInDB'
+import { startSession } from 'mongoose'
 
 export async function GET(req: NextRequest) {
 
@@ -28,8 +30,15 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Missing userId or clientId' }, { status: 400 })
     }
 
-    const response = await RewardCode.find({ userId, clientId })
-    .populate('achievementId')
+    const response = await RewardCode.find({
+      userId,
+      clientId,
+      isGlobalReward: { $ne: true }
+    })
+    .populate({ 
+      path: 'achievementId',
+      model: 'Achievement',
+    })
 
     const codes = response.map(code => ({
       ...code.toObject(),
@@ -54,49 +63,37 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const session = await startSession();
+  session.startTransaction();
+
   try {
     await connectToDatabase();
 
     const body: Partial<IRewardCode> = await req.json();
 
-    if (!body.code || !body.clientId || !body.achievementId || !body.reward) {
-      logError(new Error("Missing required fields."), {
-        endpoint: 'POST /api/reward-code',
-        task: 'Creating a reward code.',
-        clientId: body.clientId ?? "null",
-        achievementId: body.achievementId ?? 'null',
-        reward: body.reward ?? 'null'
-      });
+    const savedRewardCode = await createRewardCodeInDB(body, {session});
 
-      return NextResponse.json(
-        { error: 'There was an error creating a reward. Pleas try again.' },
-        { status: 400 }
-      );
-    }
-
-    const newRewardCode = new RewardCode({
-      code: body.code,
-      userId: body.userId,
-      clientId: body.clientId,
-      achievementId: body.achievementId,
-      reward: body.reward,
-      redeemed: body.redeemed ?? false,
-      redemptionDate: body.redemptionDate ?? null,
-      addedToPos: body.addedToPos
-    });
-
-    const savedRewardCode = await newRewardCode.save();
+    await session.commitTransaction();
 
     return NextResponse.json(savedRewardCode, { status: 201 });
-  } catch (error) {
-    logError(new Error(`Internal server error: ${error}.`), {
-        endpoint: 'POST /api/reward-code',
-        task: 'Creating a reward code.',
-      });
+  } catch (error: unknown) {
+    await session.abortTransaction();
+
+    logError(error, {
+      endpoint: 'POST /api/reward-code',
+      task: 'Creating a reward code.',
+    });
+
+    // FIX: Safely check if the error is an Error object and inspect its message
+    if (error instanceof Error && error.message.includes('Missing required fields')) {
+       return NextResponse.json({ error: 'Missing required fields for reward code.' }, { status: 400 });
+    }
 
     return NextResponse.json(
       { error: 'An unexpected error happened. Please try again.' },
       { status: 500 }
     );
+  } finally {
+    await session.endSession();
   }
 }

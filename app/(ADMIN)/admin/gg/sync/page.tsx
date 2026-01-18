@@ -1,7 +1,7 @@
 'use client';
 
 import useSWR from 'swr';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useUserContext } from '@/app/contexts/UserContext';
 import { useUser as useAuth0User } from '@auth0/nextjs-auth0';
 import { useIsMobile } from '@/app/hooks/useIsMobile';
@@ -12,7 +12,8 @@ import darkGgLogo from '../../../../../public/logos/gg_logo_black_transparent.pn
 import { areObjectsDifferent } from '@/utils/objectDiff';
 import { BasePopulatedDoc } from '@/app/types/frontendTypes';
 import { DataComparisonCard } from '../../components/DataComparisonCard';
-import GGAdminSidebar from '../components/GGAdminSidebar';
+import { AdminSidebar } from '../../components/AdminSidebar';
+import { AdminPermissionType } from '@/app/types/databaseTypes';
 
 interface ClientForReview {
   _id: string;
@@ -45,6 +46,7 @@ export default function GgAdminClientSync() {
   const [updatingClientId, setUpdatingClientId] = useState<string | null>(null);
   const [copySuccess, setCopySuccess] = useState<Record<string, 'achievements' | 'rewardsPerAchievement' | null>>({});
   const [pushSuccess, setPushSuccess] = useState<Record<string, boolean>>({});
+  const [adminPermission, setAdminPermission] = useState<AdminPermissionType>(null);
 
 
   const handleCopyData = async (
@@ -144,6 +146,16 @@ export default function GgAdminClientSync() {
 
   const userName = user?.name;
 
+  useEffect(() => {
+    if (!user) return;
+
+    if (user.superAdmin) {
+      setAdminPermission('admin')
+    } else {
+      setAdminPermission('associate')
+    }
+  }, [user])
+
   if (user && !user.superAdmin) {
     return (
       <Flex direction="column" height="100vh">
@@ -223,9 +235,7 @@ export default function GgAdminClientSync() {
       </Flex>
       <Flex direction={'column'} width={'100vw'}>
         <Flex direction={'row'} height={'100%'}>
-          {!isMobile && (
-            <GGAdminSidebar />
-          )}
+          {!isMobile && <AdminSidebar adminPermission={adminPermission} />}
 
           {/* Admin Content Area */}
           <Flex direction="column" p={{ initial: '3', md: '8' }} width={'100vw'}>
