@@ -136,7 +136,9 @@ export async function POST(req: NextRequest) {
             team1Ids, team1Score,
             team2Ids, team2Score,
             winners,
-            matchDate
+            matchDate,
+            isGlobalContext: false,
+            processedUsers: null
           }, { session });
 
           await updateUserAndAchievements({

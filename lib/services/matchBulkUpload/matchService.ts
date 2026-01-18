@@ -17,7 +17,7 @@ interface MatchCreationData {
   isGlobalContext: boolean | undefined;
 }
 export async function createMatch(data: MatchCreationData & { 
-  processedUsers: string[], team1Names?: string[], team2Names?: string[] 
+  processedUsers: string[] | null, team1Names?: string[], team2Names?: string[] 
 }, dbOptions: RequiredDbOptions) {
   const cleanIds = (ids: (string | null)[]) => ids.filter(id => id && Types.ObjectId.isValid(id));
   
