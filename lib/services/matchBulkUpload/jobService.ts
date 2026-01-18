@@ -11,6 +11,11 @@ export const jobService = {
     return newJob._id.toString();
   },
 
+  async createWithInitialResults(results: JobResult[]): Promise<string> {
+    const newJob = await Job.create({ status: 'processing', results });
+    return newJob._id.toString();
+  },
+
   async addResult(jobId: string, result: JobResult): Promise<void> {
     await Job.updateOne({ _id: new Types.ObjectId(jobId) }, { $push: { results: result } });
   },

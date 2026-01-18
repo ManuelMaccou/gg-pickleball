@@ -2,6 +2,7 @@ import User from '@/app/models/User';
 import { Auth0User } from '@/app/types/auth0Types';
 import { generateUniqueUsername } from '@/utils/generateUniqueUsername';
 import { ManagementClient} from 'auth0';
+import { ClientSession } from 'mongoose';
 
 
 interface UserCreationResult {
@@ -9,6 +10,8 @@ interface UserCreationResult {
   user: { _id: string; name: string; auth0Id: string; };
   passwordResetLink?: string;
 }
+
+type RequiredDbOptions = { session: ClientSession };
 
 // Initialize Auth0 Management Client
 const auth0 = new ManagementClient({
@@ -35,6 +38,15 @@ async function getManagementApiToken(): Promise<string> {
   return data.access_token;
 }
 
+function toTitleCase(str: string): string {
+  if (!str) return '';
+  return str
+    .toLowerCase()
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
 /**
  * Finds a user by email, creating them in Auth0 and the local DB if necessary.
  * This function is designed to be resumable (idempotent).
@@ -43,18 +55,34 @@ async function getManagementApiToken(): Promise<string> {
  * @returns An object containing the user document and an optional password reset link if newly created.
  */
 
-export async function findOrCreateUserForUpload(name: string, email: string): Promise<UserCreationResult> {
+export async function findOrCreateUserForUpload(
+  name: string, 
+  email: string, 
+  duprId: string,
+  dbOptions: RequiredDbOptions
+): Promise<UserCreationResult> {
+
+  if (!name || !email) {
+    throw new Error('User name and email cannot be empty.');
+  }
+
+  const session = dbOptions.session;
+
+  const normalizedEmail = email.trim().toLowerCase();
+  const normalizedInputName = toTitleCase(name.trim());
+
   let auth0User: Auth0User | undefined;
-  let localUser = await User.findOne({ email });
   let needsPasswordReset = false;
 
+  let localUser = await User.findOne({
+    email: { $regex: new RegExp(`^${normalizedEmail}$`, 'i') }
+  }).session(session); 
+
   // --- Step 1: Check Auth0 by email ---
-  console.log(`[Step 1] Checking Auth0 for user with email: ${email}`);
   const token = await getManagementApiToken();
-  console.log('email:', email)
 
   const response = await fetch(
-    `https://${process.env.AUTH0_ISSUER_BASE_URL}/api/v2/users-by-email?email=${encodeURIComponent(email)}`,
+    `https://${process.env.AUTH0_ISSUER_BASE_URL}/api/v2/users-by-email?email=${encodeURIComponent(normalizedEmail)}`,
     {
       headers: {
         authorization: `Bearer ${token}`,
@@ -77,8 +105,8 @@ export async function findOrCreateUserForUpload(name: string, email: string): Pr
     
     const auth0NewUser = await auth0.users.create({
       connection: 'GG-Pickleball',
-      email: email,
-      // name: finalNameToUse,
+      email: normalizedEmail,
+      name: normalizedInputName,
       password: Math.random().toString(36).slice(-12),
       email_verified: true,
     });
@@ -87,7 +115,7 @@ export async function findOrCreateUserForUpload(name: string, email: string): Pr
 
     if (typeof auth0NewUser.user_id !== 'string') {
       console.error("Auth0 user creation response did not contain a valid user_id string.", auth0NewUser);
-      throw new Error(`Auth0 user creation failed for ${email}`);
+      throw new Error(`Auth0 user creation failed for ${normalizedEmail}`);
     }
 
     auth0User = auth0NewUser as Auth0User;
@@ -95,44 +123,45 @@ export async function findOrCreateUserForUpload(name: string, email: string): Pr
   }
 
   if (!auth0User?.user_id) {
-    throw new Error(`Failed to resolve a valid Auth0 user for email: ${email}`);
+    throw new Error(`Failed to resolve a valid Auth0 user for email: ${normalizedEmail}`);
   }
 
   const auth0Id = auth0User.user_id;
-  console.log(`Created new Auth0 user: ${auth0Id}`);
 
   // --- Step 2: Check Local DB by email ---
-  console.log(`[Step 2] Checking local DB for user with email: ${email}`);
   if (localUser) {
-    if (localUser.name.toLowerCase() !== name.toLowerCase()) {
+    const normalizedDbName = toTitleCase(localUser.name);
+    if (normalizedDbName !== normalizedInputName) {
       // This is a user-fixable error.
       throw new Error(`The email "${email}" is already associated with the name "${localUser.name}". Please correct the name in the CSV and re-upload.`);
     }
 
     // User exists in our DB. Check if they need to be promoted.
     if (!localUser.auth0Id) {
-      console.log(`Found local guest user. Promoting to authenticated user.`);
       localUser.auth0Id = auth0Id;
-      await localUser.save();
+      await localUser.save({ session });
     }
   } else {
     // User does not exist in our DB. Create them.
     console.log(`User not found in local DB. Creating...`);
 
      // First, ensure the desired name is unique in our local DB.
-    const nameCollision = await User.findOne({ name });
-    let finalNameToUse = name;
+    const nameCollision = await User.findOne({ name: normalizedInputName }).session(session);
+    let finalNameToUse = normalizedInputName;
+    
     if (nameCollision) {
-      console.warn(`Username "${name}" is taken. Generating a unique name.`);
-      finalNameToUse = await generateUniqueUsername(name);
+      finalNameToUse = await generateUniqueUsername(normalizedInputName, { session });
     }
 
-    localUser = await User.create({
+    const createdUsers = await User.create([{ // <-- 1. Wrap in an array
       name: finalNameToUse,
-      email: email,
+      email: normalizedEmail,
+      dupr: { id: duprId },
       auth0Id: auth0Id,
       isGuest: false,
-    });
+    }], { session });
+
+    localUser = createdUsers[0];
   }
 
   // --- Step 3: Generate Password Reset Ticket if Needed ---

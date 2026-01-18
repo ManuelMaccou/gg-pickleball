@@ -6,7 +6,8 @@ const AchievementCategorySchema = new Schema<IAchievementCategory>(
   {
     name: { type: String },
     description: { type: String },
-    milestones: [{ type: String }]
+    milestones: [{ type: String }],
+    scope: { type: String }
   }
 );
 

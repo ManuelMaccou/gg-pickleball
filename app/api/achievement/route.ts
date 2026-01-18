@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
 
-    const { friendlyName, name, badge, categoryId } = body as IAchievement;
+    const { index, friendlyName, name, badge, categoryId } = body as IAchievement;
 
     if (!friendlyName || !name || !badge) {
       logError(new Error('Name or badge not provided.'), {
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Name and badge are required' }, { status: 400 });
     }
 
-    const newAchievement = new Achievement({ friendlyName, name, badge, categoryId });
+    const newAchievement = new Achievement({ index, friendlyName, name, badge, categoryId });
     await newAchievement.save();
 
     return NextResponse.json({ message: 'Achievement created', achievement: newAchievement }, { status: 201 });

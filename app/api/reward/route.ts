@@ -31,7 +31,10 @@ function validateRewardBody(body: Partial<IReward>): string | null {
 
 export async function POST(req: NextRequest) {
   const user = await getAuthorizedUser(req);
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  if (user?.permission !== 'admin') {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+  }
 
   try {
     await connectToDatabase();

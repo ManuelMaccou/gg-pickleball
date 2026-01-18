@@ -127,7 +127,7 @@ export default function SuccessDialog({
                 {currentStep.type === "reward" && (
                   <Flex direction="column" align="center">
                     <Text size="5" weight="bold" mb={'3'}>You&apos;ve earned a reward!</Text>
-                    <Text size="6" weight={'bold'} style={{textTransform: "uppercase"}}>
+                    <Text size="6" weight={'bold'} align={'center'} style={{textTransform: "uppercase"}}>
                       {currentStep.data.friendlyName}
                     </Text>
                     

@@ -27,6 +27,7 @@ import { IClient, IReward, RewardProductName, SerializedAchievement } from "@/ap
 import { useIsMobile } from "@/app/hooks/useIsMobile";
 import { updateUserAndAchievements } from "@/utils/achievementFunctions/updateUserAndAchievements";
 import LocationGuard from "@/app/components/LocationGuard";
+import { processSingleMatchAction } from "@/app/actions/processSingleMatch";
 
 type Player = {
   userName: string;
@@ -281,18 +282,21 @@ function GgpickleballMatchPage() {
 
           // --- CALL YOUR LOCAL COMPLEX FUNCTION ---
           // This is now only run by the one "chosen" client.
-          const achievementsResult = await updateUserAndAchievements(
-            data.team1Ids,
-            data.team2Ids,
-            data.winners,
-            data.location,
-            data.newMatchId,
-            data.team1Score,
-            data.team2Score
-          );
+          const actionResult = await processSingleMatchAction({
+            team1Ids: data.team1Ids,
+            team2Ids: data.team2Ids,
+            winners: data.winners,
+            location: data.location,
+            matchId: data.newMatchId,
+            team1Score: data.team1Score,
+            team2Score: data.team2Score,
+            matchDate: new Date(data.matchDate),
+            isHistorical: false,
+            isGlobalContext: false,
+          });
 
-          // Tell the server we are done and what the result was.
-          notifyUpdatesFinished(matchId, { earnedAchievements: achievementsResult.earnedAchievements });
+          // The result is inside actionResult.data
+          notifyUpdatesFinished(matchId, { earnedAchievements: actionResult.data.earnedAchievements });
 
         } catch (error) {
           console.error("Client-side error updating achievements:", error);
@@ -309,8 +313,9 @@ function GgpickleballMatchPage() {
 
           const currentUserAchievements = data.earnedAchievements.find(e => e.userId === user?.id);
           if (currentUserAchievements && selectedLocation) {
+            const rewardsMap = selectedLocation.rewardsPerAchievement as unknown as Record<string, IReward>;
             const rewards = currentUserAchievements.achievements
-            .map(a => selectedLocation.rewardsPerAchievement?.[a.name])
+            .map(a => rewardsMap?.[a.name])
             .filter((r): r is IReward => !!r)
             .map((reward) => ({
               rewardId: reward._id.toString(),

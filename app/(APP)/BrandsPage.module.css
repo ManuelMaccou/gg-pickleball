@@ -1,0 +1,39 @@
+/* Hero Section Gradient Text */
+.heroTextGradient {
+  color: transparent;
+  background-clip: text;
+  -webkit-background-clip: text;
+  background-image: linear-gradient(to right, var(--lime-9), var(--teal-8));
+}
+
+/* Comparison Table Row Hover */
+.comparisonRow:hover {
+  background-color: var(--gray-a2);
+}
+
+/* Case Study Logos Hover Effect */
+.logoItem {
+  transition: all 300ms ease-in-out;
+  filter: grayscale(1);
+  opacity: 0.6;
+}
+.logoItem:hover {
+  filter: grayscale(0);
+  opacity: 1;
+}
+
+.roiResultGradient {
+  color: transparent;
+  background-clip: text;
+  -webkit-background-clip: text;
+  background-image: linear-gradient(to right, var(--lime-9), var(--teal-8));
+}
+
+/* Final CTA Background Pattern */
+.ctaPatternBg {
+  position: absolute;
+  inset: 0;
+  opacity: 0.1;
+  background-image: radial-gradient(var(--gray-a8) 1px, transparent 1px);
+  background-size: 30px 30px;
+}

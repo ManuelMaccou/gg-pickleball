@@ -41,6 +41,7 @@ export default function GgpickleballAdminRewards() {
   const [discountType, setDiscountType] = useState<"percent" | "dollars">("percent");
   const [discountProduct, setDiscountProduct] = useState<string>('');
   const [productDescription, setProductDescription] = useState<string>(''); 
+  const [rewardFriendlyName, setRewardFriendlyName] = useState<string>(''); 
   const [minimumSpendAmount, setMinimumSpendAmount] = useState<number | null>(null);
   const [maxDiscountAmount, setMaxDiscountAmount] = useState<number | null>(null);
   const [rewardSuccess, setRewardSuccess] = useState<boolean>(false);
@@ -142,6 +143,7 @@ export default function GgpickleballAdminRewards() {
       if (!rewardId) {
         setDiscountAmount(null);
         setProductDescription(''); 
+        setRewardFriendlyName('');
 
         const firstProductOption = location?.rewardProducts?.[0] || '';
         setDiscountProduct(firstProductOption);
@@ -162,6 +164,7 @@ export default function GgpickleballAdminRewards() {
         const data = await res.json();
         const savedReward: IReward = data.reward;
         setProductDescription(savedReward.productDescription || '');
+        setRewardFriendlyName(savedReward.friendlyName || '')
         setDiscountAmount(savedReward.discount ?? null);
         setDiscountType(savedReward.type ?? "percent"); 
         setMaxDiscountAmount(savedReward.maxDiscount ?? null);
@@ -184,6 +187,17 @@ export default function GgpickleballAdminRewards() {
 
   fetchRewardForSelectedAchievement();
 }, [selectedAchievement, configuredClientRewards, location]);
+
+useEffect(() => {
+  // Define which products are allowed to have a description
+  const productsWithDescription = ['pro shop', 'custom'];
+
+  // If the currently selected product is NOT in the allowed list,
+  // clear the productDescription state.
+  if (!productsWithDescription.includes(discountProduct)) {
+    setProductDescription('');
+  }
+}, [discountProduct]);
 
   const handleSaveReward = async () => {
     if (!selectedAchievement) return;
@@ -234,11 +248,14 @@ export default function GgpickleballAdminRewards() {
     }
 
     const existingRewardId = configuredClientRewards?.[selectedAchievement.name]?._id;
+    const productsWithDescription = ['pro shop'];
 
     // --- 4. CONSTRUCT THE FINAL PAYLOAD ---
     const rewardPayload = {
       product: discountProduct,
-      productDescription: (discountProduct === 'pro shop' || discountProduct === 'custom') && productDescription.trim() ? productDescription.trim() : undefined,
+      productDescription: productsWithDescription.includes(discountProduct) 
+        ? productDescription.trim() // If allowed, save the trimmed description (even if it's "")
+        : '',
       name: rewardName,
       friendlyName: rewardFriendlyName,
       discount: finalDiscountAmount,
@@ -679,8 +696,8 @@ export default function GgpickleballAdminRewards() {
                             </Text>
                             <TextField.Root
                               placeholder="e.g., A shout out in our newsletter"
-                              value={productDescription}
-                              onChange={(e) => setProductDescription(e.target.value)}
+                              value={rewardFriendlyName}
+                              onChange={(e) => setRewardFriendlyName(e.target.value)}
                               required
                             />
                           </Flex>
@@ -821,6 +838,7 @@ export default function GgpickleballAdminRewards() {
           rewardProducts={location?.rewardProducts || []}
           discountProduct={discountProduct}
           productDescription={productDescription}
+          rewardFriendlyName={rewardFriendlyName}
           maxDiscount={maxDiscountAmount}
           minimumSpend={minimumSpendAmount}
           isSavingReward={isSavingReward}
@@ -832,6 +850,7 @@ export default function GgpickleballAdminRewards() {
           onSetType={setDiscountType}
           onSetProduct={setDiscountProduct}
           onSetProductDescription={setProductDescription}
+          onSetRewardFriendlyName={setRewardFriendlyName}
           onSetMinimumSpend={setMinimumSpendAmount}
           onSetMaxDiscount={setMaxDiscountAmount}
           onSave={handleSaveReward}

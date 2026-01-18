@@ -1,33 +1,33 @@
-import { Types } from 'mongoose';
-import { IClient, IReward, IRewardCode } from '@/app/types/databaseTypes';
+import { ClientSession, Types } from 'mongoose';
+import { IClient, IRewardCode } from '@/app/types/databaseTypes';
 import { generateUniqueRewardCode } from './generateUniqueRewardCode';
-import { CouponInput, Kind, PaymentMethod } from '@/app/types/pbpTypes';
 import Client from '@/app/models/Client';
+import { createRewardCodeInDB } from './createRewardCodeInDB';
+import { RewardCodeTask } from '@/app/types/rewardTypes';
 
-export interface RewardCodeTask {
-  userId: Types.ObjectId;
-  achievementId: Types.ObjectId;
-  reward: IReward;
-  clientId: Types.ObjectId;
+interface GeneratorOptions {
+  session: ClientSession;
 }
 
 export async function generateAndSavePlayByPointDiscountCodes(
   tasks: RewardCodeTask[],
-  clientId: Types.ObjectId
+  clientId: Types.ObjectId,
+  options: GeneratorOptions
 ): Promise<Map<string, Types.ObjectId>> {
+  const { session } = options; // <-- Get session
   const result = new Map<string, Types.ObjectId>();
   const codes = new Set<string>();
-  const couponsForPbp: CouponInput[] = [];
 
   if (!process.env.NEXT_PUBLIC_BASE_URL || !process.env.INTERNAL_API_KEY) {
     throw new Error('Missing required environment variables for reward code creation');
   }
 
-  const client: IClient | null = await Client.findById(clientId);
+  const client: IClient | null = await Client.findById(clientId).session(session);
   if (!client) {
     throw new Error(`Client with ID ${clientId} not found. Cannot create PBP coupons.`);
   }
 
+  /*
   const productToKindsMap: { [key: string]: Kind[] } = {
     'open play': [Kind.Clinic],
     'reservations': [Kind.Reservation],
@@ -36,10 +36,11 @@ export async function generateAndSavePlayByPointDiscountCodes(
   };
 
   const pbpAffiliations = client.playbypoint?.affiliations ?? [];
+  */
 
   for (const task of tasks) {
     try {
-      const code = await generateUniqueRewardCode(clientId, codes);
+      const code = await generateUniqueRewardCode(clientId, codes, { session });
 
       const payload: Partial<IRewardCode> = {
         code,
@@ -48,25 +49,22 @@ export async function generateAndSavePlayByPointDiscountCodes(
         achievementId: task.achievementId,
         reward: task.reward,
         addedToPos: false,
+        isGlobalReward: task.isGlobalReward ?? false,
+        dataSourceId: task.dataSourceId,
       };
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/reward-code`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': process.env.INTERNAL_API_KEY ?? '',
-        },
-        body: JSON.stringify(payload),
-      });
+      const data = await createRewardCodeInDB(payload, { session });
+      result.set(task.reward._id.toString(), data._id);
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to create reward code');
-      }
+    } catch (err) {
+      console.error(`Error generating local reward code for ${task.reward.name ?? 'unknown'}:`, err);
+    }
+  }
 
+
+
+    {/*
       if (task.reward.product !== 'pro shop') {
-        const data: IRewardCode = await response.json();
-        result.set(task.reward._id.toString(), data._id);
 
         const expiration = new Date();
         expiration.setFullYear(expiration.getFullYear() + 1);
@@ -109,7 +107,8 @@ export async function generateAndSavePlayByPointDiscountCodes(
     }
   }
 
- if (couponsForPbp.length > 0) {
+
+   if (couponsForPbp.length > 0) {
     console.log(`Triggering background task to add ${couponsForPbp.length} coupons to PlayByPoint.`);
 
     fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/pbp/create-discount/batch`, {
@@ -150,6 +149,8 @@ export async function generateAndSavePlayByPointDiscountCodes(
       console.error('[Background Task] A critical error occurred during the PlayByPoint batch update fetch call:', err);
     });
   }
+
+  */}
 
   return result;
 }

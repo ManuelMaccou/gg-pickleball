@@ -6,7 +6,7 @@ export interface IJob extends Job, Document {}
 
 const JobResultSchema = new Schema<JobResult>({
   row: { type: Number, required: true },
-  status: { type: String, enum: ['success', 'user_error', 'server_error'], required: true },
+  status: { type: String, enum: ['success', 'user_error', 'server_error', 'skipped'], required: true },
   message: { type: String, required: true },
   data: {
     players: [String],

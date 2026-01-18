@@ -1,13 +1,18 @@
-import { Types } from 'mongoose';
+import { ClientSession, Types } from 'mongoose';
 import { generateAndSaveShopifyDiscountCodes } from './generateAndSaveShopifyDiscountCodes';
 import { RewardCodeTask } from '@/app/types/rewardTypes';
 import { generateAndSavePodPlayDiscountCodes } from './generateAndSavePodplayDiscountCodes';
 import { generateAndSavePlayByPointDiscountCodes } from './generateAndSavePlayByPointDiscountCodes';
 import { generateAndSaveCustomDiscountCodes } from './generateAndSaveCustomDiscountCodes';
 
+interface GeneratorOptions {
+  session: ClientSession;
+}
+
 export type RewardCodeGenerator = (
   tasks: RewardCodeTask[],
-  clientId: Types.ObjectId
+  clientId: Types.ObjectId,
+  options: GeneratorOptions
 ) => Promise<Map<string, Types.ObjectId>>;
 
 const rewardCodeGenerators: Record<string, RewardCodeGenerator> = {

@@ -12,7 +12,10 @@ export default function GGAdminSidebar() {
           <Link href={'/admin/gg/sync'}>Sync</Link>
         </Flex>
         <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
-          <Link href={'/admin/gg/config'}>Configure clients</Link>
+          <Link href={'/admin/gg/config'}>Configure Clients</Link>
+        </Flex>
+        <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
+          <Link href={'/admin/gg/rewards'}>Configure Global Rewards</Link>
         </Flex>
       </Flex>
     </Flex>

@@ -6,7 +6,9 @@ import { BulkUploadPayload, JobResult, RowContextData } from '@/app/types/bulkUp
 import { validateCsvData } from '@/lib/services/matchBulkUpload/validationService';
 import { findOrCreateUserForUpload } from '@/lib/services/matchBulkUpload/userService';
 import { createMatch } from '@/lib/services/matchBulkUpload/matchService';
-import { jobService } from '@/lib/services/matchBulkUpload/job';
+import { jobService } from '@/lib/services/matchBulkUpload/jobService';
+import { DateTime } from 'luxon';
+import { startSession } from 'mongoose';
 
 
 export async function POST(req: NextRequest) {
@@ -28,13 +30,48 @@ export async function POST(req: NextRequest) {
     // "Fire-and-forget" - don't await this async function.
     (async () => {
       const newUsersForEmail: { name: string; email: string; link: string }[] = [];
+
+      const userFixableErrors = [
+        "Invalid date format in 'Match Date",
+        "Row has a duplicate player email",
+        "Invalid score format",
+        "Tied scores are not allowed",
+        "The email",
+        "CSV row is missing a name or email",
+      ];
       
       for (let i = 0; i < matches.length; i++) {
         const row = matches[i];
         const rowNumber = i + 2;
         let rowContextData: RowContextData | null = null;
+
+        const session = await startSession();
+
         try {
           // --- Run all steps for one row ---
+          session.startTransaction();
+
+          const dateString = row.match_date;
+
+          let matchDate: Date;
+
+          if (dateString && typeof dateString === 'string' && dateString.trim() !== '') {
+            const cleanDateString = dateString.trim();
+            
+            const dt = DateTime.fromFormat(cleanDateString, 'yyyy-MM-dd', { zone: 'utc' });
+
+            if (!dt.isValid) {
+              throw new Error(`Invalid date format in 'Match Date' column: "${dateString}". Please use exactly YYYY-MM-DD.`);
+            }
+            
+            matchDate = dt.set({ hour: 12 }).toJSDate();
+
+          } else {
+            matchDate = new Date();
+          }
+
+          const isHistorical = true
+
           const players = [
             { name: row.team1_player1_name, email: row.team1_player1_email },
             { name: row.team1_player2_name, email: row.team1_player2_email },
@@ -70,7 +107,12 @@ export async function POST(req: NextRequest) {
           const userResults = [];
           for (const player of players) {
             // Await each call individually to run them in sequence.
-            const result = await findOrCreateUserForUpload(player.name, player.email);
+            const result = await findOrCreateUserForUpload(
+              player.name,
+              player.email,
+              "NA",
+              { session } 
+            );
             userResults.push(result);
           }
           
@@ -93,13 +135,26 @@ export async function POST(req: NextRequest) {
             location,
             team1Ids, team1Score,
             team2Ids, team2Score,
-            winners
-          });
+            winners,
+            matchDate,
+            isGlobalContext: false,
+            processedUsers: null
+          }, { session });
 
-          await updateUserAndAchievements(
-            team1Ids, team2Ids, winners, location,
-            newMatch.matchId, team1Score, team2Score
-          );
+          await updateUserAndAchievements({
+            team1Ids,
+            team2Ids,
+            winners,
+            location,
+            matchId: newMatch.matchId,
+            team1Score,
+            team2Score,
+            matchDate,
+            isHistorical,
+            isGlobalContext: false,
+          }, { session });
+
+          await session.commitTransaction();
           
           await jobService.addResult(jobId, {
             row: rowNumber,
@@ -109,21 +164,13 @@ export async function POST(req: NextRequest) {
           });
 
         } catch (error: unknown) {
+          await session.abortTransaction();
           let status: JobResult['status'] = 'server_error';
           let userMessage: string;
 
           // --- 2. USE A TYPE GUARD ---
           if (error instanceof Error) {
             userMessage = error.message;
-
-            const userFixableErrors = [
-              "Row has a duplicate player email",
-              "Invalid 'winner_team' value",
-              "Invalid score format",
-              "Tied scores are not allowed",
-              "The email",
-              "CSV row is missing a name or email",
-            ];
 
             if (userFixableErrors.some(msg => userMessage.includes(msg))) {
               status = 'user_error';
@@ -152,6 +199,8 @@ export async function POST(req: NextRequest) {
             message: userMessage,
             data: rowContextData,
           });
+        } finally {
+          await session.endSession();
         }
       }
 
@@ -161,7 +210,10 @@ export async function POST(req: NextRequest) {
       await jobService.complete(jobId, 'complete');
     })();
     
-    return NextResponse.json({ jobId });
+    return NextResponse.json({ 
+      jobId,
+      totalRows: matches.length 
+    });
   
   } catch (error) {
     logError(error, { message: 'Failed to start bulk upload job.' });

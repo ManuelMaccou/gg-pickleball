@@ -1,6 +1,7 @@
 export async function GET() {
   // Define the exact headers for the CSV template.
   const headers = [
+    'match_date',
     'team1_player1_name', 'team1_player1_email',
     'team1_player2_name', 'team1_player2_email',
     'team2_player1_name', 'team2_player1_email',
@@ -10,6 +11,7 @@ export async function GET() {
   ];
 
   const placeholderData: Record<string, string> = {
+    match_date: '2025-10-20 (YYYY-MM-DD)',
     team1_player1_name: 'Jessica', team1_player1_email: 'player1@example.com',
     team1_player2_name: 'Martin', team1_player2_email: 'player2@example.com',
     team2_player1_name: 'Hillary', team2_player1_email: 'player3@example.com',

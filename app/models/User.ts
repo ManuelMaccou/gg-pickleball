@@ -1,16 +1,19 @@
 import mongoose, { Schema } from "mongoose";
 import { IUser } from "../types/databaseTypes";
 
-const AchievementSubSchema = new Schema({
+export const AchievementSubSchema = new Schema({
   achievementId: { type: Schema.Types.ObjectId, ref: "Achievement", required: true },
   name: { type: String },
+  triggeringEvent: { type: String },
   earnedAt: { type: Date, required: true },
 });
 
-const RewardSubSchema = new Schema({
+export const RewardSubSchema = new Schema({
   rewardId: { type: Schema.Types.ObjectId, ref: "Reward", required: true },
   earnedAt: { type: Date, required: true },
   rewardCodeId: { type: Schema.Types.ObjectId, ref: "RewardCode" },
+  sponsoringClientId: { type: Schema.Types.ObjectId, ref: 'Client' },
+  triggeringEvent: { type: String },
 });
 
 const ClientStatsSubSchema = new Schema({
@@ -23,7 +26,6 @@ const ClientStatsSubSchema = new Schema({
   losses: { type: Number },
   winStreak: { type: Number },
   pointsWon: { type: Number },
-  // matches: [{ type: Schema.Types.ObjectId, ref: "Match" }],
   achievements: {
     type: [AchievementSubSchema],
     default: []
@@ -35,7 +37,8 @@ const ClientStatsSubSchema = new Schema({
 }, { _id: false })
 
 const DuprSchema = new Schema({
-  duprId: { type: String },
+  id: { type: String },
+  unverfiedId: { type: String },
   email: { type: String },
   activated: { type: Boolean, default: false },
 })
@@ -60,5 +63,6 @@ const UserSchema = new Schema<IUser>(
 
 UserSchema.index({ auth0Id: 1 });
 UserSchema.index({ name: 1 }, { unique: true, collation: { locale: 'en', strength: 2 } });
+UserSchema.index({ "stats.global.rewards.sponsoringClientId": 1 });
 
 export default mongoose.models.User || mongoose.model<IUser>("User", UserSchema);

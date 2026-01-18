@@ -1,4 +1,7 @@
 import User from '@/app/models/User';
+import { ClientSession } from 'mongoose';
+
+type RequiredDbOptions = { session: ClientSession };
 
 /**
  * Escapes special characters in a string for use in a regular expression.
@@ -19,7 +22,13 @@ function escapeRegex(input: string): string {
  * @returns A promise that resolves to a unique username (e.g., "Bob" or "Bob123").
  * @throws An error if a unique name cannot be generated after several attempts.
  */
-export async function generateUniqueUsername(baseName: string): Promise<string> {
+export async function generateUniqueUsername(
+  baseName: string,
+  dbOptions: RequiredDbOptions
+): Promise<string> {
+
+  const session = dbOptions.session;
+
   let potentialName = baseName;
   let isUnique = false;
   let attempts = 0;
@@ -30,7 +39,7 @@ export async function generateUniqueUsername(baseName: string): Promise<string> 
     const query = { name: { $regex: `^${safeName}$`, $options: 'i' } };
 
     // Check if a user with this name already exists (case-insensitive)
-    const existingUser = await User.findOne(query).lean();
+    const existingUser = await User.findOne(query).session(session).lean();
 
     if (!existingUser) {
       isUnique = true; // The name is unique, exit the loop

@@ -25,7 +25,7 @@ export const achievementDefinitions: { key: string; name: string }[] = [
   { key: 'visit-50', name: 'visit' },
   { key: 'visit-100', name: 'visit' },
 
-  // Win Achievements
+  // Standard Win Achievements
   { key: 'first-win', name: 'firstWin' },
   { key: '5-wins', name: 'totalWins' },
   { key: '10-wins', name: 'totalWins' },
@@ -35,6 +35,18 @@ export const achievementDefinitions: { key: string; name: string }[] = [
   { key: '50-wins', name: 'totalWins' },
   { key: '100-wins', name: 'totalWins' },
   { key: '200-wins', name: 'totalWins' },
+
+    // DUPR Win Achievements
+  { key: '5-dupr-matches-won', name: 'duprWins' },
+  { key: '10-dupr-matches-won', name: 'duprWins' },
+  { key: '15-dupr-matches-won', name: 'duprWins'},
+  { key: '20-dupr-matches-won', name: 'duprWins' },
+  { key: '25-dupr-matches-won', name: 'duprWins' },
+  { key: '30-dupr-matches-won', name: 'duprWins' },
+  { key: '35-dupr-matches-won', name: 'duprWins' },
+  { key: '40-dupr-matches-won', name: 'duprWins' },
+  { key: '45-dupr-matches-won', name: 'duprWins' },
+  { key: '50-dupr-matches-won', name: 'duprWins' },
 
   // Streak Achievements
   { key: '2-win-streak', name: 'winStreak' },

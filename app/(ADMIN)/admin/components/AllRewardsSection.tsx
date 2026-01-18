@@ -1,5 +1,5 @@
 import { IRewardCode, IUser } from "@/app/types/databaseTypes";
-import { Badge, Button, Callout, Flex, Spinner, Table, Text } from "@radix-ui/themes";
+import { AlertDialog, Badge, Button, Callout, Flex, Spinner, Table, Text } from "@radix-ui/themes";
 import { InfoCircledIcon } from "@radix-ui/react-icons";
 import { DateTime } from "luxon";
 import { useIsMobile } from "@/app/hooks/useIsMobile";
@@ -101,21 +101,47 @@ export default function AllRewardsSection({
                         )}
                       </Flex>
                     </Table.Cell>
-                    <Table.Cell>{rewardCodeEntry.code ?? '—'}</Table.Cell>
-                    <Table.Cell>
+                    <Table.Cell style={{alignContent: 'center'}}>{rewardCodeEntry.code ?? '—'}</Table.Cell>
+                    <Table.Cell style={{alignContent: 'center'}}>
                       {rewardCodeEntry.redeemed ? (
                         <Badge color="green">Redeemed</Badge>
                       ) : (
-                        <Button
-                          size={'1'}
-                          onClick={() => handleRedeem(rewardCodeEntry.code)}
-                          disabled={isCurrentButtonLoading}
-                        >
-                          {isCurrentButtonLoading ? <Spinner size="1" /> : 'Redeem'}
-                        </Button>
+                        <AlertDialog.Root>
+                          <AlertDialog.Trigger>
+                            <Button size={'1'}
+                            >
+                              Redeem
+                            </Button>
+                          </AlertDialog.Trigger>
+                          <AlertDialog.Content maxWidth="450px">
+                            <AlertDialog.Title>Please confirm</AlertDialog.Title>
+                            <AlertDialog.Description>
+                              Are you sure you want to redeem this reward?
+                            </AlertDialog.Description>
+                            <Flex gap="4" mt="4" justify="end">
+                              <AlertDialog.Cancel>
+                                <Button variant="soft" color="gray">
+                                  Cancel
+                                </Button>
+                              </AlertDialog.Cancel>
+                              <AlertDialog.Action>
+                                <Button
+                                  onClick={() => {
+                                    if (rewardCodeEntry.code) {
+                                      handleRedeem(rewardCodeEntry.code);
+                                    }
+                                  }}
+                                  disabled={isCurrentButtonLoading}
+                                >
+                                  {isCurrentButtonLoading ? <Spinner size="1"/> : 'Redeem'}
+                                </Button>
+                              </AlertDialog.Action>
+                            </Flex>
+                          </AlertDialog.Content>
+                        </AlertDialog.Root>
                       )}
                     </Table.Cell>
-                    <Table.Cell>
+                    <Table.Cell style={{alignContent: 'center'}}>
                       {formatDate(rewardCodeEntry.redemptionDate)}
                     </Table.Cell>
                   </Table.Row>

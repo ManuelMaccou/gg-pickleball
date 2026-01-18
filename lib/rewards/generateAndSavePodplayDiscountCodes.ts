@@ -1,26 +1,31 @@
 import RewardCode from '@/app/models/RewardCode';
-import { Types } from 'mongoose';
+import { Types, ClientSession } from 'mongoose';
 import { createPodPlayDiscountCode } from '../podplay/createPodPlayDiscountCode';
-import { IReward } from '@/app/types/databaseTypes';
+import { RewardCodeTask } from '@/app/types/rewardTypes';
+import { IRewardCode } from '@/app/types/databaseTypes';
 
-export interface RewardCodeTask {
-  userId: Types.ObjectId;
-  achievementId: Types.ObjectId;
-  reward: IReward;
-  clientId: Types.ObjectId;
+interface GeneratorOptions {
+  session: ClientSession;
 }
+
+type RewardCodeCreationPayload = Omit<IRewardCode, '_id' | 'createdAt' | 'updatedAt' | 'redemptionDate'>;
 
 export async function generateAndSavePodPlayDiscountCodes(
   tasks: RewardCodeTask[],
-  clientId: Types.ObjectId
+  clientId: Types.ObjectId,
+  options: GeneratorOptions
 ): Promise<Map<string, Types.ObjectId>> {
+  const { session } = options; // <-- Extract session
   const result = new Map<string, Types.ObjectId>();
 
+  const rewardCodeDocsToCreate: RewardCodeCreationPayload[] = [];
+  const tasksToProcess: RewardCodeTask[] = [];
+
+  // Phase 1: Create all PodPlay codes
   for (const task of tasks) {
-    console.log('creating PodPlay code for task:', task)
     try {
       const code = await createPodPlayDiscountCode(task.reward._id);
-      const rewardCodeDoc = await RewardCode.create({
+      rewardCodeDocsToCreate.push({
         code,
         userId: task.userId,
         achievementId: task.achievementId,
@@ -28,10 +33,27 @@ export async function generateAndSavePodPlayDiscountCodes(
         clientId: clientId,
         redeemed: false,
         addedToPos: true,
+        isGlobalReward: task.isGlobalReward ?? false,
+        dataSourceId: task.dataSourceId,
       });
-      result.set(task.reward._id.toString(), rewardCodeDoc._id);
+      tasksToProcess.push(task);
     } catch (err) {
       console.error(`Failed to create PodPlay reward code for reward ${task.reward._id}:`, err);
+    }
+  }
+
+  // Phase 2: Create all database documents
+  if (rewardCodeDocsToCreate.length > 0) {
+    try {
+      const createdDocs = await RewardCode.insertMany(rewardCodeDocsToCreate, { session });
+      
+      for (let i = 0; i < createdDocs.length; i++) {
+        const originalTask = tasksToProcess[i];
+        const newDoc = createdDocs[i];
+        result.set(originalTask.reward._id.toString(), newDoc._id);
+      }
+    } catch (err) {
+      console.error('Failed to save PodPlay reward codes to the database:', err);
     }
   }
 

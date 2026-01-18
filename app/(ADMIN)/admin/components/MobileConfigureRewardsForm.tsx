@@ -23,6 +23,7 @@ interface MobileRewardFormProps {
   rewardProducts: string[];
   discountProduct: string;
   productDescription: string;
+  rewardFriendlyName: string;
   maxDiscount: number | null;
   minimumSpend: number | null;
   isSavingReward: boolean;
@@ -34,6 +35,7 @@ interface MobileRewardFormProps {
   onSetType: (type: "percent" | "dollars") => void;
   onSetProduct: (product: string) => void;
   onSetProductDescription: (desc: string) => void;
+  onSetRewardFriendlyName: (desc: string) => void;
   onSetMinimumSpend: (amount: number | null) => void;
   onSetMaxDiscount: (amount: number | null) => void;
   onSave: () => void;
@@ -49,6 +51,7 @@ export default function MobileConfigureRewardsForm({
   rewardProducts,
   discountProduct,
   productDescription,
+  rewardFriendlyName,
   minimumSpend,
   maxDiscount,
   isSavingReward,
@@ -60,6 +63,7 @@ export default function MobileConfigureRewardsForm({
   onSetType,
   onSetProduct,
   onSetProductDescription,
+  onSetRewardFriendlyName,
   onSetMinimumSpend,
   onSetMaxDiscount,
   onSave,
@@ -158,8 +162,8 @@ export default function MobileConfigureRewardsForm({
                 </Text>
                 <TextField.Root
                   placeholder="e.g., A shout out in our newsletter"
-                  value={productDescription}
-                  onChange={(e) => onSetProductDescription(e.target.value)}
+                  value={rewardFriendlyName}
+                  onChange={(e) => onSetRewardFriendlyName(e.target.value)}
                   required
                 />
               </Flex>

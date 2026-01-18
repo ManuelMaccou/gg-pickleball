@@ -16,10 +16,21 @@ const PlayByPointSubSchema = new Schema({
   affiliations: [{ type: String }]
 }, { _id: false });
 
+const DuprSubSchema = new Schema({
+  id: { type: String },
+}, { _id: false });
+
 const ClientSchema = new Schema<IClient>({
   active: { type: Boolean, default: false },
+  locationType: { type: String, default: 'facility' },
   name: { type: String, required: true, unique: true },
+  dupr: { type: DuprSubSchema },
   logo: { type: String },
+  cardBackgroundImage: { type: String },
+  cardTextColor: { 
+    type: String, 
+    default: '#ffffff' // Default to White
+  },
   admin_logo: { type: String },
   bannerColor: { type: String, default: 'white'},
   icon: { type: String },
@@ -60,7 +71,11 @@ const ClientSchema = new Schema<IClient>({
   },
   shopify: { type: ShopifySubSchema },
   playbypoint: { type: PlayByPointSubSchema },
-  podplay: { type: PodplaySubSchema }
+  podplay: { type: PodplaySubSchema },
+  needsRetroactiveSweep: { 
+    type: Boolean, 
+    default: true // New clients default to TRUE (they need a sweep)
+  }
 }, { timestamps: true });
 
 export default mongoose.models.Client || mongoose.model<IClient>("Client", ClientSchema);

@@ -2,8 +2,7 @@ import { auth0 } from '@/lib/auth0'
 import { headers } from 'next/headers'
 import { getOrCreateGuestUser, getOrCreateAuthenticatedUser } from './db/users'
 import { ResolvedUser } from '@/app/types/databaseTypes'
-
-
+import { redirect } from 'next/navigation'
 
 export async function getResolvedUser(): Promise<ResolvedUser | null> {
 
@@ -12,6 +11,8 @@ export async function getResolvedUser(): Promise<ResolvedUser | null> {
   const guestUsername = headerList.get('x-guest-username')
 
   if (userType === 'authenticated') {
+    let shouldForceLogout = false; 
+
     try {
       const session = await auth0.getSession()
       const auth0Id = session?.user?.sub
@@ -24,20 +25,29 @@ export async function getResolvedUser(): Promise<ResolvedUser | null> {
 
        if (!user) {
         console.warn(`No user document found for auth0Id: ${auth0Id}. This may be a new user who hasn't been synced yet.`);
-        return null;
-      }
+        
+        shouldForceLogout = true; 
+      } else {
 
-      return {
-        id: user._id.toString(),
-        name: user.name,
-        email: session.user.email,
-        isGuest: false,
-        superAdmin: user.superAdmin === true
+        return {
+          id: user._id.toString(),
+          name: user.name,
+          email: session.user.email,
+          isGuest: false,
+          superAdmin: user.superAdmin === true
+        }
       }
     } catch (err) {
       console.error('Failed to resolve authenticated user:', err)
       return null
     }
+
+    // 4. Perform the redirect OUTSIDE the try/catch block
+    if (shouldForceLogout) {
+      redirect('/auth/logout');
+    }
+
+    return null;
   }
 
   if (userType === 'guest') {

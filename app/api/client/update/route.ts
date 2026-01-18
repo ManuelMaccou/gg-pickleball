@@ -28,7 +28,7 @@ export async function PATCH(req: NextRequest) {
     const allowedUpdates: (keyof IClient)[] = [
       'name', 'logo', 'admin_logo', 'icon', 'latitude', 'longitude', 
       'rewardProducts', 'retailSoftware', 'reservationSoftware', 
-      'shopify', 'podplay', 'playbypoint'
+      'shopify', 'podplay', 'playbypoint', 'cardBackgroundImage', 'cardTextColor'
     ];
 
     const sanitizedUpdateData = Object.keys(updateData)

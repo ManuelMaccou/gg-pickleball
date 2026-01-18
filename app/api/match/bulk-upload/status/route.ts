@@ -1,4 +1,4 @@
-import { jobService } from '@/lib/services/matchBulkUpload/job';
+import { jobService } from '@/lib/services/matchBulkUpload/jobService';
 import { NextRequest } from 'next/server';
 
 // A simple, in-memory cache for job results. For larger scale, use Redis or similar.
@@ -14,12 +14,18 @@ export async function GET(req: NextRequest) {
   const stream = new ReadableStream({
     start(controller) {
       let cursor = 0; 
+      let isClosed = false;
 
       const interval = setInterval(async () => {
+        if (isClosed) return;
+
         const currentJob = await jobService.get(jobId);
 
         // Handle case where job might be cleaned up or invalid
         if (!currentJob) {
+          if (isClosed) return;
+          isClosed = true;
+
           controller.enqueue(`data: ${JSON.stringify({ status: 'error', message: 'Job not found or expired.' })}\n\n`);
           clearInterval(interval);
           controller.close();
@@ -28,6 +34,8 @@ export async function GET(req: NextRequest) {
         
         // Check for new results since the last check
         if (cursor < currentJob.results.length) {
+          if (isClosed) return;
+
           const newResults = currentJob.results.slice(cursor);
           controller.enqueue(`data: ${JSON.stringify({ status: 'processing', results: newResults })}\n\n`);
           cursor = currentJob.results.length; // Update the cursor
@@ -35,6 +43,9 @@ export async function GET(req: NextRequest) {
         
         // Check if the job is finished
         if (currentJob.status === 'complete' || currentJob.status === 'failed') {
+          if (isClosed) return;
+          isClosed = true;
+
           controller.enqueue(`data: ${JSON.stringify({ status: currentJob.status, message: 'Processing complete.' })}\n\n`);
           clearInterval(interval);
           controller.close();

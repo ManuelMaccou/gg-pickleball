@@ -85,6 +85,7 @@ export const requestSaveMatch = (matchId: string) => {
 
 // NEW: Add a subscription function for the intermediate success event
 export const subscribeToMatchSaveSuccessful = (callback: (data: {
+  matchDate: Date;
   team1Ids: string[];
   team2Ids: string[];
   winners: string[];
@@ -92,6 +93,7 @@ export const subscribeToMatchSaveSuccessful = (callback: (data: {
   newMatchId: string;
   team1Score: number;
   team2Score: number;
+  isHistorical: boolean;
 }) => void) => {
   if (!socket) return;
   socket.off("match-save-successful");

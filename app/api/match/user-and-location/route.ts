@@ -14,6 +14,8 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId");
+    console.log('userId to find matches:', userId)
+
     const locationId = searchParams.get("locationId");
     const after = searchParams.get("after");
     const lastId = searchParams.get("lastId");
@@ -49,40 +51,42 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "There was an error fetching match information. Please try again." }, { status: 400 });
     }
 
-    const userQuery = {
+    const conditions = [];
+
+    const userObjectId = new Types.ObjectId(userId);
+
+    conditions.push({
       $or: [
-        { "team1.players": userId },
-        { "team2.players": userId },
+        { "team1.players": userObjectId },
+        { "team2.players": userObjectId },
       ],
-    };
+    });
 
-    const cursorFilter = after && lastId && Types.ObjectId.isValid(lastId)
-      ? {
-          $or: [
-            { createdAt: { $lt: new Date(after) } },
-            {
-              createdAt: { $eq: new Date(after) },
-              _id: { $lt: new Types.ObjectId(lastId) },
-            },
-          ],
-        }
-      : {};
+    if (locationId) {
+      conditions.push({ location: new Types.ObjectId(locationId) });
+    }
 
-    const locationFilter = locationId ? { location: locationId } : {};
+    if (after && lastId && Types.ObjectId.isValid(lastId)) {
+      conditions.push({
+        $or: [
+          { matchDate: { $lt: new Date(after) } },
+          {
+            matchDate: { $eq: new Date(after) },
+            _id: { $lt: new Types.ObjectId(lastId) },
+          },
+        ],
+      });
+    }
 
-    const query = {
-      ...userQuery,
-      ...locationFilter,
-      ...cursorFilter,
-    };
+    const query = { $and: conditions };
 
     const matches = await Match.find(query)
       .populate("team1.players", "name _id")
       .populate("team2.players", "name _id")
       .populate("winners", "_id")
-      .sort({ createdAt: -1, _id: -1 })
+      .sort({ matchDate: -1, _id: -1 })
       .limit(limit + 1);
-
+      
     const hasNextPage = matches.length > limit;
     const trimmedMatches = hasNextPage ? matches.slice(0, limit) : matches;
 

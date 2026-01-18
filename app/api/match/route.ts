@@ -2,52 +2,47 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
 import Match from '@/app/models/Match';
 import { logError } from '@/lib/sentry/logger';
-import { Types } from 'mongoose';
 
 export async function POST(req: NextRequest) {
-
-const apiKey = req.headers.get('x-api-key');
+  const apiKey = req.headers.get('x-api-key');
   if (apiKey !== process.env.INTERNAL_API_KEY) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
     
   await connectToDatabase();
 
-  let team1: { players: Types.ObjectId[]; score: number } | undefined,
-    team2: { players: Types.ObjectId[]; score: number } | undefined,
-    matchId: string | undefined,
-    winners: Types.ObjectId[] | undefined,
-    location: string | undefined,
-    logToDupr: boolean | undefined;
-
   try {
     const body = await req.json();
+    const {
+      matchId,
+      matchDate: receivedMatchDate,
+      team1,
+      team2,
+      winners,
+      location,
+      logToDupr,
+    } = body;
 
-    matchId = body.matchId;
-    team1 = body.team1;
-    team2 = body.team2;
-    winners = body.winners;
-    location = body.location;
-    logToDupr = body.logToDupr;
-
-    if (!matchId || !team1 || !team2 || !winners) {
+    if (!matchId || !team1 || !team2 || !winners || !location || !receivedMatchDate) {
       logError(new Error('Missing required data in the request body'), {
         endpoint: 'POST /api/match',
         task: 'Saving a match',
-        matchId: matchId ?? "undefinded",
-        team1: team1 ?? "undefinded",
-        team2: team2 ?? "undefinded",
-        winners: winners ?? "undefinded",
-        lcoation: location ?? "undefinded",
-        logToDupr: logToDupr ?? "undefinded",
+        body: body,
       });
 
-      return NextResponse.json({ success: false, error: 'There was an error saving the match. Please try again.' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Missing required data. Please try again.' }, { status: 400 });
+    }
+
+    const matchDate = new Date(receivedMatchDate);
+    if (isNaN(matchDate.getTime())) {
+      logError(new Error('Invalid date format received from internal service'), { body });
+      return NextResponse.json({ success: false, error: 'Invalid date format received.' }, { status: 400 });
     }
 
     // Save match details
     const match = new Match({
       matchId,
+      matchDate,
       team1,
       team2,
       winners,
@@ -67,9 +62,8 @@ const apiKey = req.headers.get('x-api-key');
 
   } catch (error) {
     logError(error, {
-      message: 'Failed to save match for teams',
-      team1Players: team1?.players ?? "team1 undefined",
-      team2Players: team2?.players ?? "team 2 undefined",
+      message: 'Failed to save match from real-time service',
+      endpoint: 'POST /api/match',
     });
 
     return NextResponse.json({ success: false, error: 'There was an error saving the match.' }, { status: 500 });
