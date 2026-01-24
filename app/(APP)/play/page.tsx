@@ -1,6 +1,6 @@
 'use client'
 
-import { Box, Button, Flex, Spinner, Text, Select, Card, Heading, Badge } from "@radix-ui/themes";
+import { Box, Button, Flex, Spinner, Text, Select, Card, Heading, Badge, IconButton } from "@radix-ui/themes";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import lightGgLogo from '../../../public/logos/gg_logo_white_transparent.png'
@@ -14,7 +14,7 @@ import MatchHistory from "@/components/sections/MatchHistory";
 import { HowToDialog } from "./components/HowToDialog";
 import PlayMenu from "@/app/components/PlayMenu";
 import GlobalRewardsWallet from "@/components/sections/GlobalRewardsWallet";
-import { ReloadIcon, ChevronDownIcon, CaretSortIcon } from "@radix-ui/react-icons";
+import { ReloadIcon, ChevronDownIcon, CaretSortIcon, Cross1Icon } from "@radix-ui/react-icons";
 import { checkNewRewards } from "@/app/actions/dupr-action";
 import { useIsMobile } from "@/app/hooks/useIsMobile";
 
@@ -267,9 +267,55 @@ export default function Play() {
 
         {/* DUPR IFRAME */}
         {showDuprFrame && (
-          <Flex style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0, 0, 0, 0.7)', zIndex: 9999, justifyContent: 'center', alignItems: 'center' }}>
-            <div style={{width: '90%', maxWidth: '500px', height: '80%', backgroundColor: 'white', position: 'relative', borderRadius: '8px', overflow: 'hidden'}}>
-              <iframe src={duprConfig.loginUrl} title="DUPR Login" width="100%" height="100%" style={{ border: 'none' }}></iframe>
+          <Flex 
+            style={{ 
+              position: 'fixed', 
+              top: 0, 
+              left: 0, 
+              width: '100vw', 
+              height: '100vh', 
+              backgroundColor: 'rgba(0, 0, 0, 0.7)', 
+              zIndex: 9999, 
+              justifyContent: 'center', 
+              alignItems: 'center' 
+            }}
+          >
+            <div style={{
+              width: '90%', 
+              maxWidth: '500px', 
+              height: '80%', 
+              backgroundColor: 'white', 
+              position: 'relative', 
+              borderRadius: '8px', 
+              overflow: 'hidden',
+              boxShadow: '0 10px 25px rgba(0,0,0,0.2)' 
+            }}>
+              
+              {/* --- ADDED CLOSE BUTTON HERE --- */}
+              <IconButton 
+                variant="solid" 
+                color="gray" 
+                highContrast
+                radius="full"
+                onClick={() => setShowDuprFrame(false)}
+                style={{
+                  position: 'absolute',
+                  top: '12px',
+                  right: '12px',
+                  zIndex: 20, 
+                  boxShadow: '0 2px 10px rgba(0,0,0,0.2)'
+                }}
+              >
+                <Cross1Icon width="20" height="20" />
+              </IconButton>
+
+              <iframe 
+                src={duprConfig.loginUrl} 
+                title="DUPR Login" 
+                width="100%" 
+                height="100%" 
+                style={{ border: 'none' }}
+              ></iframe>
             </div>
           </Flex>
         )}
@@ -322,7 +368,6 @@ export default function Play() {
             </Flex>
             
             {/* --- REWARDS WALLET --- */}
-            {/* The child handles its own Grid/Stack layout */}
             <GlobalRewardsWallet user={dbUser} dataSourceId={selectedItem._id} />
           </Flex>
         )}
