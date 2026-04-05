@@ -13,8 +13,8 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <Theme appearance="dark" accentColor="yellow">
-      <div style={{ background: '#0f0f0f' }}>
+    <Theme >
+      <div>
         {children}
       </div>
     </Theme>

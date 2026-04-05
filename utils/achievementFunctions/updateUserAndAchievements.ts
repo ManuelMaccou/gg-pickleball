@@ -356,7 +356,8 @@ type UpdateOptions = {
 };
 
 
-
+/*
+ */
 async function processLocalMatch(
   options: Omit<UpdateOptions, 'isGlobalContext'>,
   dbOptions: RequiredDbOptions
@@ -548,7 +549,12 @@ async function processLocalMatch(
       throw e;
     }
     
-    const earnedAchievementsList: { userId: string; achievements: SerializedAchievement[] }[] = [];
+const earnedAchievementsList: {
+      userId: string;
+      email: string;
+      name: string; 
+      items: string[];
+    }[] = [];
     const achievementBulkOps: any[] = [];
     
     for (const user of updatedUsers) {
@@ -580,9 +586,11 @@ async function processLocalMatch(
         }));
 
       if (fullAchievements.length > 0) {
-        earnedAchievementsList.push({
+         earnedAchievementsList.push({
           userId: user._id.toString(),
-          achievements: fullAchievements,
+          email: user.email || "", 
+          name: user.name,
+          items: newAchievements.map(a => ({ ...a, name: a.key } as any))
         });
       }
 
@@ -844,21 +852,39 @@ async function processGlobalMatch(
 
     console.log('\n\n--- [DIAGNOSTIC BLOCK 1] ---');
     console.log('[DIAGNOSTIC] Keys of ALL new achievements found by check functions:', Array.from(allNewKeys));
-    
+
+    const earnedAchievementsList: {
+      userId: string;
+      email: string;
+      name: string; 
+      items: string[];
+    }[] = [];
+
+    const achievementBulkOps: any[] = [];
+
+    // Pre-fetch Achievement Docs to get friendly names
     const achievementDocs = await Achievement.find({ name: { $in: Array.from(allNewKeys) } }).session(session);
     const achievementMap = new Map(achievementDocs.map((a) => [a.name, a]));
 
-    console.log(`[DIAGNOSTIC] Querying Achievement collection for names: ${JSON.stringify(Array.from(allNewKeys))}`);
-    console.log(`[DIAGNOSTIC] Found ${achievementDocs.length} matching documents in the Achievement collection.`);
-    console.log('[DIAGNOSTIC] Names of achievements FOUND IN DATABASE:', achievementDocs.map(a => a.name));
-    console.log('--- [END DIAGNOSTIC BLOCK 1] ---\n\n');
-
-    const earnedAchievementsList: { userId: string; achievements: SerializedAchievement[] }[] = [];
-    const achievementBulkOps: any[] = [];
-
     for (const user of updatedUsers) {
+      // 2. Temp list for this user
+      const userEarnedItems: string[] = [];
+
       const newAchievements = newAchievementsPerUser.get(user._id.toString());
-      if (!newAchievements || newAchievements.length === 0) continue;
+
+       // --- A. COLLECT ACHIEVEMENTS ---
+      if (newAchievements && newAchievements.length > 0) {
+        newAchievements.forEach(a => {
+          // Get Friendly Name
+          const doc = achievementMap.get(a.key);
+          const displayName = doc?.friendlyName || doc?.name || a.key;
+          userEarnedItems.push(displayName);
+        });
+      }
+      
+      if ((!newAchievements || newAchievements.length === 0) && !sourceRewardConfigMap.size) {
+        continue; 
+      }
 
       console.log(`\n--- [DEBUG] Building achievement/reward update for: ${user.name} ---`);
 
@@ -866,7 +892,7 @@ async function processGlobalMatch(
       const existingAchievements = userGlobalStats.achievements || [];
       const existingRewards = userGlobalStats.rewards || [];
 
-      const newAchievementEntries = newAchievements.map(a => {
+      const newAchievementEntries = (newAchievements || []).map(a => {
         const achievementDoc = achievementMap.get(a.key);
 
          if (!achievementDoc) {
@@ -888,16 +914,13 @@ async function processGlobalMatch(
         } => entry !== null);
 
       console.log(`[DIAGNOSTIC] For user ${user.name}, newAchievementEntries has ${newAchievementEntries.length} items.`);
-      if(newAchievementEntries.length === 0 && newAchievements.length > 0) {
-        console.warn(`[DIAGNOSTIC] 🟡 WARNING: User ${user.name} earned ${newAchievements.length} achievements, but after DB lookup, there are 0 valid entries. This confirms the name mismatch.`);
-      }
 
       const finalAchievements = [...existingAchievements, ...newAchievementEntries];
 
       const rewardToAchievementId = new Map<string, Types.ObjectId>();
       const earnedRewardSponsorships: { rewardId: Types.ObjectId; sponsoringClientId: Types.ObjectId }[] = [];
 
-      for (const a of newAchievements) {
+      for (const a of (newAchievements || [])) {
         const globalSponsorships = sourceRewardConfigMap.get(a.key); 
         const achievementDoc = achievementMap.get(a.key);
         if (globalSponsorships && achievementDoc) {
@@ -985,14 +1008,27 @@ async function processGlobalMatch(
         }
       }
       
-      const newRewardEntries = earnedRewardSponsorships.map(sponsorship => ({
-        rewardId: sponsorship.rewardId,
-        earnedAt: matchDate,
-        redeemed: false,
-        rewardCodeId: rewardCodeIdMap.get(sponsorship.rewardId.toString()), // Make sure this map is populated!
-        sponsoringClientId: sponsorship.sponsoringClientId,
-        triggeringEvent: triggeringEvent,
-      })).filter(entry => entry.rewardCodeId); // Important: only add rewards for which a code was generated
+      const newRewardEntries = earnedRewardSponsorships.map(sponsorship => {
+        const codeId = rewardCodeIdMap.get(sponsorship.rewardId.toString());
+        if (!codeId) return null;
+
+        // CAPTURE REWARD NAME
+        const rewardDoc = rewardsById.get(sponsorship.rewardId.toString());
+        if (rewardDoc) {
+          const displayName = rewardDoc.friendlyName || rewardDoc.name || "Unknown Reward";
+          userEarnedItems.push(displayName);
+        }
+
+        return {
+          rewardId: sponsorship.rewardId,
+          earnedAt: matchDate,
+          redeemed: false,
+          rewardCodeId: codeId,
+          sponsoringClientId: sponsorship.sponsoringClientId,
+          triggeringEvent: triggeringEvent,
+        };
+      }).filter((entry): entry is any => entry !== null);
+
 
       const finalRewards = [...existingRewards, ...newRewardEntries];
 
@@ -1017,6 +1053,16 @@ async function processGlobalMatch(
         console.log(`[DEBUG] Pushing achievement/reward update for ${user.name}:`, JSON.stringify(updateOperation, null, 2));
         achievementBulkOps.push(updateOperation);
       }
+
+      if (userEarnedItems.length > 0) {
+        earnedAchievementsList.push({
+          userId: user._id.toString(),
+          email: user.email || "",
+          name: user.name,
+          items: userEarnedItems
+        });
+      }
+      
     }
 
     if (achievementBulkOps.length > 0) {

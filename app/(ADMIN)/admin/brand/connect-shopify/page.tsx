@@ -95,7 +95,7 @@ export default function ShopifyOnboardingPage() {
 
   const handleLogin = () => {
     // Redirect to login, then come back here
-    const returnUrl = encodeURIComponent('/admin/brand/onboard-shopify');
+    const returnUrl = encodeURIComponent('/admin/brand/connect-shopify');
     router.push(`/auth/login?returnTo=${returnUrl}`);
   };
 

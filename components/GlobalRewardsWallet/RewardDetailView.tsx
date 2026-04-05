@@ -83,7 +83,7 @@ export const RewardDetailView = ({ reward, onClose, style }: Props) => {
                 </Link>
 
                 <Text size={'5'} align={'right'} weight="bold" style={{ border: '2px dashed var(--gray-8)', padding: 'var(--space-3)', borderRadius: 'var(--radius-3)', backgroundColor: 'var(--gray-3)' }}>
-                    <Strong>Code: </Strong>{rewardCode ?? 'Unavailable'}
+                    <Strong>Discount code: </Strong>{rewardCode ?? 'Unavailable'}
                 </Text>
             </Flex>
         </Flex>

@@ -34,7 +34,8 @@ export async function getResolvedUser(): Promise<ResolvedUser | null> {
           name: user.name,
           email: session.user.email,
           isGuest: false,
-          superAdmin: user.superAdmin === true
+          superAdmin: user.superAdmin === true,
+          accountClaimed: user.accountClaimed
         }
       }
     } catch (err) {

@@ -32,13 +32,10 @@ export default function MobileMenu() {
           <Flex direction={'column'} py={'4'} px={'2'}>
             <Flex direction={'column'} gap={'3'} px={'2'}>
               <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
-                <Link href={'/admin'}>Dashboard</Link>
+                <Link href={'/admin/brand'}>Dashboard</Link>
               </Flex>
               <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
-                <Link href={'/admin/achievements'}>Set achievements</Link>
-              </Flex>
-              <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
-                <Link href={'/admin/rewards'}>Configure rewards</Link>
+                <Link href={'/admin/brand/rewards'}>Configure rewards</Link>
               </Flex>
             </Flex>
         </Flex>

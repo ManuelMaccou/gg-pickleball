@@ -4,6 +4,7 @@ import connectToDatabase from "@/lib/mongodb";
 import { NextRequest, NextResponse } from "next/server";
 import { logError } from "@/lib/sentry/logger";
 import { getAuthorizedUser } from "@/lib/auth/getAuthorizeduser";
+import SourceRewardConfig from "@/app/models/SourceRewardConfig";
 
 export async function GET(request: NextRequest) {
   const user = await getAuthorizedUser(request)
@@ -35,13 +36,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "There was an error completing this request." }, { status: 400 });
     }
 
-    const admin = await Admin.findOne({ user: userId }).populate("location");
+    const admin = await Admin.findOne({ user: userId }).populate("location").lean() as any;
 
     if (!admin) {
       return new Response(null, { status: 204 });
     }
 
-    return NextResponse.json({ admin });
+    const hasConfiguredRewards = await SourceRewardConfig.exists({
+      "sponsorships.sponsoringClientId": admin.location._id
+    });
+
+    return NextResponse.json({ 
+      admin,
+      location: {
+        ...admin.location,
+        hasConfiguredRewards: !!hasConfiguredRewards
+      }
+    });
   } catch (error) {
     logError(error, {
       userId: userId,

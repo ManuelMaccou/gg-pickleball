@@ -52,6 +52,7 @@ export interface IDupr {
 
 export interface IUser extends Document {
   _id: Types.ObjectId;
+  accountClaimed: boolean;
   name: string;
   auth0Id?: string;
   superAdmin?: string;
@@ -70,6 +71,7 @@ export type ResolvedUser = {
   superAdmin?: boolean
   permission?: AdminPermissionType;
   adminLocationId?: string | null;
+  accountClaimed?: boolean;
 }
 
 export interface IMatch extends Document {
@@ -93,12 +95,16 @@ export interface IMatch extends Document {
   logToDupr: boolean;
 }
 
-export interface ISkippedDuprEntry extends Document {
-  duprMatchId: string;
-  duprId: string;
-  playerName: String;
-  reason: String;
-  importJobId: Types.ObjectId;
+export interface IDuprImportError extends Document {
+  importJobId?: Types.ObjectId;
+  duprMatchId?: string;
+  duprId?: string;
+  playerName?: string;
+  errorType: 'validation' | 'processing';
+  reason: string;
+  rawData?: any;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export type SerializedAchievement = {
@@ -177,6 +183,7 @@ export interface IClient extends Document {
   admin_logo: string;
   bannerColor: string;
   icon: string;
+  hasConfiguredRewards?: boolean;
   altAchievements?: Types.ObjectId[];
   altRewardsPerAchievement?: Map<string, Types.ObjectId | IReward>;
 

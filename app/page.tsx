@@ -1,75 +1,89 @@
-'use client'; // Add this if you use React hooks for animations in the future
+'use client';
 
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Container, Flex, Grid, Box, Heading, Text, Card, Badge, Button } from '@radix-ui/themes';
-import { BarChartIcon, CheckCircledIcon, MagicWandIcon, RocketIcon } from '@radix-ui/react-icons';
-import styles from './(APP)/HomePage.module.css';
-import React from 'react';
+import { useRouter } from 'next/navigation';
+import { useUser as useAuth0User } from '@auth0/nextjs-auth0';
+import { Container, Flex, Grid, Box, Heading, Text, Card, Badge, Button, Spinner } from '@radix-ui/themes';
+import { ShieldCheck, Gift, Activity, ArrowRight, MailOpen, LockKeyhole } from 'lucide-react';
 import { PartnerLogos } from './components/PartnerLogos';
-import { Sparkles, Trophy } from 'lucide-react';
+import styles from './(APP)/HomePage.module.css';
 
-const Benefit = ({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) => (
-  // Use a Radix Card as the base
-  <Card size="3" className={styles.benefitCard}>
-    {/* Use Flex for the layout and `gap` for spacing */}
-    <Flex gap="5" align="start">
-      {/* Icon Container */}
-      <Flex
-        align="center"
-        justify="center"
-        // Use style prop with theme variables for custom looks
-        style={{
-          flexShrink: 0,
-          width: 56,
-          height: 56,
-          borderRadius: 'var(--radius-3)',
-          backgroundColor: 'var(--lime-9)', // gg-green
-          color: 'var(--slate-12)', // gg-navy
-          boxShadow: 'var(--shadow-3)',
-        }}
-      >
-        {icon}
-      </Flex>
-      {/* Text Container */}
-      <Flex direction="column">
-        <Heading as="h3" size="4" weight="bold">
-          {title}
-        </Heading>
-        <Text as="p" color="gray" mt="2" style={{ lineHeight: 1.7 }}>
-          {description}
-        </Text>
-      </Flex>
+const Step = ({ icon, title, description, stepNum }: { icon: React.ReactNode, title: string, description: string, stepNum: number }) => (
+  <Flex direction="column" gap="3" position="relative">
+    <Flex 
+      align="center" 
+      justify="center" 
+      style={{ 
+        width: 48, height: 48, 
+        borderRadius: '12px', 
+        backgroundColor: 'var(--lime-9)', 
+        color: 'var(--slate-12)',
+        boxShadow: '0 4px 14px -2px var(--lime-a5)'
+      }}
+    >
+      {icon}
     </Flex>
-  </Card>
-);
-
-// Sub-component: StepCard
-const StepCard = ({ num, title, description, icon }: { num: string; title: string; description: string; icon: React.ReactNode }) => (
-    <Flex direction="column" align="center" p="4" position="relative">
-      <Box mb="5" position="relative">
-        <Flex 
-          align="center" justify="center" 
-          style={{ width: 80, height: 80, borderRadius: '9999px', backgroundColor: 'var(--slate-12)', color: 'white', boxShadow: '0 10px 15px -3px var(--lime-a4)', border: '4px solid var(--lime-9)' }}
-        >
-          {icon}
-        </Flex>
-        <Flex 
-          align="center" justify="center"
-          position="absolute"
-          style={{ top: -10, right: -10, width: 32, height: 32, borderRadius: '9999px', backgroundColor: 'white', color: 'var(--slate-12)', border: '2px solid var(--slate-3)', boxShadow: 'var(--shadow-2)' }}
-        >
-            <Text weight="bold">{num}</Text>
-        </Flex>
-      </Box>
-      <Heading as="h4" size="4" weight="bold" mb="2">{title}</Heading>
-      <Text as="p" color="gray" align="center" style={{lineHeight: '1.7'}}>{description}</Text>
-    </Flex>
+    <Box>
+      <Text size="2" weight="bold" color="lime" style={{ letterSpacing: '0.05em' }}>STEP {stepNum}</Text>
+      <Heading as="h3" size="4" mt="1" mb="2">{title}</Heading>
+      <Text color="gray" size="3" style={{ lineHeight: 1.6 }}>{description}</Text>
+    </Box>
+  </Flex>
 );
 
 export default function HomePage() {
+  const router = useRouter();
+  const { user: auth0User, isLoading: auth0IsLoading } = useAuth0User();
+  const [isGettingOnboardingState, setIsGettingOnboardingState] = useState<boolean>(true);
+
+// --- ONBOARDING & ROUTING REDIRECT LOGIC ---
+  useEffect(() => {
+    if (auth0IsLoading) return;
+    
+    if (!auth0User) {
+      setIsGettingOnboardingState(false);
+      return;
+    }
+
+    const checkUserStatus = async () => {
+      try {
+        // Hit our new, lightweight role-checking endpoint
+        const res = await fetch(`/api/user/role?auth0Id=${auth0User.sub}`);
+        if (!res.ok) return;
+        
+        const data = await res.json();
+
+        // If they are a Super Admin OR a Club Admin, send them to the brand dashboard
+        if (data.isSuperAdmin || data.isClubAdmin) {
+             router.replace('/admin/brand'); 
+        } else {
+             // Normal players go to the app
+             router.replace('/play');
+        }
+        
+      } catch (error) {
+        console.error("Error checking user status for redirect:", error);
+      } finally {
+        setIsGettingOnboardingState(false);
+      }
+    };
+
+    checkUserStatus();
+  }, [auth0User, auth0IsLoading, router]);
+
+  // --- LOADING STATE ---
+  if (auth0IsLoading || isGettingOnboardingState) {
+    return (
+      <Flex align="center" justify="center" style={{ minHeight: '100vh', backgroundColor: '#f8fafc' }}>
+        <Spinner size="3" />
+      </Flex>
+    );
+  }
+
   return (
-    <Box>
-      {/* Hero Section */}
+    <Box style={{ backgroundColor: '#ffffff' }}>
+      
       <Box style={{ minHeight: '90vh', position: 'relative', overflow: 'hidden' }}>
         <div className={styles.heroBackground}></div>
         <div className={styles.heroGradientOverlay}></div>
@@ -89,7 +103,7 @@ export default function HomePage() {
               </Text>
               <Flex gap="4" direction={{ initial: 'column', xs: 'row' }} className={styles.slideUp} style={{ animationDelay: '0.4s' }}>
                 <Button asChild size={'4'} radius='full' color='lime'>
-                  <Link href="/players">Start Earning</Link>
+                  <Link href="/play">Start Earning</Link>
                 </Button>
                 <Button asChild size="4" radius="full" variant="outline" color="lime" style={{ color: '#FFFFFF' }}>
                   <Link href="mailto:play@ggpickleball.co">Partner With Us</Link>
@@ -100,92 +114,88 @@ export default function HomePage() {
         </Container>
       </Box>
 
-      {/* Partner Logos */}
-      <Box py="9" style={{backgroundColor: '#FFFFFF'}}>
+          {/* Partner Logos */}
+          <Box py="9" style={{backgroundColor: '#FFFFFF'}}>
         <Container size="4">
-          <Flex direction="column" align="center" gap="3" mb="8">
-            <Heading align="center" size="8" weight="bold">Rewards From Top Brands</Heading>
-          </Flex>
+              <Flex direction="column" align="center" gap="3" mb="8">
+                <Heading align="center" size="8" weight="bold">Rewards From Top Brands</Heading>
+              </Flex>
           <PartnerLogos />
-          <Flex direction={'column'} align={'center'} mt={'6'}>
-            <Text align={'center'} size={'5'} weight={'bold'}>...and more</Text>
-          </Flex>
-        </Container>
-      </Box>
-      
-      {/* How It Works */}
-      <Box py="9" style={{ backgroundColor: 'var(--gray-3)' }}>
-        <Container size="4">
-          <Flex direction="column" align="center" gap="2" mb="9">
-            <Text color="lime" weight="bold" size="2" style={{ letterSpacing: '0.1em' }}>SIMPLE PROCESS</Text>
-            <Heading align="center" size="8" weight="bold">How It Works</Heading>
-          </Flex>
-          <Grid columns={{ initial: '1', sm: '2', md: '4' }} gap="6">
-            <StepCard num="1" title="Play Matches" description="Compete in any partnered league, club, or tournament event." icon={<Trophy width="32" height="32" />} />
-            <StepCard num="2" title="We Verify" description="Our system identifies your participation and achievements automatically." icon={<MagicWandIcon width="32" height="32" />} />
-            <StepCard num="3" title="Unlock Perks" description="Receive exclusive offers from top pickleball brands." icon={<RocketIcon width="32" height="32" />} />
-            <StepCard num="4" title="Level Up" description="Use your rewards to get the best gear and keep improving." icon={<BarChartIcon width="32" height="32" />} />
-          </Grid>
+              <Flex direction={'column'} align={'center'} mt={'6'}>
+                <Text align={'center'} size={'5'} weight={'bold'}>...and more</Text>
+              </Flex>
         </Container>
       </Box>
 
-      {/* Benefits Section */}
-      <Box py="9" style={{ backgroundColor: 'var(--gray-1)' }}>
-        <Container size="4">
-          <Flex direction="column" align="center" gap="3" mb="9" style={{ textAlign: 'center' }}>
-            <Heading as="h2" size="8" weight="bold">
-              Play Hard, Get Rewarded
-            </Heading>
-            <Text color="gray" size="5" style={{ maxWidth: '45rem' }}>
-              GG Pickleball is a celebration of your commitment to the game.
+      {/* Value Prop / How it works */}
+      <Box py="9">
+        <Container size="3" px="4">
+          <Flex direction="column" align="center" mb="8">
+            <Heading size="8" mb="3">How it works</Heading>
+            <Text color="gray" size="5" align="center" style={{ maxWidth: 500 }}>
+              You do the sweating on the court. We handle the rest automatically in the background.
             </Text>
           </Flex>
-    
-          {/* Use the Radix Grid component */}
-          <Grid columns={{ initial: '1', md: '2' }} gap="6">
-            <Benefit 
-              icon={<RocketIcon width="28" height="28" />} 
-              title="Exclusive Offers" 
-              description="Get access to deals and discounts you won't find anywhere else, from paddles to apparel." 
+
+          <Grid columns={{ initial: '1', md: '3' }} gap="7">
+            <Step 
+              stepNum={1}
+              icon={<Activity size={24} strokeWidth={2.5} />}
+              title="Play Matches"
+              description="Play in leagues, tournaments, or open play at participating clubs. Just record your scores like normal."
             />
-            <Benefit 
-              icon={<Sparkles width="28" height="28" />} 
-              title="Discover New Gear" 
-              description="Be the first to know about new products from emerging and established sporting goods brands." 
+            <Step 
+              stepNum={2}
+              icon={<ShieldCheck size={24} strokeWidth={2.5} />}
+              title="We Verify"
+              description="Our system securely verifies your match results and updates your GG profile automatically."
             />
-            <Benefit 
-              icon={<BarChartIcon width="28" height="28" />} 
-              title="Track Your Progress" 
-              description="See a history of your rewards and connect them to your match performance over time." 
-            />
-            <Benefit 
-              icon={<CheckCircledIcon width="28" height="28" />} 
-              title="100% Free for Players" 
-              description="No fees, no subscriptions. Just pure rewards for playing the game you love." 
+            <Step 
+              stepNum={3}
+              icon={<Gift size={24} strokeWidth={2.5} />}
+              title="Unlock Rewards"
+              description="Log in to claim exclusive discounts, free gear, and perks from our partnered brands."
             />
           </Grid>
         </Container>
       </Box>
 
-      {/* Final CTA */}
-      <Box py="9">
-        <Container size="3">
-          <Card size="5" style={{ backgroundColor: 'var(--lime-9)' }}>
-            <Flex direction="column" align="center" gap="4" p={{ initial: '4', sm: '8' }}>
-              <Heading align="center" size="9" weight="bold" style={{ color: 'var(--slate-12)' }}>Ready to Join the Fun?</Heading>
-              <Text align="center" size="5" style={{ color: 'var(--slate-a11)', maxWidth: '40rem' }} mb="5">
-                Signing up is fast, free, and connects you to a world of exclusive pickleball perks.
-              </Text>
-              <Flex gap="4" direction={{ initial: 'column', xs: 'row' }} width="100%" justify="center">
-                {/* Here we use Radix Buttons directly for custom colors */}
-                <Button asChild size="4" radius="full" style={{ backgroundColor: 'var(--slate-12)', color: 'white' }} className={styles.ctaButton}>
-                    <Link href="/auth">Sign Up For Free</Link>
+      {/* Why is this free? (Overcoming Skepticism) */}
+      <Box py="9" style={{ backgroundColor: 'var(--slate-2)' }}>
+        <Container size="3" px="4">
+          <Card size="4" style={{ backgroundColor: '#ffffff', border: '1px solid var(--slate-4)' }}>
+            <Flex direction={{ initial: 'column', md: 'row' }} gap="6" align="center">
+              <Box style={{ flex: 1 }}>
+                <Heading size="6" mb="3">Wait, why is this free?</Heading>
+                <Text color="gray" size="4" style={{ lineHeight: 1.6 }} mb="4">
+                  It sounds too good to be true, but it's simple: Top pickleball brands want to reach active, passionate players. They want to grow with you and reward you as you progress in the sport. 
+                </Text>
+                <Text weight="bold" color="gray"> No subscriptions. No credit cards. Just pickleball.</Text>
+              </Box>
+              <Box>
+                <Button asChild size="4" radius="full" style={{ backgroundColor: 'var(--slate-12)', color: 'white' }}>
+                  <a href="/auth/login?returnTo=/play">Activate My Profile</a>
                 </Button>
-              </Flex>
+              </Box>
             </Flex>
           </Card>
         </Container>
       </Box>
+
+      {/* Footer */}
+      <Box py="6" style={{ borderTop: '1px solid var(--gray-4)' }}>
+        <Container size="4" px="4">
+          <Flex justify="between" align="center" direction={{ initial: 'column', sm: 'row' }} gap="4">
+            <Text size="2" color="gray">&copy; {new Date().getFullYear()} GG Pickleball. All rights reserved.</Text>
+            <Flex gap="4">
+              <Link href="mailto:manuel@ggpickleball.co">
+                <Text size="2" color="gray" style={{ textDecoration: 'underline' }}>Partner with us</Text>
+              </Link>
+            </Flex>
+          </Flex>
+        </Container>
+      </Box>
+
     </Box>
   );
 }

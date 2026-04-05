@@ -7,11 +7,9 @@ import { FrontendUser } from '@/app/types/frontendTypes';
 import { achievementKeyToFunctionName } from '@/lib/achievements/definitions';
 import { achievementFunctionMetadata } from '@/lib/achievements/achievementMetadata';
 import { GlobalConfiguredReward, PopulatedGlobalRewardCode, RewardWithContext } from '@/app/types/rewardTypes';
-import { RewardCard } from '../GlobalRewardsWallet/RewardCard';
 import { RewardDetailView } from '../GlobalRewardsWallet/RewardDetailView';
-import { useIsMobile } from "@/app/hooks/useIsMobile";
+import { ModernRewardCard } from '../GlobalRewardsWallet/ModernRewardCard';
 
-import '../GlobalRewardsWallet/wallet.css'; 
 
 type Props = {
   user: FrontendUser | null;
@@ -23,8 +21,6 @@ export default function GlobalRewardsWallet({ user, dataSourceId }: Props) {
   const [allRewards, setAllRewards] = useState<RewardWithContext[]>([]);
   const [dataSource, setDataSource] = useState<IDataSource | null>(null);
   const [activeIndex, setActiveIndex] = useState<number | null>(null); 
-  
-  const isMobile = useIsMobile();
 
   useEffect(() => {
     const fetchAllDataAndMerge = async () => {
@@ -51,7 +47,6 @@ export default function GlobalRewardsWallet({ user, dataSourceId }: Props) {
           fetchedDataSource = allDataSources.find((ds: IDataSource) => ds._id.toString() === dataSourceId) || null;
 
           const rewardsData = await rewardsRes.json();
-          console.log('rewardsData:', rewardsData)
           
           const configuredRewards = (rewardsData.rewards || []) as GlobalConfiguredReward[];
           const rewardsToDisplay = configuredRewards.map(item => ({
@@ -132,36 +127,55 @@ export default function GlobalRewardsWallet({ user, dataSourceId }: Props) {
             });
           }
           
-        for (const earned of [...earnedRewardsMap.values()]) {
-          const uniqueSnapshotKey = `${earned._id.toString()}-${earned.sponsoringClient._id.toString()}`;
-          if (mergedMap.has(uniqueSnapshotKey)) {
-            const existingEntry = mergedMap.get(uniqueSnapshotKey)!;
-            existingEntry.codes = earned.codes;
-            existingEntry.repeatable = earned.repeatable;
-          } else {
-            mergedMap.set(uniqueSnapshotKey, earned);
+          for (const earned of [...earnedRewardsMap.values()]) {
+            const uniqueSnapshotKey = `${earned._id.toString()}-${earned.sponsoringClient._id.toString()}`;
+            if (mergedMap.has(uniqueSnapshotKey)) {
+              const existingEntry = mergedMap.get(uniqueSnapshotKey)!;
+              existingEntry.codes = earned.codes;
+              existingEntry.repeatable = earned.repeatable;
+            } else {
+              mergedMap.set(uniqueSnapshotKey, earned);
+            }
           }
-        }
-        
-        const allRewardVersions = [...mergedMap.values()];
+          
+          const allRewardVersions = [...mergedMap.values()];
 
-        const earnedAchievementIds = new Set(
-          allRewardVersions.filter(r => r.codes.length > 0).map(r => r.achievementId)
-        );
+          /*
+          const earnedAchievementIds = new Set(
+            allRewardVersions.filter(r => r.codes.length > 0).map(r => r.achievementId)
+          );
 
-        const deduplicatedList = allRewardVersions.filter(reward => {
-          if (reward.codes.length === 0) { 
-            return !(earnedAchievementIds.has(reward.achievementId) && !reward.repeatable);
-          }
-          return true; 
-        });
+           const deduplicatedList = allRewardVersions.filter(reward => {
+            if (reward.codes.length === 0) { 
+              return !(earnedAchievementIds.has(reward.achievementId) && !reward.repeatable);
+            }
+            return true; 
+          });
+          */
 
-        const visibleRewards = deduplicatedList.filter(reward => {
-          if (reward.codes.length === 0) return true;
-          const areAllCodesRedeemed = reward.codes.every(c => c.redeemed);
-          return reward.repeatable || !areAllCodesRedeemed;
-        });
-  
+          const earnedAchievementClientPairs = new Set(
+            allRewardVersions
+              .filter(r => r.codes.length > 0)
+              .map(r => `${r.achievementId}-${r.sponsoringClient._id.toString()}`)
+          );
+
+          const deduplicatedList = allRewardVersions.filter(reward => {
+            if (reward.codes.length === 0) { 
+              // Only hide the locked version if THIS SPECIFIC CLIENT already 
+              // gave you a code for this non-repeatable achievement.
+              const pairKey = `${reward.achievementId}-${reward.sponsoringClient._id.toString()}`;
+              return !(earnedAchievementClientPairs.has(pairKey) && !reward.repeatable);
+            }
+            return true; 
+          });
+
+         
+          const visibleRewards = deduplicatedList.filter(reward => {
+            if (reward.codes.length === 0) return true;
+            const areAllCodesRedeemed = reward.codes.every(c => c.redeemed);
+            return reward.repeatable || !areAllCodesRedeemed;
+          });
+    
           const sortedList = visibleRewards.sort((a, b) => {
             const aUnlocked = a.codes.some(c => !c.redeemed);
             const bUnlocked = b.codes.some(c => !c.redeemed);
@@ -188,109 +202,47 @@ export default function GlobalRewardsWallet({ user, dataSourceId }: Props) {
     fetchAllDataAndMerge();
   }, [user, user?._id, dataSourceId]);
 
-  // --- INTERACTION HANDLERS ---
-  const handleCardClick = (index: number) => {
-    if (index === activeIndex) {
-      setActiveIndex(null);
-    } else {
-      setActiveIndex(index);
-    }
-  };
-
   if (isLoading) return <Flex justify="center" align="center" height="200px"><Spinner /></Flex>;
   
   if (!isLoading && allRewards.length === 0) {
-    return <Flex justify="center" p="6"><Text>You haven&apos;t earned any rewards yet.</Text></Flex>;
+    return <Flex justify="center" p="6"><Text color="gray">No rewards available yet.</Text></Flex>;
   }
 
-  // --- DESKTOP VIEW (Grid + Modal) ---
-  if (isMobile === false) {
-    return (
-      <Box className="wallet-grid">
-        <Grid columns={{ initial: '1', sm: '2', md: '3' }} gap="5">
-          {allRewards.map((reward, index) => {
-            const unredeemedCount = reward.codes?.filter(c => !c.redeemed).length ?? 0;
-            const isUnlocked = unredeemedCount > 0;
-            const uniqueKey = `${reward._id.toString()}-${reward.sponsoringClient._id.toString()}`; 
-
-            return (
-              <Box key={uniqueKey} style={{ position: 'relative', height: '240px' }}>
-                <RewardCard
-                  reward={reward}
-                  index={index}
-                  zIndex={1}
-                  isActiveCard={false} // Always false in grid mode, we use Dialog for details
-                  isUnlocked={isUnlocked}
-                  onClick={() => setActiveIndex(index)}
-                  backgroundImage={reward.sponsoringClient.cardBackgroundImage}
-                  textColor={reward.sponsoringClient.cardTextColor}
-                  dataSource={dataSource}
-                />
-              </Box>
-            );
-          })}
-        </Grid>
-
-        {/* Desktop Detail Modal */}
-        <Dialog.Root open={activeIndex !== null} onOpenChange={(open) => !open && setActiveIndex(null)}>
-          <Dialog.Content maxWidth="450px" style={{padding: 0, borderRadius: '16px', overflow: 'hidden'}}>
-            <VisuallyHidden><Dialog.Title>Redeem Reward</Dialog.Title></VisuallyHidden>
-             {/* Render Detail View inside Modal without absolute positioning */}
-             {activeIndex !== null && (
-               <Box style={{ position: 'relative' }}>
-                 <RewardDetailView
-                    reward={allRewards[activeIndex]}
-                    onClose={() => setActiveIndex(null)}
-                    // Override the absolute positioning styles for modal context
-                    style={{ position: 'relative', top: 0, left: 0, right: 0, margin: 0, opacity: 1, animation: 'none' }}
-                 />
-               </Box>
-             )}
-          </Dialog.Content>
-        </Dialog.Root>
-      </Box>
-    )
-  }
-
-  // --- MOBILE VIEW (Stacked Wallet) ---
+  // --- UNIFIED GRID VIEW (Desktop & Mobile) ---
   return (
-    <Box 
-      className={`wallet-container ${activeIndex !== null ? 'is-expanded' : ''}`}
-      style={{ '--num-cards': allRewards.length } as React.CSSProperties}
-    >
-      <Box 
-        className={`wallet-stack ${activeIndex !== null ? 'is-active' : ''}`}
-      >
-        <Box className="wallet-spacer" />
+    <Box>
+      <Grid columns={{ initial: '1', sm: '2', md: '3', lg: '4' }} gap="5">
         {allRewards.map((reward, index) => {
-          const unredeemedCount = reward.codes?.filter(c => !c.redeemed).length ?? 0;
-          const isUnlocked = unredeemedCount > 0;
-          const uniqueKey = `${reward._id.toString()}-${reward.sponsoringClient._id.toString()}`;         
-          
+          const uniqueKey = `${reward._id.toString()}-${reward.sponsoringClient._id.toString()}`; 
+
           return (
-            <RewardCard
+            <ModernRewardCard
               key={uniqueKey}
               reward={reward}
               index={index}
-              zIndex={index}
-              isActiveCard={activeIndex === index} 
-              isUnlocked={isUnlocked}
-              onClick={() => handleCardClick(index)}
-              backgroundImage={reward.sponsoringClient.cardBackgroundImage}
-              textColor={reward.sponsoringClient.cardTextColor}
+              onClick={() => setActiveIndex(index)}
               dataSource={dataSource}
             />
           );
         })}
-      </Box>
-      
-      {/* Detail View that slides in */}
-      {activeIndex !== null && (
-        <RewardDetailView
-          reward={allRewards[activeIndex]}
-          onClose={() => setActiveIndex(null)}
-        />
-      )}
+      </Grid>
+
+      {/* Universal Detail Modal */}
+      <Dialog.Root open={activeIndex !== null} onOpenChange={(open) => !open && setActiveIndex(null)}>
+        <Dialog.Content maxWidth="450px" style={{padding: 0, borderRadius: '16px', overflow: 'hidden', backgroundColor: 'var(--slate-1)'}}>
+          <VisuallyHidden><Dialog.Title>Redeem Reward</Dialog.Title></VisuallyHidden>
+            {activeIndex !== null && (
+              <Box style={{ position: 'relative' }}>
+                <RewardDetailView
+                  reward={allRewards[activeIndex]}
+                  onClose={() => setActiveIndex(null)}
+                  // Override absolute positioning to work nicely inside Dialog
+                  style={{ position: 'relative', top: 0, left: 0, right: 0, margin: 0, opacity: 1, animation: 'none' }}
+                />
+              </Box>
+            )}
+        </Dialog.Content>
+      </Dialog.Root>
     </Box>
   );
 }
