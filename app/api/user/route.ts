@@ -141,6 +141,7 @@ function buildUpdateOperation(body: UserUpdatePayload) {
   return { $set: updateOp };
 }
 
+
 export async function PATCH(req: NextRequest) {
 
   const user = await getAuthorizedUser(req)
@@ -153,7 +154,7 @@ export async function PATCH(req: NextRequest) {
 
     // ✨ Destructure all potential body fields for clarity. Note `upsertValue` is removed.
     const body = await req.json();
-    const { findBy, name, auth0Id, userId } = body;
+    const { findBy, name, auth0Id, userId, dupr } = body;
 
     // ✨ Simplified validation by building the filter first.
     const filter: Record<string, unknown> = {};
@@ -203,6 +204,70 @@ export async function PATCH(req: NextRequest) {
     if (!existingUser) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
+
+    // --- SECURE: DUPR SUBSCRIPTION CHECK ---
+    // If the frontend is sending us a new DUPR token to save, we MUST verify it first.
+    if (dupr && dupr.userToken) {
+      console.log(`[DUPR SYNC] Verifying Subscription Status for ${existingUser.email}...`);
+      
+      const DUPR_API_SUBSCRIPTION_BASE_URL = process.env.DUPR_API_SUBSCRIPTION_BASE_URL; // prod.mydupr.com or uat.mydupr.com
+      
+      try {
+        const subResponse = await fetch(`https://${DUPR_API_SUBSCRIPTION_BASE_URL}/subscription/active`, {
+          method: 'POST', 
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${dupr.userToken}`, 
+            'accept': 'application/json'
+          },
+          body: JSON.stringify({}) // Empty body usually required for POST
+        });
+
+        if (!subResponse.ok) {
+          const errText = await subResponse.text();
+          console.error(`[DUPR SYNC] Subscription API failed (${subResponse.status}):`, errText);
+          throw new Error("Failed to communicate with DUPR.");
+        }
+
+        const subData = await subResponse.json();
+        
+        // --- ENTITLEMENT LOGIC ---
+        // Look through all their active subscriptions to see if any grant the 'BASIC_L1' entitlement
+        let hasBasicL1 = false;
+
+        if (subData && subData.subscriptions && Array.isArray(subData.subscriptions)) {
+            for (const sub of subData.subscriptions) {
+                // Safely check if the 'tournaments' array exists inside 'entitlements'
+                const tournaments = sub.entitlements?.tournaments || [];
+                
+                if (tournaments.includes('BASIC_L1')) {
+                    hasBasicL1 = true;
+                    break; // Found it, no need to keep checking
+                }
+            }
+        }
+
+        // BLOCK THE SAVE IF THEY FAIL THE CHECK
+        if (!hasBasicL1) {
+            console.warn(`[DUPR SYNC] User ${existingUser._id} blocked. Missing BASIC_L1 entitlement.`);
+            return NextResponse.json(
+                { error: "You do not have access to DUPR at this time. Please contact DUPR support." }, 
+                { status: 403 }
+            );
+        }
+        
+        console.log(`[DUPR SYNC] User verified.`);
+
+      } catch (subError: any) {
+        // If the API call fails completely (network error, bad token, etc.), BLOCK the connection
+        console.error("[DUPR SYNC] Check failed entirely:", subError);
+        return NextResponse.json(
+            { error: "Failed to verify your DUPR account status. Please try connecting again later." }, 
+            { status: 400 }
+        );
+      }
+    }
+    // ---------------------------------------
 
     // ✨ Build the update operation using our helper and dot notation
     const updateOperation = buildUpdateOperation(body);

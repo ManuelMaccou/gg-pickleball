@@ -1,6 +1,6 @@
 'use client'
 
-import { Box, Button, Flex, Spinner, Text, Select, Card, Heading, IconButton } from "@radix-ui/themes";
+import { Box, Button, Flex, Spinner, Text, Select, Card, Heading, IconButton, Dialog } from "@radix-ui/themes";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 // Changed to the black logo for the light background header
@@ -15,9 +15,9 @@ import MatchHistory from "@/components/sections/MatchHistory";
 import { HowToDialog } from "./components/HowToDialog";
 import PlayMenu from "@/app/components/PlayMenu";
 import GlobalRewardsWallet from "@/components/sections/GlobalRewardsWallet";
-import { Cross1Icon } from "@radix-ui/react-icons";
+import { Cross1Icon, ExclamationTriangleIcon } from "@radix-ui/react-icons";
 // Added Lucide Icons to match the requested design aesthetic
-import { Trophy, Clock, MapPin, RefreshCw, ChevronDown } from "lucide-react";
+import { Trophy, Clock, MapPin, RefreshCw, ChevronDown, LinkIcon } from "lucide-react";
 import { useIsMobile } from "@/app/hooks/useIsMobile";
 
 export type SelectableLocation = Omit<IClient, '_id'> & {
@@ -39,6 +39,9 @@ export default function Play() {
   const [isFetchingDbUser, setIsFetchingDbUser] = useState(true);
   const [showDuprFrame, setShowDuprFrame] = useState(false);
   const [isDuprSyncing, setIsDuprSyncing] = useState(false);
+
+  const [duprErrorOpen, setDuprErrorOpen] = useState(false);
+  const [duprErrorMessage, setDuprErrorMessage] = useState("");
     
   // --- AUTH STATUS LOGIC ---
   const authenticationStatus = useMemo(() => {
@@ -68,6 +71,7 @@ export default function Play() {
       const data = event.data;
       if (data && data.userToken && data.duprId) {
         setShowDuprFrame(false);
+        
         try {
           const response = await fetch("/api/user", {
             method: "PATCH",
@@ -78,10 +82,27 @@ export default function Play() {
               dupr: { id: data.duprId, userToken: data.userToken, refreshToken: data.refreshToken },
             }),
           });
-          if (!response.ok) throw new Error("Failed to save DUPR info.");
+         if (!response.ok) {
+             const errorData = await response.json();
+             // We use errorData.error from your backend, or a fallback if it's missing
+             throw new Error(errorData.error || "Failed to save DUPR info.");
+          }
           const updatedUser = await response.json();
           setDbUser(updatedUser); 
-        } catch (error) { console.error("Error saving DUPR info:", error); }
+        } catch (error: unknown) { 
+          console.error("Error saving DUPR info:", error);
+          
+          // Safely extract the message whether it's an Error object or a string
+          let message = "An unexpected error occurred while connecting to DUPR.";
+          if (error instanceof Error) {
+            message = error.message;
+          } else if (typeof error === "string") {
+            message = error;
+          }
+
+          setDuprErrorMessage(message);
+          setDuprErrorOpen(true);
+        }
       }
     };
     if (duprConfig.origin) window.addEventListener('message', handleDuprMessage);
@@ -200,6 +221,30 @@ export default function Play() {
       `}</style>
 
       <HowToDialog open={showHowToDialog} onOpenChange={setShowHowToDialog}/>
+
+      {/* --- DUPR CONNECTION ERROR DIALOG --- */}
+      <Dialog.Root open={duprErrorOpen} onOpenChange={setDuprErrorOpen}>
+        <Dialog.Content maxWidth="400px" style={{ borderRadius: '16px' }}>
+          <Flex align="center" gap="3" mb="4">
+            <Box style={{ backgroundColor: 'var(--red-3)', padding: '8px', borderRadius: '50%' }}>
+               <ExclamationTriangleIcon width="24" height="24" color="var(--red-9)" />
+            </Box>
+            <Dialog.Title style={{ margin: 0 }}>Connection Failed</Dialog.Title>
+          </Flex>
+          
+          <Dialog.Description size="2" color="gray" mb="5" style={{ lineHeight: 1.5 }}>
+            {duprErrorMessage}
+          </Dialog.Description>
+
+          <Flex justify="end">
+            <Dialog.Close>
+              <Button variant="soft" color="gray" style={{ cursor: 'pointer' }}>
+                Close
+              </Button>
+            </Dialog.Close>
+          </Flex>
+        </Dialog.Content>
+      </Dialog.Root>
 
       {/* --- STICKY HEADER (Matches Example) --- */}
       <Box 
@@ -326,9 +371,9 @@ export default function Play() {
                 </Box>
 
                 {/* Right Side: Action Button */}
-                {dbUser && dbUser.dupr && dbUser.dupr.id && (
+                {dbUser && dbUser.dupr?.id ? (
                   <Button 
-                    size="4"
+                    size="3"
                     radius="full"
                     onClick={handleSync} 
                     disabled={isDuprSyncing}
@@ -345,6 +390,17 @@ export default function Play() {
                     <RefreshCw size={18} className={isDuprSyncing ? "spin" : ""} />
                     {isDuprSyncing ? "Syncing..." : "Refresh Rewards"}
                   </Button>
+                ) : dbUser && !dbUser.dupr?.id && (
+                  <Button 
+                    size="3" 
+                    radius="full"
+                    onClick={handleInitiateDuprLogin}
+                    style={{ backgroundColor: 'var(--lime-9)', color: 'var(--slate-12)', fontWeight: 'bold', cursor: 'pointer' }}
+                >
+                    <LinkIcon size={16} style={{ marginRight: '8px' }} />
+                    Connect DUPR To Get Rewards
+                </Button>
+
                 )}
               </Flex>
             </Box>

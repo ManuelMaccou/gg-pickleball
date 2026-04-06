@@ -2,11 +2,6 @@ import FormData from 'form-data';
 import Mailgun from 'mailgun.js';
 import { logError } from "@/lib/sentry/logger";
 
-const mailgun = new Mailgun(FormData);
-const mg = mailgun.client({
-  username: 'api',
-  key: process.env.MAILGUN_API_KEY || '',
-});
 
 export type EmailTemplateType = 
   | 'gg_universal_notification' // Used for player rewards/welcome
@@ -38,6 +33,12 @@ export async function sendNotificationEmail({
   const domain = process.env.MAILGUN_DOMAIN;
   const fromEmail = process.env.MAILGUN_FROM_EMAIL;
 
+  const mailgun = new Mailgun(FormData);
+  const mg = mailgun.client({
+    username: 'api',
+    key: process.env.MAILGUN_API_KEY || '',
+  });
+
   if (!domain || !fromEmail) {
     console.error("Missing Mailgun configuration (MAILGUN_DOMAIN or MAILGUN_FROM_EMAIL).");
     return;
@@ -51,7 +52,7 @@ export async function sendNotificationEmail({
       `\nTemplate:`, template
     );
 
-    
+/*
     await mg.messages.create(domain, {
       from: fromEmail,
       to: [email],
@@ -59,7 +60,7 @@ export async function sendNotificationEmail({
       template: template,
       'h:X-Mailgun-Variables': JSON.stringify(variables),
     });
-    
+*/
 
 
   } catch (error: unknown) {
