@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import darkGgLogo from '../../../public/logos/gg_logo_black_transparent.png'
 import { useUser as useAuth0User } from '@auth0/nextjs-auth0';
 import { useUserContext } from '@/app/contexts/UserContext';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { IClient, IDataSource } from '@/app/types/databaseTypes';
 import { FrontendUser, SelectableItem } from '@/app/types/frontendTypes';
 import { Types } from "mongoose";
@@ -42,6 +42,8 @@ export default function Play() {
 
   const [duprErrorOpen, setDuprErrorOpen] = useState(false);
   const [duprErrorMessage, setDuprErrorMessage] = useState("");
+
+  const bypassDuprCheckRef = useRef(false);
     
   // --- AUTH STATUS LOGIC ---
   const authenticationStatus = useMemo(() => {
@@ -80,6 +82,7 @@ export default function Play() {
               findBy: "userId",
               userId: dbUser?._id,
               dupr: { id: data.duprId, userToken: data.userToken, refreshToken: data.refreshToken },
+              bypassDuprCheck: bypassDuprCheckRef.current
             }),
           });
          if (!response.ok) {
@@ -89,6 +92,7 @@ export default function Play() {
           }
           const updatedUser = await response.json();
           setDbUser(updatedUser); 
+          bypassDuprCheckRef.current = false;
         } catch (error: unknown) { 
           console.error("Error saving DUPR info:", error);
           
@@ -109,7 +113,14 @@ export default function Play() {
     return () => { if (duprConfig.origin) window.removeEventListener('message', handleDuprMessage); };
   }, [dbUser, duprConfig]);
 
-  const handleInitiateDuprLogin = () => {
+  const handleInitiateStandardLogin = () => {
+    bypassDuprCheckRef.current = false; // Strict check ON
+    if (!duprConfig.loginUrl) { alert("DUPR integration is not configured."); return; }
+    setShowDuprFrame(true);
+  };
+
+  const handleInitiateBypassLogin = () => {
+    bypassDuprCheckRef.current = true; // Strict check OFF
     if (!duprConfig.loginUrl) { alert("DUPR integration is not configured."); return; }
     setShowDuprFrame(true);
   };
@@ -289,7 +300,7 @@ export default function Play() {
                     user={dbUser}
                     isAuthorized={true}
                     onUserUpdate={handleUserUpdate}
-                    onInitiateDuprLogin={handleInitiateDuprLogin}
+                    onInitiateDuprLogin={handleInitiateStandardLogin}
                   />
                 </Flex>
               )}
@@ -391,15 +402,27 @@ export default function Play() {
                     {isDuprSyncing ? "Syncing..." : "Refresh Rewards"}
                   </Button>
                 ) : dbUser && !dbUser.dupr?.id && (
-                  <Button 
-                    size="3" 
-                    radius="full"
-                    onClick={handleInitiateDuprLogin}
-                    style={{ backgroundColor: 'var(--lime-9)', color: 'var(--slate-12)', fontWeight: 'bold', cursor: 'pointer' }}
-                >
-                    <LinkIcon size={16} style={{ marginRight: '8px' }} />
-                    Connect DUPR To Get Rewards
-                </Button>
+                  <Flex direction={'column'} gap={'4'}>
+                    <Button 
+                      size="3" 
+                      radius="full"
+                      onClick={handleInitiateStandardLogin}
+                      style={{ backgroundColor: 'red', color: 'var(--slate-12)', fontWeight: 'bold', cursor: 'pointer' }}
+                  >
+                      <LinkIcon size={16} style={{ marginRight: '8px' }} />
+                      Connect DUPR To Get Rewards (Entitlement fail)
+                    </Button>
+
+                    <Button 
+                      size="3" 
+                      radius="full"
+                      onClick={handleInitiateBypassLogin}
+                      style={{ backgroundColor: 'var(--lime-9)', color: 'var(--slate-12)', fontWeight: 'bold', cursor: 'pointer' }}
+                  >
+                      <LinkIcon size={16} style={{ marginRight: '8px' }} />
+                      Connect DUPR To Get Rewards (Entitlement pass)
+                  </Button>
+                </Flex>
 
                 )}
               </Flex>
