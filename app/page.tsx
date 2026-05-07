@@ -344,11 +344,9 @@ export default function HomePage() {
                   letterSpacing: '-0.035em',
                 }}
               >
-                Just play.
+                Your game,
                 <br />
-                <span className={styles.heroTextGradient}>We&apos;ll handle</span>
-                <br />
-                <span className={styles.heroTextGradient}>the rewards.</span>
+                <span className={styles.heroTextGradient}>Rewarded.</span>
               </Heading>
 
               <Text
@@ -634,7 +632,7 @@ export default function HomePage() {
             >
               Sign up free, sync your DUPR, and start unlocking rewards from the brands you love.
             </Text>
-            <Button asChild size="4" radius="full" color="lime" highContrast mt="2">
+            <Button asChild size="4" radius="full" color="lime" mt="2">
               <Link href="/auth/login?returnTo=/play">
                 <Flex align="center" gap="2">
                   Sign up free
