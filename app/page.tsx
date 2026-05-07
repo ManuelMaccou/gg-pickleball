@@ -538,7 +538,7 @@ export default function HomePage() {
                   backgroundColor: '#b2ff00',
                   color: '#0f1a0a',
                 }}>
-                  <Link href="/auth/login?returnTo=/play">
+                  <Link href="/auth/login?screen_hint=signup&returnTo=/play">
                     <Flex align="center" gap="2">
                       Activate my profile
                       <ArrowRight size={18} strokeWidth={2.5} />
