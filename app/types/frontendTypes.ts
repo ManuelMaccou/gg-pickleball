@@ -33,13 +33,14 @@ export interface FrontendUser {
   profilePicture?: string;
   lastLocation?: string;
   stats: Record<string, FrontendClientStats>;
+  accountClaimed?: boolean;
 }
 
 type PopulatedPlayer = { _id: string; name: string };
 
 export type PopulatedMatch = Omit<IMatch, "team1" | "team2"> & {
-  team1: { players: PopulatedPlayer[]; score: number };
-  team2: { players: PopulatedPlayer[]; score: number };
+  team1: { players: PopulatedPlayer[]; score: number; playerNames: string[]; };
+  team2: { players: PopulatedPlayer[]; score: number; playerNames: string[]; };
   winners: { _id: string }[]; 
   createdAt: Date;
 };

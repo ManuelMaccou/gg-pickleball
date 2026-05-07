@@ -10,11 +10,23 @@ export async function GET(req: NextRequest) {
 
   // Get Client ID from query
   const clientId = req.nextUrl.searchParams.get('clientId');
-  if (!clientId) return NextResponse.json({ error: 'Missing clientId' }, { status: 400 });
+  if (!clientId) return NextResponse.json({ error: 'Missing clientId parameter.' }, { status: 400 });
 
   await connectToDatabase();
   const client = await Client.findById(clientId);
-  if (!client?.shopify?.accessToken) return NextResponse.json({ error: 'Client not connected to Shopify' }, { status: 400 });
+  
+  if (!client) {
+      return NextResponse.json({ error: `No Client found in MongoDB with ID: ${clientId}` }, { status: 404 });
+  }
+
+  // --- SPECIFIC ERROR CHECKS ---
+  if (!client.shopify?.shopDomain) {
+      return NextResponse.json({ error: `The Client document (${client.name}) is missing 'shopify.shopDomain'. You must add the store URL (e.g., store.myshopify.com) to MongoDB before managing webhooks.` }, { status: 400 });
+  }
+
+  if (!client.shopify?.accessToken) {
+      return NextResponse.json({ error: `The Client document (${client.name}) is missing 'shopify.accessToken'. You must complete the Shopify OAuth flow or manually add the Admin API Access Token to MongoDB.` }, { status: 400 });
+  }
 
   const query = `
     {
@@ -35,17 +47,30 @@ export async function GET(req: NextRequest) {
     }
   `;
 
-  const response = await fetch(`https://${client.shopify.shopDomain}/admin/api/2025-01/graphql.json`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Shopify-Access-Token': client.shopify.accessToken,
-    },
-    body: JSON.stringify({ query }),
-  });
+  try {
+    const response = await fetch(`https://${client.shopify.shopDomain}/admin/api/2025-01/graphql.json`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Shopify-Access-Token': client.shopify.accessToken,
+      },
+      body: JSON.stringify({ query }),
+    });
 
-  const json = await response.json();
-  return NextResponse.json(json.data.webhookSubscriptions.edges);
+    const json = await response.json();
+
+    // Check for GraphQL format errors (e.g., invalid token resulting in "Unauthorized")
+    if (json.errors) {
+        console.error("Shopify GraphQL Error:", json.errors);
+        return NextResponse.json({ error: `Shopify rejected the request: ${json.errors[0].message}. Verify the Access Token is valid.` }, { status: 400 });
+    }
+
+    const edges = json.data?.webhookSubscriptions?.edges || [];
+    return NextResponse.json(edges);
+  } catch (error: any) {
+      console.error("Fetch Error:", error);
+      return NextResponse.json({ error: `Failed to connect to Shopify API: ${error.message}` }, { status: 500 });
+  }
 }
 
 export async function DELETE(req: NextRequest) {
@@ -92,7 +117,24 @@ export async function POST(req: NextRequest) {
     await connectToDatabase();
     const client = await Client.findById(clientId);
     
-    await registerOrderPaidWebhook(client.shopify.shopDomain, client.shopify.accessToken);
+    if (!client) {
+        return NextResponse.json({ error: `No Client found in MongoDB with ID: ${clientId}` }, { status: 404 });
+    }
 
-    return NextResponse.json({ success: true });
+    // --- SPECIFIC ERROR CHECKS ---
+    if (!client.shopify?.shopDomain) {
+        return NextResponse.json({ error: `The Client document (${client.name}) is missing 'shopify.shopDomain'.` }, { status: 400 });
+    }
+
+    if (!client.shopify?.accessToken) {
+        return NextResponse.json({ error: `The Client document (${client.name}) is missing 'shopify.accessToken'.` }, { status: 400 });
+    }
+
+    try {
+        await registerOrderPaidWebhook(client.shopify.shopDomain, client.shopify.accessToken);
+        return NextResponse.json({ success: true });
+    } catch (error: any) {
+        console.error("Webhook Registration Error:", error);
+        return NextResponse.json({ error: `Failed to register webhook: ${error.message}` }, { status: 500 });
+    }
 }

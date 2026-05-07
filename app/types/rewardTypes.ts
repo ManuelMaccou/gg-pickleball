@@ -54,6 +54,7 @@ export interface GlobalConfiguredReward {
 // The main data structure for displaying a reward in the grid
 export type RewardWithContext = IRewardWithCode & {
   achievementId: string;
+  achievementName: string;
   achievementFriendlyName: string;
   achievementTask: string;
   sponsoringClient: IClient;

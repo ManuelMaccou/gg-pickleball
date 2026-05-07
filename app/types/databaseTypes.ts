@@ -45,13 +45,29 @@ export interface ClientStats {
 }
 
 export interface IDupr {
-  id: string;
-  email: string;
-  activated: boolean;
+  id?: string;
+  rating?: number;
+  unverfiedId?: string;
+  email?: string;
+  activated?: boolean;
+  userToken?: string;
+  refreshToken?: string;
+  hasBasicEntitlement?: boolean      // BASIC_L1
+  hasPremiumEntitlement?: boolean    // PREMIUM_L1 (DUPR+)
+  hasVerifiedEntitlement?: boolean   // VERIFIED_L1
+  entitlementCheckedAt?: Date;
+  doublesRating?: number;
+  singlesRating?: number;
+  doublesCareerHigh?:number;
+  singlesCareerHigh?: number;
+  doublesProvisional?: boolean;
+  singlesProvisional?: boolean;
+  lastRatingUpdate?: Date;
 }
 
 export interface IUser extends Document {
   _id: Types.ObjectId;
+  accountClaimed: boolean;
   name: string;
   auth0Id?: string;
   superAdmin?: string;
@@ -67,9 +83,11 @@ export type ResolvedUser = {
   name: string
   email?: string
   isGuest: boolean
+  duprId?: string
   superAdmin?: boolean
   permission?: AdminPermissionType;
   adminLocationId?: string | null;
+  accountClaimed?: boolean;
 }
 
 export interface IMatch extends Document {
@@ -93,12 +111,97 @@ export interface IMatch extends Document {
   logToDupr: boolean;
 }
 
-export interface ISkippedDuprEntry extends Document {
-  duprMatchId: string;
+// Player as the admin enters them. Email is optional; DUPR ID is the key field.
+export interface IUploadedMatchPlayer {
+  name: string;
+  email?: string;
   duprId: string;
-  playerName: String;
-  reason: String;
-  importJobId: Types.ObjectId;
+}
+
+// Mirrors DUPR's payload shape: two players + 5 fixed game score slots (0 for unplayed).
+// Keeping this shape identical to DUPR means submission is a near-passthrough.
+export interface IUploadedMatchTeam {
+  player1: IUploadedMatchPlayer;
+  player2: IUploadedMatchPlayer;
+  game1: number;
+  game2: number;
+  game3: number;
+  game4: number;
+  game5: number;
+}
+
+export type ClubEventType = 'past' | 'upcoming';
+export type ClubEventAccessLevel = 'open' | 'dupr_plus';
+
+export interface IClubEvent extends Document {
+  _id: Types.ObjectId;
+  club: Types.ObjectId;
+  createdByAdmin: Types.ObjectId;
+  name: string;
+  eventDate: Date;
+  notes?: string;
+  eventType: ClubEventType;
+  accessLevel: ClubEventAccessLevel;
+  location?: string;
+  description?: string;
+  registrationCount: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type EventRegistrationStatus = 'registered' | 'cancelled';
+
+export interface IEventRegistration extends Document {
+  _id: Types.ObjectId;
+  event: Types.ObjectId;
+  user: Types.ObjectId;
+  name: string;
+  email?: string;
+  duprId: string;
+  duprPlusVerifiedAtRegistration: boolean;
+  status: EventRegistrationStatus;
+  registeredAt: Date;
+  cancelledAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type DuprSubmissionStatus = 'draft' | 'pending' | 'submitted' | 'failed';
+
+export interface IClubUploadedMatch extends Document {
+  _id: Types.ObjectId;
+  club: Types.ObjectId;
+  event?: Types.ObjectId;
+  createdByAdmin: Types.ObjectId;
+
+  matchDate: Date;
+  teamA: IUploadedMatchTeam;
+  teamB: IUploadedMatchTeam;
+  location?: string;
+  notes?: string;
+
+  duprSubmissionStatus: DuprSubmissionStatus;
+  duprMatchId?: string; // returned by DUPR; join key for sync-back
+  duprSubmissionError?: string;
+  submittedAt?: Date;
+
+  deletedAt?: Date | null;
+
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+
+export interface IDuprImportError extends Document {
+  importJobId?: Types.ObjectId;
+  duprMatchId?: string;
+  duprId?: string;
+  playerName?: string;
+  errorType: 'validation' | 'processing';
+  reason: string;
+  rawData?: any;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export type SerializedAchievement = {
@@ -162,6 +265,15 @@ export interface DuprData {
   id: string;
 }
 
+export interface IClub extends Document {
+  _id: Types.ObjectId;
+  name: string;
+  admins: { user: Types.ObjectId; duprRole: 'ORGANIZER' | 'DIRECTOR' }[];
+  duprClubId?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface IClient extends Document {
   _id: Types.ObjectId;
   active?: boolean;
@@ -177,6 +289,7 @@ export interface IClient extends Document {
   admin_logo: string;
   bannerColor: string;
   icon: string;
+  hasConfiguredRewards?: boolean;
   altAchievements?: Types.ObjectId[];
   altRewardsPerAchievement?: Map<string, Types.ObjectId | IReward>;
 

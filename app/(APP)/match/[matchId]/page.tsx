@@ -25,7 +25,6 @@ import QrCodeDialog from "@/app/components/QrCodeDialog";
 import { useUserContext } from "@/app/contexts/UserContext";
 import { IClient, IReward, RewardProductName, SerializedAchievement } from "@/app/types/databaseTypes";
 import { useIsMobile } from "@/app/hooks/useIsMobile";
-import { updateUserAndAchievements } from "@/utils/achievementFunctions/updateUserAndAchievements";
 import LocationGuard from "@/app/components/LocationGuard";
 import { processSingleMatchAction } from "@/app/actions/processSingleMatch";
 

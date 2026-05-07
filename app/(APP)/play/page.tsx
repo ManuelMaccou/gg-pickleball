@@ -1,9 +1,10 @@
 'use client'
 
-import { Box, Button, Flex, Spinner, Text, Select, Card, Heading, Badge, IconButton } from "@radix-ui/themes";
+import { Box, Button, Flex, Spinner, Text, Select, Card, Heading } from "@radix-ui/themes";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import lightGgLogo from '../../../public/logos/gg_logo_white_transparent.png'
+// Changed to the black logo for the light background header
+import darkGgLogo from '../../../public/logos/gg_logo_black_transparent.png'
 import { useUser as useAuth0User } from '@auth0/nextjs-auth0';
 import { useUserContext } from '@/app/contexts/UserContext';
 import { useEffect, useMemo, useState } from 'react';
@@ -14,9 +15,11 @@ import MatchHistory from "@/components/sections/MatchHistory";
 import { HowToDialog } from "./components/HowToDialog";
 import PlayMenu from "@/app/components/PlayMenu";
 import GlobalRewardsWallet from "@/components/sections/GlobalRewardsWallet";
-import { ReloadIcon, ChevronDownIcon, CaretSortIcon, Cross1Icon } from "@radix-ui/react-icons";
-import { checkNewRewards } from "@/app/actions/dupr-action";
+// Added Lucide Icons to match the requested design aesthetic
+import { Trophy, Clock, MapPin, RefreshCw, ChevronDown, LinkIcon } from "lucide-react";
 import { useIsMobile } from "@/app/hooks/useIsMobile";
+import { UpcomingEventsList } from "./components/UpcomingEventsList";
+import { DuprConnectModal } from "@/app/components/DuprConnectModal";
 
 export type SelectableLocation = Omit<IClient, '_id'> & {
   _id: Types.ObjectId | string;
@@ -27,7 +30,7 @@ export default function Play() {
   const router = useRouter();
   const isMobile = useIsMobile();
   const { user: auth0User, isLoading: auth0IsLoading } = useAuth0User();
-  const { user: contextUser } = useUserContext(); 
+  const { user: contextUser } = useUserContext();
 
   const [allClients, setAllClients] = useState<IClient[]>([])
   const [allDataSources, setAllDataSources] = useState<IDataSource[]>([]);
@@ -35,9 +38,10 @@ export default function Play() {
   const [dbUser, setDbUser] = useState<FrontendUser | null>(null)
   const [showHowToDialog, setShowHowToDialog] = useState<boolean>(false)
   const [isFetchingDbUser, setIsFetchingDbUser] = useState(true);
-  const [showDuprFrame, setShowDuprFrame] = useState(false);
   const [isDuprSyncing, setIsDuprSyncing] = useState(false);
-    
+
+  const [duprModalOpen, setDuprModalOpen] = useState(false);
+
   // --- AUTH STATUS LOGIC ---
   const authenticationStatus = useMemo(() => {
     if (auth0IsLoading || isFetchingDbUser) return 'loading';
@@ -46,49 +50,18 @@ export default function Play() {
     return 'anonymous';
   }, [auth0IsLoading, isFetchingDbUser, auth0User, dbUser, contextUser]);
 
-  // --- DUPR CONFIG ---
-  const duprClientId = process.env.NEXT_PUBLIC_DUPR_CLIENT_ID;
-  const duprConfig = useMemo(() => {
-    const appEnv = process.env.NEXT_PUBLIC_APP_ENV;
-    const baseUrl = appEnv === 'production' ? 'https://dashboard.dupr.com' : 'https://uat.dupr.gg';
-    if (!duprClientId) return { loginUrl: '', origin: '' };
-    return { loginUrl: `${baseUrl}/login-external-app/${btoa(duprClientId)}`, origin: baseUrl };
-  }, [duprClientId]);
-
-  // --- DUPR LISTENER ---
-  useEffect(() => {
-    const handleDuprMessage = async (event: MessageEvent) => {
-      if (event.origin !== duprConfig.origin) return;
-      const data = event.data;
-      if (data && data.userToken && data.duprId) {
-        setShowDuprFrame(false);
-        try {
-          const response = await fetch("/api/user", {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              findBy: "userId",
-              userId: dbUser?._id,
-              dupr: { id: data.duprId, userToken: data.userToken, refreshToken: data.refreshToken },
-            }),
-          });
-          if (!response.ok) throw new Error("Failed to save DUPR info.");
-          const updatedUser = await response.json();
-          setDbUser(updatedUser); 
-        } catch (error) { console.error("Error saving DUPR info:", error); }
-      }
-    };
-    if (duprConfig.origin) window.addEventListener('message', handleDuprMessage);
-    return () => { if (duprConfig.origin) window.removeEventListener('message', handleDuprMessage); };
-  }, [dbUser, duprConfig]);
-
   const handleInitiateDuprLogin = () => {
-    if (!duprConfig.loginUrl) { alert("DUPR integration is not configured."); return; }
-    setShowDuprFrame(true);
+    setDuprModalOpen(true);
+  };
+
+  // Called by DuprConnectModal after a successful PATCH — updates local
+  // dbUser state immediately so the UI reflects the connected state without
+  // a page reload or extra fetch.
+  const handleDuprConnected = (updatedUser: FrontendUser) => {
+    setDbUser(updatedUser);
   };
 
   const handleUserUpdate = (updatedUser: FrontendUser | null) => setDbUser(updatedUser);
-  const clientId: string | undefined = selectedItem?.type === 'client' ? selectedItem._id : undefined;
 
   // --- INITIAL DATA FETCH ---
   useEffect(() => {
@@ -110,7 +83,7 @@ export default function Play() {
 
   // --- SELECTABLE ITEMS LOGIC ---
   const selectableItems = useMemo(() => {
-    const isClientSelectable = (client: IClient) => 
+    const isClientSelectable = (client: IClient) =>
       client.active && Array.isArray(client.achievements) && client.achievements.length > 0 &&
       client.rewardsPerAchievement && Object.keys(client.rewardsPerAchievement).length > 0;
 
@@ -127,16 +100,16 @@ export default function Play() {
   useEffect(() => {
     if (selectableItems.length === 0) return;
     const setItemFromCookie = async () => {
-        if (selectableItems.length === 1) { setSelectedItem(selectableItems[0]); return; }
-        const lastLocationCookie = document.cookie.split('; ').find((row) => row.startsWith('lastLocation='))?.split('=')[1];
-        if (lastLocationCookie) {
-          const lastItem = selectableItems.find((item) => item._id === lastLocationCookie);
-          if (lastItem) { setSelectedItem(lastItem); } 
-          else { setSelectedItem(selectableItems[0]); document.cookie = `lastLocation=${selectableItems[0]._id}; path=/; max-age=${60 * 60 * 24 * 30}`; }
-        } else {
-          setSelectedItem(selectableItems[0]);
-          document.cookie = `lastLocation=${selectableItems[0]._id}; path=/; max-age=${60 * 60 * 24 * 30}`;
-        }
+      if (selectableItems.length === 1) { setSelectedItem(selectableItems[0]); return; }
+      const lastLocationCookie = document.cookie.split('; ').find((row) => row.startsWith('lastLocation='))?.split('=')[1];
+      if (lastLocationCookie) {
+        const lastItem = selectableItems.find((item) => item._id === lastLocationCookie);
+        if (lastItem) { setSelectedItem(lastItem); }
+        else { setSelectedItem(selectableItems[0]); document.cookie = `lastLocation=${selectableItems[0]._id}; path=/; max-age=${60 * 60 * 24 * 30}`; }
+      } else {
+        setSelectedItem(selectableItems[0]);
+        document.cookie = `lastLocation=${selectableItems[0]._id}; path=/; max-age=${60 * 60 * 24 * 30}`;
+      }
     };
     setItemFromCookie();
   }, [selectableItems]);
@@ -147,7 +120,7 @@ export default function Play() {
       if (auth0User && dbUser && dbUser.auth0Id === auth0User.sub) { setIsFetchingDbUser(false); return; }
       if (contextUser?.isGuest && dbUser && dbUser.name === contextUser.name) { setIsFetchingDbUser(false); return; }
       if (!auth0IsLoading && !auth0User && !contextUser) { setIsFetchingDbUser(false); setDbUser(null); return; }
-      
+
       let query = '';
       if (contextUser?.isGuest) query = `?name=${encodeURIComponent(contextUser.name)}`;
       else if (auth0User?.sub) query = `?auth0Id=${encodeURIComponent(auth0User.sub)}`;
@@ -159,7 +132,7 @@ export default function Play() {
         const data = await res.json();
         if (res.ok) setDbUser(data.user);
         else setDbUser(null);
-      } catch (err) { console.error('Error fetching user:', err); } 
+      } catch (err) { console.error('Error fetching user:', err); }
       finally { setIsFetchingDbUser(false); }
     };
     fetchUser();
@@ -174,33 +147,9 @@ export default function Play() {
 
   // --- SYNC HANDLER ---
   const handleSync = async () => {
-    if (!dbUser?.dupr?.id) return;
-    
-    setIsDuprSyncing(true);
-
-    try {
-      // Call the NEW route we just created
-      const response = await fetch('/api/dupr/player/match-history', {
-          method: 'POST'
-      });
-      
-      const result = await response.json();
-      
-      if (response.ok) {
-        console.log(`Sync complete. Processed ${result.count} new matches.`);
-        // Optional: Refresh user data to show new stats/rewards immediately
-        // fetchUser(); 
-      } else {
-        console.error("Sync failed:", result.error);
-      }
-    } catch (e) {
-      console.error("Unexpected error during sync", e);
-    } finally {
-      setIsDuprSyncing(false);
-    }
+    router.push('/play/sync-matches');
   };
 
-  // --- RENDER HELPERS ---
   const handleItemChange = (value: string) => {
     const newItem = selectableItems.find(item => item._id === value);
     if (newItem) {
@@ -210,191 +159,190 @@ export default function Play() {
   };
 
   return (
-    <Flex direction={'column'} minHeight={'100vh'} p={{ initial: '4', md: '6' }} style={{ paddingBottom: '150px' }}>
-      
-      {/* --- HEADER --- */}
-      <Flex 
-        justify={"between"} 
-        align={'center'} 
-        direction={"row"} 
-        pt={"2"} 
-        pb={"5"} 
-        px={'2'} 
-        style={{ width: '100%', maxWidth: '1000px', margin: '0 auto' }}
+    <Box style={{ backgroundColor: '#f8fafc', minHeight: '100vh', paddingBottom: '120px' }}>
+
+      <style>{`
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        .spin { animation: spin 1s linear infinite; }
+      `}</style>
+
+      <HowToDialog open={showHowToDialog} onOpenChange={setShowHowToDialog} />
+
+      {/* DUPR Connect Modal — handles iframe, post-auth screens, and connection errors */}
+      <DuprConnectModal
+        open={duprModalOpen}
+        onOpenChange={setDuprModalOpen}
+        onConnected={handleDuprConnected}
+      />
+
+      {/* --- STICKY HEADER --- */}
+      <Box
+        position="sticky"
+        top="0"
+        style={{
+          zIndex: 50,
+          backgroundColor: 'rgba(255, 255, 255, 0.8)',
+          backdropFilter: 'blur(12px)',
+          borderBottom: '1px solid var(--slate-a4)'
+        }}
       >
-        <Flex direction={'column'} position={'relative'} maxWidth={{ initial: '80px', md: '100px' }}>
-          <Image src={lightGgLogo} alt="GG Pickleball light logo" priority height={540} width={960} />
-        </Flex>
-
-        {authenticationStatus === 'loading' ? (
-          <Spinner />
-        ) : (
-          <Flex direction={'row'} justify={'center'} align={'center'} gap="3">
-            {/* Show login if anonymous */}
-            {authenticationStatus === 'anonymous' && (
-              <Button size={'2'} variant="outline" mt={'1'} onClick={() => router.push('/auth/login?returnTo=/play')}>
-                Log in
-              </Button>
-            )}
-            
-            {/* User Menu */}
-            {(authenticationStatus === 'authenticated' || authenticationStatus === 'guest') && dbUser && (
-              <>
-                {!isMobile && (
-                  <Text size="2" weight="bold" color="gray" style={{marginRight: '8px'}}>
-                    {String(dbUser.name).split('@')[0]}
-                  </Text>
-                )}
-                <PlayMenu
-                  user={dbUser}
-                  isAuthorized={true}
-                  onUserUpdate={handleUserUpdate}
-                  onInitiateDuprLogin={handleInitiateDuprLogin}
-                />
-              </>
-            )}
+        <Flex
+          justify="between"
+          align="center"
+          px={{ initial: '4', md: '6' }}
+          py="3"
+          style={{ width: '100%', maxWidth: '1024px', margin: '0 auto' }}
+        >
+          <Flex align="center" gap="2" style={{ cursor: 'pointer' }} onClick={() => router.push('/')}>
+            <Image src={darkGgLogo} alt="GG Pickleball logo" priority height={32} width={56} style={{ width: 'auto', height: '32px' }} />
           </Flex>
-        )}
-      </Flex>
-      
-      {/* --- MAIN CONTENT --- */}
-      <Flex 
-        direction={'column'} 
-        width="100%" 
-        style={{ maxWidth: '1000px', margin: '0 auto' }}
-      >
-        <HowToDialog open={showHowToDialog} onOpenChange={setShowHowToDialog}/>
 
-        {/* DUPR IFRAME */}
-        {showDuprFrame && (
-          <Flex 
-            style={{ 
-              position: 'fixed', 
-              top: 0, 
-              left: 0, 
-              width: '100vw', 
-              height: '100vh', 
-              backgroundColor: 'rgba(0, 0, 0, 0.7)', 
-              zIndex: 9999, 
-              justifyContent: 'center', 
-              alignItems: 'center' 
-            }}
-          >
-            <div style={{
-              width: '90%', 
-              maxWidth: '500px', 
-              height: '80%', 
-              backgroundColor: 'white', 
-              position: 'relative', 
-              borderRadius: '8px', 
-              overflow: 'hidden',
-              boxShadow: '0 10px 25px rgba(0,0,0,0.2)' 
-            }}>
-              
-              {/* --- ADDED CLOSE BUTTON HERE --- */}
-              <IconButton 
-                variant="solid" 
-                color="gray" 
-                highContrast
-                radius="full"
-                onClick={() => setShowDuprFrame(false)}
-                style={{
-                  position: 'absolute',
-                  top: '12px',
-                  right: '12px',
-                  zIndex: 20, 
-                  boxShadow: '0 2px 10px rgba(0,0,0,0.2)'
-                }}
-              >
-                <Cross1Icon width="20" height="20" />
-              </IconButton>
-
-              <iframe 
-                src={duprConfig.loginUrl} 
-                title="DUPR Login" 
-                width="100%" 
-                height="100%" 
-                style={{ border: 'none' }}
-              ></iframe>
-            </div>
-          </Flex>
-        )}
-
-        {selectedItem && (
-          <Flex direction={'column'} mb={'5'} mt={'2'}>
-            <style>{`@keyframes spin { 100% { transform: rotate(360deg); } } .spin { animation: spin 1s linear infinite; }`}</style>
-
-            {/* --- ACTION BAR: Location Selector + Sync Button --- */}
-            <Flex 
-              direction={{ initial: 'column', xs: 'row' }} 
-              justify={'between'} 
-              align={{ initial: 'start', xs: 'center' }} 
-              mb="5" 
-              gap="3"
-            >
-              
-              {/* Context Switcher - If multiple items exist */}
-              {selectableItems.length > 1 ? (
-                <Select.Root value={selectedItem._id} onValueChange={handleItemChange}>
-                  <Select.Trigger variant="ghost" style={{ fontSize: 'var(--font-size-6)', fontWeight: 'bold', padding: 0, height: 'auto', gap: '8px' }}>
-                    <Flex align="center" gap="2">
-                      {selectedItem.name}
-                      <CaretSortIcon width="24" height="24" />
-                    </Flex>
-                  </Select.Trigger>
-                  <Select.Content>
-                    {selectableItems.map(item => (
-                      <Select.Item key={item._id} value={item._id}>{item.name}</Select.Item>
-                    ))}
-                  </Select.Content>
-                </Select.Root>
-              ) : (
-                <Heading size="6">{selectedItem.name}</Heading>
-              )}
-
-              {/* Sync Button */}
-              {dbUser && dbUser.dupr && dbUser.dupr.id && (
-                <Button 
-                  variant="soft" 
-                  color="gray"
-                  onClick={handleSync} 
-                  disabled={isDuprSyncing}
-                  style={{ cursor: isDuprSyncing ? 'not-allowed' : 'pointer' }}
-                >
-                  <ReloadIcon className={isDuprSyncing ? "spin" : ""} />
-                  {isDuprSyncing ? "Checking..." : "Refresh Rewards"}
+          {authenticationStatus === 'loading' ? (
+            <Spinner />
+          ) : (
+            <Flex align="center" gap="3">
+              {authenticationStatus === 'anonymous' && (
+                <Button size="2" variant="outline" color="gray" onClick={() => router.push('/auth/login?returnTo=/play')}>
+                  Log in
                 </Button>
               )}
-            </Flex>
-            
-            {/* --- REWARDS WALLET --- */}
-            <GlobalRewardsWallet user={dbUser} dataSourceId={selectedItem._id} />
-          </Flex>
-        )}
 
-        {/* --- MATCH HISTORY SECTION --- */}
-        {contextUser && selectedItem && (
-          <Flex direction={'column'} mb={'5'} mt={'6'}>
-            <Heading size={'4'} mb="3" color="gray">Activity History</Heading>
-            
-            <Card 
-              size="2" 
+              {(authenticationStatus === 'authenticated' || authenticationStatus === 'guest') && dbUser && (
+                <Flex align="center" gap="3">
+                  {!isMobile && (
+                    <Text size="2" weight="bold" style={{ color: 'var(--slate-12)' }}>
+                      {String(dbUser.name).split('@')[0]}
+                    </Text>
+                  )}
+                  <PlayMenu
+                    user={dbUser}
+                    isAuthorized={true}
+                    onUserUpdate={handleUserUpdate}
+                    onInitiateDuprLogin={handleInitiateDuprLogin}
+                  />
+                </Flex>
+              )}
+            </Flex>
+          )}
+        </Flex>
+      </Box>
+
+      {/* --- MAIN CONTENT --- */}
+      <Box px={{ initial: '4', md: '6' }} py="6" style={{ width: '100%', maxWidth: '1024px', margin: '0 auto' }}>
+
+        {selectedItem && authenticationStatus !== 'loading' && (
+          <>
+            {/* --- HERO / CONTEXT CARD --- */}
+            <Box
+              position="relative"
+              overflow="hidden"
+              mb="8"
               style={{
-                padding: 0, // Reset padding so MatchHistory can control it
-                overflow: 'hidden'
+                borderRadius: '24px',
+                backgroundColor: 'var(--slate-12)',
+                padding: '32px',
+                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
               }}
             >
-              <Box p={{ initial: '2', md: '4' }}>
-                <MatchHistory
-                  userId={contextUser.id}
-                  userName={contextUser.name}
-                  locationId={selectedItem._id}
-                />
+              {/* Decorative Blobs */}
+              <div style={{ position: 'absolute', top: '-60px', right: '-60px', width: '250px', height: '250px', backgroundColor: 'var(--lime-9)', borderRadius: '50%', filter: 'blur(80px)', opacity: 0.2 }} />
+              <div style={{ position: 'absolute', bottom: '-60px', left: '-60px', width: '250px', height: '250px', backgroundColor: 'var(--cyan-9)', borderRadius: '50%', filter: 'blur(80px)', opacity: 0.15 }} />
+
+              <Flex direction={{ initial: 'column', sm: 'row' }} justify="end" align={{ initial: 'start', sm: 'end' }} gap="6" position="relative" style={{ zIndex: '1' }}>
+
+
+                {/* Right Side: Action Button */}
+                {dbUser && dbUser.dupr?.id ? (
+                  <Button
+                    size="3"
+                    radius="full"
+                    onClick={handleSync}
+                    disabled={isDuprSyncing}
+                    style={{
+                      backgroundColor: 'white',
+                      color: 'var(--slate-12)',
+                      cursor: isDuprSyncing ? 'not-allowed' : 'pointer',
+                      fontWeight: 'bold',
+                      padding: '0 24px',
+                      height: '48px',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                    }}
+                  >
+                    <RefreshCw size={18} className={isDuprSyncing ? "spin" : ""} />
+                    {isDuprSyncing ? "Syncing..." : "Refresh Rewards"}
+                  </Button>
+                ) : dbUser && !dbUser.dupr?.id && (
+                  <Flex direction={'column'} gap={'4'}>
+                    <Button
+                      size="3"
+                      radius="full"
+                      onClick={handleInitiateDuprLogin}
+                      style={{ backgroundColor: 'var(--lime-9)', color: 'var(--slate-12)', fontWeight: 'bold', cursor: 'pointer' }}
+                    >
+                      <LinkIcon size={16} style={{ marginRight: '8px' }} />
+                      Connect DUPR To Get Rewards
+                    </Button>
+                  </Flex>
+                )}
+              </Flex>
+            </Box>
+
+            {/* --- REWARDS WALLET --- */}
+            <Box mb="8">
+              <Flex align="center" justify="between" mb="4">
+                <Flex align="center" gap="2">
+                  <Trophy size={24} style={{ color: 'var(--lime-10)' }} />
+                  <Heading size="6" weight="bold" style={{ color: 'var(--slate-12)', letterSpacing: '-0.01em' }}>
+                    Rewards Catalog
+                  </Heading>
+                </Flex>
+              </Flex>
+              <GlobalRewardsWallet user={dbUser} dataSourceId={selectedItem._id} />
+            </Box>
+
+            {/* --- UPCOMING EVENTS --- */}
+            <UpcomingEventsList
+              dbUser={dbUser}
+              authenticationStatus={authenticationStatus}
+              onInitiateDuprLogin={handleInitiateDuprLogin}
+            />
+
+            {/* --- MATCH HISTORY SECTION --- */}
+            {contextUser && selectedItem && (
+              <Box mb="8">
+                <Flex align="center" justify="between" mb="4">
+                  <Flex align="center" gap="2">
+                    <Clock size={24} style={{ color: 'var(--lime-10)' }} />
+                    <Heading size="6" weight="bold" style={{ color: 'var(--slate-12)', letterSpacing: '-0.01em' }}>
+                      Recent Matches
+                    </Heading>
+                  </Flex>
+                </Flex>
+
+                <Card
+                  size="2"
+                  style={{
+                    padding: 0,
+                    overflow: 'hidden',
+                    backgroundColor: 'white',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.02)',
+                    border: '1px solid var(--slate-4)',
+                    borderRadius: '16px'
+                  }}
+                >
+                  <Box p={{ initial: '2', md: '4' }}>
+                    <MatchHistory
+                      userId={contextUser.id}
+                      userName={contextUser.name}
+                      locationId={selectedItem._id}
+                    />
+                  </Box>
+                </Card>
               </Box>
-            </Card>
-          </Flex>
+            )}
+          </>
         )}
-      </Flex>
-    </Flex>
+      </Box>
+    </Box>
   )
 }

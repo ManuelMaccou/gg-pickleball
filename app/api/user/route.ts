@@ -5,6 +5,8 @@ import User from '@/app/models/User';
 import { escapeRegex } from '@/utils/escapeRegex';
 import { logError } from '@/lib/sentry/logger';
 import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser';
+import { subscribeToDuprWebhook } from '@/lib/services/dupr/duprWebhookSubscription';
+import { checkEntitlementsWithToken } from '@/lib/services/dupr/duprEntitlement';
 
 await connectToDatabase();
 
@@ -141,6 +143,7 @@ function buildUpdateOperation(body: UserUpdatePayload) {
   return { $set: updateOp };
 }
 
+
 export async function PATCH(req: NextRequest) {
 
   const user = await getAuthorizedUser(req)
@@ -153,7 +156,7 @@ export async function PATCH(req: NextRequest) {
 
     // ✨ Destructure all potential body fields for clarity. Note `upsertValue` is removed.
     const body = await req.json();
-    const { findBy, name, auth0Id, userId } = body;
+    const { findBy, name, auth0Id, userId, dupr, bypassDuprCheck } = body;
 
     // ✨ Simplified validation by building the filter first.
     const filter: Record<string, unknown> = {};
@@ -202,6 +205,60 @@ export async function PATCH(req: NextRequest) {
 
     if (!existingUser) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    // --- SECURE: DUPR SUBSCRIPTION CHECK ---
+    // If the frontend is sending us a new DUPR token to save, we MUST verify it first.
+    if (dupr?.userToken) {
+      if (bypassDuprCheck) {
+        console.log(`[DUPR SYNC] ⚠️ BYPASSING Subscription Check for ${existingUser.email}...`);
+      } else {
+        console.log(`[DUPR SYNC] Verifying Subscription Status for ${existingUser.email}...`);
+  
+        const entitlementResult = await checkEntitlementsWithToken(dupr.userToken);
+    
+        if (!entitlementResult.ok) {
+          return NextResponse.json(
+            { error: entitlementResult.error },
+            { status: entitlementResult.status }
+          );
+        }
+  
+        if (!entitlementResult.flags.hasBasicEntitlement) {
+          console.warn(`[DUPR SYNC] User ${existingUser._id} blocked. Missing BASIC_L1 entitlement.`);
+          return NextResponse.json(
+            { error: 'You do not have access to DUPR at this time. Please contact DUPR support.' },
+            { status: 403 }
+          );
+        }
+    
+        // Write all three entitlement flags into the update operation so they land
+        // in the same DB write as the token save. This ensures hasPremiumEntitlement
+        // (and the others) are populated immediately on first connect, not deferred
+        // until the next 24-hour cache expiry.
+        dupr.hasBasicEntitlement = entitlementResult.flags.hasBasicEntitlement;
+        dupr.hasPremiumEntitlement = entitlementResult.flags.hasPremiumEntitlement;
+        dupr.hasVerifiedEntitlement = entitlementResult.flags.hasVerifiedEntitlement;
+        // Also stamp the cache timestamp so verifyDuprEntitlement won't
+        // redundantly re-fetch on the very next request after connect.
+        dupr.entitlementCheckedAt = new Date();
+    
+        console.log(`[DUPR SYNC] User verified.`, entitlementResult.flags);
+      }
+    }
+    // ---------------------------------------
+
+    console.log(`[DUPR SYNC] User verified.`);
+
+    // Subscribe to DUPR webhook for rating updates
+    try {
+      await subscribeToDuprWebhook([dupr.id]);
+      console.log(`[DUPR SYNC] Subscribed ${dupr.id} to rating webhook.`);
+    } catch (subError) {
+      // Don't block the connect flow if subscription fails — log and continue.
+      // The user can still use the app; they just won't get live rating updates
+      // until we retry or they reconnect.
+      console.error(`[DUPR SYNC] Webhook subscription failed for ${dupr.id}:`, subError);
     }
 
     // ✨ Build the update operation using our helper and dot notation

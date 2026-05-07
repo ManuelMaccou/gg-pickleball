@@ -13,7 +13,7 @@ import {
   Card, 
   Checkbox, 
   Dialog, 
-  DropdownMenu, // <--- New Import
+  DropdownMenu, 
   Flex, 
   Heading, 
   Select, 
@@ -24,11 +24,12 @@ import {
 } from "@radix-ui/themes";
 import { 
   InfoCircledIcon, 
-  DotsHorizontalIcon, // <--- New Icon
-  GearIcon,          // <--- New Icon
-  MagicWandIcon,      // <--- New Icon
+  DotsHorizontalIcon, 
+  GearIcon,          
+  MagicWandIcon,      
   ExclamationTriangleIcon,
-  CheckCircledIcon
+  CheckCircledIcon,
+  EnvelopeClosedIcon // <--- Added Icon for Invites
 } from "@radix-ui/react-icons"
 import Image from "next/image";
 import darkGgLogo from '../../../../../public/logos/gg_logo_black_transparent.png'
@@ -39,7 +40,6 @@ import { REWARD_PRODUCT_NAMES, RewardProductName } from "@/app/types/rewardTypes
 import { RewardCardPreview } from "../components/ReviewCardPreview";
 import ManageWebhooks from "../components/ManageWebhooks";
 
-// ... [Keep your PRODUCT_DISPLAY_NAMES and Types exactly as they were] ...
 const PRODUCT_DISPLAY_NAMES: Record<RewardProductName, string> = {
   "open play": "Open Play",
   "reservations": "Reservations",
@@ -117,7 +117,14 @@ export default function GgpickleballAdminClients() {
   const [formData, setFormData] = useState<FormState>(initialClientState);
   const [adminPermission, setAdminPermission] = useState<AdminPermissionType>(null);
 
-  // ... [Keep your fetchClients function exactly as is] ...
+  // --- NEW: Invite Admin State ---
+  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+  const [clientToInvite, setClientToInvite] = useState<ExtendedClient | null>(null);
+  const [inviteName, setInviteName] = useState('');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [isInviting, setIsInviting] = useState(false);
+  const [inviteMessage, setInviteMessage] = useState<{type: 'error' | 'success', text: string} | null>(null);
+
   const fetchClients = async () => {
     setIsFetchingClients(true);
     setFetchError(null);
@@ -150,7 +157,6 @@ export default function GgpickleballAdminClients() {
 
       if (!response.ok) throw new Error("Failed to update status");
 
-      // Optimistic Update
       setClients(prev => prev.map(c => 
         c._id === client._id 
           ? { ...c, needsRetroactiveSweep: newValue } as ExtendedClient 
@@ -214,7 +220,48 @@ export default function GgpickleballAdminClients() {
     setFormData(formDataForEdit);
     setSubmitError(null);
     setIsFormOpen(true);
-    };
+  };
+
+  // --- NEW: Invite Admin Handlers ---
+  const handleOpenInviteDialog = (client: ExtendedClient) => {
+    setClientToInvite(client);
+    setInviteName('');
+    setInviteEmail('');
+    setInviteMessage(null);
+    setIsInviteDialogOpen(true);
+  };
+
+  const handleInviteSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!clientToInvite || !inviteEmail) return;
+
+    setIsInviting(true);
+    setInviteMessage(null);
+
+    try {
+      const response = await fetch('/api/admin-tasks/onboard-client/invite-admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          clientId: clientToInvite._id,
+          name: inviteName,
+          email: inviteEmail 
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) throw new Error(data.error || 'Failed to send invite');
+
+      setInviteMessage({ type: 'success', text: data.message || `Invite sent successfully to ${inviteEmail}` });
+      setInviteEmail(''); // clear form on success
+
+    } catch (error: any) {
+      setInviteMessage({ type: 'error', text: error.message });
+    } finally {
+      setIsInviting(false);
+    }
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -234,13 +281,10 @@ export default function GgpickleballAdminClients() {
     
     if (!currentDomain || currentDomain.trim() === '') return;
 
-    // 1. Remove protocol (http:// or https://)
-    // 2. Remove trailing slashes
     const cleanDomain = currentDomain.trim()
       .replace(/^https?:\/\//, '')
       .replace(/\/$/, '');
 
-    // 3. Update only if it changed
     if (cleanDomain !== currentDomain) {
       setFormData(prev => ({
         ...prev,
@@ -273,7 +317,6 @@ export default function GgpickleballAdminClients() {
 
     try {
       const {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         _id: _, 
         products,
         playbypoint: formPlayByPointData,
@@ -301,7 +344,6 @@ export default function GgpickleballAdminClients() {
           affiliations: formPlayByPointData.affiliations.split(',').map(s => s.trim()).filter(Boolean),
         };
       }
-
 
       const payload: Partial<Omit<IClient, keyof Document>> = {
         ...basePayload,
@@ -357,11 +399,9 @@ export default function GgpickleballAdminClients() {
   const userName = user?.name;
   if (isMobile === null) return null;
 
-  // ... [Keep your Access Denied Render logic exactly as is] ...
   if (user && !user.superAdmin) {
       return (
         <Flex direction="column" height="100vh">
-             {/* ... (Kept existing header code) ... */}
            <Flex
             justify="between"
             align="center"
@@ -436,6 +476,7 @@ export default function GgpickleballAdminClients() {
           </Flex>
         )}
       </Flex>
+
       <Flex direction={'column'} width={'100vw'}>
         <Flex direction={'row'} height={'100%'}>
           {!isMobile && <AdminSidebar adminPermission={adminPermission} />}
@@ -461,14 +502,13 @@ export default function GgpickleballAdminClients() {
                         <Box flexGrow={'1'}>
                           <Text as="div" weight="bold">{client.name}</Text>
                           {client.needsRetroactiveSweep && (
-                            <Badge color="amber" variant="solid" size="1">
+                            <Badge color="amber" variant="solid" size="1" mb="1">
                                 <ExclamationTriangleIcon /> Sweep Needed
                             </Badge>
-                            )}
+                          )}
                           <Text as="div" size="2" color="gray">ID: {client._id.toString()}</Text>
                         </Box>
                         
-                        {/* --- UPDATED: Actions Dropdown --- */}
                         <DropdownMenu.Root>
                           <DropdownMenu.Trigger>
                             <Button variant="soft" color="gray">
@@ -477,9 +517,16 @@ export default function GgpickleballAdminClients() {
                           </DropdownMenu.Trigger>
                           <DropdownMenu.Content>
                             
-                          <DropdownMenu.Item onClick={() => handleOpenEditDialog(client as IClient)}>
-                            <GearIcon /> Edit Configuration
-                          </DropdownMenu.Item>
+                            {/* --- NEW ACTION --- */}
+                            <DropdownMenu.Item onClick={() => handleOpenInviteDialog(client)}>
+                              <EnvelopeClosedIcon /> Invite Admin
+                            </DropdownMenu.Item>
+                            
+                            <DropdownMenu.Separator />
+
+                            <DropdownMenu.Item onClick={() => handleOpenEditDialog(client as IClient)}>
+                              <GearIcon /> Edit Configuration
+                            </DropdownMenu.Item>
                             
                             <DropdownMenu.Separator />
                             
@@ -490,7 +537,6 @@ export default function GgpickleballAdminClients() {
                               <MagicWandIcon /> Retroactive Sweep
                             </DropdownMenu.Item>
 
-                            {/* Action to Dismiss Warning */}
                             {client.needsRetroactiveSweep && (
                               <DropdownMenu.Item 
                                 color="gray"
@@ -500,7 +546,6 @@ export default function GgpickleballAdminClients() {
                               </DropdownMenu.Item>
                             )}
 
-                             {/* Action to Manually Flag (Debugging or Re-run) */}
                             {!client.needsRetroactiveSweep && (
                               <DropdownMenu.Item 
                                 onClick={() => handleToggleSweepFlag(client, true)}
@@ -508,7 +553,6 @@ export default function GgpickleballAdminClients() {
                                 Flag for Sweep
                               </DropdownMenu.Item>
                             )}
-
 
                           </DropdownMenu.Content>
                         </DropdownMenu.Root>
@@ -520,7 +564,6 @@ export default function GgpickleballAdminClients() {
                   )}
                 </Flex>
 
-                {/* Manage Webhooks */}
                 <ManageWebhooks />
                 </>
               )}
@@ -528,10 +571,61 @@ export default function GgpickleballAdminClients() {
           </Flex>
       </Flex>
 
-      {/* ... [Keep your Dialog logic exactly as is] ... */}
+      {/* --- NEW: Invite Admin Dialog --- */}
+      <Dialog.Root open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
+        <Dialog.Content maxWidth="450px">
+          <Dialog.Title>Invite Client Admin</Dialog.Title>
+          <Dialog.Description size="2" mb="4">
+            Send an onboarding email to an administrator for <strong>{clientToInvite?.name}</strong>. 
+            They will receive a secure link to set their password and access their new dashboard.
+          </Dialog.Description>
+
+          {inviteMessage && (
+            <Callout.Root color={inviteMessage.type === 'success' ? 'green' : 'red'} mb="4">
+              <Callout.Icon>
+                {inviteMessage.type === 'success' ? <CheckCircledIcon /> : <ExclamationTriangleIcon />}
+              </Callout.Icon>
+              <Callout.Text>{inviteMessage.text}</Callout.Text>
+            </Callout.Root>
+          )}
+
+          <form onSubmit={handleInviteSubmit}>
+            <Flex direction="column" gap="4">
+              <label>
+                <Text as="div" size="2" mb="1" weight="bold">Admin Name</Text>
+                <TextField.Root 
+                  type="text"
+                  placeholder="e.g. Jane Doe"
+                  value={inviteName} 
+                  onChange={(e) => setInviteName(e.target.value)} 
+                  required 
+                />
+              </label>
+              <label>
+                <Text as="div" size="2" mb="1" weight="bold">Admin Email Address</Text>
+                <TextField.Root 
+                  type="email"
+                  placeholder="admin@clientdomain.com"
+                  value={inviteEmail} 
+                  onChange={(e) => setInviteEmail(e.target.value)} 
+                  required 
+                />
+              </label>
+
+              <Flex gap="3" mt="2" justify="end">
+                <Dialog.Close>
+                  <Button variant="soft" color="gray" type="button">Cancel</Button>
+                </Dialog.Close>
+                <Button type="submit" loading={isInviting}>Send Invite Email</Button>
+              </Flex>
+            </Flex>
+          </form>
+        </Dialog.Content>
+      </Dialog.Root>
+
+      {/* Create/Edit Client Dialog */}
       <Dialog.Root open={isFormOpen} onOpenChange={setIsFormOpen}>
         <Dialog.Content maxWidth="550px">
-           {/* ... existing form content ... */}
           <Dialog.Title>{selectedClientForEdit ? 'Edit Client' : 'Create New Client'}</Dialog.Title>
           <Dialog.Description size="2" mb="4">
             {selectedClientForEdit ? `Editing details for ${selectedClientForEdit.name}.` : 'Fill in the details for the new client location.'}
@@ -544,6 +638,8 @@ export default function GgpickleballAdminClients() {
                 <Text as="div" size="2" mb="1" weight="bold">Name *</Text>
                 <TextField.Root name="name" value={formData.name || ''} onChange={handleInputChange} required />
               </label>
+              
+              {/* ... (Rest of the form remains exactly as you had it) ... */}
               <label>
                 <Text as="div" size="2" mb="1" weight="bold">Logo URL (for players)</Text>
                 <TextField.Root name="logo" value={formData.logo || ''} onChange={handleInputChange} />
@@ -561,8 +657,6 @@ export default function GgpickleballAdminClients() {
                 <Heading size="3" mb="3">Reward Card Design</Heading>
                 
                 <Flex gap="5" direction={{ initial: 'column', sm: 'row' }}>
-                  
-                  {/* Left: Controls */}
                   <Flex direction="column" gap="3" flexGrow="1">
                     <label>
                       <Text as="div" size="2" mb="1" weight="bold">Background Image URL</Text>
@@ -573,26 +667,21 @@ export default function GgpickleballAdminClients() {
                         placeholder="https://..."
                       />
                     </label>
-                    
                     <label>
                       <Text as="div" size="2" mb="1" weight="bold">Text Color</Text>
                       <Select.Root 
                         name="cardTextColor" 
                         value={formData.cardTextColor || '#ffffff'} 
-                        // No mapping needed here anymore
                         onValueChange={(val) => setFormData(prev => ({ ...prev, cardTextColor: val }))}
                       >
                         <Select.Trigger />
                         <Select.Content>
-                          {/* Pass the actual CSS values */}
                           <Select.Item value="#ffffff">White (Dark Backgrounds)</Select.Item>
                           <Select.Item value="#000000">Black (Light Backgrounds)</Select.Item>
                         </Select.Content>
                       </Select.Root>
                     </label>
                   </Flex>
-
-                  {/* Right: Live Preview */}
                   <Flex direction="column" align="center" gap="2">
                     <Text size="1" weight="bold" color="gray">LIVE PREVIEW</Text>
                     <RewardCardPreview 
@@ -601,14 +690,11 @@ export default function GgpickleballAdminClients() {
                       clientName={formData.name || "Client Name"}
                     />
                   </Flex>
-
                 </Flex>
               </Box>
               
               <Box>
-                <Text as="div" size="2" mb="2" weight="bold">
-                  Reward Products
-                </Text>
+                <Text as="div" size="2" mb="2" weight="bold">Reward Products</Text>
                 <Flex direction="column" gap="2">
                   {REWARD_PRODUCT_NAMES.map(productName => (
                     <Text as="label" size="2" key={productName}>
@@ -649,7 +735,6 @@ export default function GgpickleballAdminClients() {
                 </label>
               </Flex>
               
-              {/* --- Conditional Fields --- */}
               {formData.retailSoftware === 'shopify' && (
                 <Box p="3" style={{ border: '1px solid var(--gray-a5)', borderRadius: 'var(--radius-3)' }}>
                   <Heading size="3" mb="2">Shopify Config</Heading>
@@ -665,14 +750,8 @@ export default function GgpickleballAdminClients() {
                 <Box p="3" style={{ border: '1px solid var(--gray-a5)', borderRadius: 'var(--radius-3)' }}>
                   <Heading size="3" mb="2">PlayByPoint Config</Heading>
                   <Flex direction="column" gap="2">
-                    <label>
-                      <Text as="div" size="2" mb="1" weight="bold">Facility ID</Text>
-                      <TextField.Root type="number" name="playbypoint.facilityId" value={formData.playbypoint.facilityId || ''} onChange={handleInputChange} />
-                    </label>
-                    <label>
-                      <Text as="div" size="2" mb="1" weight="bold">Affiliations</Text>
-                      <Tooltip content="Enter multiple values separated by a comma."><TextField.Root name="playbypoint.affiliations" value={formData.playbypoint.affiliations || ''} onChange={handleInputChange} placeholder="e.g., Affiliate A, Affiliate B" /></Tooltip>
-                    </label>
+                    <label><Text as="div" size="2" mb="1" weight="bold">Facility ID</Text><TextField.Root type="number" name="playbypoint.facilityId" value={formData.playbypoint.facilityId || ''} onChange={handleInputChange} /></label>
+                    <label><Text as="div" size="2" mb="1" weight="bold">Affiliations</Text><Tooltip content="Enter multiple values separated by a comma."><TextField.Root name="playbypoint.affiliations" value={formData.playbypoint.affiliations || ''} onChange={handleInputChange} placeholder="e.g., Affiliate A, Affiliate B" /></Tooltip></label>
                   </Flex>
                 </Box>
               )}

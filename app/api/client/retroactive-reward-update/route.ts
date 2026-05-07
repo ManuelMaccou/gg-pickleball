@@ -8,13 +8,13 @@ import SourceRewardConfig from "@/app/models/SourceRewardConfig";
 import { DateTime } from "luxon";
 import { createRewardCodeInDB } from "@/lib/rewards/createRewardCodeInDB";
 import { generateUniqueRewardCode } from "@/lib/rewards/generateUniqueRewardCode";
-import { createShopifyDiscountCode } from "@/lib/shopify/createShopifyDiscountCode"; // Adjust path!
+import { createShopifyDiscountCode } from "@/lib/shopify/createShopifyDiscountCode"; 
 import { IAchievement, IReward, ISourceRewardConfig } from "@/app/types/databaseTypes";
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 export async function POST(request: Request) {
-  const codes = new Set<string>(); // Used for local collision check in generic generator
+  const codes = new Set<string>(); 
   
   try {
     const { clientId, monthsBack = 6 } = await request.json();
@@ -135,26 +135,36 @@ export async function POST(request: Request) {
                 let code: string;
                 let addedToPos = false;
 
-                // Check if client uses Shopify
-                if (client.retailSoftware === 'shopify' && client.shopify?.accessToken) {
+                // Determine the correct software based on the reward category
+                const category = rewardConfig.category || 'retail';
+                const software = category === 'retail' ? client.retailSoftware : client.reservationSoftware;
+
+                if (software === 'shopify') {
+                    // FIX: Strictly enforce token check. Do NOT fallback to generic.
+                    if (!client.shopify?.accessToken) {
+                        logs.push(`Skipped: Missing Shopify Access Token for ${rewardConfig.friendlyName}`);
+                        continue; 
+                    }
+                    
                     try {
                         const shopifyCode = await createShopifyDiscountCode(
-                             // Cast string to ObjectId for Mongoose queries
-                            new Types.ObjectId(rewardConfig._id),
-                            client._id, 
-                            { session }
+                             new Types.ObjectId(rewardConfig._id),
+                             client._id, 
+                             { session }
                         );
                         if (!shopifyCode) throw new Error("Shopify returned null code");
                         code = shopifyCode;
                         addedToPos = true;
                     } catch (err: any) {
                         logs.push(`Error creating Shopify code: ${err.message}`);
-                        // Abort this specific reward for this user, but don't crash whole loop
                         continue; 
                     }
-                } else {
-                    // Fallback to generic code
+                } else if (software === 'none' || !software) {
+                    // Only use generic codes if software is explicitly 'none'
                     code = await generateUniqueRewardCode(clientObjectId, codes, { session });
+                } else {
+                    logs.push(`Skipped: No generator found for software '${software}'`);
+                    continue;
                 }
 
                 const newCodeDoc = await createRewardCodeInDB({
@@ -214,7 +224,7 @@ export async function POST(request: Request) {
             session.endSession();
           }
           
-          await sleep(50); // Increased sleep slightly to be nice to Shopify API limits
+          await sleep(50); 
         }
         
         await Client.findByIdAndUpdate(clientId, { needsRetroactiveSweep: false });

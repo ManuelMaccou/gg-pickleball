@@ -38,14 +38,29 @@ const ClientStatsSubSchema = new Schema({
 
 const DuprSchema = new Schema({
   id: { type: String },
+  rating: { type: Number },
   unverfiedId: { type: String },
   email: { type: String },
   activated: { type: Boolean, default: false },
+  userToken: { type: String },
+  refreshToken: { type: String },
+  hasBasicEntitlement: { type: Boolean },
+  hasPremiumEntitlement: { type: Boolean },
+  hasVerifiedEntitlement: { type: Boolean },
+  entitlementCheckedAt: { type: Date },
+  doublesRating: { type: Number },
+  singlesRating: { type: Number },
+  doublesCareerHigh: { type: Number },
+  singlesCareerHigh: { type: Number },
+  doublesProvisional: { type: Boolean },
+  singlesProvisional: { type: Boolean },
+  lastRatingUpdate: { type: Date },
 })
 
 
 const UserSchema = new Schema<IUser>(
   {
+    accountClaimed: { type: Boolean, default: false }, 
     name: { type: String, required: true},
     email: { type: String },
     auth0Id: { type: String },

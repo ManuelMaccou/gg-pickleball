@@ -12,34 +12,40 @@ import { DuprMatch } from '@/app/types/duprTypes';
 import { DateTime } from 'luxon';
 import { transformPersonalDuprMatches } from '@/lib/services/matchBulkUpload/duprTransformationService';
 
-// Helper to fetch a page of matches
-async function fetchDuprMatches(duprId: string, offset: number, token: string) {
-  const DUPR_API_BASE_URL = process.env.DUPR_API_BASE_URL
-    const response = await fetch(`https://${DUPR_API_BASE_URL}/api/match/history/search`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-            'accept': 'application/json'
-        },
-        body: JSON.stringify({
-            offset,
-            limit: 20, // Max allowed
-            eventFormat: ["DOUBLES"],
-            duprId
-        })
-    });
+// Updated helper to accept date range
+async function fetchDuprMatches(
+  duprId: string, 
+  offset: number, 
+  token: string,
+  startDateSeconds: number,
+  endDateSeconds: number
+) {
+  const DUPR_API_BASE_URL = process.env.DUPR_API_BASE_URL;
+  
+  const response = await fetch(`https://${DUPR_API_BASE_URL}/api/match/history/search`, {
+      method: 'POST',
+      headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'accept': 'application/json'
+      },
+      body: JSON.stringify({
+          offset,
+          limit: 10,
+          eventFormat: ["DOUBLES"],
+          duprId,
+          // FIX: Use the variables passed in (Seconds), not hardcoded values
+          startDate: startDateSeconds, 
+          endDate: endDateSeconds      
+      })
+  });
 
-    if (!response.ok) {
-      // 1. Read the error body
-      const errorText = await response.text();
-      console.error(`DUPR API Failed: ${response.status} ${response.statusText}`);
-      console.error(`Response Body: ${errorText}`);
-      
-      // 2. Throw a more descriptive error
-      throw new Error(`DUPR API Error (${response.status}): ${errorText}`);
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`DUPR API Failed: ${response.status} ${response.statusText}`);
+    console.error(`Response Body: ${errorText}`);
+    throw new Error(`DUPR API Error (${response.status}): ${errorText}`);
   }
-  console.log('response ok')
   
   return await response.json();
 }
@@ -63,33 +69,57 @@ export async function POST(req: NextRequest) {
     if (!dataSource) throw new Error("DUPR Data Source not found");
     const dataSourceId = dataSource._id.toString();
 
-    // 2. Fetch Matches (Loop for 6 months)
+    // 2. Setup Date Range
+    const now = DateTime.now();
+    const startWindow = now.minus({ months: 6 });
+    
+    // FIX: Convert to Seconds (10 digits) using Math.floor
+    const endDateSeconds = Math.floor(now.toSeconds());
+    const startDateSeconds = Math.floor(startWindow.toSeconds());
+    
+    const cutoffDate = startWindow.toJSDate();
+
+    console.log(`Starting Personal Sync for ${userDoc.name} (${duprId}). Window (Seconds): ${startDateSeconds} to ${endDateSeconds}`);
+
+    // 3. Fetch Matches
     let allMatches: DuprMatch[] = [];
     let offset = 0;
     let keepFetching = true;
-    const cutoffDate = DateTime.now().minus({ months: 6 }).toJSDate();
-
-    console.log(`Starting Personal Sync for ${userDoc.name} (${duprId})...`);
 
     while (keepFetching) {
-        console.log('fetching matches')
-        const data = await fetchDuprMatches(duprId, offset, DUPR_TOKEN);
-        const pageMatches: DuprMatch[] = data.result?.hits || [];
+        console.log(`Fetching matches offset: ${offset}`);
         
-        if (pageMatches.length === 0) break;
+        const data = await fetchDuprMatches(duprId, offset, DUPR_TOKEN, startDateSeconds, endDateSeconds);
+        
+        // FIX: Use data.results (based on your Swagger output)
+        const pageMatches: DuprMatch[] = data.results || [];
+        
+        if (pageMatches.length === 0) {
+            console.log("No matches found in this page.");
+            break;
+        }
 
-        // Filter by date
         for (const match of pageMatches) {
-            const matchDate = new Date(match.eventDate);
-            if (matchDate < cutoffDate) {
-                keepFetching = false; // Stop if we hit old matches
+            // FIX: Handle parsing the matchDate from the API response
+            // The Swagger says 'matchDate' is a number (Seconds), not a string
+            let matchDateVal: Date;
+            if (typeof match.eventDate === 'number') {
+                matchDateVal = new Date(match.eventDate * 1000);
+            } else if (match.eventDate) {
+                matchDateVal = new Date(match.eventDate);
+            } else {
+                matchDateVal = new Date(); // Fallback safety
+            }
+
+            if (matchDateVal < cutoffDate) {
+                keepFetching = false; 
                 break; 
             }
             allMatches.push(match);
         }
 
-        if (keepFetching && pageMatches.length === 20) {
-            offset += 20;
+        if (keepFetching && pageMatches.length === 10) {
+            offset += 10;
         } else {
             keepFetching = false;
         }
@@ -97,11 +127,11 @@ export async function POST(req: NextRequest) {
 
     console.log(`Found ${allMatches.length} recent matches.`);
 
+    // Note: Ensure your transformation service can handle the data structure returned by data.results
     const gamesToProcess = transformPersonalDuprMatches(allMatches);
     console.log(`Extracted ${gamesToProcess.length} valid games from match history.`);
 
-    // 3. Processing Loop
-    // 3. Processing Loop
+    // 4. Processing Loop
     let processedCount = 0;
     const session = await startSession();
     
@@ -117,8 +147,7 @@ export async function POST(req: NextRequest) {
             let shouldProcessUser = false;
             let currentMatchId: string;
             
-            // --- 1. RESOLVE PLAYERS ---
-            // Helper to get ID or Null (for Ghost Players)
+            // --- RESOLVE PLAYERS ---
             const resolveId = (pid: string | number) => 
                 String(pid) === String(duprId) ? authorizedUser.id : null; 
 
@@ -131,16 +160,12 @@ export async function POST(req: NextRequest) {
                 resolveId(game.team2.player2.duprId)
             ];
             
-            // --- 2. CRITICAL SAFETY CHECK ---
-            // Is the logged-in user actually one of the players in this match?
-            // (If testing with someone else's DUPR ID, this will be false)
             const userIsInMatch = [...t1Ids, ...t2Ids].includes(authorizedUser.id);
             
             if (!userIsInMatch) {
-                console.warn(`Logged-in user (${authorizedUser.id}) not found in DUPR match ${game.duprMatchId}. Skipping stat update.`);
+                console.warn(`Logged-in user (${authorizedUser.id}) not found in DUPR match ${game.duprMatchId}.`);
             }
 
-            // --- 3. DETERMINE WINNERS ---
             const t1Names = [game.team1.player1.name, game.team1.player2.name];
             const t2Names = [game.team2.player1.name, game.team2.player2.name];
 
@@ -150,14 +175,10 @@ export async function POST(req: NextRequest) {
             const team1Won = score1 > score2;
             const winnerIds = team1Won ? t1Ids : t2Ids;
 
-            // --- 4. DB LOGIC ---
+            // --- DB LOGIC ---
             if (matchDoc) {
-                // Scenario: Match Exists
                 const processedSet = new Set(matchDoc.processedUsers?.map((id: any) => id.toString()) || []);
                 
-                // Only process if:
-                // A) The user is actually in the match
-                // B) The user hasn't been processed yet
                 if (userIsInMatch && !processedSet.has(authorizedUser.id)) {
                     shouldProcessUser = true;
                     matchDoc.processedUsers.push(authorizedUser.id);
@@ -165,8 +186,6 @@ export async function POST(req: NextRequest) {
                 }
                 currentMatchId = matchDoc.matchId;
             } else {
-                // Scenario: New Match
-                // If the user IS in the match, we want to process stats.
                 shouldProcessUser = userIsInMatch;
 
                 const newMatchDoc = await createMatch({
@@ -175,18 +194,14 @@ export async function POST(req: NextRequest) {
                     eventName: game.eventName,
                     matchDate: new Date(game.matchDate),
                     location: null,
-                    
                     team1Ids: t1Ids as string[], 
                     team1Names: t1Names, 
                     team1Score: score1,
-                    
                     team2Ids: t2Ids as string[],
                     team2Names: t2Names, 
                     team2Score: score2,
-                    
                     winners: winnerIds as string[],
                     dataSourceId: dataSourceId,
-                    // Only mark as processed if they are actually in it
                     processedUsers: userIsInMatch ? [authorizedUser.id] : [],
                     isGlobalContext: true,
                 }, { session });
@@ -194,10 +209,8 @@ export async function POST(req: NextRequest) {
                 currentMatchId = newMatchDoc.matchId;
             }
 
-            // --- 5. UPDATE STATS ---
+            // --- UPDATE STATS ---
             if (shouldProcessUser) {
-                // Safely map nulls to "UNKNOWN" so updateUserAndAchievements doesn't crash on ObjectId conversion
-                // (Note: updateUserAndAchievements must use the isValidObjectId filter we discussed earlier)
                 const validT1 = t1Ids.map(id => id || "UNKNOWN");
                 const validT2 = t2Ids.map(id => id || "UNKNOWN");
                 const validWinners = winnerIds.map(id => id || "UNKNOWN");
@@ -215,7 +228,7 @@ export async function POST(req: NextRequest) {
                     isGlobalContext: true,
                     triggeringEvent: game.eventName,
                     dataSourceId: dataSourceId,
-                    targetUserIds: [authorizedUser.id] // Strictly target this user
+                    targetUserIds: [authorizedUser.id]
                 }, { session });
 
                 processedCount++;

@@ -20,7 +20,26 @@ export async function createMatch(data: MatchCreationData & {
   processedUsers: string[] | null, team1Names?: string[], team2Names?: string[] 
 }, dbOptions: RequiredDbOptions) {
   const cleanIds = (ids: (string | null)[]) => ids.filter(id => id && Types.ObjectId.isValid(id));
+
+  const cleanName = (name: string | undefined | null) => {
+    if (!name) return "Unclaimed Account";
+    
+    const trimmed = name.trim();
+    const lower = trimmed.toLowerCase();
+    
+    // Check against the exact string DUPR sends, ignoring case
+    if (lower === "a dupr user" || lower === "dupr user" || lower === "private profile") {
+        return "Unclaimed Account";
+    }
+    return trimmed;
+  };
+
+  const finalTeam1Names = (data.team1Names || []).map(cleanName);
+  const finalTeam2Names = (data.team2Names || []).map(cleanName);
   
+  console.log('Original team 1 names:', data.team1Names);
+  console.log('Cleaned team 1 names:', finalTeam1Names);
+
   const createdMatches = await Match.create(
     [{
       matchId: uuidv4(),
@@ -32,12 +51,12 @@ export async function createMatch(data: MatchCreationData & {
       location: data.location,
       team1: { 
           players: cleanIds(data.team1Ids), 
-          playerNames: data.team1Names || [],
+          playerNames: finalTeam1Names,
           score: data.team1Score 
       },
       team2: { 
           players: cleanIds(data.team2Ids), 
-          playerNames: data.team2Names || [],
+          playerNames: finalTeam2Names,
           score: data.team2Score 
       },
       winners: cleanIds(data.winners),
