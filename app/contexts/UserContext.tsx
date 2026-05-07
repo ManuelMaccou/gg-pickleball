@@ -7,6 +7,7 @@ export type ClientUser = {
   name: string
   email?: string
   isGuest: boolean
+  duprId?: string;
   superAdmin?: boolean
   accountClaimed?: boolean
 } | null
@@ -31,7 +32,7 @@ export const useUserContext = (): UserContextType => {
   const context = useContext(UserContext)
   if (!context) {
     return {
-      user: { id: '', name: '', isGuest: false, superAdmin: false, accountClaimed: false },
+      user: { id: '', name: '', isGuest: false, superAdmin: false, duprId: '', accountClaimed: false },
       setUser: () => {},
     }
   }

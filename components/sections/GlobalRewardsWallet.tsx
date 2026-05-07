@@ -35,6 +35,12 @@ export default function GlobalRewardsWallet({ user, dataSourceId }: Props) {
         let finalRewardsList: RewardWithContext[] = [];
         let fetchedDataSource: IDataSource | null = null;
 
+        const getWinCount = (reward: any) => {
+          const name = reward.achievementName || '';
+          const match = name.match(/^(\d+)/);
+          return match ? parseInt(match[1], 10) : Infinity;
+        };
+
         if (!user) {
           // --- LOGIC FOR LOGGED-OUT USERS ---
           const rewardsPromise = fetch(`/api/source-reward-config?dataSourceId=${dataSourceId}`);
@@ -52,13 +58,14 @@ export default function GlobalRewardsWallet({ user, dataSourceId }: Props) {
           const rewardsToDisplay = configuredRewards.map(item => ({
             ...item.reward,
             achievementId: item.achievement._id,
+            achievementName: item.achievement.name,
             achievementFriendlyName: item.achievement.friendlyName,
             achievementTask: item.achievement.task,
             sponsoringClient: item.sponsoringClient,
             codes: [],
           }));
           
-          finalRewardsList = rewardsToDisplay.sort((a, b) => (a.index ?? Infinity) - (b.index ?? Infinity));
+          finalRewardsList = rewardsToDisplay.sort((a, b) => getWinCount(a) - getWinCount(b));
         } else {
           // --- LOGIC FOR LOGGED-IN USERS ---
           const earnedPromise = fetch(`/api/reward-code/global-earned?userId=${user._id}&dataSourceId=${dataSourceId}`);
@@ -96,6 +103,7 @@ export default function GlobalRewardsWallet({ user, dataSourceId }: Props) {
                 ...reward,
                 repeatable: isRepeatable,
                 achievementId,
+                achievementName,
                 achievementFriendlyName: friendlyName,
                 achievementTask: task,
                 sponsoringClient: code.clientId, 
@@ -120,6 +128,7 @@ export default function GlobalRewardsWallet({ user, dataSourceId }: Props) {
             mergedMap.set(uniqueSnapshotKey, {
               ...reward,
               achievementId: configuredItem.achievement._id,
+              achievementName: configuredItem.achievement.name,
               achievementFriendlyName: configuredItem.achievement.friendlyName,
               achievementTask: configuredItem.achievement.task,
               sponsoringClient: configuredItem.sponsoringClient,
@@ -175,13 +184,13 @@ export default function GlobalRewardsWallet({ user, dataSourceId }: Props) {
             const areAllCodesRedeemed = reward.codes.every(c => c.redeemed);
             return reward.repeatable || !areAllCodesRedeemed;
           });
-    
+            
           const sortedList = visibleRewards.sort((a, b) => {
             const aUnlocked = a.codes.some(c => !c.redeemed);
             const bUnlocked = b.codes.some(c => !c.redeemed);
             if (aUnlocked && !bUnlocked) return -1;
             if (!aUnlocked && bUnlocked) return 1;
-            return (a.index ?? Infinity) - (b.index ?? Infinity);
+            return getWinCount(a) - getWinCount(b);
           });
 
           finalRewardsList = sortedList;
@@ -211,7 +220,7 @@ export default function GlobalRewardsWallet({ user, dataSourceId }: Props) {
   // --- UNIFIED GRID VIEW (Desktop & Mobile) ---
   return (
     <Box>
-      <Grid columns={{ initial: '1', sm: '2', md: '3', lg: '4' }} gap="5">
+      <Grid columns={{ initial: '1', sm: '2', md: '3', lg: '3' }} gap="5">
         {allRewards.map((reward, index) => {
           const uniqueKey = `${reward._id.toString()}-${reward.sponsoringClient._id.toString()}`; 
 

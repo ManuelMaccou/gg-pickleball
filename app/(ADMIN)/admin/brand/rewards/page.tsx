@@ -648,10 +648,10 @@ export default function BrandRewardConfigPage() {
 
                 <Separator size="4" />
 
-                <Flex gap="6" align="start" direction={{ initial: 'column', lg: 'row' }}>
+                <Flex gap="6" align="start" direction={{ initial: 'column', lg: 'row' }} width={{initial: '100%', md: '70%'}}>
                   
                   {/* 1. FORM SECTION */}
-                  <Flex direction="column" gap="5" flexGrow="1" width="100%">
+                  <Flex direction="column" gap="5" flexGrow="1" >
                     <Card size="3" style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.05)', borderRadius: '16px' }}>
                       <Flex direction="column" gap="5">
                         
@@ -721,56 +721,6 @@ export default function BrandRewardConfigPage() {
 
                       </Flex>
                     </Card>
-                  </Flex>
-
-                  {/* 2. PREVIEW SECTION */}
-                  <Flex direction="column" width={{ initial: '100%', lg: '320px' }} gap="3">
-                    <Text size="2" weight="bold" color="gray" style={{ letterSpacing: '0.05em' }}>PLAYER PREVIEW</Text>
-                    
-                    {/* Mock Phone Card */}
-                    <Box 
-                      style={{ 
-                        backgroundColor: location?.bannerColor || 'var(--accent-9)', 
-                        borderRadius: '16px', 
-                        height: '200px', 
-                        padding: '20px',
-                        color: location?.cardTextColor || 'white',
-                        position: 'relative',
-                        boxShadow: '0 10px 30px -10px rgba(0,0,0,0.3)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'space-between',
-                        width: '100%' // Ensure it doesn't overflow mobile container
-                      }}
-                    >
-                      <Flex justify="between" align="start">
-                        <Text size="5" weight="bold" style={{ lineHeight: '1.2' }}>{previewText}</Text>
-                        <Box 
-                          style={{ 
-                            width: '60px', height: '60px', borderRadius: '8px',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center'
-                          }}
-                        >
-                           {location?.logo ? (
-                             <img src={location.logo} alt="logo" style={{width: '100%', height: '100%', objectFit: 'contain'}} />
-                           ) : <StarFilledIcon color="gold" width="32" height="32" />}
-                        </Box>
-                      </Flex>
-
-                      <Flex direction="column">
-                        <Text size="2" style={{ opacity: 0.9 }}>{previewDescription}</Text>
-                        <Text size="1" style={{ opacity: 0.7, marginTop: '4px' }}>
-                          Earned via: {selectedAchievement.friendlyName}
-                        </Text>
-                      </Flex>
-                    </Box>
-
-                    <Callout.Root size="1" variant="surface" color="gray">
-                      <Callout.Icon><InfoCircledIcon /></Callout.Icon>
-                      <Callout.Text>
-                        This is how the reward card will appear in the player&apos;s digital wallet.
-                      </Callout.Text>
-                    </Callout.Root>
                   </Flex>
 
                 </Flex>

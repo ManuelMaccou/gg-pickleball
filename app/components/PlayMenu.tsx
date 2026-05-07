@@ -20,7 +20,7 @@ import Image from "next/image";
 import { Cross2Icon, HamburgerMenuIcon } from "@radix-ui/react-icons";
 import { FrontendUser } from "../types/frontendTypes";
 import { useUserContext } from "../contexts/UserContext";
-import { User, Mail, Link as LinkIcon, CheckCircle2 } from "lucide-react"; // Added standard icons
+import { User, Mail, Link as LinkIcon, CheckCircle2, Shield } from "lucide-react"; // Added standard icons
 
 interface PlayMenuProps {
   user: FrontendUser | null;
@@ -200,14 +200,29 @@ export default function PlayMenu({ user, isAuthorized, onUserUpdate, onInitiateD
                                     </Dialog.Close>
                                 </Flex>
                             ) : (
-                                <Flex align="center" gap="2" p="3" style={{ backgroundColor: 'var(--green-2)', border: '1px solid var(--green-5)', borderRadius: '12px' }}>
-                                    <CheckCircle2 size={20} color="var(--green-10)" />
-                                    <Box>
+
+                                 
+                                  
+                                  <Flex align="center" gap="2" py="3" px={'6'} justify={'between'} style={{ backgroundColor: 'var(--green-2)', border: '1px solid var(--green-5)', borderRadius: '12px' }}>
+                                    <Flex direction={'row'} align={'center'} gap={'2'}>
+                                      <CheckCircle2 size={20} color="var(--green-10)" />
+                                      <Box>
                                         <Text as="div" size="2" weight="bold" style={{ color: 'var(--green-11)' }}>Connected</Text>
                                         <Text as="div" size="1" style={{ color: 'var(--green-10)' }}>ID: {user?.dupr?.id}</Text>
+                                      </Box>
+                                    </Flex>
+                                    <Box>
+                                      <Text as="div" size="2" weight="bold" style={{ color: 'var(--green-11)' }}>Doubles rating</Text>
+                                      <Text as="div" size="1" style={{ color: 'var(--green-10)' }}>
+                                        {user?.dupr?.doublesRating
+                                          ? Number(user.dupr.doublesRating).toFixed(2)
+                                          : user?.dupr?.rating
+                                            ? Number(user.dupr.rating).toFixed(2)
+                                            : '—'}
+                                      </Text>
                                     </Box>
-                                </Flex>
-                            )}
+                                  </Flex>
+                              )}
                             
                             <Box mt="2">
                                 {duprActivationError && <Text size="2" color="red">{duprActivationError}</Text>}
@@ -216,6 +231,35 @@ export default function PlayMenu({ user, isAuthorized, onUserUpdate, onInitiateD
                         </Flex>
                     </Flex>
                 </Card>
+
+                {/* --- CLUB MANAGEMENT SECTION --- */}
+                <Card size="2" style={{ backgroundColor: 'var(--slate-1)', border: '1px solid var(--slate-4)', borderRadius: '16px', padding: '20px' }}>
+                    <Flex direction="column" gap="3">
+                        <Flex align="center" gap="2" mb="1">
+                            <Shield size={18} color="var(--slate-11)" />
+                            <Text size="3" weight="bold" style={{ color: 'var(--slate-12)' }}>Club Management</Text>
+                        </Flex>
+                        <Text size="2" style={{ color: 'var(--slate-11)', lineHeight: 1.5 }}>
+                            Run a pickleball club? Upload matches to DUPR, track events, and see which players have synced.
+                        </Text>
+                        <Dialog.Close>
+                            <Button
+                                size="3"
+                                radius="full"
+                                variant="soft"
+                                color="cyan"
+                                asChild
+                                style={{ fontWeight: 'bold', width: '100%', cursor: 'pointer' }}
+                            >
+                                <a href="/admin/club">Manage Club</a>
+                            </Button>
+                        </Dialog.Close>
+                    </Flex>
+                </Card>
+
+                {/* --- ALSO ADD THIS IMPORT at the top of PlayMenu.tsx --- */}
+                {/* Add Shield to the lucide-react import: */}
+                {/* import { User, Mail, Link as LinkIcon, CheckCircle2, Shield } from "lucide-react"; */}
 
                 {/* --- CONTACT SECTION --- */}
                 <Card size="2" style={{ backgroundColor: 'var(--slate-1)', border: '1px solid var(--slate-4)', borderRadius: '16px', padding: '20px' }}>
@@ -227,7 +271,7 @@ export default function PlayMenu({ user, isAuthorized, onUserUpdate, onInitiateD
                         <Text size="2" style={{ color: 'var(--slate-11)', lineHeight: 1.5, marginBottom: '12px' }}>
                             Questions, comments, or issues? We would love to hear from you!
                         </Text>
-                        <Button size="3" variant="soft" color="gray" radius="full" asChild style={{ fontWeight: 'bold' }}>
+                        <Button size="3" variant="soft" color="cyan" radius="full" asChild style={{ fontWeight: 'bold' }}>
                             <a href="mailto:play@ggpickleball.co" target="_blank" rel="noopener noreferrer">
                                 Send us an email
                             </a>

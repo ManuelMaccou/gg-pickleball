@@ -4,6 +4,7 @@ import { LockKeyhole, Gift } from "lucide-react";
 import Image from 'next/image';
 import { RewardWithContext } from '@/app/types/rewardTypes';
 import { IDataSource } from '@/app/types/databaseTypes';
+import { formatCurrency } from "@/lib/utils";
 
 interface ModernRewardCardProps {
   reward: RewardWithContext;
@@ -92,22 +93,12 @@ export function ModernRewardCard({ reward, index, onClick, dataSource }: ModernR
                 <Image
                     src={reward.sponsoringClient.logo}
                     alt={`${brandName} logo`}
-                    height={32}
-                    width={32}
+                    height={50}
+                    width={50}
                     style={{ objectFit: 'contain' }}
                 />
               </Box>
             )}
-            
-            <Box style={{ backgroundColor: 'rgba(0,0,0,0.4)', padding: '4px', borderRadius: '8px', backdropFilter: 'blur(4px)' }}>
-              <Image
-                  src={dataSource?.logo ?? '/logos/gg-rewards_white.png'}
-                  alt={`${dataSource?.name || 'GG'} logo`}
-                  height={32}
-                  width={32}
-                  style={{ objectFit: 'contain' }}
-              />
-            </Box>
         </Flex>
 
         {/* --- REWARD NAME (Overlayed on image) --- */}
@@ -118,6 +109,12 @@ export function ModernRewardCard({ reward, index, onClick, dataSource }: ModernR
           <Heading size="5" style={{ color: textColor, textShadow: '0 1px 3px rgba(0, 0, 0, 0.8)', lineHeight: 1.1 }}>
             {reward.friendlyName || reward.name}
           </Heading>
+
+          {reward.minimumSpend && (
+            <Text mt={'4'} size="2" weight="medium" style={{ color: textColor }}>
+              With total purchase of {formatCurrency(reward.minimumSpend)} or more.
+            </Text>
+          )}
         </Flex>
       </Box>
       

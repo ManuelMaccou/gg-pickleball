@@ -13,7 +13,7 @@ const DataSourceSchema = new Schema<IDataSource>({
     type: String, 
     required: true, 
     unique: true,
-    enum: ['dupr', 'silly_pickles', 'swish']
+    enum: ['dupr', 'silly_pickles', 'swish', 'club']
   },
   icon: { type: String },
   logo: { type: String},

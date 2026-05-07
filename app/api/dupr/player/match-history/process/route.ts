@@ -8,7 +8,7 @@ import { startSession } from 'mongoose';
 import { updateUserAndAchievements } from '@/utils/achievementFunctions/updateUserAndAchievements';
 import { createMatch } from '@/lib/services/matchBulkUpload/matchService';
 import { transformPersonalDuprMatches } from '@/lib/services/matchBulkUpload/duprTransformationService';
-import { authenticatedDuprFetch } from '@/lib/services/duprAuth';
+import { authenticatedDuprFetch } from '@/lib/services/dupr/duprAuth';
 
 async function fetchDuprMatchDetails(matchId: number) {
     const DUPR_API_BASE_URL = process.env.DUPR_API_BASE_URL;
@@ -16,8 +16,6 @@ async function fetchDuprMatchDetails(matchId: number) {
     const response = await authenticatedDuprFetch(`https://${DUPR_API_BASE_URL}/api/match/v1.0/${matchId}`, {
         method: 'GET'
     });
-
-    console.log('response:', response)
   
     if (!response.ok) {
         console.error(`Failed to fetch details for match ${matchId}: ${response.statusText}`);
@@ -128,8 +126,10 @@ export async function POST(req: NextRequest) {
                     // Determine Winner
                     const score1 = game.team1.score;
                     const score2 = game.team2.score;
-                    const team1Won = score1 > score2;
-                    const winnerIds = team1Won ? t1Ids : t2Ids;
+
+                    // For match-level winner (used for win/loss counting)
+                    const team1WonMatch = game.team1.isMatchWinner;
+                    const matchWinnerIds = team1WonMatch ? t1Ids : t2Ids;
 
                     if (matchDoc) {
                         // *** EXISTING MATCH LOGIC ***
@@ -157,7 +157,7 @@ export async function POST(req: NextRequest) {
                             }
 
                             // 3. Update Winners Array
-                            if (winnerIds.includes(authorizedUser.id)) {
+                            if (matchWinnerIds.includes(authorizedUser.id)) {
                                 const currentWinners = matchDoc.winners.map((id: any) => id.toString());
                                 if (!currentWinners.includes(authorizedUser.id)) {
                                     matchDoc.winners.push(authorizedUser.id);
@@ -186,7 +186,7 @@ export async function POST(req: NextRequest) {
                             team2Ids: t2Ids as string[], 
                             team2Names: t2Names, 
                             team2Score: score2,
-                            winners: winnerIds as string[],
+                            winners: matchWinnerIds as string[],
                             dataSourceId: dataSourceId,
                             processedUsers: userIsInMatch ? [authorizedUser.id] : [],
                             isGlobalContext: true,
@@ -198,7 +198,7 @@ export async function POST(req: NextRequest) {
                     if (shouldProcessUser) {
                         const validT1 = t1Ids.map(id => id || "UNKNOWN");
                         const validT2 = t2Ids.map(id => id || "UNKNOWN");
-                        const validWinners = winnerIds.map(id => id || "UNKNOWN");
+                        const validWinners = matchWinnerIds.map(id => id || "UNKNOWN");
 
                         await updateUserAndAchievements({
                             team1Ids: validT1, 
@@ -213,7 +213,8 @@ export async function POST(req: NextRequest) {
                             isGlobalContext: true,
                             triggeringEvent: game.eventName,
                             dataSourceId: dataSourceId,
-                            targetUserIds: [authorizedUser.id]
+                            targetUserIds: [authorizedUser.id],
+                            countAsWin: game.isLastGame,
                         }, { session });
                         
                         processedCount++;

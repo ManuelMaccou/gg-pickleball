@@ -5,6 +5,8 @@ import User from '@/app/models/User';
 import { escapeRegex } from '@/utils/escapeRegex';
 import { logError } from '@/lib/sentry/logger';
 import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser';
+import { subscribeToDuprWebhook } from '@/lib/services/dupr/duprWebhookSubscription';
+import { checkEntitlementsWithToken } from '@/lib/services/dupr/duprEntitlement';
 
 await connectToDatabase();
 
@@ -207,72 +209,57 @@ export async function PATCH(req: NextRequest) {
 
     // --- SECURE: DUPR SUBSCRIPTION CHECK ---
     // If the frontend is sending us a new DUPR token to save, we MUST verify it first.
-    if (dupr && dupr.userToken) {
+    if (dupr?.userToken) {
       if (bypassDuprCheck) {
-         console.log(`[DUPR SYNC] ⚠️ BYPASSING Subscription Check for ${existingUser.email}...`);
+        console.log(`[DUPR SYNC] ⚠️ BYPASSING Subscription Check for ${existingUser.email}...`);
       } else {
-      
         console.log(`[DUPR SYNC] Verifying Subscription Status for ${existingUser.email}...`);
-        
-        const DUPR_API_SUBSCRIPTION_BASE_URL = process.env.DUPR_API_SUBSCRIPTION_BASE_URL; // prod.mydupr.com or uat.mydupr.com
-        
-        try {
-          const subResponse = await fetch(`https://${DUPR_API_SUBSCRIPTION_BASE_URL}/subscription/active`, {
-            method: 'POST', 
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${dupr.userToken}`, 
-              'accept': 'application/json'
-            },
-            body: JSON.stringify({}) // Empty body usually required for POST
-          });
-
-          if (!subResponse.ok) {
-            const errText = await subResponse.text();
-            console.error(`[DUPR SYNC] Subscription API failed (${subResponse.status}):`, errText);
-            throw new Error("Failed to communicate with DUPR.");
-          }
-
-          const subData = await subResponse.json();
-          
-          // --- ENTITLEMENT LOGIC ---
-          // Look through all their active subscriptions to see if any grant the 'BASIC_L1' entitlement
-          let hasBasicL1 = false;
-
-          if (subData && subData.subscriptions && Array.isArray(subData.subscriptions)) {
-              for (const sub of subData.subscriptions) {
-                  // Safely check if the 'tournaments' array exists inside 'entitlements'
-                  const tournaments = sub.entitlements?.tournaments || [];
-                  
-                  if (tournaments.includes('BASIC_L1')) {
-                      hasBasicL1 = true;
-                      break; // Found it, no need to keep checking
-                  }
-              }
-          }
-
-          // BLOCK THE SAVE IF THEY FAIL THE CHECK
-          if (!hasBasicL1) {
-              console.warn(`[DUPR SYNC] User ${existingUser._id} blocked. Missing BASIC_L1 entitlement.`);
-              return NextResponse.json(
-                  { error: "You do not have access to DUPR at this time. Please contact DUPR support." }, 
-                  { status: 403 }
-              );
-          }
-          
-          console.log(`[DUPR SYNC] User verified.`);
-
-        } catch (subError: any) {
-          // If the API call fails completely (network error, bad token, etc.), BLOCK the connection
-          console.error("[DUPR SYNC] Check failed entirely:", subError);
+  
+        const entitlementResult = await checkEntitlementsWithToken(dupr.userToken);
+    
+        if (!entitlementResult.ok) {
           return NextResponse.json(
-              { error: "Failed to verify your DUPR account status. Please try connecting again later." }, 
-              { status: 400 }
+            { error: entitlementResult.error },
+            { status: entitlementResult.status }
           );
         }
+  
+        if (!entitlementResult.flags.hasBasicEntitlement) {
+          console.warn(`[DUPR SYNC] User ${existingUser._id} blocked. Missing BASIC_L1 entitlement.`);
+          return NextResponse.json(
+            { error: 'You do not have access to DUPR at this time. Please contact DUPR support.' },
+            { status: 403 }
+          );
+        }
+    
+        // Write all three entitlement flags into the update operation so they land
+        // in the same DB write as the token save. This ensures hasPremiumEntitlement
+        // (and the others) are populated immediately on first connect, not deferred
+        // until the next 24-hour cache expiry.
+        dupr.hasBasicEntitlement = entitlementResult.flags.hasBasicEntitlement;
+        dupr.hasPremiumEntitlement = entitlementResult.flags.hasPremiumEntitlement;
+        dupr.hasVerifiedEntitlement = entitlementResult.flags.hasVerifiedEntitlement;
+        // Also stamp the cache timestamp so verifyDuprEntitlement won't
+        // redundantly re-fetch on the very next request after connect.
+        dupr.entitlementCheckedAt = new Date();
+    
+        console.log(`[DUPR SYNC] User verified.`, entitlementResult.flags);
       }
     }
     // ---------------------------------------
+
+    console.log(`[DUPR SYNC] User verified.`);
+
+    // Subscribe to DUPR webhook for rating updates
+    try {
+      await subscribeToDuprWebhook([dupr.id]);
+      console.log(`[DUPR SYNC] Subscribed ${dupr.id} to rating webhook.`);
+    } catch (subError) {
+      // Don't block the connect flow if subscription fails — log and continue.
+      // The user can still use the app; they just won't get live rating updates
+      // until we retry or they reconnect.
+      console.error(`[DUPR SYNC] Webhook subscription failed for ${dupr.id}:`, subError);
+    }
 
     // ✨ Build the update operation using our helper and dot notation
     const updateOperation = buildUpdateOperation(body);

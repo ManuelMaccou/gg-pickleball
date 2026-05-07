@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
             const getIds = (names: string[]) => names.map(n => userMap.get(n)!);
             const team1Ids = getIds([matchData.players[0].name, matchData.players[1].name]);
             const team2Ids = getIds([matchData.players[2].name, matchData.players[3].name]);
-            const winnerIds = getIds(matchData.winners.map(w => w.name));
+            const winnerIds = getIds(matchData.matchWinners.map(w => w.name));
             const allPlayerIds = [...team1Ids, ...team2Ids];
 
             // --- MATCH DB LOGIC ---
@@ -189,8 +189,9 @@ export async function POST(req: NextRequest) {
               isGlobalContext: !!isGlobalContext,
               triggeringEvent: eventName,
               dataSourceId: dataSourceId,
-              targetUserIds: usersToProcess
-           }, { session });
+              targetUserIds: usersToProcess,
+              countAsWin: matchData.isLastGame,
+            }, { session });
 
            // STAGE: Add rewards to transaction context
            if (achievementResult.success && achievementResult.earnedAchievements) {

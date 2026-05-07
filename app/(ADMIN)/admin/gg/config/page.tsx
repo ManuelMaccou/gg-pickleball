@@ -253,7 +253,7 @@ export default function GgpickleballAdminClients() {
       
       if (!response.ok) throw new Error(data.error || 'Failed to send invite');
 
-      setInviteMessage({ type: 'success', text: `Invite sent successfully to ${inviteEmail}` });
+      setInviteMessage({ type: 'success', text: data.message || `Invite sent successfully to ${inviteEmail}` });
       setInviteEmail(''); // clear form on success
 
     } catch (error: any) {

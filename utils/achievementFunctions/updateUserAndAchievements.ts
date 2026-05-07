@@ -353,6 +353,7 @@ type UpdateOptions = {
   triggeringEvent?: string;
   dataSourceId?: string;
   targetUserIds?: string[];
+  countAsWin?: boolean;
 };
 
 
@@ -747,9 +748,9 @@ async function processGlobalMatch(
                 filter: { _id: new Types.ObjectId(userId) },
                 update: {
                     $inc: {
-                        'stats.global.wins': isWinner ? 1 : 0,
-                        'stats.global.losses': isWinner ? 0 : 1,
-                        'stats.global.pointsWon': teamScore,
+                      'stats.global.wins': (isWinner && options.countAsWin) ? 1 : 0,
+                      'stats.global.losses': (!isWinner && options.countAsWin) ? 1 : 0,
+                      'stats.global.pointsWon': teamScore,
                     }
                 },
                 upsert: true // Ensures stats.global object is created
@@ -804,11 +805,7 @@ async function processGlobalMatch(
     const allNewKeys = new Set<string>();
 
     for (const user of updatedUsers) {
-      console.log(`\n--- [DEBUG] Processing user: ${user.name} (${user._id}) ---`);
-
-      const userGlobalStats = ensureClientStats(user, 'global');
-      console.log('[DEBUG] User stats AFTER stat update:', JSON.stringify(userGlobalStats, null, 2));
-      
+      const userGlobalStats = ensureClientStats(user, 'global');      
       const allAchievements: AchievementEarned[] = [];
 
       for (const checkFn of enabledCheckFunctions) {
@@ -821,8 +818,6 @@ async function processGlobalMatch(
         allAchievements.push(...result as AchievementEarned[]);
       }
 
-      console.log(`[DEBUG] Total potential achievements for ${user.name}:`, allAchievements);
-
       const newAchievements = allAchievements.filter(a => {
         const existing = userGlobalStats.achievements?.some(ach => ach.name === a.key);
        if (!a.repeatable && existing) {
@@ -832,8 +827,6 @@ async function processGlobalMatch(
         return true;
       });
 
-      console.log(`[DEBUG] FINAL new achievements for ${user.name}:`, newAchievements);
-
      if (newAchievements.length > 0) {
         newAchievementsPerUser.set(user._id.toString(), newAchievements);
         newAchievements.forEach(a => allNewKeys.add(a.key));
@@ -841,7 +834,6 @@ async function processGlobalMatch(
     }
 
    if (newAchievementsPerUser.size === 0) {
-      console.log('[DEBUG] No new achievements were earned by any user. Process complete.');
       return {
         success: true,
         earnedAchievements: [],
@@ -849,9 +841,6 @@ async function processGlobalMatch(
         updatedUsers: Array.from(participantIdsSet)
       };
     }
-
-    console.log('\n\n--- [DIAGNOSTIC BLOCK 1] ---');
-    console.log('[DIAGNOSTIC] Keys of ALL new achievements found by check functions:', Array.from(allNewKeys));
 
     const earnedAchievementsList: {
       userId: string;
@@ -886,8 +875,6 @@ async function processGlobalMatch(
         continue; 
       }
 
-      console.log(`\n--- [DEBUG] Building achievement/reward update for: ${user.name} ---`);
-
       const userGlobalStats = ensureClientStats(user, 'global');
       const existingAchievements = userGlobalStats.achievements || [];
       const existingRewards = userGlobalStats.rewards || [];
@@ -913,8 +900,6 @@ async function processGlobalMatch(
           triggeringEvent?: string;
         } => entry !== null);
 
-      console.log(`[DIAGNOSTIC] For user ${user.name}, newAchievementEntries has ${newAchievementEntries.length} items.`);
-
       const finalAchievements = [...existingAchievements, ...newAchievementEntries];
 
       const rewardToAchievementId = new Map<string, Types.ObjectId>();
@@ -933,7 +918,6 @@ async function processGlobalMatch(
                 clientId: sponsorship.sponsoringClientId // Check if sponsored by this specific client
               }).session(session);
               if (existingCode) {
-                console.log(`Skipping already issued global reward for ${user.name}, achievement ${a.key}, sponsored by ${sponsorship.sponsoringClientId}`);
                 continue; // Skip this reward, it's already been given
               }
             }
@@ -968,7 +952,6 @@ async function processGlobalMatch(
       for (const [clientIdStr, sponsorshipsForClient] of tasksByClient.entries()) {
         const client = clientsById.get(clientIdStr);
         if (!client) {
-          console.warn(`Sponsoring client with ID ${clientIdStr} not found. Skipping reward generation.`);
           continue;
         }
 
@@ -1050,7 +1033,6 @@ async function processGlobalMatch(
             update: { $set: setOps }
           }
         };
-        console.log(`[DEBUG] Pushing achievement/reward update for ${user.name}:`, JSON.stringify(updateOperation, null, 2));
         achievementBulkOps.push(updateOperation);
       }
 
@@ -1066,9 +1048,7 @@ async function processGlobalMatch(
     }
 
     if (achievementBulkOps.length > 0) {
-      console.log(`[DEBUG] Executing achievement/reward bulkWrite...`);
       await User.bulkWrite(achievementBulkOps, { session });
-      console.log('[DEBUG] Achievement/reward update complete.');
     }
 
     return {
@@ -1078,7 +1058,6 @@ async function processGlobalMatch(
         updatedUsers: Array.from(participantIdsSet),
     };
   } catch (error) {
-    console.error('Error in processGlobalMatch:', error);
     throw error;
   }
 }
@@ -1091,8 +1070,6 @@ export async function updateUserAndAchievements(
   dbOptions: RequiredDbOptions 
 ) {
   const { isGlobalContext, ...restOfOptions } = options;
-
-  console.log("global context?", isGlobalContext);
 
   if (isGlobalContext) {
     if (!restOfOptions.dataSourceId) {

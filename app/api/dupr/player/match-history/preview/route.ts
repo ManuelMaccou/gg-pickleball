@@ -5,7 +5,7 @@ import User from '@/app/models/User';
 import Match from '@/app/models/Match';
 import { DateTime } from 'luxon';
 import { Types } from 'mongoose';
-import { authenticatedDuprFetch } from '@/lib/services/duprAuth';
+import { authenticatedDuprFetch } from '@/lib/services/dupr/duprAuth';
 
 async function fetchDuprMatchList(
   duprId: string, 
@@ -51,9 +51,9 @@ export async function GET(req: NextRequest) {
 
     const now = DateTime.now();
     const startWindow = now.minus({ months: 6 });
-    const endDateSeconds = Math.floor(now.toSeconds());
-    const startDateSeconds = Math.floor(startWindow.toSeconds());
-    const cutoffDate = startWindow.toJSDate();
+    const endDateSeconds = Math.floor(now.plus({ days: 1 }).toSeconds());    // +1 day
+    const startDateSeconds = Math.floor(startWindow.minus({ days: 1 }).toSeconds()); // -1 day
+    const cutoffDate = startWindow.minus({ days: 1 }).toJSDate();  // also adjust cutoff
 
     // 2. Fetch from DUPR
     let potentialMatches: any[] = [];
@@ -123,6 +123,8 @@ export async function GET(req: NextRequest) {
             isSynced: syncedSet.has(m.matchId.toString())
         }));
     }
+
+    console.log('potential matches:', potentialMatches)
 
     return NextResponse.json({ matches: potentialMatches });
 

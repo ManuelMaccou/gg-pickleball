@@ -62,7 +62,6 @@ export async function sendNotificationEmail({
     });
 */
 
-
   } catch (error: unknown) {
     logError(error, { message: `Failed to send ${template} email to ${email}` });
     if (error instanceof Error) {

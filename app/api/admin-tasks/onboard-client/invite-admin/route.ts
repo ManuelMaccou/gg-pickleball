@@ -136,7 +136,7 @@ export async function POST(req: NextRequest) {
       location: client._id
     });
 
-    let isNewAdmin = false;
+    let shouldSendEmail = true;
 
     if (!existingAdminRecord) {
       console.log(`Creating Admin record linking ${localUser.email} to ${client.name}...`);
@@ -147,14 +147,13 @@ export async function POST(req: NextRequest) {
         clientName: client.name,
         name: localUser.name
       });
-      isNewAdmin = true; // <--- FLAG AS NEW ADMIN
     } else {
-      console.log(`User ${localUser.email} is already an admin for ${client.name}.`);
+      console.log(`User ${localUser.email} is already an admin for ${client.name}. Resending invite...`);
     }
 
     // --- 5. GENERATE RESET LINK & SEND EMAIL ---
     // Only proceed with emailing if they are actually a NEW admin for this club
-    if (isNewAdmin) {
+    if (shouldSendEmail) {
         let resetLink: string | undefined;
         
         // If they haven't claimed their account, they need the password ticket
@@ -220,8 +219,10 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ 
-        success: true, 
-        message: isNewAdmin ? `Admin access granted and email sent to ${normalizedEmail}.` : `User is already an admin.` 
+      success: true, 
+      message: existingAdminRecord 
+        ? `Invite resent to ${normalizedEmail}.` 
+        : `Admin access granted and email sent to ${normalizedEmail}.`
     });
 
   } catch (error: any) {

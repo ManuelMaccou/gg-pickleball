@@ -18,7 +18,6 @@ async function generateNewToken(): Promise<string> {
   }
 
   // 2. Call DUPR Auth Endpoint
-  // Using the path that worked for you in Postman
   const response = await fetch(`https://${DUPR_API_BASE_URL}/api/auth/v1.0/token`, {
     method: 'POST',
     headers: {

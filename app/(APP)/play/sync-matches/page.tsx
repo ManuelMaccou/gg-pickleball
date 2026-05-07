@@ -30,6 +30,7 @@ export default function SyncPage() {
         const res = await fetch('/api/dupr/player/match-history/preview');
         if (!res.ok) throw new Error("Failed to fetch matches");
         const data = await res.json();
+        console.log('match data:', data)
         setMatches(data.matches || []);
         setStep('preview');
       } catch (err) {
@@ -179,9 +180,13 @@ export default function SyncPage() {
                                         )}
                                     </Table.Cell>
                                     <Table.Cell>
-                                      <Text size="2" color="gray" weight="medium">
-                                        {new Date(m.matchDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                                      </Text>
+                                     <Text size="2" color="gray" weight="medium">
+                                      {(() => {
+                                        const d = new Date(m.matchDate);
+                                        return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
+                                          .toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+                                      })()}
+                                    </Text>
                                     </Table.Cell>
                                     <Table.Cell>
                                       <Text size="2" weight="bold" style={{ color: 'var(--slate-11)' }}>

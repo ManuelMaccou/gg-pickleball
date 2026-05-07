@@ -4,6 +4,7 @@ import Image from 'next/image';
 import '../GlobalRewardsWallet/wallet.css';
 import { Cross2Icon } from '@radix-ui/react-icons';
 import { CSSProperties } from 'react'; // <--- Import CSSProperties
+import { formatCurrency } from '@/lib/utils';
 
 type Props = {
   reward: RewardWithContext;
@@ -16,9 +17,6 @@ export const RewardDetailView = ({ reward, onClose, style }: Props) => {
   const location = reward.sponsoringClient;
 
   const rewardCode = reward.codes?.find(c => !c.redeemed)?.code;
-
-  console.log('reward:', reward)
-  console.log('shop domain:', reward?.sponsoringClient?.shopify?.shopDomain)
 
   return (
     <Flex 
@@ -33,7 +31,7 @@ export const RewardDetailView = ({ reward, onClose, style }: Props) => {
       </IconButton>
       
       {isUnlocked ? (
-        <Flex direction={'column'} gap="3">
+        <Flex direction={'column'} gap="2">
             <VisuallyHidden>
                 <Text size={'6'}>Your reward details</Text>
             </VisuallyHidden>
@@ -50,26 +48,26 @@ export const RewardDetailView = ({ reward, onClose, style }: Props) => {
                 </Flex>
 
                 {reward.product !== 'custom' && (
-                    <Text align={'center'} size={'6'} weight={'bold'} style={{textTransform: "uppercase"}}>
+                    <Text align={'center'} size={'5'} weight={'bold'} style={{textTransform: "uppercase"}}>
                         {reward.product}
                     </Text>
                 )}
             </Flex>
 
-            <Text size={reward.product === 'custom' ? '7' : '9'} weight={'bold'} align={'center'}>{reward.friendlyName}</Text>
+            <Text size={'7'} weight={'bold'} align={'center'} style={{textTransform: "uppercase"}}>{reward.friendlyName}</Text>
 
             {reward.productDescription && (
                 <Text align={'center'}>{reward.productDescription}</Text>
             )}
             
-            {reward.minimumSpend && reward.product === 'pro shop' ? (
-                <Text align={'center'}>Minimum spend to qualify: ${reward.minimumSpend}</Text>
-            ) : reward.maxDiscount && reward.product === 'pro shop' ? (
+            {reward.minimumSpend && reward.product === 'online store' ? (
+                <Text align={'center'}>With total purchase of {formatCurrency(reward.minimumSpend)} or more.</Text>
+            ) : reward.maxDiscount && reward.product === 'online store' ? (
                 <Text align={'center'}>Max discount amount: ${reward.maxDiscount}</Text>
             ) : null}
 
             <Flex direction={'column'} mt={'4'} gap={'4'}>
-                <Text size={'4'}><Strong>To redeem: </Strong>
+                <Text size={'3'}><Strong>To redeem: </Strong>
                   Visit the webiste below to start shopping. The discount code is automatically applied.
                 </Text>
                 <Link 
@@ -82,7 +80,7 @@ export const RewardDetailView = ({ reward, onClose, style }: Props) => {
                   </Button>
                 </Link>
 
-                <Text size={'5'} align={'right'} weight="bold" style={{ border: '2px dashed var(--gray-8)', padding: 'var(--space-3)', borderRadius: 'var(--radius-3)', backgroundColor: 'var(--gray-3)' }}>
+                <Text size={'3'} align={'right'} weight="bold" style={{ border: '2px dashed var(--gray-8)', padding: 'var(--space-3)', borderRadius: 'var(--radius-3)', backgroundColor: 'var(--gray-3)' }}>
                     <Strong>Discount code: </Strong>{rewardCode ?? 'Unavailable'}
                 </Text>
             </Flex>

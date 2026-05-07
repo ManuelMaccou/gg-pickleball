@@ -267,9 +267,9 @@ export default function MatchHistory({ userId, userName, locationId }: MatchHist
                 return (
                   <React.Fragment key={match._id.toString()}>
                     {showDate && (
-                      <Table.Row>
+                      <Table.Row style={{backgroundColor: '#f1faff'}}>
                         <Table.Cell colSpan={4}>
-                          <Text color="gray">{matchDateString}</Text>
+                          <Text weight={'bold'} color="gray">{matchDateString}</Text>
                         </Table.Cell>
                       </Table.Row>
                     )}

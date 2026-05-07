@@ -21,6 +21,7 @@ import { DateTime } from "luxon";
 import MobileMenu from "../components/MobileMenu";
 import { Link2Icon, TicketIcon, TrophyIcon, CheckCircle2 } from "lucide-react"; // Swapped to lucide check
 import { AdminOnboardingChecklist } from "@/app/components/AdminOnboardingChecklist";
+import { RewardCardCustomizer } from "../components/RewardCardCustomizer";
 
 // --- TYPES ---
 interface BrandDashboardStats {
@@ -104,8 +105,18 @@ export default function BrandAdminDashboard() {
   const [statsError, setStatsError] = useState<string | null>(null);
   const [rewardsError, setRewardsError] = useState<string | null>(null);
 
+  const [showCardCustomizer, setShowCardCustomizer] = useState(false);
+
   const handleLogout = () => {
     router.push(`/auth/logout`);
+  };
+
+  const handleClientUpdated = (updates: {
+    cardBackgroundImage?: string;
+    cardTextColor?: string;
+    logo?: string;
+  }) => {
+    setLocation((prev) => prev ? { ...prev, ...updates } as IClient : null);
   };
 
   // 1. Get Admin User
@@ -178,6 +189,12 @@ export default function BrandAdminDashboard() {
     };
     getBrandRewards();
   }, [location, page]);
+
+  useEffect(() => {
+    if (!isLoadingRewards) {
+      setShowCardCustomizer(totalRewardsCount === 0);
+    }
+  }, [isLoadingRewards, totalRewardsCount]);
 
   useEffect(() => {
     if (!auth0IsLoading && !user) router.push(`/auth/login?returnTo=/admin/brand`);
@@ -273,11 +290,12 @@ export default function BrandAdminDashboard() {
 
             {/* --- ONBOARDING CHECKLIST --- */}
             {user && location && (
-              <AdminOnboardingChecklist 
-                user={user} 
-                client={location} 
-                // We assume if they have any stats/rewards data coming back, they configured at least one reward
-                hasRewards={!!location.hasConfiguredRewards} 
+              <AdminOnboardingChecklist
+                user={user}
+                client={location}
+                hasRewards={!!location.hasConfiguredRewards}
+                totalRewardsIssued={totalRewardsCount}
+                onClientUpdated={handleClientUpdated}
               />
             )}
 
@@ -403,6 +421,44 @@ export default function BrandAdminDashboard() {
               </Flex>
 
             </Grid>
+
+            <Box>
+              <Flex align="center" gap={'4'} mb="1">
+                <Heading size="4">Reward Card</Heading>
+                <Button
+                  variant="soft"
+                  color={showCardCustomizer ? "red" : "blue"}
+                  size="2"
+                  onClick={() => setShowCardCustomizer((v) => !v)}
+                >
+                  {showCardCustomizer ? 'Hide' : 'Show'}
+                </Button>
+              </Flex>
+            
+              {!showCardCustomizer && (
+                <Text size="2" color="gray" mb="4">
+                  Customize the background image, logo, and text color shown on your reward cards.
+                </Text>
+              )}
+            
+              {showCardCustomizer && location && (
+                <>
+                  <Text size="2" color="gray" mb="4">
+                    Customize the background image, logo, and text color shown on your reward cards.
+                  </Text>
+                  <Card size="3">
+                    <RewardCardCustomizer
+                      key={`${location.cardBackgroundImage}-${location.cardTextColor}`}
+                      clientId={location._id.toString()}
+                      currentBackgroundImage={location.cardBackgroundImage}
+                      currentTextColor={location.cardTextColor}
+                      currentLogo={location.logo}
+                      onSaved={handleClientUpdated}
+                    />
+                  </Card>
+                </>
+              )}
+            </Box>
           </Flex>
         </Flex>
       </Flex>

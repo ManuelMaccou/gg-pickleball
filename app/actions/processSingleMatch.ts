@@ -2,7 +2,7 @@
 
 import { startSession } from 'mongoose';
 import connectToDatabase from '@/lib/mongodb';
-import { updateUserAndAchievements } from '@/utils/achievementFunctions/updateUserAndAchievements'; // Adjust path
+import { updateUserAndAchievements } from '@/utils/achievementFunctions/updateUserAndAchievements';
 import { logError } from '@/lib/sentry/logger';
 
 // Define the arguments needed for the update logic
