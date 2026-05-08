@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
   }
 
-  const scopes = 'write_discounts'; 
+  const scopes = 'read_discounts,write_discounts,read_merchant_managed_fulfillment_orders,read_orders,read_third_party_fulfillment_orders'; 
   const redirectUri = `${process.env.NEXT_PUBLIC_BASE_URL}/api/shopify/callback`;
   
   // Create a unique nonce
