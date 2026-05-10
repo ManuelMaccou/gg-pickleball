@@ -9,6 +9,47 @@ export type RewardCategoryName = typeof REWARD_CATEGORY_NAMES[number];
 export const ADMIN_PERMISSION_TYPES = ["admin", "associate", null] as const;
 export type AdminPermissionType = typeof ADMIN_PERMISSION_TYPES[number];
 
+
+export type CommissionStatus =
+  | 'pending'   // Waiting for day 30 check
+  | 'held'      // Day 30 check found unresolved activity — re-check in 5 days
+  | 'charged'   // Commission collected via Stripe
+  | 'waived'    // Dispute lost or full refund — no commission taken
+  | 'review';   // Still unresolved at day 60 — flagged for manual review
+
+export interface ICommissionRecord extends Document {
+  _id: Types.ObjectId;
+
+  // Order context
+  shopifyOrderId: string;        // Numeric Shopify order ID (e.g. "1234567890")
+  shopifyOrderGid: string;       // GraphQL GID (e.g. "gid://shopify/Order/1234567890")
+  shopDomain: string;            // e.g. "my-store.myshopify.com"
+  discountCode: string;          // The GG code that was redeemed
+
+  // Client link
+  clientId: Types.ObjectId;      // Ref to Client
+
+  // Financials
+  orderTotal: number;            // Original order total in dollars
+  refundedAmount: number;        // Total refunded at time of decision (0 if clean)
+  commissionRate: number;        // 0.05 (stored explicitly in case rate changes later)
+  commissionAmount: number;      // Calculated: (orderTotal - refundedAmount) * commissionRate
+
+  // Scheduling
+  orderCreatedAt: Date;          // When Shopify order was placed
+  chargeAfter: Date;             // orderCreatedAt + 30 days — first eligible check date
+  nextCheckAt: Date;             // Updated every time a held record is re-queued
+  lastCheckedAt?: Date;          // When the cron last evaluated this record
+
+  // Status
+  status: CommissionStatus;
+  stripePaymentIntentId?: string; // Set when status → 'charged'
+  reviewNote?: string;            // Set when status → 'review'
+
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface AchievementEarned {
   key: string;
   repeatable: boolean;

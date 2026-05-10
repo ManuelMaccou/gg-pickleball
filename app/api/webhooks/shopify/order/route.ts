@@ -39,9 +39,7 @@ export async function POST(req: Request): Promise<Response> {
       orderCreatedAt: new Date(payload.created_at),
     };
 
-    // await redeemDiscountCode(discountCodes, orderContext);
-
-    await redeemDiscountCode(discountCodes);
+    await redeemDiscountCode(discountCodes, orderContext);
 
     return new Response('OK', { status: 200 });
   } catch (err) {
