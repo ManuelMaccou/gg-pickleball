@@ -119,9 +119,7 @@ export async function GET(req: NextRequest) {
     // --- STEP 5: REDIRECT TO APP UI ---
     
     // Construct success URL with the shop name for UI feedback
-    const successUrl = new URL(`${process.env.NEXT_PUBLIC_BASE_URL}/admin/brand/connect-shopify`);
-    successUrl.searchParams.set('success', 'true');
-    successUrl.searchParams.set('connected_shop', shop);
+    const successUrl = new URL(`${process.env.NEXT_PUBLIC_BASE_URL}/admin/brand`);
 
     const response = NextResponse.redirect(successUrl);
     
