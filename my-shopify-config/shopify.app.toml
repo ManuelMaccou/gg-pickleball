@@ -1,8 +1,9 @@
+# pnpm dlx @shopify/cli@latest app deploy
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "697313e4bf2304b130ef336d8b97b04e"
 name = "GG Pickleball"
-application_url = "https://www.ggpickleball.co/api/shopify/install"
+application_url = "https://www.ggpickleball.co/admin/brand"
 embedded = false
 
 [webhooks]
@@ -16,7 +17,8 @@ uri = "https://www.ggpickleball.co/api/webhooks/shopify/compliance"
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
 scopes = "read_discounts,write_discounts,read_merchant_managed_fulfillment_orders,read_orders,read_third_party_fulfillment_orders"
 optional_scopes = [ ]
-use_legacy_install_flow = true
+
+use_legacy_install_flow = false
 
 [auth]
 redirect_urls = [ "https://www.ggpickleball.co/api/shopify/callback" ]

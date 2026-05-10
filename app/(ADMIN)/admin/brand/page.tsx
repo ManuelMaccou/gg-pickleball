@@ -200,6 +200,17 @@ export default function BrandAdminDashboard() {
     if (!auth0IsLoading && !user) router.push(`/auth/login?returnTo=/admin/brand`);
   }, [auth0IsLoading, user, router]);
 
+  // --- SHOPIFY INSTALL DETECTION ---
+  // If a merchant arrives here from the Shopify App Store, forward to the install flow.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const shop = params.get('shop');
+    const hmac = params.get('hmac');
+    if (shop && hmac) {
+      window.location.href = `/api/shopify/install${window.location.search}`;
+    }
+  }, []);
+
   const isShopifyConnected = !!(location?.retailSoftware === 'shopify' && 
     location?.shopify?.shopDomain &&
     location?.shopify?.accessToken);
