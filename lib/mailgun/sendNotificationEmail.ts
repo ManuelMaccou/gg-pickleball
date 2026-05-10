@@ -52,6 +52,7 @@ export async function sendNotificationEmail({
       `\nTemplate:`, template
     );
 
+    /*
     await mg.messages.create(domain, {
       from: fromEmail,
       to: [email],
@@ -59,6 +60,7 @@ export async function sendNotificationEmail({
       template: template,
       'h:X-Mailgun-Variables': JSON.stringify(variables),
     });
+    */
 
   } catch (error: unknown) {
     logError(error, { message: `Failed to send ${template} email to ${email}` });
