@@ -35,7 +35,7 @@ export function DuprConnectModal({
 
   const duprClientId = process.env.NEXT_PUBLIC_DUPR_CLIENT_ID;
   const duprConfig = useMemo(() => {
-    const appEnv = process.env.NEXT_PUBLIC_APP_ENV;
+    const appEnv = process.env.NEXT_PUBLIC_ENV;
     const baseUrl = appEnv === 'production' ? 'https://dashboard.dupr.com' : 'https://uat.dupr.gg';
     if (!duprClientId) return { loginUrl: '', origin: '' };
     return { loginUrl: `${baseUrl}/login-external-app/${btoa(duprClientId)}`, origin: baseUrl };
