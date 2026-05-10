@@ -244,21 +244,17 @@ export async function PATCH(req: NextRequest) {
         dupr.entitlementCheckedAt = new Date();
     
         console.log(`[DUPR SYNC] User verified.`, entitlementResult.flags);
+
+        try {
+          await subscribeToDuprWebhook([dupr.id]);
+          console.log(`[DUPR SYNC] Subscribed ${dupr.id} to rating webhook.`);
+        } catch (subError) {
+          // Don't block the connect flow if subscription fails — log and continue.
+          // The user can still use the app; they just won't get live rating updates
+          // until we retry or they reconnect.
+          console.error(`[DUPR SYNC] Webhook subscription failed for ${dupr.id}:`, subError);
+        }
       }
-    }
-    // ---------------------------------------
-
-    console.log(`[DUPR SYNC] User verified.`);
-
-    // Subscribe to DUPR webhook for rating updates
-    try {
-      await subscribeToDuprWebhook([dupr.id]);
-      console.log(`[DUPR SYNC] Subscribed ${dupr.id} to rating webhook.`);
-    } catch (subError) {
-      // Don't block the connect flow if subscription fails — log and continue.
-      // The user can still use the app; they just won't get live rating updates
-      // until we retry or they reconnect.
-      console.error(`[DUPR SYNC] Webhook subscription failed for ${dupr.id}:`, subError);
     }
 
     // ✨ Build the update operation using our helper and dot notation
