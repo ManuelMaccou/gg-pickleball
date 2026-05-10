@@ -27,6 +27,7 @@
     "@types/qrcode": "^1.5.5",
     "auth0": "^5.0.0",
     "class-variance-authority": "^0.7.1",
+    "cloudinary": "^2.10.0",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "deep-object-diff": "^1.1.9",

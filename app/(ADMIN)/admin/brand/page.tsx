@@ -250,9 +250,11 @@ export default function BrandAdminDashboard() {
               <Link href={'/admin/brand'}>
                 <Button variant="ghost" color="gray" size="3" style={{ width: '100%', justifyContent: 'start', color: 'var(--slate-12)', fontWeight: 'bold' }}>Dashboard</Button>
               </Link>
-              <Link href={'/admin/brand/rewards'}>
-                <Button variant="ghost" color="gray" size="3" style={{ width: '100%', justifyContent: 'start' }}>Configure rewards</Button>
-              </Link>
+               {isShopifyConnected && (
+                <Link href={'/admin/brand/rewards'}>
+                  <Button variant="ghost" color="gray" size="3" style={{ width: '100%', justifyContent: 'start' }}>Configure rewards</Button>
+                </Link>
+               )}
             </Flex>
           </Flex>
         )}

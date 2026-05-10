@@ -1,30 +1,35 @@
-// app/api/upload-image/route.ts
+// app/api/client/upload-image/route.ts
 //
 // Handles brand image uploads for card backgrounds and logos.
-// Saves files to /public/brandImages or /public/brandLogos.
+// Uploads to Cloudinary and saves the returned URL to the Client document.
 // Accepts PNG and JPG/JPEG only.
 // Size limits: 2MB for backgrounds, 500KB for logos.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdir } from 'fs/promises';
-import path from 'path';
+import { v2 as cloudinary } from 'cloudinary';
 import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser';
 import connectToDatabase from '@/lib/mongodb';
 import Client from '@/app/models/Client';
 import { Types } from 'mongoose';
 import { logError } from '@/lib/sentry/logger';
 
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
 const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/jpg'];
 
 const IMAGE_CONFIG = {
   background: {
-    folder: 'brandImages',
+    folder: 'gg-pickleball/brand-backgrounds',
     maxBytes: 2 * 1024 * 1024, // 2MB
     label: 'Card background',
     clientField: ['cardBackgroundImage'] as const,
   },
   logo: {
-    folder: 'brandLogos',
+    folder: 'gg-pickleball/brand-logos',
     maxBytes: 500 * 1024, // 500KB
     label: 'Logo',
     clientField: ['logo', 'admin_logo'] as const,
@@ -84,31 +89,43 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Client not found.' }, { status: 404 });
     }
 
-    // ── Write file to public folder ───────────────────────────────────────────
-    const ext = file.type === 'image/png' ? 'png' : 'jpg';
-    // Use clientId + imageType + timestamp for a unique, collision-free filename.
-    const filename = `${clientId}-${imageType}-${Date.now()}.${ext}`;
-    const publicDir = path.join(process.cwd(), 'public', config.folder);
-
-    // Ensure the directory exists (in case it was deleted).
-    await mkdir(publicDir, { recursive: true });
-
+    // ── Upload to Cloudinary ──────────────────────────────────────────────────
     const buffer = Buffer.from(await file.arrayBuffer());
-    await writeFile(path.join(publicDir, filename), buffer);
 
-    const publicUrl = `/${config.folder}/${filename}`;
+    // Use a stable public_id so re-uploading replaces the old image rather
+    // than accumulating orphaned files in Cloudinary.
+    const publicId = `${config.folder}/${clientId}-${imageType}`;
+
+    const uploadResult = await new Promise<{ secure_url: string }>((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          public_id: publicId,
+          overwrite: true,
+          resource_type: 'image',
+          // Automatically strip EXIF metadata for privacy.
+          invalidate: true,
+        },
+        (error, result) => {
+          if (error || !result) reject(error ?? new Error('Cloudinary upload failed'));
+          else resolve(result as { secure_url: string });
+        }
+      );
+      uploadStream.end(buffer);
+    });
+
+    const imageUrl = uploadResult.secure_url;
 
     // ── Update the client record ──────────────────────────────────────────────
     const updateFields = config.clientField.reduce(
-      (acc, field) => ({ ...acc, [field]: publicUrl }),
+      (acc, field) => ({ ...acc, [field]: imageUrl }),
       {} as Record<string, string>
     );
 
     await Client.findByIdAndUpdate(clientId, { $set: updateFields });
 
-    console.log(`[Upload] ${config.label} saved for client ${clientId}: ${publicUrl}`);
+    console.log(`[Upload] ${config.label} uploaded for client ${clientId}: ${imageUrl}`);
 
-    return NextResponse.json({ url: publicUrl });
+    return NextResponse.json({ url: imageUrl });
   } catch (err) {
     logError(err, { endpoint: 'POST /api/upload-image' });
     return NextResponse.json({ error: 'Upload failed. Please try again.' }, { status: 500 });
