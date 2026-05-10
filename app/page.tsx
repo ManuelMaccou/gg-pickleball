@@ -169,9 +169,9 @@ export default function HomePage() {
 
         const data = await res.json();
 
-        if (data.isSuperAdmin || data.isClubAdmin) {
+        if (!data.isSuperAdmin && data.isClubAdmin) {
           router.replace('/admin/brand');
-        } else {
+        } else if (!data.isSuperAdmin) {
           router.replace('/play');
         }
       } catch (error) {

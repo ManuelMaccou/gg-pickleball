@@ -11,12 +11,11 @@ import {
   Box,
   ScrollArea,
   Badge,
-  IconButton
 } from "@radix-ui/themes";
-import { CheckCircledIcon, InfoCircledIcon, Link2Icon, MagicWandIcon, StarFilledIcon, TrashIcon, ChevronLeftIcon, ChevronRightIcon } from "@radix-ui/react-icons";
+import { CheckCircledIcon, InfoCircledIcon, Link2Icon, MagicWandIcon, TrashIcon, ChevronLeftIcon, ChevronRightIcon } from "@radix-ui/react-icons";
 import { 
   AdminPermissionType,
-  IAchievement, IClient, IDataSource, IReward, ISourceRewardSponsorship, RewardProductName 
+  IAchievement, IClient, IDataSource, IReward, ISourceRewardSponsorship 
 } from "@/app/types/databaseTypes";
 import { useIsMobile } from '@/app/hooks/useIsMobile';
 import { useUser as useAuth0User } from '@auth0/nextjs-auth0';
