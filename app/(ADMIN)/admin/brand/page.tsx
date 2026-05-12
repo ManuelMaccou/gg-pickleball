@@ -96,6 +96,8 @@ export default function BrandAdminDashboard() {
   
   const [page, setPage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(1);
+
+  const [billingConfigured, setBillingConfigured] = useState(false);
   
   const [isGettingAdmin, setIsGettingAdmin] = useState<boolean>(true);
   const [isLoadingStats, setIsLoadingStats] = useState<boolean>(true);
@@ -106,6 +108,13 @@ export default function BrandAdminDashboard() {
   const [rewardsError, setRewardsError] = useState<string | null>(null);
 
   const [showCardCustomizer, setShowCardCustomizer] = useState(false);
+
+  useEffect(() => {
+  fetch('/api/billing/setup')
+    .then((r) => r.json())
+    .then((data) => setBillingConfigured(!!data.configured))
+    .catch(() => setBillingConfigured(false));
+}, []);
 
   const handleLogout = () => {
     router.push(`/auth/logout`);
@@ -262,9 +271,16 @@ export default function BrandAdminDashboard() {
                 <Button variant="ghost" color="gray" size="3" style={{ width: '100%', justifyContent: 'start', color: 'var(--slate-12)', fontWeight: 'bold' }}>Dashboard</Button>
               </Link>
                {isShopifyConnected && (
-                <Link href={'/admin/brand/rewards'}>
-                  <Button variant="ghost" color="gray" size="3" style={{ width: '100%', justifyContent: 'start' }}>Configure rewards</Button>
-                </Link>
+                <>
+                  <Link href={'/admin/brand/rewards'}>
+                    <Button variant="ghost" color="gray" size="3" style={{ width: '100%', justifyContent: 'start' }}>Configure rewards</Button>
+                  </Link>
+                  <Link href={'/admin/brand/billing'}>
+                    <Button variant="ghost" color="gray" size="3" style={{ width: '100%', justifyContent: 'start' }}>
+                      Billing
+                    </Button>
+                  </Link>
+                </>
                )}
             </Flex>
           </Flex>
@@ -308,6 +324,7 @@ export default function BrandAdminDashboard() {
                 client={location}
                 hasRewards={!!location.hasConfiguredRewards}
                 totalRewardsIssued={totalRewardsCount}
+                billingConfigured={billingConfigured}
                 onClientUpdated={handleClientUpdated}
               />
             )}

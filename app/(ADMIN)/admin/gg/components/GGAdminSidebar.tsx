@@ -17,6 +17,9 @@ export default function GGAdminSidebar() {
         <Flex asChild direction={'column'} width={'100%'} pl={'3'} py={'1'}>
           <Link href={'/admin/gg/rewards'}>Configure Global Rewards</Link>
         </Flex>
+        <Flex asChild direction="column" width="100%" pl="3" py="1">
+          <Link href="/admin/gg/billing">Billing</Link>
+        </Flex>
       </Flex>
     </Flex>
   )

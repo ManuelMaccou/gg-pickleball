@@ -42,14 +42,18 @@ export async function GET(req: NextRequest) {
       Achievement.find({ name: { $in: achievementNames } }).lean<IAchievement[]>(),
       Reward.find({ _id: { $in: uniqueRewardIds } }).lean<IReward[]>(),
       Client.find({ _id: { $in: uniqueClientIds } })
-        .select('name icon logo cardBackgroundImage cardTextColor shopify')
+        .select('name icon logo cardBackgroundImage cardTextColor shopify retailSoftware')
         .lean<Pick<IClient, '_id' | 'name' | 'icon' | 'logo' | 'cardBackgroundImage' | 'cardTextColor'>[]>(),
     ]);
 
     // 4. Create Maps for efficient lookups (O(1) access).
     const achievementsByName = new Map(achievements.map(a => [a.name, a]));
     const rewardsById = new Map(rewards.map(r => [r._id.toString(), r]));
-    const clientsById = new Map(clients.map(c => [c._id.toString(), c]));
+    const clientsById = new Map(
+      clients
+        .filter((c: any) => c.retailSoftware === 'shopify' && c.shopify?.accessToken)
+        .map(c => [c._id.toString(), c])
+    );
 
     // 5. Stitch the data together into the format the frontend expects.
     const finalRewards = sourceConfigs.flatMap(config => {
