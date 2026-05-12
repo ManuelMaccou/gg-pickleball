@@ -34,6 +34,7 @@ export interface ICommissionRecord extends Document {
   refundedAmount: number;        // Total refunded at time of decision (0 if clean)
   commissionRate: number;        // 0.05 (stored explicitly in case rate changes later)
   commissionAmount: number;      // Calculated: (orderTotal - refundedAmount) * commissionRate
+  stripeInvoiceId?: string;
 
   // Scheduling
   orderCreatedAt: Date;          // When Shopify order was placed
@@ -46,6 +47,22 @@ export interface ICommissionRecord extends Document {
   stripePaymentIntentId?: string; // Set when status → 'charged'
   reviewNote?: string;            // Set when status → 'review'
 
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IStripeCustomer extends Document {
+  _id: Types.ObjectId;
+  clientId: Types.ObjectId;          // Ref to Client
+  stripeCustomerId: string;          // e.g. "cus_ABC123"
+  stripePaymentMethodId?: string;    // e.g. "pm_ABC123" — set after card is saved
+  billingEmail: string;              // Where Stripe invoices are sent
+  cardLast4?: string;                // For display in the UI
+  cardBrand?: string;                // e.g. "visa", "mastercard"
+  cardExpMonth?: number;
+  cardExpYear?: number;
+  bankLast4?: string;
+  bankName?: string;
   createdAt: Date;
   updatedAt: Date;
 }

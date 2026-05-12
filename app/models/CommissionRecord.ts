@@ -13,6 +13,7 @@ const CommissionRecordSchema = new Schema<ICommissionRecord>(
     refundedAmount: { type: Number, required: true, default: 0 },
     commissionRate: { type: Number, required: true, default: 0.05 },
     commissionAmount: { type: Number, required: true },
+    stripeInvoiceId: { type: String },
 
     orderCreatedAt: { type: Date, required: true },
     chargeAfter: { type: Date, required: true },

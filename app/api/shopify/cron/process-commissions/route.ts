@@ -1,27 +1,26 @@
-// app/api/shopify/cron/process-commissions/route.ts
-//
+// app/api/cron/process-commissions/route.ts
+
+// curl -X POST gg-pickleball-production-9f94.up.railway.app/api/cron/process-commissions \ -H "x-cron-secret: 3b73d1c4c4aa112e63b26d96af923ef7"
+
 // Secured POST endpoint that processes pending and held CommissionRecords.
-// Call this daily via Railway cron or external scheduler.
-//
-// Railway cron example (railway.toml):
-//   [cron]
-//   schedule = "0 9 * * *"   # 9am UTC daily
-//   command = "curl -X POST https://your-domain.com/api/shopify/cron/process-commissions \
-//              -H 'x-cron-secret: YOUR_SECRET'"
-//
-// Set CRON_SECRET in your Railway environment variables.
+// On day 30, consolidates all due commissions per client into a single
+// Stripe invoice with one line item per order.
 
 import { NextRequest, NextResponse } from 'next/server';
+import Stripe from 'stripe';
 import connectToDatabase from '@/lib/mongodb';
-import { CommissionRecord } from '@/app/models/CommissionRecord';
+import { CommissionRecord} from '@/app/models/CommissionRecord';
+import { StripeCustomer } from '@/app/models/StripeCustomer';
 import { checkOrderCommissionRisk } from '@/lib/shopify/checkOrderCommissionRisk';
+import { logError } from '@/lib/sentry/logger';
+import { ICommissionRecord } from '@/app/types/databaseTypes';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 const COMMISSION_RATE = 0.05;
 const DAYS_5_MS = 5 * 24 * 60 * 60 * 1000;
-const DAYS_60_MS = 60 * 24 * 60 * 60 * 1000;
 
 export async function POST(req: NextRequest) {
-  // ── Auth ──────────────────────────────────────────────────────────────────
   const secret = req.headers.get('x-cron-secret');
   if (!secret || secret !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -31,8 +30,6 @@ export async function POST(req: NextRequest) {
 
   const now = new Date();
 
-  // Find all records that are due for evaluation.
-  // Both 'pending' (first check) and 'held' (re-check) use nextCheckAt.
   const dueRecords = await CommissionRecord.find({
     status: { $in: ['pending', 'held'] },
     nextCheckAt: { $lte: now },
@@ -40,17 +37,18 @@ export async function POST(req: NextRequest) {
 
   console.log(`[CommissionCron] Found ${dueRecords.length} record(s) to process`);
 
-  const results = {
-    charged: 0,
-    held: 0,
-    waived: 0,
-    review: 0,
-    errors: 0,
-  };
+  const results = { charged: 0, held: 0, waived: 0, review: 0, errors: 0 };
+
+  // ── Evaluate each record ──────────────────────────────────────────────────
+  const readyToCharge: Array<{
+    record: ICommissionRecord;
+    commissionBase: number;
+    commissionAmount: number;
+    refundedAmount: number;
+  }> = [];
 
   for (const record of dueRecords) {
     try {
-      // Check if this record has been held past the 60-day review threshold.
       const daysSinceOrder =
         (now.getTime() - record.orderCreatedAt.getTime()) / (1000 * 60 * 60 * 24);
 
@@ -62,15 +60,11 @@ export async function POST(req: NextRequest) {
             reviewNote: `Unresolved at day ${Math.floor(daysSinceOrder)} — manual review required`,
           },
         });
-        console.warn(
-          `[CommissionCron] ⚠️ Record ${record._id} flagged for review ` +
-          `(order ${record.shopifyOrderId}, day ${Math.floor(daysSinceOrder)})`
-        );
+        console.warn(`[CommissionCron] ⚠️ Review: ${record._id}`);
         results.review++;
         continue;
       }
 
-      // Query Shopify for current order state.
       const decision = await checkOrderCommissionRisk(
         record.shopifyOrderGid,
         record.clientId.toString()
@@ -79,15 +73,8 @@ export async function POST(req: NextRequest) {
       if (decision.action === 'hold') {
         const nextCheckAt = new Date(now.getTime() + DAYS_5_MS);
         await CommissionRecord.findByIdAndUpdate(record._id, {
-          $set: {
-            status: 'held',
-            lastCheckedAt: now,
-            nextCheckAt,
-          },
+          $set: { status: 'held', lastCheckedAt: now, nextCheckAt },
         });
-        console.log(
-          `[CommissionCron] ⏳ Held record ${record._id} — next check ${nextCheckAt.toISOString()}`
-        );
         results.held++;
         continue;
       }
@@ -97,45 +84,132 @@ export async function POST(req: NextRequest) {
           $set: {
             status: 'waived',
             lastCheckedAt: now,
-            refundedAmount: record.orderTotal, // Full order effectively lost
+            refundedAmount: record.orderTotal,
             commissionAmount: 0,
             reviewNote: decision.reason,
           },
         });
-        console.log(
-          `[CommissionCron] ❌ Waived record ${record._id} — ${decision.reason}`
-        );
         results.waived++;
         continue;
       }
 
       if (decision.action === 'charge') {
-        const commissionAmount = decision.commissionBase * COMMISSION_RATE;
+        const commissionAmount =
+          Math.round(decision.commissionBase * COMMISSION_RATE * 100) / 100;
         const refundedAmount = record.orderTotal - decision.commissionBase;
-
-        // TODO: Integrate Stripe here.
-        // const paymentIntent = await stripe.paymentIntents.create({ ... });
-        // For now, mark as charged without Stripe until billing is wired up.
-        // This lets you validate the decision logic independently.
-
-        await CommissionRecord.findByIdAndUpdate(record._id, {
-          $set: {
-            status: 'charged',
-            lastCheckedAt: now,
-            refundedAmount,
-            commissionAmount,
-            // stripePaymentIntentId: paymentIntent.id, // Uncomment when Stripe is ready
-          },
+        readyToCharge.push({
+          record: record as unknown as ICommissionRecord,
+          commissionBase: decision.commissionBase,
+          commissionAmount,
+          refundedAmount,
         });
-        console.log(
-          `[CommissionCron] ✅ Charged record ${record._id} — ` +
-          `$${commissionAmount.toFixed(2)} on base $${decision.commissionBase.toFixed(2)}`
-        );
-        results.charged++;
-        continue;
       }
     } catch (err) {
-      console.error(`[CommissionCron] 🔥 Error processing record ${record._id}:`, err);
+      logError(err, { context: `CommissionCron record ${record._id}` });
+      results.errors++;
+    }
+  }
+
+  // ── Batch charge by client — one invoice per client ───────────────────────
+  const byClient = new Map<string, typeof readyToCharge>();
+  for (const item of readyToCharge) {
+    const key = item.record.clientId.toString();
+    if (!byClient.has(key)) byClient.set(key, []);
+    byClient.get(key)!.push(item);
+  }
+
+  for (const [clientId, items] of byClient.entries()) {
+    try {
+      const stripeCustomer = await StripeCustomer.findOne({ clientId }).lean();
+
+      if (!stripeCustomer?.stripePaymentMethodId) {
+        console.warn(`[CommissionCron] ⚠️ No payment method for client ${clientId}`);
+        for (const item of items) {
+          await CommissionRecord.findByIdAndUpdate(item.record._id, {
+            $set: {
+              status: 'review',
+              lastCheckedAt: now,
+              reviewNote: 'No payment method on file — manual collection required',
+            },
+          });
+          results.review++;
+        }
+        continue;
+      }
+
+      // Create invoice.
+      const invoice = await stripe.invoices.create({
+        customer: stripeCustomer.stripeCustomerId,
+        default_payment_method: stripeCustomer.stripePaymentMethodId,
+        auto_advance: true,
+        collection_method: 'charge_automatically',
+        metadata: { clientId, orderCount: String(items.length) },
+      });
+
+      // One line item per order.
+      for (const item of items) {
+        await stripe.invoiceItems.create({
+          customer: stripeCustomer.stripeCustomerId,
+          invoice: invoice.id,
+          amount: Math.round(item.commissionAmount * 100), // cents
+          currency: 'usd',
+          description:
+            `5% commission — order ${item.record.shopifyOrderId} ` +
+            `(${item.record.discountCode}), sale: $${item.commissionBase.toFixed(2)}`,
+          metadata: {
+            commissionRecordId: item.record._id.toString(),
+            shopifyOrderId: item.record.shopifyOrderId,
+            discountCode: item.record.discountCode,
+          },
+        });
+      }
+
+      // Finalize then charge.
+      await stripe.invoices.finalizeInvoice(invoice.id);
+      const paidInvoice = await stripe.invoices.pay(invoice.id) as any;
+
+      if (paidInvoice.status === 'paid') {
+        for (const item of items) {
+          await CommissionRecord.findByIdAndUpdate(item.record._id, {
+            $set: {
+              status: 'charged',
+              lastCheckedAt: now,
+              refundedAmount: item.refundedAmount,
+              commissionAmount: item.commissionAmount,
+              stripePaymentIntentId: paidInvoice.payment_intent ?? undefined,
+              stripeInvoiceId: invoice.id,
+            },
+          });
+          results.charged++;
+        }
+        console.log(
+          `[CommissionCron] ✅ Charged client ${clientId} — ` +
+          `invoice ${invoice.id}, ${items.length} order(s)`
+        );
+      } else {
+        for (const item of items) {
+          await CommissionRecord.findByIdAndUpdate(item.record._id, {
+            $set: {
+              status: 'review',
+              lastCheckedAt: now,
+              reviewNote: `Invoice ${invoice.id} payment failed — status: ${paidInvoice.status}`,
+            },
+          });
+          results.review++;
+        }
+      }
+    } catch (err: any) {
+      logError(err, { context: `CommissionCron Stripe charge client ${clientId}` });
+      for (const item of items) {
+        await CommissionRecord.findByIdAndUpdate(item.record._id, {
+          $set: {
+            status: 'review',
+            lastCheckedAt: now,
+            reviewNote: `Stripe error: ${err?.message ?? 'Unknown'}`,
+          },
+        });
+        results.review++;
+      }
       results.errors++;
     }
   }

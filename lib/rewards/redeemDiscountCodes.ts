@@ -48,9 +48,11 @@ export async function redeemDiscountCode(
 
       // Create a CommissionRecord if we have order context and a clientId.
       // orderContext is optional so existing callers without it don't break.
+      
       if (orderContext && rewardCode.clientId) {
         const chargeAfter = new Date(orderContext.orderCreatedAt.getTime() + DAYS_30_MS);
-        const commissionAmount = orderContext.orderTotal * COMMISSION_RATE;
+        const commissionAmount = Math.round(orderContext.orderTotal * COMMISSION_RATE * 100) / 100;
+        
 
         try {
           await CommissionRecord.create({

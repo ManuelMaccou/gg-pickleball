@@ -13,7 +13,7 @@ interface OnboardingChecklistProps {
   client: IClient;
   hasRewards: boolean;
   totalRewardsIssued?: number;
-  // Called when the customizer saves so parent can update location state.
+  billingConfigured?: boolean;
   onClientUpdated?: (updates: {
     cardBackgroundImage?: string;
     cardTextColor?: string;
@@ -26,6 +26,7 @@ export function AdminOnboardingChecklist({
   client,
   hasRewards,
   totalRewardsIssued = 0,
+  billingConfigured,
   onClientUpdated,
 }: OnboardingChecklistProps) {
   const router = useRouter();
@@ -36,16 +37,19 @@ export function AdminOnboardingChecklist({
   const isRewardsCreated = hasRewards;
   const isCardCustomized = !!(client.cardBackgroundImage || client.cardTextColor !== '#ffffff');
 
+  const isBillingConfigured = !!billingConfigured;
+
   const completedSteps = [
     isAccountClaimed,
     isShopifyConnected,
+    isBillingConfigured,
     isRewardsCreated,
     isCardCustomized,
   ].filter(Boolean).length;
 
-  const progressPercent = Math.round((completedSteps / 4) * 100);
+  const progressPercent = Math.round((completedSteps / 5) * 100);
 
-  if (completedSteps === 4) {
+  if (completedSteps === 5) {
     if (totalRewardsIssued > 0) return null;
     return (
       <Card size="3" style={{ backgroundColor: 'var(--green-2)', border: '1px solid var(--green-5)' }} mb="6">
@@ -75,7 +79,7 @@ export function AdminOnboardingChecklist({
               <Heading size="5" mb="1">Welcome to GG Pickleball!</Heading>
               <Text size="2" color="gray">Complete these steps to launch your rewards program.</Text>
             </Box>
-            <Text size="2" weight="bold" color="lime">{completedSteps} of 4 Completed</Text>
+            <Text size="2" weight="bold" color="lime">{completedSteps} of 5 Completed</Text>
           </Flex>
           <Progress value={progressPercent} color="lime" style={{ height: '8px' }} />
         </Box>
@@ -124,7 +128,36 @@ export function AdminOnboardingChecklist({
               )}
           </Flex>
 
-          {/* STEP 3: Create Rewards */}
+          {/* STEP 3: Set Up Billing */}
+          <Flex align="center" justify="between" p="3" style={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid var(--slate-4)' }}>
+            <Flex align="center" gap="3">
+              {isBillingConfigured
+                ? <CheckCircledIcon width="24" height="24" color="green" />
+                : <CircleIcon width="24" height="24" color="gray" />}
+              <Box>
+                <Text as="div" weight="bold" size="3" color={isBillingConfigured ? 'gray' : 'ruby'}>
+                  3. Set Up Billing
+                </Text>
+                <Text as="div" size="2" color="gray">
+                  Add a payment method so commissions can be paid out automatically.
+                </Text>
+              </Box>
+            </Flex>
+            {isBillingConfigured
+              ? <Badge color="green" variant="soft">Configured</Badge>
+              : (
+                <Button
+                  size="2"
+                  variant="soft"
+                  disabled={!isShopifyConnected}
+                  onClick={() => router.push('/admin/brand/billing')}
+                >
+                  Set Up Billing <ArrowRightIcon />
+                </Button>
+              )}
+          </Flex>
+
+          {/* STEP 4: Create Rewards */}
           <Flex align="center" justify="between" p="3" style={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid var(--slate-4)' }}>
             <Flex align="center" gap="3">
               {isRewardsCreated
@@ -153,7 +186,7 @@ export function AdminOnboardingChecklist({
               )}
           </Flex>
 
-          {/* STEP 4: Customize Reward Card */}
+          {/* STEP 5: Customize Reward Card */}
           <Flex
             direction="column"
             p="3"

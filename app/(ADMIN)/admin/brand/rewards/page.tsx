@@ -545,6 +545,11 @@ export default function BrandRewardConfigPage() {
               <Link href={'/admin/brand/rewards'}>
                 <Button variant="ghost" color="gray" size="3" style={{ width: '100%', justifyContent: 'start', color: 'var(--slate-12)', fontWeight: 'bold' }}>Configure rewards</Button>
               </Link>
+              <Link href={'/admin/brand/billing'}>
+                <Button variant="ghost" color="gray" size="3" style={{ width: '100%', justifyContent: 'start' }}>
+                  Billing
+                </Button>
+              </Link>
             </Flex>
           </Flex>
         )}
