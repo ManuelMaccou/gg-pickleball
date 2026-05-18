@@ -15,8 +15,7 @@ export async function GET(req: NextRequest) {
   const state = searchParams.get('state');
   const hmac = searchParams.get('hmac');
 
-  // --- STEP 3: SECURITY CHECKS ---
-  
+  // --- STEP 3: SECURITY CHECKS ---  
   if (!shop || !validateShopDomain(shop)) {
     return NextResponse.json({ error: 'Invalid shop parameter' }, { status: 400 });
   }
@@ -44,11 +43,11 @@ export async function GET(req: NextRequest) {
 
   const accessTokenUrl = `https://${shop}/admin/oauth/access_token`;
   
-  // We omit 'expiring' to get a permanent OFFLINE token
   const payload = {
     client_id: process.env.SHOPIFY_API_KEY,
     client_secret: process.env.SHOPIFY_API_SECRET,
-    code: code
+    code: code,
+    expiring: 1
   };
 
   try {
