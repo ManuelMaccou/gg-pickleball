@@ -27,9 +27,6 @@ const StripeCustomerSchema = new Schema<IStripeCustomer>(
   { timestamps: true }
 );
 
-StripeCustomerSchema.index({ clientId: 1 });
-StripeCustomerSchema.index({ stripeCustomerId: 1 });
-
 export const StripeCustomer: Model<IStripeCustomer> =
   mongoose.models.StripeCustomer ||
   mongoose.model<IStripeCustomer>('StripeCustomer', StripeCustomerSchema);
