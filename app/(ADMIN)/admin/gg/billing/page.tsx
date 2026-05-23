@@ -5,7 +5,7 @@ import { useUser as useAuth0User } from '@auth0/nextjs-auth0';
 import { useUserContext } from '@/app/contexts/UserContext';
 import { useRouter } from 'next/navigation';
 import {
-  Avatar, Badge, Box, Button, Callout, Card, Dialog, Flex,
+  Badge, Box, Button, Callout, Card, Dialog, Flex,
   Heading, Select, Spinner, Table, Text, TextField,
 } from '@radix-ui/themes';
 import { InfoCircledIcon, ChevronLeftIcon, ChevronRightIcon } from '@radix-ui/react-icons';
@@ -15,7 +15,15 @@ import darkGgLogo from '../../../../../public/logos/gg_logo_black_transparent.pn
 import { AdminSidebar } from '../../components/AdminSidebar';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
+
 type CommissionStatus = 'pending' | 'held' | 'charged' | 'waived' | 'review';
+
+type HoldReason =
+  | 'unfulfilled'
+  | 'return_in_progress'
+  | 'dispute_active'
+  | 'partial_refund_open'
+  | null;
 
 interface CommissionRow {
   _id: string;
@@ -27,9 +35,10 @@ interface CommissionRow {
   commissionAmount: number;
   commissionRate: number;
   status: CommissionStatus;
+  holdReason: HoldReason;
   chargeAfter: string;
   orderCreatedAt: string;
-  stripeInvoiceId?: string;
+  shopifyEventKey?: string;
   reviewNote?: string;
 }
 
@@ -43,9 +52,14 @@ interface Summary {
   countCharged: number;
   countWaived: number;
   countReview: number;
+  countHeldUnfulfilled: number;
+  countHeldReturnInProgress: number;
+  countHeldDisputeActive: number;
+  countHeldPartialRefundOpen: number;
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Constants ─────────────────────────────────────────────────────────────────
+
 const formatDate = (s: string) =>
   s ? DateTime.fromISO(s).toFormat('MMM d, yyyy') : '—';
 
@@ -62,10 +76,111 @@ const STATUS_COLOR: Record<CommissionStatus, 'gray' | 'amber' | 'green' | 'red' 
 
 const WAIVABLE_STATUSES: CommissionStatus[] = ['pending', 'held', 'review'];
 
+const STATUS_DESCRIPTION: Record<CommissionStatus, string> = {
+  pending: 'Charge scheduled 30 days after the order date. No issues detected yet.',
+  held: 'Charge paused. See hold reason for details.',
+  charged: 'Commission event sent to Shopify for billing.',
+  waived: 'Commission was waived and will not be collected.',
+  review: 'Requires manual review. Auto-processing has stopped.',
+};
+
+const HOLD_REASON_META: Record<
+  NonNullable<HoldReason>,
+  { label: string; description: string }
+> = {
+  unfulfilled: {
+    label: 'Awaiting fulfillment',
+    description: 'Order has been paid but not yet fulfilled by the merchant. Rechecking every 5 days.',
+  },
+  return_in_progress: {
+    label: 'Return in progress',
+    description: 'A return has been initiated on this order. Holding until resolved.',
+  },
+  dispute_active: {
+    label: 'Dispute under review',
+    description: 'An open dispute or chargeback is under review. Holding until Shopify resolves it.',
+  },
+  partial_refund_open: {
+    label: 'Partial refund, return open',
+    description: 'A partial refund was issued but the return is still open. Holding for final refund amount.',
+  },
+};
+
+// ── Filter options ────────────────────────────────────────────────────────────
+
+interface FilterOption {
+  value: string;
+  label: string;
+  indent?: boolean;
+}
+
+const FILTER_OPTIONS: FilterOption[] = [
+  { value: 'all', label: 'All statuses' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'held', label: 'Held' },
+  { value: 'held|unfulfilled', label: '↳ Awaiting fulfillment', indent: true },
+  { value: 'held|return_in_progress', label: '↳ Return in progress', indent: true },
+  { value: 'held|dispute_active', label: '↳ Dispute under review', indent: true },
+  { value: 'held|partial_refund_open', label: '↳ Partial refund, return open', indent: true },
+  { value: 'charged', label: 'Charged' },
+  { value: 'waived', label: 'Waived' },
+  { value: 'review', label: 'Review' },
+];
+
+function parseFilter(value: string): { status: string; holdReason: string | null } {
+  if (value.includes('|')) {
+    const [status, holdReason] = value.split('|');
+    return { status, holdReason };
+  }
+  return { status: value, holdReason: null };
+}
+
+function buildQuery(filter: string, page: number): string {
+  const { status, holdReason } = parseFilter(filter);
+  const params = new URLSearchParams({ status, page: String(page), limit: '50' });
+  if (holdReason) params.set('holdReason', holdReason);
+  return params.toString();
+}
+
+// ── Status cell ───────────────────────────────────────────────────────────────
+
+function StatusCell({ row }: { row: CommissionRow }) {
+  const isHeld = row.status === 'held';
+  const holdMeta = isHeld && row.holdReason ? HOLD_REASON_META[row.holdReason] : null;
+  const description = holdMeta?.description ?? STATUS_DESCRIPTION[row.status];
+
+  return (
+    <Flex direction="column" gap="1" style={{ maxWidth: 280 }}>
+      <Flex gap="2" align="center" wrap="wrap">
+        <Badge color={STATUS_COLOR[row.status]} radius="full" size="1">
+          {row.status}
+        </Badge>
+        {holdMeta && (
+          <Badge color="amber" variant="outline" radius="full" size="1">
+            {holdMeta.label}
+          </Badge>
+        )}
+      </Flex>
+      <Text size="1" color="gray" style={{ lineHeight: 1.4 }}>
+        {description}
+      </Text>
+      {row.shopifyEventKey && (
+        <Text size="1" color="gray" style={{ fontFamily: 'monospace' }}>
+          {row.shopifyEventKey}
+        </Text>
+      )}
+      {row.reviewNote && row.status !== 'held' && (
+        <Text size="1" color="gray">{row.reviewNote}</Text>
+      )}
+    </Flex>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
+
 export default function GGAdminBillingPage() {
   const { user } = useUserContext();
-  const { user: auth0User, isLoading: auth0IsLoading } = useAuth0User();
+  const { isLoading: auth0IsLoading } = useAuth0User();
   const router = useRouter();
 
   const [records, setRecords] = useState<CommissionRow[]>([]);
@@ -73,11 +188,10 @@ export default function GGAdminBillingPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [filterValue, setFilterValue] = useState('all');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  // Waive dialog state
   const [waiveTarget, setWaiveTarget] = useState<CommissionRow | null>(null);
   const [waiveNote, setWaiveNote] = useState('');
   const [waiving, setWaiving] = useState(false);
@@ -87,9 +201,7 @@ export default function GGAdminBillingPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(
-        `/api/admin/commissions?status=${statusFilter}&page=${page}&limit=50`
-      );
+      const res = await fetch(`/api/admin/commissions?${buildQuery(filterValue, page)}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Failed to load commissions');
       setRecords(data.records);
@@ -100,7 +212,7 @@ export default function GGAdminBillingPage() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, page]);
+  }, [filterValue, page]);
 
   useEffect(() => {
     if (!auth0IsLoading && !user) {
@@ -148,7 +260,6 @@ export default function GGAdminBillingPage() {
 
   return (
     <Flex direction="column" minHeight="100vh">
-      {/* Header */}
       <Flex
         justify="between"
         align="center"
@@ -169,8 +280,13 @@ export default function GGAdminBillingPage() {
       <Flex direction="row" style={{ minHeight: 'calc(100vh - 64px)' }}>
         <AdminSidebar adminPermission="admin" />
 
-        {/* Main content */}
-        <Flex direction="column" py="4" px={{ initial: '2', md: '6' }} width="100%" style={{ overflowY: 'auto' }}>
+        <Flex
+          direction="column"
+          py="4"
+          px={{ initial: '2', md: '6' }}
+          width="100%"
+          style={{ overflowY: 'auto' }}
+        >
           <Flex justify="between" align="center" mb="6">
             <Heading>Commission Billing</Heading>
           </Flex>
@@ -199,30 +315,50 @@ export default function GGAdminBillingPage() {
                     {amount > 0 && (
                       <Text size="1" color="gray">{formatCurrency(amount)}</Text>
                     )}
+                    {label === 'Held' && count > 0 && (
+                      <Flex direction="column" gap="1" mt="1">
+                        {summary.countHeldUnfulfilled > 0 && (
+                          <Text size="1" color="gray">{summary.countHeldUnfulfilled} awaiting fulfillment</Text>
+                        )}
+                        {summary.countHeldReturnInProgress > 0 && (
+                          <Text size="1" color="gray">{summary.countHeldReturnInProgress} return in progress</Text>
+                        )}
+                        {summary.countHeldDisputeActive > 0 && (
+                          <Text size="1" color="gray">{summary.countHeldDisputeActive} dispute under review</Text>
+                        )}
+                        {summary.countHeldPartialRefundOpen > 0 && (
+                          <Text size="1" color="gray">{summary.countHeldPartialRefundOpen} partial refund open</Text>
+                        )}
+                      </Flex>
+                    )}
                   </Flex>
                 </Card>
               ))}
             </Flex>
           )}
 
-          {/* Filter + table */}
+          {/* Filter */}
           <Flex justify="between" align="center" mb="3">
             <Select.Root
-              value={statusFilter}
-              onValueChange={(v) => { setStatusFilter(v); setPage(1); }}
+              value={filterValue}
+              onValueChange={(v) => { setFilterValue(v); setPage(1); }}
             >
               <Select.Trigger />
               <Select.Content>
-                <Select.Item value="all">All statuses</Select.Item>
-                <Select.Item value="pending">Pending</Select.Item>
-                <Select.Item value="held">Held</Select.Item>
-                <Select.Item value="charged">Charged</Select.Item>
-                <Select.Item value="waived">Waived</Select.Item>
-                <Select.Item value="review">Review</Select.Item>
+                {FILTER_OPTIONS.map((opt) => (
+                  <Select.Item
+                    key={opt.value}
+                    value={opt.value}
+                    style={opt.indent ? { paddingLeft: 28 } : undefined}
+                  >
+                    {opt.label}
+                  </Select.Item>
+                ))}
               </Select.Content>
             </Select.Root>
           </Flex>
 
+          {/* Table */}
           <Card size="2" style={{ padding: 0, overflow: 'hidden' }}>
             <Table.Root variant="surface">
               <Table.Header>
@@ -277,19 +413,7 @@ export default function GGAdminBillingPage() {
                         <Text size="2" color="gray">{formatDate(r.chargeAfter)}</Text>
                       </Table.Cell>
                       <Table.Cell>
-                        <Flex direction="column" gap="1">
-                          <Badge color={STATUS_COLOR[r.status]} radius="full" size="1">
-                            {r.status}
-                          </Badge>
-                          {r.stripeInvoiceId && (
-                            <Text size="1" color="gray" style={{ fontFamily: 'monospace' }}>
-                              {r.stripeInvoiceId}
-                            </Text>
-                          )}
-                          {r.reviewNote && (
-                            <Text size="1" color="gray">{r.reviewNote}</Text>
-                          )}
-                        </Flex>
+                        <StatusCell row={r} />
                       </Table.Cell>
                       <Table.Cell>
                         {WAIVABLE_STATUSES.includes(r.status) && (
@@ -297,7 +421,11 @@ export default function GGAdminBillingPage() {
                             size="1"
                             variant="soft"
                             color="red"
-                            onClick={() => { setWaiveTarget(r); setWaiveNote(''); setWaiveError(null); }}
+                            onClick={() => {
+                              setWaiveTarget(r);
+                              setWaiveNote('');
+                              setWaiveError(null);
+                            }}
                           >
                             Waive
                           </Button>
@@ -309,17 +437,24 @@ export default function GGAdminBillingPage() {
               </Table.Body>
             </Table.Root>
 
-            {/* Pagination */}
-            <Flex justify="between" align="center" p="3"
-              style={{ borderTop: '1px solid var(--gray-a4)', backgroundColor: 'var(--gray-2)' }}>
+            <Flex
+              justify="between"
+              align="center"
+              p="3"
+              style={{ borderTop: '1px solid var(--gray-a4)', backgroundColor: 'var(--gray-2)' }}
+            >
               <Text size="1" color="gray">Page {page} of {totalPages}</Text>
               <Flex gap="2">
-                <Button variant="soft" color="gray" disabled={page === 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}>
+                <Button
+                  variant="soft" color="gray" disabled={page === 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
                   <ChevronLeftIcon /> Prev
                 </Button>
-                <Button variant="soft" color="gray" disabled={page === totalPages}
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
+                <Button
+                  variant="soft" color="gray" disabled={page === totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                >
                   Next <ChevronRightIcon />
                 </Button>
               </Flex>

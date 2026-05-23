@@ -72,6 +72,17 @@ type FormState = {
   cardTextColor?: string;
 };
 
+type ClientStatus = {
+  shopifyConnected: boolean;
+  hasRewards: boolean;
+  accountClaimed: boolean;
+};
+
+type ClientWithStatus = {
+  _id: string;
+  status: ClientStatus;
+};
+
 const initialClientState: FormState = {
   name: '',
   logo: '',
@@ -116,6 +127,7 @@ export default function GgpickleballAdminClients() {
   const [selectedClientForEdit, setSelectedClientForEdit] = useState<IClient | null>(null);
   const [formData, setFormData] = useState<FormState>(initialClientState);
   const [adminPermission, setAdminPermission] = useState<AdminPermissionType>(null);
+  const [clientStatuses, setClientStatuses] = useState<Map<string, ClientStatus>>(new Map());
 
   // --- NEW: Invite Admin State ---
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
@@ -133,6 +145,17 @@ export default function GgpickleballAdminClients() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Failed to fetch clients");
       setClients(data.clients);
+
+      // Fetch status for all clients in parallel with the main fetch.
+      const statusRes = await fetch('/api/admin/client-status');
+      if (statusRes.ok) {
+        const statusData = await statusRes.json();
+        const statusMap = new Map<string, ClientStatus>();
+        (statusData.clients as ClientWithStatus[]).forEach((c) => {
+          statusMap.set(c._id, c.status);
+        });
+        setClientStatuses(statusMap);
+      }
     } catch (error: unknown) {
       if (error instanceof Error) {
         setFetchError(error.message);
@@ -497,18 +520,55 @@ export default function GgpickleballAdminClients() {
                 <Flex direction="column" gap="3">
                   {clients.length > 0 ? clients.map(client => (
                     <Card key={client._id.toString()}>
-                      <Flex gap="4" align="center">
-                        <Avatar radius="full" size="3" src={client.icon || undefined} fallback={client.name.charAt(0).toUpperCase()}/>
-                        <Box flexGrow={'1'}>
-                          <Text as="div" weight="bold">{client.name}</Text>
-                          {client.needsRetroactiveSweep && (
-                            <Badge color="amber" variant="solid" size="1" mb="1">
+                      <Flex gap="4" align="start">
+                        <Avatar
+                          radius="full"
+                          size="3"
+                          src={client.icon || undefined}
+                          fallback={client.name.charAt(0).toUpperCase()}
+                        />
+                        <Box flexGrow="1">
+                          <Flex align="center" gap="2" mb="1">
+                            <Text as="div" weight="bold">{client.name}</Text>
+                            {client.needsRetroactiveSweep && (
+                              <Badge color="amber" variant="solid" size="1">
                                 <ExclamationTriangleIcon /> Sweep Needed
-                            </Badge>
-                          )}
-                          <Text as="div" size="2" color="gray">ID: {client._id.toString()}</Text>
+                              </Badge>
+                            )}
+                          </Flex>
+                          <Text as="div" size="2" color="gray" mb="2">ID: {client._id.toString()}</Text>
+                    
+                          {(() => {
+                            const status = clientStatuses.get(client._id.toString());
+                            if (!status) return null;
+                            return (
+                              <Flex gap="2" wrap="wrap">
+                                <Badge
+                                  color={status.accountClaimed ? 'green' : 'gray'}
+                                  variant="soft"
+                                  size="1"
+                                >
+                                  {status.accountClaimed ? '✓' : '○'} Account
+                                </Badge>
+                                <Badge
+                                  color={status.shopifyConnected ? 'green' : 'gray'}
+                                  variant="soft"
+                                  size="1"
+                                >
+                                  {status.shopifyConnected ? '✓' : '○'} Shopify
+                                </Badge>
+                                <Badge
+                                  color={status.hasRewards ? 'green' : 'gray'}
+                                  variant="soft"
+                                  size="1"
+                                >
+                                  {status.hasRewards ? '✓' : '○'} Rewards
+                                </Badge>
+                              </Flex>
+                            );
+                          })()}
                         </Box>
-                        
+                    
                         <DropdownMenu.Root>
                           <DropdownMenu.Trigger>
                             <Button variant="soft" color="gray">
@@ -516,47 +576,35 @@ export default function GgpickleballAdminClients() {
                             </Button>
                           </DropdownMenu.Trigger>
                           <DropdownMenu.Content>
-                            
-                            {/* --- NEW ACTION --- */}
                             <DropdownMenu.Item onClick={() => handleOpenInviteDialog(client)}>
                               <EnvelopeClosedIcon /> Invite Admin
                             </DropdownMenu.Item>
-                            
                             <DropdownMenu.Separator />
-
                             <DropdownMenu.Item onClick={() => handleOpenEditDialog(client as IClient)}>
                               <GearIcon /> Edit Configuration
                             </DropdownMenu.Item>
-                            
                             <DropdownMenu.Separator />
-                            
-                            <DropdownMenu.Item 
+                            <DropdownMenu.Item
                               color="blue"
                               onClick={() => router.push(`/admin/client/${client._id.toString()}/retroactive`)}
                             >
                               <MagicWandIcon /> Retroactive Sweep
                             </DropdownMenu.Item>
-
                             {client.needsRetroactiveSweep && (
-                              <DropdownMenu.Item 
+                              <DropdownMenu.Item
                                 color="gray"
                                 onClick={() => handleToggleSweepFlag(client, false)}
                               >
                                 <CheckCircledIcon /> Mark as Complete (Ignore)
                               </DropdownMenu.Item>
                             )}
-
                             {!client.needsRetroactiveSweep && (
-                              <DropdownMenu.Item 
-                                onClick={() => handleToggleSweepFlag(client, true)}
-                              >
+                              <DropdownMenu.Item onClick={() => handleToggleSweepFlag(client, true)}>
                                 Flag for Sweep
                               </DropdownMenu.Item>
                             )}
-
                           </DropdownMenu.Content>
                         </DropdownMenu.Root>
-
                       </Flex>
                     </Card>
                   )) : (

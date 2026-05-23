@@ -23,7 +23,6 @@ async function fetchDuprMatchDetails(matchId: number) {
     }
 
     const data = await response.json();
-    console.log('data:', data)
     
     if (data && data.result) {
         return data.result;

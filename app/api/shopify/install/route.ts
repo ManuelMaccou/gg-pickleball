@@ -30,6 +30,8 @@ export async function GET(req: NextRequest) {
 
   const scopes = 'read_discounts,write_discounts,read_merchant_managed_fulfillment_orders,read_orders,read_third_party_fulfillment_orders'; 
   const redirectUri = `${process.env.NEXT_PUBLIC_BASE_URL}/api/shopify/callback`;
+
+  console.log('redirect uri:', redirectUri)
   
   // Create a unique nonce
   const nonce = crypto.randomUUID();

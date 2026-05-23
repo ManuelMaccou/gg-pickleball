@@ -149,43 +149,11 @@ const FaqItem = ({
 
 export default function HomePage() {
   const router = useRouter();
-  const { user: auth0User, isLoading: auth0IsLoading } = useAuth0User();
-  const [isGettingOnboardingState, setIsGettingOnboardingState] = useState<boolean>(true);
-  const [openFaq, setOpenFaq] = useState<number | null>(0);
-
-  // --- ONBOARDING & ROUTING REDIRECT LOGIC (unchanged) ---
-  useEffect(() => {
-    if (auth0IsLoading) return;
-
-    if (!auth0User) {
-      setIsGettingOnboardingState(false);
-      return;
-    }
-
-    const checkUserStatus = async () => {
-      try {
-        const res = await fetch(`/api/user/role?auth0Id=${auth0User.sub}`);
-        if (!res.ok) return;
-
-        const data = await res.json();
-
-        if (!data.isSuperAdmin && data.isClubAdmin) {
-          router.replace('/admin/brand');
-        } else if (!data.isSuperAdmin) {
-          router.replace('/play');
-        }
-      } catch (error) {
-        console.error('Error checking user status for redirect:', error);
-      } finally {
-        setIsGettingOnboardingState(false);
-      }
-    };
-
-    checkUserStatus();
-  }, [auth0User, auth0IsLoading, router]);
+  const { isLoading: auth0IsLoading } = useAuth0User();
+  const [ openFaq, setOpenFaq ] = useState<number | null>(0);
 
   // --- LOADING STATE ---
-  if (auth0IsLoading || isGettingOnboardingState) {
+  if (auth0IsLoading) {
     return (
       <Flex
         align="center"
@@ -227,6 +195,7 @@ export default function HomePage() {
 
   return (
     <Box style={{ backgroundColor: '#ffffff' }}>
+
       {/* ============ HERO ============ */}
       <Box
         style={{
@@ -319,11 +288,9 @@ export default function HomePage() {
               </Flex>
             </Badge>
 
-            <Button asChild variant="solid" size="3" radius="full" color="lime" style={{
-              width: '150px',
-            }}>
+            <Button asChild variant="solid" size="3" radius="full" color="lime">
               <Link href="/auth/login?returnTo=/play">
-                Log in
+                Access your account
               </Link>
             </Button>
           </Flex>
@@ -389,7 +356,7 @@ export default function HomePage() {
                   highContrast
                   style={{ color: '#FFFFFF', borderColor: 'rgba(255,255,255)' }}
                 >
-                  <Link href="mailto:play@ggpickleball.co">Feature your brand</Link>
+                  <Link href="/apply">Feature your brand</Link>
                 </Button>
               </Flex>
 
@@ -657,7 +624,7 @@ export default function HomePage() {
               &copy; {new Date().getFullYear()} GG Pickleball. All rights reserved.
             </Text>
             <Flex gap="5">
-              <Link href="mailto:manuel@ggpickleball.co" style={{ textDecoration: 'none' }}>
+              <Link href="/apply" style={{ textDecoration: 'none' }}>
                 <Text size="2" style={{ color: 'rgba(255,255,255,0.5)' }}>
                   Feature your brand
                 </Text>

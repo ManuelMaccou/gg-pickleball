@@ -1,220 +1,93 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Box, Button, Card, Callout, Flex, Heading, Separator,
-  Spinner, Text, TextField, Badge,
+  Badge, Box, Button, Card, Callout, Flex, Heading,
+  Spinner, Table, Text,
 } from '@radix-ui/themes';
 import { useUserContext } from '@/app/contexts/UserContext';
-import { loadStripe } from '@stripe/stripe-js';
-import {
-  Elements,
-  PaymentElement,
-  useStripe,
-  useElements,
-} from '@stripe/react-stripe-js';
-import { CheckCircledIcon } from '@radix-ui/react-icons';
-import Image from 'next/image';
-import darkGgLogo from '../../../../../public/logos/gg_logo_black_transparent.png';
+import { CheckCircledIcon, ChevronLeftIcon, ChevronRightIcon, InfoCircledIcon } from '@radix-ui/react-icons';
+import { AdminPermissionType, IClient } from '@/app/types/databaseTypes';
+import { BrandPageShell } from '../../components/BrandPageShell';
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-const CARD_BRAND_LABELS: Record<string, string> = {
-  visa: 'Visa',
-  mastercard: 'Mastercard',
-  amex: 'American Express',
-  discover: 'Discover',
-  jcb: 'JCB',
-  diners: 'Diners Club',
-  unionpay: 'UnionPay',
+const formatCurrency = (n: number) =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
+
+const formatDate = (s: string) =>
+  s ? new Date(s).toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric',
+  }) : '—';
+
+type CommissionStatus = 'pending' | 'held' | 'charged' | 'waived' | 'review';
+
+const STATUS_COLOR: Record<CommissionStatus, 'gray' | 'amber' | 'green' | 'red' | 'orange'> = {
+  pending: 'gray', held: 'amber', charged: 'green', waived: 'red', review: 'orange',
 };
 
-// ── Step 2: Payment details form — must be inside <Elements> ─────────────────
-function PaymentSetupForm({
-  onSuccess,
-}: {
-  onSuccess: (data: {
-    cardLast4?: string;
-    cardBrand?: string;
-    cardExpMonth?: number;
-    cardExpYear?: number;
-  }) => void;
-}) {
-  const stripe = useStripe();
-  const elements = useElements();
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleSubmit = async () => {
-    if (!stripe || !elements) return;
-    setSaving(true);
-    setError(null);
-
-    try {
-      const { setupIntent, error: stripeError } = await stripe.confirmSetup({
-        elements,
-        confirmParams: {
-          return_url: `${window.location.origin}/admin/brand/billing`,
-        },
-        redirect: 'if_required',
-      });
-
-      if (stripeError) throw new Error(stripeError.message);
-      if (!setupIntent?.id) throw new Error('Setup did not complete.');
-
-      const confirmRes = await fetch('/api/billing/confirm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ setupIntentId: setupIntent.id }),
-      });
-      const confirmData = await confirmRes.json();
-      if (!confirmRes.ok) throw new Error(confirmData.error ?? 'Failed to save payment method.');
-
-      onSuccess(confirmData);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Flex direction="column" gap="4">
-      {error && (
-        <Callout.Root color="red" size="1">
-          <Callout.Text>{error}</Callout.Text>
-        </Callout.Root>
-      )}
-
-      <Box>
-        <Text size="2" weight="medium" mb="1">Payment details </Text>
-        <Text size="1" color="gray" mb="2">
-          Your payment method will be charged automatically when commissions are due.
-        </Text>
-        <Box
-          style={{
-            border: '1px solid var(--gray-6)',
-            borderRadius: 8,
-            padding: '12px',
-            backgroundColor: 'white',
-          }}
-        >
-          <PaymentElement />
-        </Box>
-      </Box>
-
-      <Button
-        onClick={handleSubmit}
-        disabled={saving || !stripe}
-        style={{ width: 'fit-content' }}
-      >
-        {saving && <Spinner size="1" />}
-        {saving ? 'Saving…' : 'Save payment method'}
-      </Button>
-    </Flex>
-  );
-}
+const STATUS_LABEL: Record<CommissionStatus, string> = {
+  pending: 'Upcoming', held: 'On hold', charged: 'Charged', waived: 'Waived', review: 'Under review',
+};
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function BrandBillingPage() {
   const { user } = useUserContext();
   const router = useRouter();
 
-  // Existing billing status fetched on mount
-  const [loading, setLoading] = useState(true);
-  const [billingStatus, setBillingStatus] = useState<{
-    configured: boolean;
-    billingEmail?: string;
-    cardLast4?: string;
-    cardBrand?: string;
-    cardExpMonth?: number;
-    cardExpYear?: number;
-    bankLast4?: string;
-    bankName?: string;
+  // Admin/location lookup for the shell sidebar
+  const [location, setLocation] = useState<IClient | null>(null);
+  const [adminPermission, setAdminPermission] = useState<AdminPermissionType>(null);
+  const [isGettingAdmin, setIsGettingAdmin] = useState(true);
+
+  // Commission history
+  const [commissions, setCommissions] = useState<any[]>([]);
+  const [commissionSummary, setCommissionSummary] = useState<{
+    totalCharged: number; totalPending: number;
+    countCharged: number; countPending: number;
   } | null>(null);
+  const [commissionsLoading, setCommissionsLoading] = useState(true);
+  const [commissionPage, setCommissionPage] = useState(1);
+  const [commissionTotalPages, setCommissionTotalPages] = useState(1);
 
-  // Whether the update form is open (for existing customers)
-  const [showUpdateForm, setShowUpdateForm] = useState(false);
-
-  // Step 1 state — collect email
-  const [billingEmail, setBillingEmail] = useState('');
-  const [initializingSetup, setInitializingSetup] = useState(false);
-  const [setupError, setSetupError] = useState<string | null>(null);
-
-  // Step 2 state — Stripe Elements needs clientSecret
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
-
+  // Auth + admin fetch
   useEffect(() => {
-    if (!user) {
+    if (!user?.id) {
       router.push('/auth/login?returnTo=/admin/brand/billing');
       return;
     }
-    fetch('/api/billing/setup')
-      .then((r) => r.json())
+    fetch(`/api/admin?userId=${user.id}`)
+      .then((r) => (r.status === 204 ? null : r.json()))
       .then((data) => {
-        setBillingStatus(data);
-        // Pre-fill email if already on file
-        if (data.billingEmail) setBillingEmail(data.billingEmail);
+        if (data?.admin?.permission) setAdminPermission(data.admin.permission);
+        if (data?.location) setLocation(data.location);
       })
-      .catch(() => setBillingStatus({ configured: false }))
-      .finally(() => setLoading(false));
+      .catch(() => {})
+      .finally(() => setIsGettingAdmin(false));
   }, [user, router]);
 
-  // Step 1: create SetupIntent and get clientSecret
-  const handleInitializeSetup = async () => {
-    if (!billingEmail || !billingEmail.includes('@')) {
-      return setSetupError('Please enter a valid billing email.');
-    }
-    setInitializingSetup(true);
-    setSetupError(null);
+  const fetchCommissions = useCallback(async () => {
+    setCommissionsLoading(true);
     try {
-      const res = await fetch('/api/billing/setup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ billingEmail }),
-      });
+      const res = await fetch(`/api/billing/commissions?page=${commissionPage}`);
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? 'Setup failed.');
-      setClientSecret(data.clientSecret);
-    } catch (e) {
-      setSetupError(e instanceof Error ? e.message : 'Setup failed.');
+      if (!res.ok) throw new Error(data.error);
+      setCommissions(data.records);
+      setCommissionSummary(data.summary);
+      setCommissionTotalPages(data.pagination.totalPages);
+    } catch {
+      setCommissions([]);
     } finally {
-      setInitializingSetup(false);
+      setCommissionsLoading(false);
     }
-  };
+  }, [commissionPage]);
 
-  // Called after PaymentSetupForm completes successfully
-  const handlePaymentSaved = (data: {
-    cardLast4?: string;
-    cardBrand?: string;
-    cardExpMonth?: number;
-    cardExpYear?: number;
-    bankLast4?: string;
-    bankName?: string;
-  }) => {
-    setBillingStatus({
-      configured: true,
-      billingEmail,
-      cardLast4: data.cardLast4,
-      cardBrand: data.cardBrand,
-      cardExpMonth: data.cardExpMonth,
-      cardExpYear: data.cardExpYear,
-      bankLast4: data.bankLast4,
-      bankName: data.bankName,
-    });
-    setShowUpdateForm(false);
-    setClientSecret(null);
-    setBillingEmail('');
-  };
+  useEffect(() => {
+    if (user) fetchCommissions();
+  }, [user, fetchCommissions]);
 
-  const handleCancelUpdate = () => {
-    setShowUpdateForm(false);
-    setClientSecret(null);
-    setSetupError(null);
-  };
-
-  if (loading) {
+  if (isGettingAdmin) {
     return (
       <Flex justify="center" align="center" height="100vh">
         <Spinner size="3" />
@@ -222,188 +95,178 @@ export default function BrandBillingPage() {
     );
   }
 
-  // Whether to show the setup flow (new customer or updating)
-  const showSetupFlow = !billingStatus?.configured || showUpdateForm;
-
   return (
-    <Flex direction="column" style={{ backgroundColor: '#F9FAFB', minHeight: '100vh' }}>
-      {/* Header */}
-      <Flex
-        justify="between"
-        align="center"
-        height="64px"
-        px="6"
-        style={{ backgroundColor: 'white', borderBottom: '1px solid var(--gray-4)' }}
-      >
-        <Flex align="center" gap="4">
-          <Image
-            src={darkGgLogo}
-            alt="Logo"
-            height={32}
-            width={60}
-            style={{ objectFit: 'contain' }}
-          />
-          <Separator orientation="vertical" style={{ height: 20 }} />
-          <Text weight="bold" size="3">Billing</Text>
+    <BrandPageShell adminPermission={adminPermission} location={location}>
+      <Heading size="6">Billing</Heading>
+
+      {/* Summary cards */}
+      {commissionSummary && (commissionSummary.countCharged > 0 || commissionSummary.countPending > 0) && (
+        <Flex gap="4">
+          <Card size="2" style={{ flex: 1 }}>
+            <Flex direction="column" gap="1">
+              <Text size="1" color="gray">Total charged</Text>
+              <Text size="5" weight="bold">{formatCurrency(commissionSummary.totalCharged)}</Text>
+              <Text size="1" color="gray">
+                {commissionSummary.countCharged} order{commissionSummary.countCharged !== 1 ? 's' : ''}
+              </Text>
+            </Flex>
+          </Card>
+          <Card size="2" style={{ flex: 1 }}>
+            <Flex direction="column" gap="1">
+              <Text size="1" color="gray">Upcoming</Text>
+              <Text size="5" weight="bold">{formatCurrency(commissionSummary.totalPending)}</Text>
+              <Text size="1" color="gray">
+                {commissionSummary.countPending} pending
+              </Text>
+            </Flex>
+          </Card>
         </Flex>
-        <Button variant="soft" color="gray" onClick={() => router.push('/admin/brand')}>
-          ← Dashboard
-        </Button>
-      </Flex>
+      )}
 
-      <Box p="6">
-        <Flex direction="column" gap="6" style={{ maxWidth: 600, margin: '0 auto' }}>
-          <Heading size="6">Billing Settings</Heading>
+      {/* Shopify billing note — replaces the old payment method card */}
+      <Card size="3">
+        <Flex direction="column" gap="3">
+          <Flex justify="between" align="center">
+            <Heading size="4">Billing</Heading>
+            <Badge color="green" variant="soft">
+              <CheckCircledIcon /> Managed by Shopify
+            </Badge>
+          </Flex>
+          <Callout.Root color="blue" size="1">
+            <Callout.Icon><InfoCircledIcon /></Callout.Icon>
+            <Callout.Text>
+              Commissions are billed automatically through your Shopify subscription.
+              You can view all billing activity and charges in your Shopify Dashboard.
+            </Callout.Text>
+          </Callout.Root>
+          <Text size="2" color="gray" style={{ lineHeight: 1.6 }}>
+            A 5% commission on each redeemed sale is reported to Shopify 30 days after
+            the order date. Shopify collects this as part of your app subscription billing.
+            No payment method is required here.
+          </Text>
+          <Text size="2" color="gray" style={{ lineHeight: 1.6 }}>
+            If a return or dispute is initiated within 30 days of a sale, that order's
+            commission is adjusted or waived accordingly before being reported.
+          </Text>
 
-          {/* Payment method card */}
-          <Card size="3">
-            <Flex direction="column" gap="4">
-              <Flex justify="between" align="center">
-                <Heading size="4">Payment Method</Heading>
-                {billingStatus?.configured && !showUpdateForm && (
-                  <Badge color="green" variant="soft">
-                    <CheckCircledIcon /> Active
-                  </Badge>
-                )}
-              </Flex>
+          <Button asChild size="2" variant="outline" style={{ alignSelf: 'flex-start' }}>
+            
+              <a href={`https://admin.shopify.com/store/${location?.shopify?.shopDomain?.replace('.myshopify.com', '')}/charges/${process.env.NEXT_PUBLIC_SHOPIFY_APP_HANDLE ?? 'gg-pickleball-3'}/pricing_plans`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Manage plan ↗
+              </a>
+          </Button>
+        </Flex>
+      </Card>
 
-              {/* ── Existing payment method display ── */}
-              {billingStatus?.configured && !showUpdateForm && (
-                <>
-                  <Flex direction="column" gap="2">
-                    {billingStatus.cardLast4 ? (
-                      <Flex align="center" gap="3">
-                        <Text size="3" weight="medium">
-                          {CARD_BRAND_LABELS[billingStatus.cardBrand ?? ''] ?? billingStatus.cardBrand}
+      {/* Commission history */}
+      <Card size="3" style={{ padding: 0, overflow: 'hidden' }}>
+        <Box px="4" py="3" style={{ borderBottom: '1px solid var(--gray-4)' }}>
+          <Heading size="4">Commission History</Heading>
+          <Text size="2" color="gray">
+            A record of all commissions from orders using your GG promo codes.
+          </Text>
+        </Box>
+
+        <Table.Root variant="surface">
+          <Table.Header>
+            <Table.Row>
+              <Table.ColumnHeaderCell>Order</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>Code</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>Sale</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>Commission</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>Due / Charged</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
+            </Table.Row>
+          </Table.Header>
+          <Table.Body>
+            {commissionsLoading ? (
+              <Table.Row>
+                <Table.Cell colSpan={6}>
+                  <Flex justify="center" p="5"><Spinner size="2" /></Flex>
+                </Table.Cell>
+              </Table.Row>
+            ) : commissions.length === 0 ? (
+              <Table.Row>
+                <Table.Cell colSpan={6}>
+                  <Text color="gray" align="center" my="4">
+                    No commissions yet. They'll appear here when customers use your promo codes.
+                  </Text>
+                </Table.Cell>
+              </Table.Row>
+            ) : (
+              commissions.map((r) => (
+                <Table.Row key={r._id}>
+                  <Table.Cell>
+                    <Text size="2" style={{ fontFamily: 'monospace' }}>{r.shopifyOrderId}</Text>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Text size="2" style={{ fontFamily: 'monospace' }}>{r.discountCode}</Text>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Flex direction="column">
+                      <Text size="2">{formatCurrency(r.orderTotal)}</Text>
+                      {r.refundedAmount > 0 && (
+                        <Text size="1" color="red">
+                          -{formatCurrency(r.refundedAmount)} refunded
                         </Text>
-                        <Text size="3">•••• {billingStatus.cardLast4}</Text>
-                        <Text size="2" color="gray">
-                          Expires {billingStatus.cardExpMonth}/{billingStatus.cardExpYear}
-                        </Text>
-                      </Flex>
-                    ) : billingStatus.bankLast4 ? (
-                      <Flex align="center" gap="3">
-                        <Text size="3" weight="medium">{billingStatus.bankName ?? 'Bank account'}</Text>
-                        <Text size="3">•••• {billingStatus.bankLast4}</Text>
-                      </Flex>
-                    ) : (
-                      <Text size="2" color="gray">Payment method on file</Text>
-                    )}
-                    <Text size="2" color="gray">
-                      Invoices sent to: {billingStatus.billingEmail}
-                    </Text>
-                  </Flex>
-                  <Button
-                    variant="soft"
-                    color="gray"
-                    onClick={() => setShowUpdateForm(true)}
-                    style={{ width: 'fit-content' }}
-                  >
-                    Update payment method
-                  </Button>
-                </>
-              )}
-
-              {/* ── Setup flow ── */}
-              {showSetupFlow && (
-                <>
-                  {!billingStatus?.configured && (
-                    <Callout.Root color="amber" size="1">
-                      <Callout.Text>
-                        No payment method on file. Add one to ensure uninterrupted access
-                        to GG Pickleball rewards for your customers.
-                      </Callout.Text>
-                    </Callout.Root>
-                  )}
-
-                  {/* Step 1 — email */}
-                  {!clientSecret && (
-                    <Flex direction="column" gap="3">
-                      {setupError && (
-                        <Callout.Root color="red" size="1">
-                          <Callout.Text>{setupError}</Callout.Text>
-                        </Callout.Root>
                       )}
-                      <Box>
-                        <Text size="2" weight="medium" mb="1">Billing email </Text>
-                        <Text size="1" color="gray" mb="2">
-                          Invoices will be sent here each billing cycle.
-                        </Text>
-                        <TextField.Root
-                          type="email"
-                          value={billingEmail}
-                          onChange={(e) => setBillingEmail(e.target.value)}
-                          placeholder="billing@yourcompany.com"
-                          onKeyDown={(e) => e.key === 'Enter' && handleInitializeSetup()}
-                        />
-                      </Box>
-                      <Flex gap="5" align={'center'}>
-                        <Button
-                          onClick={handleInitializeSetup}
-                          disabled={initializingSetup}
-                          style={{ width: 'fit-content' }}
-                        >
-                          {initializingSetup && <Spinner size="1" />}
-                          {initializingSetup ? 'Setting up…' : 'Continue'}
-                        </Button>
-                        {showUpdateForm && (
-                          <Button
-                            variant="ghost"
-                            color="gray"
-                            onClick={handleCancelUpdate}
-                          >
-                            Cancel
-                          </Button>
-                        )}
-                      </Flex>
                     </Flex>
-                  )}
-
-                  {/* Step 2 — payment details */}
-                  {clientSecret && (
-                    <Elements
-                      stripe={stripePromise}
-                      options={{
-                        clientSecret,
-                        appearance: {
-                          theme: 'stripe',
-                          variables: {
-                            fontSizeBase: '14px',
-                            colorText: '#1a1a1a',
-                            colorTextPlaceholder: '#6b7280',
-                          },
-                        },
-                      }}
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Text size="2" weight="medium">{formatCurrency(r.commissionAmount)}</Text>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Text size="2" color="gray">
+                      {r.status === 'charged'
+                        ? formatDate(r.updatedAt)
+                        : formatDate(r.chargeAfter)}
+                    </Text>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Badge
+                      color={STATUS_COLOR[r.status as CommissionStatus]}
+                      radius="full"
+                      size="1"
                     >
-                      <PaymentSetupForm onSuccess={handlePaymentSaved} />
-                    </Elements>
-                  )}
-                </>
-              )}
-            </Flex>
-          </Card>
+                      {STATUS_LABEL[r.status as CommissionStatus] ?? r.status}
+                    </Badge>
+                  </Table.Cell>
+                </Table.Row>
+              ))
+            )}
+          </Table.Body>
+        </Table.Root>
 
-          {/* How billing works */}
-          <Card size="3">
-            <Flex direction="column" gap="3">
-              <Heading size="4">How billing works</Heading>
-              <Text size="2" color="gray" style={{ lineHeight: 1.6 }}>
-                GG Pickleball charges a{' '}
-                <Text weight="bold" style={{ color: 'var(--slate-12)' }}>5% commission</Text>{' '}
-                on sales made using promo codes issued through the platform.
-              </Text>
-              <Text size="2" color="gray" style={{ lineHeight: 1.6 }}>
-                Commissions are collected 30 days after each sale to account for returns
-                and chargebacks. You'll receive an itemized invoice by email before each charge.
-              </Text>
-              <Text size="2" color="gray" style={{ lineHeight: 1.6 }}>
-                If a return or dispute is initiated within 30 days of a sale, that
-                order's commission is adjusted or waived accordingly.
-              </Text>
+        {commissionTotalPages > 1 && (
+          <Flex
+            justify="between" align="center" px="4" py="3"
+            style={{ borderTop: '1px solid var(--gray-a4)', backgroundColor: 'var(--gray-2)' }}
+          >
+            <Text size="1" color="gray">
+              Page {commissionPage} of {commissionTotalPages}
+            </Text>
+            <Flex gap="2">
+              <Button
+                variant="soft" color="gray" size="1"
+                disabled={commissionPage === 1}
+                onClick={() => setCommissionPage((p) => Math.max(1, p - 1))}
+              >
+                <ChevronLeftIcon /> Prev
+              </Button>
+              <Button
+                variant="soft" color="gray" size="1"
+                disabled={commissionPage === commissionTotalPages}
+                onClick={() => setCommissionPage((p) => Math.min(commissionTotalPages, p + 1))}
+              >
+                Next <ChevronRightIcon />
+              </Button>
             </Flex>
-          </Card>
-        </Flex>
-      </Box>
-    </Flex>
+          </Flex>
+        )}
+      </Card>
+    </BrandPageShell>
   );
 }

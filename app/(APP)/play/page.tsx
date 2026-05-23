@@ -1,6 +1,6 @@
 'use client'
 
-import { Box, Button, Flex, Spinner, Text, Select, Card, Heading } from "@radix-ui/themes";
+import { Box, Button, Flex, Spinner, Text, Card, Heading } from "@radix-ui/themes";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 // Changed to the black logo for the light background header
@@ -12,7 +12,6 @@ import { IClient, IDataSource } from '@/app/types/databaseTypes';
 import { FrontendUser, SelectableItem } from '@/app/types/frontendTypes';
 import { Types } from "mongoose";
 import MatchHistory from "@/components/sections/MatchHistory";
-import { HowToDialog } from "./components/HowToDialog";
 import PlayMenu from "@/app/components/PlayMenu";
 import GlobalRewardsWallet from "@/components/sections/GlobalRewardsWallet";
 // Added Lucide Icons to match the requested design aesthetic
@@ -36,9 +35,7 @@ export default function Play() {
   const [allDataSources, setAllDataSources] = useState<IDataSource[]>([]);
   const [selectedItem, setSelectedItem] = useState<SelectableItem | null>(null);
   const [dbUser, setDbUser] = useState<FrontendUser | null>(null)
-  const [showHowToDialog, setShowHowToDialog] = useState<boolean>(false)
   const [isFetchingDbUser, setIsFetchingDbUser] = useState(true);
-  const [isDuprSyncing, setIsDuprSyncing] = useState(false);
 
   const [duprModalOpen, setDuprModalOpen] = useState(false);
 
@@ -138,24 +135,9 @@ export default function Play() {
     fetchUser();
   }, [contextUser, auth0User, auth0IsLoading, dbUser]);
 
-  // --- HOW TO DIALOG LOGIC ---
-  useEffect(() => {
-    const hasSeenLocally = localStorage.getItem('howto') === 'seen';
-    const hasSeenViaStats = dbUser?.stats && Object.keys(dbUser.stats).length > 0;
-    if (!hasSeenLocally && !hasSeenViaStats) setShowHowToDialog(true);
-  }, [dbUser]);
-
   // --- SYNC HANDLER ---
   const handleSync = async () => {
     router.push('/play/sync-matches');
-  };
-
-  const handleItemChange = (value: string) => {
-    const newItem = selectableItems.find(item => item._id === value);
-    if (newItem) {
-      setSelectedItem(newItem);
-      document.cookie = `lastLocation=${newItem._id}; path=/; max-age=${60 * 60 * 24 * 30}`;
-    }
   };
 
   return (
@@ -165,8 +147,6 @@ export default function Play() {
         @keyframes spin { 100% { transform: rotate(360deg); } }
         .spin { animation: spin 1s linear infinite; }
       `}</style>
-
-      <HowToDialog open={showHowToDialog} onOpenChange={setShowHowToDialog} />
 
       {/* DUPR Connect Modal — handles iframe, post-auth screens, and connection errors */}
       <DuprConnectModal
@@ -257,19 +237,17 @@ export default function Play() {
                     size="3"
                     radius="full"
                     onClick={handleSync}
-                    disabled={isDuprSyncing}
                     style={{
                       backgroundColor: 'white',
                       color: 'var(--slate-12)',
-                      cursor: isDuprSyncing ? 'not-allowed' : 'pointer',
+                      cursor: 'pointer',
                       fontWeight: 'bold',
                       padding: '0 24px',
                       height: '48px',
                       boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                     }}
                   >
-                    <RefreshCw size={18} className={isDuprSyncing ? "spin" : ""} />
-                    {isDuprSyncing ? "Syncing..." : "Refresh Rewards"}
+                    Refresh Rewards
                   </Button>
                 ) : dbUser && !dbUser.dupr?.id && (
                   <Flex direction={'column'} gap={'4'}>

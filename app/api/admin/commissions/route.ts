@@ -2,7 +2,7 @@
 //
 // Superadmin-only endpoints for viewing and managing commission records.
 //
-// GET  — paginated list of all CommissionRecords with optional status filter
+// GET  — paginated list of all CommissionRecords with optional status + holdReason filter
 // PATCH — waive a specific commission record
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -24,15 +24,15 @@ export async function GET(req: NextRequest) {
     await connectToDatabase();
 
     const { searchParams } = new URL(req.url);
-    const status = searchParams.get('status'); // optional filter
+    const status = searchParams.get('status');
+    const holdReason = searchParams.get('holdReason') ?? null;
     const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
     const limit = Math.min(100, parseInt(searchParams.get('limit') ?? '50', 10));
     const skip = (page - 1) * limit;
 
     const filter: Record<string, unknown> = {};
-    if (status && status !== 'all') {
-      filter.status = status;
-    }
+    if (status && status !== 'all') filter.status = status;
+    if (holdReason) filter.holdReason = holdReason;
 
     const [records, total] = await Promise.all([
       CommissionRecord.find(filter)
@@ -57,20 +57,24 @@ export async function GET(req: NextRequest) {
       clientName: clientNameMap.get(r.clientId.toString()) ?? 'Unknown',
     }));
 
-    // Summary stats across all records (not just this page).
+    // Summary stats across all records (not filtered).
     const [summary] = await CommissionRecord.aggregate([
       {
         $group: {
           _id: null,
-          totalPending: { $sum: { $cond: [{ $eq: ['$status', 'pending'] }, '$commissionAmount', 0] } },
-          totalHeld: { $sum: { $cond: [{ $eq: ['$status', 'held'] }, '$commissionAmount', 0] } },
-          totalCharged: { $sum: { $cond: [{ $eq: ['$status', 'charged'] }, '$commissionAmount', 0] } },
-          totalWaived: { $sum: { $cond: [{ $eq: ['$status', 'waived'] }, '$commissionAmount', 0] } },
-          countPending: { $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] } },
-          countHeld: { $sum: { $cond: [{ $eq: ['$status', 'held'] }, 1, 0] } },
-          countCharged: { $sum: { $cond: [{ $eq: ['$status', 'charged'] }, 1, 0] } },
-          countWaived: { $sum: { $cond: [{ $eq: ['$status', 'waived'] }, 1, 0] } },
-          countReview: { $sum: { $cond: [{ $eq: ['$status', 'review'] }, 1, 0] } },
+          totalPending:  { $sum: { $cond: [{ $eq: ['$status', 'pending'] }, '$commissionAmount', 0] } },
+          totalHeld:     { $sum: { $cond: [{ $eq: ['$status', 'held'] }, '$commissionAmount', 0] } },
+          totalCharged:  { $sum: { $cond: [{ $eq: ['$status', 'charged'] }, '$commissionAmount', 0] } },
+          totalWaived:   { $sum: { $cond: [{ $eq: ['$status', 'waived'] }, '$commissionAmount', 0] } },
+          countPending:  { $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] } },
+          countHeld:     { $sum: { $cond: [{ $eq: ['$status', 'held'] }, 1, 0] } },
+          countCharged:  { $sum: { $cond: [{ $eq: ['$status', 'charged'] }, 1, 0] } },
+          countWaived:   { $sum: { $cond: [{ $eq: ['$status', 'waived'] }, 1, 0] } },
+          countReview:   { $sum: { $cond: [{ $eq: ['$status', 'review'] }, 1, 0] } },
+          countHeldUnfulfilled:       { $sum: { $cond: [{ $eq: ['$holdReason', 'unfulfilled'] }, 1, 0] } },
+          countHeldReturnInProgress:  { $sum: { $cond: [{ $eq: ['$holdReason', 'return_in_progress'] }, 1, 0] } },
+          countHeldDisputeActive:     { $sum: { $cond: [{ $eq: ['$holdReason', 'dispute_active'] }, 1, 0] } },
+          countHeldPartialRefundOpen: { $sum: { $cond: [{ $eq: ['$holdReason', 'partial_refund_open'] }, 1, 0] } },
         },
       },
     ]);
@@ -81,6 +85,8 @@ export async function GET(req: NextRequest) {
       summary: summary ?? {
         totalPending: 0, totalHeld: 0, totalCharged: 0, totalWaived: 0,
         countPending: 0, countHeld: 0, countCharged: 0, countWaived: 0, countReview: 0,
+        countHeldUnfulfilled: 0, countHeldReturnInProgress: 0,
+        countHeldDisputeActive: 0, countHeldPartialRefundOpen: 0,
       },
     });
   } catch (err) {
@@ -133,6 +139,7 @@ export async function PATCH(req: NextRequest) {
       {
         $set: {
           status: 'waived',
+          holdReason: null,
           commissionAmount: 0,
           reviewNote: note ? `Manually waived: ${note}` : 'Manually waived by admin',
         },

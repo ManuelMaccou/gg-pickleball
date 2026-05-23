@@ -36,9 +36,6 @@ export async function createMatch(data: MatchCreationData & {
 
   const finalTeam1Names = (data.team1Names || []).map(cleanName);
   const finalTeam2Names = (data.team2Names || []).map(cleanName);
-  
-  console.log('Original team 1 names:', data.team1Names);
-  console.log('Cleaned team 1 names:', finalTeam1Names);
 
   const createdMatches = await Match.create(
     [{

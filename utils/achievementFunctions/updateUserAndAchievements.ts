@@ -373,7 +373,6 @@ async function processLocalMatch(
     const session = dbOptions.session;
 
   try {
-    console.log("[TRANSACTION_DEBUG] Transaction started.");
 
     if (team1Ids.length !== 2 || team2Ids.length !== 2) {
       throw new Error('Each team must have exactly 2 members.');
@@ -386,14 +385,10 @@ async function processLocalMatch(
     let initialUsers: IUser[], client: IClient | null;
 
     try {
-      console.log("[TRANSACTION_DEBUG] START: Initial User and Client fetch.");
-
       [initialUsers, client] = await Promise.all([
         User.find({ _id: { $in: participantObjIds } }).session(session),
         Client.findById(location).session(session)
       ]);
-
-      console.log("[TRANSACTION_DEBUG] SUCCESS: Initial User and Client fetch.");
     } catch (e) {
       console.error("[TRANSACTION_DEBUG] FAILURE: Initial User and Client fetch.", e);
       throw e;
@@ -467,7 +462,6 @@ async function processLocalMatch(
     if (statUpdateOps.length > 0) {
       try {
         await User.bulkWrite(statUpdateOps, { session });
-        console.log("[TRANSACTION_DEBUG] SUCCESS: Phase 1 User.bulkWrite for stats.");
       } catch (e) {
         console.error("[TRANSACTION_DEBUG] FAILURE: Phase 1 User.bulkWrite for stats.", e);
         throw e;
@@ -479,7 +473,6 @@ async function processLocalMatch(
 
     try {
       updatedUsers = await User.find({ _id: { $in: participantObjIds } }).session(session);
-      console.log("[TRANSACTION_DEBUG] SUCCESS: Refetched users for Phase 2.");
     } catch (e) {
       console.error("[TRANSACTION_DEBUG] FAILURE: Refetching users for Phase 2.", e);
       throw e;
@@ -489,7 +482,6 @@ async function processLocalMatch(
     
     try {
       enabledAchievementKeys = new Set((await Achievement.find({ _id: { $in: client.achievements } }).session(session)).map(a => a.name));
-      console.log("[TRANSACTION_DEBUG] SUCCESS: Fetched enabled achievements.");
     } catch (e) {
       console.error("[TRANSACTION_DEBUG] FAILURE: Fetching enabled achievements.", e);
       throw e;
@@ -544,7 +536,6 @@ async function processLocalMatch(
     let achievementMap;
     try {
       achievementMap = new Map((await Achievement.find({ name: { $in: Array.from(allNewKeys) } }).session(session)).map(a => [a.name, a]));
-      console.log("[TRANSACTION_DEBUG] SUCCESS: Built achievementMap.");
     } catch (e) {
       console.error("[TRANSACTION_DEBUG] FAILURE: Building achievementMap.", e);
       throw e;
@@ -609,7 +600,6 @@ const earnedAchievementsList: {
       let rewards;
       try {
         rewards = await Reward.find({ _id: { $in: earnedRewardIds } }).session(session);
-        console.log(`[TRANSACTION_DEBUG] SUCCESS: Fetched rewards for user ${user.name}.`);
       } catch (e) {
         console.error(`[TRANSACTION_DEBUG] FAILURE: Fetching rewards for user ${user.name}.`, e);
         throw e;
@@ -667,14 +657,11 @@ const earnedAchievementsList: {
     if (achievementBulkOps.length > 0) {
       try {
         await User.bulkWrite(achievementBulkOps, { session });
-        console.log("[TRANSACTION_DEBUG] SUCCESS: Phase 2 User.bulkWrite for achievements/rewards.");
       } catch (e) {
         console.error("[TRANSACTION_DEBUG] FAILURE: Phase 2 User.bulkWrite for achievements/rewards.", e);
         throw e;
       }
     }
-
-    console.log("[TRANSACTION_DEBUG] Transaction committed successfully.");
 
     return { success: true,
       earnedAchievements: earnedAchievementsList,
@@ -683,7 +670,6 @@ const earnedAchievementsList: {
     };
 
   } catch (error) {
-    console.log("[TRANSACTION_DEBUG] An error occurred, aborting transaction.");
     console.error('Error in processLocalMatch:', error);
     throw error;
   }
@@ -693,8 +679,6 @@ async function processGlobalMatch(
   options: Omit<UpdateOptions, 'isGlobalContext' | 'location'> & { dataSourceId: string },
   dbOptions: RequiredDbOptions 
 ) {
-
-  console.log(`[DEBUG] Starting processGlobalMatch for dataSourceId: ${options.dataSourceId}...`);
 
   const session = dbOptions.session;
 
@@ -719,7 +703,6 @@ async function processGlobalMatch(
     const sourceConfigs = await SourceRewardConfig.find({ dataSourceId: dataSourceId }).session(session);
 
     if (!sourceConfigs || sourceConfigs.length === 0) {
-      console.warn(`[DEBUG] EXIT: No SourceRewardConfigs found for dataSourceId: ${dataSourceId}.`);
       return { success: true, earnedAchievements: [], message: 'No source config found.', updatedUsers: [] };
     }
 
@@ -728,14 +711,10 @@ async function processGlobalMatch(
       sourceRewardConfigMap.set(config.achievementName, config.sponsorships);
     }
 
-    console.log(`[DEBUG] SourceRewardConfig loaded with ${sourceRewardConfigMap.size} achievement keys.`);
-
     // --- PHASE 1: UPDATE CORE STATS (WINS, LOSSES, POINTS) ---
-    console.log('\n--- [DEBUG] PHASE 1: Updating core stats ---');
     const statUpdateOps: any[] = [];
     for (const userId of participantIdsSet) {
       if (options.targetUserIds && !options.targetUserIds.includes(userId)) {
-          console.log(`[DEBUG] Skipping stat update for user ${userId} (Not in target list)`);
           continue;
         }
 
@@ -759,13 +738,10 @@ async function processGlobalMatch(
     }
 
     if (statUpdateOps.length > 0) {
-      console.log('[DEBUG] Executing initial stat update bulkWrite...');
       await User.bulkWrite(statUpdateOps, { session });
-      console.log('[DEBUG] Stat update complete.');
     }
 
     // --- PHASE 2: CALCULATE ACHIEVEMENTS AND REWARDS WITH UPDATED STATS ---
-    console.log('\n--- [DEBUG] PHASE 2: Calculating achievements ---');
     
     const updatedUsers = await User.find({ _id: { $in: participantObjIds } }).session(session);
     if (!updatedUsers || updatedUsers.length === 0) {
@@ -783,8 +759,6 @@ async function processGlobalMatch(
         enabledCheckFunctions.add(func);
       } 
     }
-
-    console.log(`[DEBUG] Enabled ${enabledCheckFunctions.size} achievement check functions.`);
 
     if (enabledCheckFunctions.size === 0) {
         console.warn("[DEBUG] WARNING: No check functions were enabled. The `achievementFunctionMap` might be missing keys from GGRConfig.");
@@ -821,8 +795,7 @@ async function processGlobalMatch(
       const newAchievements = allAchievements.filter(a => {
         const existing = userGlobalStats.achievements?.some(ach => ach.name === a.key);
        if (!a.repeatable && existing) {
-            console.log(`[DEBUG] Filtering out already earned achievement: ${a.key}`);
-            return false;
+          return false;
         }
         return true;
       });

@@ -3,8 +3,12 @@ import { IClient } from "../types/databaseTypes";
 
 const ShopifySubSchema = new Schema({
   shopDomain: { type: String },
+  shopId: { type: String },
   accessToken: { type: String },
   secret: { type: String },
+  refreshToken: { type: String },
+  tokenExpiresAt: { type: Date },
+  refreshTokenExpiresAt: { type: Date },
 }, { _id: false });
 
 const PodplaySubSchema = new Schema({

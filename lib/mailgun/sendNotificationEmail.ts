@@ -5,7 +5,9 @@ import { logError } from "@/lib/sentry/logger";
 
 export type EmailTemplateType = 
   | 'gg_universal_notification' // Used for player rewards/welcome
-  | 'gg_admin_invite';          // Used for inviting new club admins
+  | 'gg_admin_invite'
+  | 'gg_brand_application_received'
+  | 'gg_brand_application_decision';
 
 interface NotificationParams {
   email: string;
@@ -52,7 +54,7 @@ export async function sendNotificationEmail({
       `\nTemplate:`, template
     );
 
-    /*
+  
     await mg.messages.create(domain, {
       from: fromEmail,
       to: [email],
@@ -60,14 +62,14 @@ export async function sendNotificationEmail({
       template: template,
       'h:X-Mailgun-Variables': JSON.stringify(variables),
     });
-    */
+ 
 
   } catch (error: unknown) {
     logError(error, { message: `Failed to send ${template} email to ${email}` });
     if (error instanceof Error) {
-        console.error(`Mailgun Error: ${error.message}`);
+      console.error(`Mailgun Error: ${error.message}`);
     } else {
-        console.error("Unknown Mailgun Error", error);
+      console.error("Unknown Mailgun Error:", JSON.stringify(error));
     }
   }
 }

@@ -36,11 +36,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "There was an error completing this request." }, { status: 400 });
     }
 
-    console.log("")
-
     const admin = await Admin.findOne({ user: userId }).populate("location").lean() as any;
 
-    console.log('admin:', admin)
 
     if (!admin) {
       return new Response(null, { status: 204 });
