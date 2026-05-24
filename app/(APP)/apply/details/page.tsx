@@ -19,8 +19,30 @@ import {
 import { ArrowRight, InfoIcon } from 'lucide-react';
 import darkGgLogo from '../../../../public/logos/gg_logo_black_transparent.png';
 
-const DESCRIPTION_MIN = 30;
+const DESCRIPTION_MIN = 50;
 const DESCRIPTION_MAX = 500;
+
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '12px 14px',
+  fontSize: 16,
+  fontFamily: 'inherit',
+  backgroundColor: 'rgba(0,0,0,0.4)',
+  color: '#FFFFFF',
+  border: '1px solid rgba(255,255,255,0.15)',
+  borderRadius: 6,
+  outline: 'none',
+};
+
+const labelStyle: React.CSSProperties = {
+  display: 'block',
+  color: 'rgba(255,255,255,0.7)',
+  letterSpacing: '0.08em',
+  textTransform: 'uppercase',
+  fontSize: 11,
+  fontWeight: 700,
+  marginBottom: 8,
+};
 
 export default function ApplyDetailsPage() {
   const router = useRouter();
@@ -34,18 +56,23 @@ export default function ApplyDetailsPage() {
     }
   }, [auth0User, auth0IsLoading, router]);
 
-  // Application state
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Form fields
+  const [legalCompanyName, setLegalCompanyName] = useState('');
   const [brandName, setBrandName] = useState('');
+  const [applicantTitle, setApplicantTitle] = useState('');
   const [website, setWebsite] = useState('');
   const [description, setDescription] = useState('');
   const [shopifyConfirmed, setShopifyConfirmed] = useState(false);
+  const [authorityConfirmed, setAuthorityConfirmed] = useState(false);
+  const [agreementAccepted, setAgreementAccepted] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // Load existing draft (or create one) on mount
+  // Load or create draft on mount
   useEffect(() => {
     if (!auth0User) return;
     const load = async () => {
@@ -58,7 +85,6 @@ export default function ApplyDetailsPage() {
         }
         const app = data.application;
 
-        // If they've already submitted, redirect appropriately
         if (app.status === 'pending') {
           router.replace('/apply/submitted');
           return;
@@ -68,8 +94,10 @@ export default function ApplyDetailsPage() {
           return;
         }
 
-        // Draft — populate fields
+        // Populate from existing draft
+        setLegalCompanyName(app.legalCompanyName ?? '');
         setBrandName(app.brandName ?? '');
+        setApplicantTitle(app.applicantTitle ?? '');
         setWebsite(app.website ?? '');
         setDescription(app.description ?? '');
         setShopifyConfirmed(app.shopifyConfirmed ?? false);
@@ -92,10 +120,14 @@ export default function ApplyDetailsPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          legalCompanyName,
           brandName,
+          applicantTitle,
           website,
           description,
           shopifyConfirmed,
+          authorityConfirmed,
+          agreementAccepted,
         }),
       });
       const data = await res.json();
@@ -115,287 +147,225 @@ export default function ApplyDetailsPage() {
 
   if (auth0IsLoading || loading) {
     return (
-      <Box
-        style={{
-          backgroundColor: '#0a0a0a',
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
+      <Box style={{ backgroundColor: '#0a0a0a', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Spinner size="3" />
       </Box>
     );
   }
 
   const descriptionLength = description.length;
-  const descriptionValid =
-    descriptionLength >= DESCRIPTION_MIN && descriptionLength <= DESCRIPTION_MAX;
   const formValid =
+    legalCompanyName.trim().length >= 2 &&
     brandName.trim().length >= 2 &&
+    applicantTitle.trim().length >= 2 &&
     website.trim().length > 0 &&
-    descriptionValid &&
-    shopifyConfirmed;
+    descriptionLength >= DESCRIPTION_MIN &&
+    descriptionLength <= DESCRIPTION_MAX &&
+    shopifyConfirmed &&
+    authorityConfirmed &&
+    agreementAccepted;
 
   return (
-    <Box
-      style={{
-        backgroundColor: '#0a0a0a',
-        minHeight: '100vh',
-        position: 'relative',
-        overflow: 'hidden',
-      }}
-    >
+    <Box style={{ backgroundColor: '#0a0a0a', minHeight: '100vh', position: 'relative', overflow: 'hidden' }}>
       {/* Grid texture */}
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          backgroundImage:
-            'linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)',
-          backgroundSize: '64px 64px',
-          maskImage: 'radial-gradient(ellipse at center top, black 0%, transparent 70%)',
-          WebkitMaskImage: 'radial-gradient(ellipse at center top, black 0%, transparent 70%)',
-          pointerEvents: 'none',
-          zIndex: 1,
-        }}
-      />
+      <div style={{
+        position: 'absolute', inset: 0,
+        backgroundImage: 'linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)',
+        backgroundSize: '64px 64px',
+        maskImage: 'radial-gradient(ellipse at center top, black 0%, transparent 70%)',
+        WebkitMaskImage: 'radial-gradient(ellipse at center top, black 0%, transparent 70%)',
+        pointerEvents: 'none', zIndex: 1,
+      }} />
 
       {/* Header */}
       <Container size="4" px="5" style={{ position: 'relative', zIndex: 10 }}>
         <Flex justify="between" align="center" pt="6" pb="6">
           <Link href="/" style={{ textDecoration: 'none' }}>
-            <Image
-              src={darkGgLogo}
-              alt="GG Pickleball"
-              height={32}
-              width={60}
-              style={{ objectFit: 'contain' }}
-            />
+            <Image src={darkGgLogo} alt="GG Pickleball" height={32} width={60} style={{ objectFit: 'contain' }} />
           </Link>
-          <Text size="2" style={{ color: 'rgba(255,255,255,0.5)' }}>
-            Step 2 of 2
-          </Text>
+          <Text size="2" style={{ color: 'rgba(255,255,255,0.5)' }}>Brand Application</Text>
         </Flex>
       </Container>
 
       <Container size="2" px="5" style={{ position: 'relative', zIndex: 10 }}>
         <Box py="6">
-          <Heading
-            size="8"
-            mb="3"
-            style={{
-              color: '#FFFFFF',
-              letterSpacing: '-0.025em',
-              lineHeight: 1.05,
-            }}
-          >
+          <Heading size="8" mb="3" style={{ color: '#FFFFFF', letterSpacing: '-0.025em', lineHeight: 1.05 }}>
             Tell us about your brand.
           </Heading>
-          <Text
-            size="4"
-            style={{
-              color: 'rgba(255,255,255,0.7)',
-              lineHeight: 1.55,
-              display: 'block',
-              marginBottom: 32,
-            }}
-          >
-            A few quick questions and you're done. We'll review and get back
-            to you within a few business days.
+          <Text size="4" style={{ color: 'rgba(255,255,255,0.7)', lineHeight: 1.55, display: 'block', marginBottom: 32 }}>
+            A few quick questions and you're done. We'll review and get back to you within a few business days.
           </Text>
 
           {loadError && (
             <Callout.Root color="amber" mb="5">
-              <Callout.Icon>
-                <InfoIcon size={16} />
-              </Callout.Icon>
+              <Callout.Icon><InfoIcon size={16} /></Callout.Icon>
               <Callout.Text>{loadError}</Callout.Text>
             </Callout.Root>
           )}
 
           <form onSubmit={handleSubmit}>
             <Flex direction="column" gap="5">
-              {/* Brand name */}
-              <Box>
-                <Text
-                  size="1"
-                  weight="bold"
-                  mb="2"
-                  style={{
-                    display: 'block',
-                    color: 'rgba(255,255,255,0.7)',
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  Brand name
+
+              {/* ── Company Identity ── */}
+              <Box style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: 20 }}>
+                <Text size="2" weight="bold" mb="4" style={{ display: 'block', color: '#b2ff00', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                  Company Information
                 </Text>
-                <input
-                  type="text"
-                  required
-                  minLength={2}
-                  maxLength={100}
-                  value={brandName}
-                  onChange={(e) => setBrandName(e.target.value)}
-                  placeholder="Acme Paddles"
-                  style={{
-                    width: '100%',
-                    padding: '12px 14px',
-                    fontSize: 16,
-                    fontFamily: 'inherit',
-                    backgroundColor: 'rgba(0,0,0,0.4)',
-                    color: '#FFFFFF',
-                    border: '1px solid rgba(255,255,255,0.15)',
-                    borderRadius: 6,
-                    outline: 'none',
-                  }}
-                />
-              </Box>
-
-              {/* Website */}
-              <Box>
-                <Text
-                  size="1"
-                  weight="bold"
-                  mb="2"
-                  style={{
-                    display: 'block',
-                    color: 'rgba(255,255,255,0.7)',
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  Website
-                </Text>
-                <input
-                  type="text"
-                  required
-                  value={website}
-                  onChange={(e) => setWebsite(e.target.value)}
-                  placeholder="https://yourbrand.com"
-                  style={{
-                    width: '100%',
-                    padding: '12px 14px',
-                    fontSize: 16,
-                    fontFamily: 'inherit',
-                    backgroundColor: 'rgba(0,0,0,0.4)',
-                    color: '#FFFFFF',
-                    border: '1px solid rgba(255,255,255,0.15)',
-                    borderRadius: 6,
-                    outline: 'none',
-                  }}
-                />
-              </Box>
-
-              {/* Description */}
-              <Box>
-                <Flex justify="between" align="center" mb="2">
-                  <Flex direction={'row'} gap={'2'} align={'center'}>
-                    <Text
-                      size="1"
-                      weight="bold"
-                      style={{
-                        color: 'rgba(255,255,255,0.7)',
-                        letterSpacing: '0.08em',
-                        textTransform: 'uppercase',
-                      }}
-                    >
-                      Description
-                    </Text>
-                    <Text
-                        size="2"
-                        style={{
-                          color: 'rgba(255,255,255,0.55)',
-                          display: 'block',
-                          marginTop: 2,
-                        }}
-                      >
-                      (minimum 30 characters)
-                    </Text>
-                  </Flex>
-                  
-                  <Text
-                    size="1"
-                    style={{
-                      color:
-                        descriptionLength > DESCRIPTION_MAX
-                          ? '#FCA5A5'
-                          : descriptionLength >= DESCRIPTION_MIN
-                          ? '#b2ff00'
-                          : 'rgba(255,255,255,0.4)',
-                    }}
-                  >
-                    {descriptionLength} / {DESCRIPTION_MAX}
-                  </Text>
-                </Flex>
-                <textarea
-                  required
-                  rows={5}
-                  minLength={DESCRIPTION_MIN}
-                  maxLength={DESCRIPTION_MAX}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Tell us about your company and what you sell."
-                  style={{
-                    width: '100%',
-                    padding: '12px 14px',
-                    fontSize: 15,
-                    fontFamily: 'inherit',
-                    lineHeight: 1.5,
-                    backgroundColor: 'rgba(0,0,0,0.4)',
-                    color: '#FFFFFF',
-                    border: '1px solid rgba(255,255,255,0.15)',
-                    borderRadius: 6,
-                    outline: 'none',
-                    resize: 'vertical',
-                    minHeight: 120,
-                  }}
-                />
-              </Box>
-
-              {/* Shopify checkbox */}
-              <Box
-                style={{
-                  padding: 16,
-                  border: '1px solid rgba(255,255,255,0.15)',
-                  borderRadius: 8,
-                  backgroundColor: 'rgba(255,255,255,0.02)',
-                }}
-              >
-                <label
-                  style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: 12,
-                    cursor: 'pointer',
-                  }}
-                >
-                  <Checkbox
-                    size="2"
-                    checked={shopifyConfirmed}
-                    onCheckedChange={(c) => setShopifyConfirmed(!!c)}
-                    color="lime"
-                    style={{ marginTop: 2 }}
-                  />
+                <Flex direction="column" gap="4">
                   <Box>
-                    <Text size="3" weight="bold" style={{ color: '#FFFFFF' }}>
-                      My store is on Shopify
-                    </Text>
-                    <Text
-                      size="2"
-                      style={{
-                        color: 'rgba(255,255,255,0.55)',
-                        display: 'block',
-                        marginTop: 2,
-                      }}
-                    >
-                      We integrate directly with Shopify. If you're not on Shopify, we
-                      can't process your application at this time.
+                    <label style={labelStyle}>Legal Company Name</label>
+                    <input
+                      type="text"
+                      required
+                      minLength={2}
+                      maxLength={200}
+                      value={legalCompanyName}
+                      onChange={(e) => setLegalCompanyName(e.target.value)}
+                      placeholder="Acme Sports Inc."
+                      style={inputStyle}
+                    />
+                    <Text size="1" style={{ color: 'rgba(255,255,255, 0.8)', display: 'block', marginTop: 6 }}>
+                      The full legal name of your company. This will not be displayed publicly and is used for agreement records only.
                     </Text>
                   </Box>
-                </label>
+
+                  <Box>
+                    <label style={labelStyle}>Brand Display Name</label>
+                    <input
+                      type="text"
+                      required
+                      minLength={2}
+                      maxLength={100}
+                      value={brandName}
+                      onChange={(e) => setBrandName(e.target.value)}
+                      placeholder="Acme Paddles"
+                      style={inputStyle}
+                    />
+                    <Text size="1" style={{ color: 'rgba(255,255,255,0.8)', display: 'block', marginTop: 6 }}>
+                      The name players will see on the platform. Can be different from your legal name.
+                    </Text>
+                  </Box>
+
+                  <Box>
+                    <label style={labelStyle}>Website</label>
+                    <input
+                      type="text"
+                      required
+                      value={website}
+                      onChange={(e) => setWebsite(e.target.value)}
+                      placeholder="https://yourbrand.com"
+                      style={inputStyle}
+                    />
+                  </Box>
+                </Flex>
+              </Box>
+
+              {/* ── Authorized Representative ── */}
+              <Box style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: 20 }}>
+                <Text size="2" weight="bold" mb="4" style={{ display: 'block', color: '#b2ff00', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                  Authorized Representative
+                </Text>
+                <Box>
+                  <label style={labelStyle}>Your Job Title / Role</label>
+                  <input
+                    type="text"
+                    required
+                    minLength={2}
+                    maxLength={100}
+                    value={applicantTitle}
+                    onChange={(e) => setApplicantTitle(e.target.value)}
+                    placeholder="CEO, VP of Marketing, Owner..."
+                    style={inputStyle}
+                  />
+                  <Text size="1" style={{ color: 'rgba(255,255,255,0.8)', display: 'block', marginTop: 6 }}>
+                    Your title or role at the company. Recorded as part of the agreement acceptance record.
+                  </Text>
+                </Box>
+              </Box>
+
+              {/* ── Brand Description ── */}
+              <Box style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: 20 }}>
+                <Text size="2" weight="bold" mb="4" style={{ display: 'block', color: '#b2ff00', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                  About Your Brand
+                </Text>
+                <Box>
+                  <Flex justify="between" align="center" mb="2">
+                    <label style={{ ...labelStyle, marginBottom: 0 }}>Description</label>
+                    <Text size="1" style={{
+                      color: descriptionLength > DESCRIPTION_MAX ? '#FCA5A5' :
+                        descriptionLength >= DESCRIPTION_MIN ? '#b2ff00' : 'rgba(255,255,255,0.4)',
+                    }}>
+                      {descriptionLength} / {DESCRIPTION_MAX}
+                    </Text>
+                  </Flex>
+                  <textarea
+                    required
+                    rows={5}
+                    minLength={DESCRIPTION_MIN}
+                    maxLength={DESCRIPTION_MAX}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Tell us about your company and what you sell."
+                    style={{ ...inputStyle, resize: 'vertical', minHeight: 120, lineHeight: 1.5, fontSize: 15 }}
+                  />
+                </Box>
+              </Box>
+
+              {/* ── Confirmations ── */}
+              <Box>
+                <Text size="2" weight="bold" mb="4" style={{ display: 'block', color: '#b2ff00', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                  Confirmations
+                </Text>
+                <Flex direction="column" gap="3">
+
+                  {/* Shopify */}
+                  <Box style={{ padding: 16, border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.02)' }}>
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer' }}>
+                      <Checkbox size="2" checked={shopifyConfirmed} onCheckedChange={(c) => setShopifyConfirmed(!!c)} color="lime" style={{ marginTop: 2 }} />
+                      <Box>
+                        <Text size="3" weight="bold" style={{ color: '#FFFFFF' }}>My store is on Shopify</Text>
+                        <Text size="2" style={{ color: 'rgba(255,255,255,0.8)', display: 'block', marginTop: 2 }}>
+                          GG Pickleball integrates directly with Shopify. If you're not on Shopify, we can't process your application at this time.
+                        </Text>
+                      </Box>
+                    </label>
+                  </Box>
+
+                  {/* Authority */}
+                  <Box style={{ padding: 16, border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.02)' }}>
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer' }}>
+                      <Checkbox size="2" checked={authorityConfirmed} onCheckedChange={(c) => setAuthorityConfirmed(!!c)} color="lime" style={{ marginTop: 2 }} />
+                      <Box>
+                        <Text size="3" weight="bold" style={{ color: '#FFFFFF' }}>I have authority to bind my company</Text>
+                        <Text size="2" style={{ color: 'rgba(255,255,255,0.8)', display: 'block', marginTop: 2 }}>
+                          I confirm that I am an authorized employee, officer, or agent of the company named above, with the authority to enter into legally binding agreements on its behalf.
+                        </Text>
+                      </Box>
+                    </label>
+                  </Box>
+
+                  {/* Agreement */}
+                  <Box style={{ padding: 16, border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.02)' }}>
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer' }}>
+                      <Checkbox size="2" checked={agreementAccepted} onCheckedChange={(c) => setAgreementAccepted(!!c)} color="lime" style={{ marginTop: 2 }} />
+                      <Box>
+                        <Text size="3" weight="bold" style={{ color: '#FFFFFF' }}>I agree to the Brand Partner Agreement</Text>
+                        <Text size="2" style={{ color: 'rgba(255,255,255,0.8)', display: 'block', marginTop: 2 }}>
+                          I have read and agree to the{' '}
+                          <Link
+                            href="/legal/partnership-agreement"
+                            target="_blank"
+                            style={{ color: '#b2ff00', textDecoration: 'underline' }}
+                          >
+                            GG Pickleball Brand Partner Agreement
+                          </Link>
+                          , including the 5% commission on redeemed sales. This constitutes a legally binding electronic signature under the E-SIGN Act.
+                        </Text>
+                      </Box>
+                    </label>
+                  </Box>
+
+                </Flex>
               </Box>
 
               {/* Error */}
@@ -420,9 +390,7 @@ export default function ApplyDetailsPage() {
                 }}
               >
                 {submitting ? (
-                  <Flex align="center" gap="2">
-                    <Spinner size="2" /> Submitting…
-                  </Flex>
+                  <Flex align="center" gap="2"><Spinner size="2" /> Submitting…</Flex>
                 ) : (
                   <Flex align="center" gap="2">
                     Submit application
@@ -431,17 +399,10 @@ export default function ApplyDetailsPage() {
                 )}
               </Button>
 
-              <Text
-                size="1"
-                style={{
-                  color: 'rgba(255,255,255,0.4)',
-                  textAlign: 'center',
-                  marginTop: 4,
-                }}
-              >
-                By submitting, you agree to the 5% commission billing model on
-                redeemed sales.
+              <Text size="1" style={{ color: 'rgba(255,255,255,0.4)', textAlign: 'center', marginTop: 4 }}>
+                By submitting, your acceptance of the Brand Partner Agreement is recorded with your name, company, title, email address, IP address, and timestamp.
               </Text>
+
             </Flex>
           </form>
         </Box>

@@ -76,7 +76,6 @@ export async function POST(req: NextRequest) {
 
     // 2. Validate the request body
     const body = (await req.json()) as any;
-    console.log('auth0 body:', body);
     const { sub, email, email_verified, guest_username } = body;
 
     if (!sub || !email) {

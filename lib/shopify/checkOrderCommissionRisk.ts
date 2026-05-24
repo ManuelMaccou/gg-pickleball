@@ -157,6 +157,12 @@ export async function checkOrderCommissionRisk(
     return { action: 'hold', holdReason: 'unfulfilled' };
   }
 
+  // Check for in-flight refunds — refund records exist but amount hasn't settled yet
+  const refunds: { createdAt: string }[] = order.refunds ?? [];
+  if (refunds.length > 0 && totalRefunded === 0) {
+    return { action: 'hold', holdReason: 'return_in_progress' };
+  }
+
   // 2. Check disputes.
   for (const dispute of disputes) {
     if (LOSING_DISPUTE_STATUSES.has(dispute.status)) {

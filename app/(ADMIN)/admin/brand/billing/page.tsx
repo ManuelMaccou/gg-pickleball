@@ -173,24 +173,25 @@ export default function BrandBillingPage() {
         <Table.Root variant="surface">
           <Table.Header>
             <Table.Row>
+              <Table.ColumnHeaderCell>Order date</Table.ColumnHeaderCell>
               <Table.ColumnHeaderCell>Order</Table.ColumnHeaderCell>
               <Table.ColumnHeaderCell>Code</Table.ColumnHeaderCell>
               <Table.ColumnHeaderCell>Sale</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>Commission</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>Due / Charged</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>Amount due</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>Charge date</Table.ColumnHeaderCell>
               <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
             </Table.Row>
           </Table.Header>
           <Table.Body>
             {commissionsLoading ? (
               <Table.Row>
-                <Table.Cell colSpan={6}>
+                <Table.Cell colSpan={7}>
                   <Flex justify="center" p="5"><Spinner size="2" /></Flex>
                 </Table.Cell>
               </Table.Row>
             ) : commissions.length === 0 ? (
               <Table.Row>
-                <Table.Cell colSpan={6}>
+                <Table.Cell colSpan={7}>
                   <Text color="gray" align="center" my="4">
                     No commissions yet. They'll appear here when customers use your promo codes.
                   </Text>
@@ -199,6 +200,9 @@ export default function BrandBillingPage() {
             ) : (
               commissions.map((r) => (
                 <Table.Row key={r._id}>
+                  <Table.Cell>
+                    <Text size="2" color="gray">{formatDate(r.orderCreatedAt)}</Text>
+                  </Table.Cell>
                   <Table.Cell>
                     <Text size="2" style={{ fontFamily: 'monospace' }}>{r.shopifyOrderId}</Text>
                   </Table.Cell>

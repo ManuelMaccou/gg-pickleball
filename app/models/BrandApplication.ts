@@ -11,13 +11,20 @@ import { IBrandApplication } from '../types/databaseTypes';
 
 const BrandApplicationSchema = new Schema<IBrandApplication>(
   {
-    userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-    email: { type: String, required: true },
-    brandName: { type: String },
-    website: { type: String },
-    description: { type: String },
+    userId:         { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    email:          { type: String, required: true },
+
+    // Identity fields (Section 2.4 + Section 13)
+    legalCompanyName: { type: String },   // Legal entity name — not displayed publicly
+    brandName:        { type: String },   // Public-facing brand name
+    applicantTitle:   { type: String },   // Job title / role of the accepting individual
+
+    // Brand info (Section 2.2)
+    website:          { type: String },
+    description:      { type: String },
     shopifyConfirmed: { type: Boolean, default: false },
 
+    // Application lifecycle
     status: {
       type: String,
       enum: ['draft', 'pending', 'approved', 'rejected'],
@@ -25,25 +32,35 @@ const BrandApplicationSchema = new Schema<IBrandApplication>(
       default: 'draft',
     },
 
-    reviewNote: { type: String },
-    reviewedAt: { type: Date },
-    reviewedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    // Review fields
+    reviewNote:   { type: String },
+    reviewedAt:   { type: Date },
+    reviewedBy:   { type: Schema.Types.ObjectId, ref: 'User' },
 
     // Set after approval — links the application to the Client that was created
-    clientId: { type: Schema.Types.ObjectId, ref: 'Client' },
+    clientId:     { type: Schema.Types.ObjectId, ref: 'Client' },
 
-    submittedAt: { type: Date },
+    submittedAt:  { type: Date },
+
+    // Legal acceptance audit trail (Section 13)
+    // Captured automatically at submission — not entered by the user
+    agreementVersion: { type: String },   // e.g. '1.0'
+    acceptedAt:       { type: Date },     // Timestamp of submission
+    acceptedIp:       { type: String },   // IP address of the submitting request
+    authorityConfirmed: { type: Boolean, default: false }, // "I have authority to bind my company"
+    agreementAccepted:  { type: Boolean, default: false }, // "I agree to the Brand Partner Agreement"
   },
   { timestamps: true }
 );
 
-// One draft per user (drafts auto-resume on return)
+// One draft per user
 BrandApplicationSchema.index(
   { userId: 1, status: 1 },
   { unique: true, partialFilterExpression: { status: 'draft' } }
 );
-// Look up by brand name for collision checks
+// Brand name collision checks
 BrandApplicationSchema.index({ brandName: 1, status: 1 });
+BrandApplicationSchema.index({ legalCompanyName: 1, status: 1 });
 // Admin list queries
 BrandApplicationSchema.index({ status: 1, createdAt: -1 });
 

@@ -64,14 +64,14 @@ export interface IBrandApplication extends Document {
   _id: Types.ObjectId;
   userId: Types.ObjectId;     // The authenticated user who started the application
   email: string;              // From the authenticated session (business email)
+  legalCompanyName?: string;    // Legal entity name — recorded for audit, not shown publicly
   brandName?: string;         // Optional on draft, required on submit
+  applicantTitle?: string;      // Job title / role of the accepting individual
   website?: string;           // Optional on draft, required on submit
   description?: string;       // Optional on draft, required on submit
   shopifyConfirmed: boolean;  // Must be true to submit
 
   status: BrandApplicationStatus;
-
-  // Review fields
   reviewNote?: string;
   reviewedAt?: Date;
   reviewedBy?: Types.ObjectId;
@@ -80,6 +80,12 @@ export interface IBrandApplication extends Document {
   clientId?: Types.ObjectId;
 
   submittedAt?: Date;  // Set when status moves from draft → pending
+
+  agreementVersion?: string;     // Agreement version accepted, e.g. '1.0'
+  acceptedAt?: Date;             // Timestamp of acceptance
+  acceptedIp?: string;           // IP address of the submitting request
+  authorityConfirmed: boolean;   // Checkbox: "I have authority to bind my company"
+  agreementAccepted: boolean;    // Checkbox: "I agree to the Brand Partner Agreement"
 
   createdAt: Date;
   updatedAt: Date;

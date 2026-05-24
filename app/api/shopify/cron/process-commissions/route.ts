@@ -14,29 +14,29 @@ import { checkOrderCommissionRisk } from '@/lib/shopify/checkOrderCommissionRisk
 import { sendAppEvent } from '@/lib/shopify/sendAppEvent';
 import { logError } from '@/lib/sentry/logger';
 import { ICommissionRecord } from '@/app/types/databaseTypes';
-
+ 
 const COMMISSION_RATE = 0.05;
 const DAYS_5_MS = 5 * 24 * 60 * 60 * 1000;
-
+ 
 export async function POST(req: NextRequest) {
   const secret = req.headers.get('x-cron-secret');
   if (!secret || secret !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-
+ 
   await connectToDatabase();
-
+ 
   const now = new Date();
-
+ 
   const dueRecords = await CommissionRecord.find({
     status: { $in: ['pending', 'held'] },
     nextCheckAt: { $lte: now },
   }).lean();
-
+ 
   console.log(`[CommissionCron] Found ${dueRecords.length} record(s) to process`);
-
+ 
   const results = { charged: 0, held: 0, waived: 0, review: 0, errors: 0 };
-
+ 
   // ── Evaluate each record ──────────────────────────────────────────────────
   const readyToCharge: Array<{
     record: ICommissionRecord;
@@ -44,13 +44,13 @@ export async function POST(req: NextRequest) {
     commissionAmount: number;
     refundedAmount: number;
   }> = [];
-
+ 
   for (const record of dueRecords) {
     try {
       const daysSinceOrder =
         (now.getTime() - record.orderCreatedAt.getTime()) / (1000 * 60 * 60 * 24);
-
-      // Day-60 cutoff — stop auto-processing, flag for manual review.
+ 
+      // Day-60 cutoff — stop auto-processing, flag for manual review
       if (daysSinceOrder >= 60 && record.status === 'held') {
         await CommissionRecord.findByIdAndUpdate(record._id, {
           $set: {
@@ -64,12 +64,12 @@ export async function POST(req: NextRequest) {
         results.review++;
         continue;
       }
-
+ 
       const decision = await checkOrderCommissionRisk(
         record.shopifyOrderGid,
         record.clientId.toString()
       );
-
+ 
       if (decision.action === 'hold') {
         const nextCheckAt = new Date(now.getTime() + DAYS_5_MS);
         await CommissionRecord.findByIdAndUpdate(record._id, {
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
         results.held++;
         continue;
       }
-
+ 
       if (decision.action === 'waive') {
         await CommissionRecord.findByIdAndUpdate(record._id, {
           $set: {
@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
         results.waived++;
         continue;
       }
-
+ 
       if (decision.action === 'charge') {
         const commissionAmount =
           Math.round(decision.commissionBase * COMMISSION_RATE * 100) / 100;
@@ -115,7 +115,7 @@ export async function POST(req: NextRequest) {
       results.errors++;
     }
   }
-
+ 
   // ── Fire one App Events API call per ready-to-charge order ───────────────
   for (const item of readyToCharge) {
     try {
@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
         commissionBase: item.commissionBase,
         orderCreatedAt: item.record.orderCreatedAt,
       });
-
+ 
       if (eventResult.success) {
         await CommissionRecord.findByIdAndUpdate(item.record._id, {
           $set: {
@@ -146,7 +146,6 @@ export async function POST(req: NextRequest) {
           `commission: $${item.commissionAmount.toFixed(2)}`
         );
       } else {
-        // Event API returned success: false — mark for manual review
         await CommissionRecord.findByIdAndUpdate(item.record._id, {
           $set: {
             status: 'review',
@@ -177,7 +176,7 @@ export async function POST(req: NextRequest) {
       results.errors++;
     }
   }
-
+ 
   console.log('[CommissionCron] Run complete:', results);
   return NextResponse.json({ processed: dueRecords.length, results });
 }

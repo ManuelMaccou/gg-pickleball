@@ -363,6 +363,7 @@ export default function GGAdminBillingPage() {
             <Table.Root variant="surface">
               <Table.Header>
                 <Table.Row>
+                  <Table.ColumnHeaderCell>Order date</Table.ColumnHeaderCell>
                   <Table.ColumnHeaderCell>Client</Table.ColumnHeaderCell>
                   <Table.ColumnHeaderCell>Order</Table.ColumnHeaderCell>
                   <Table.ColumnHeaderCell>Code</Table.ColumnHeaderCell>
@@ -376,19 +377,22 @@ export default function GGAdminBillingPage() {
               <Table.Body>
                 {loading ? (
                   <Table.Row>
-                    <Table.Cell colSpan={8}>
+                    <Table.Cell colSpan={9}>
                       <Flex justify="center" p="6"><Spinner size="2" /></Flex>
                     </Table.Cell>
                   </Table.Row>
                 ) : records.length === 0 ? (
                   <Table.Row>
-                    <Table.Cell colSpan={8}>
+                    <Table.Cell colSpan={9}>
                       <Text color="gray" align="center" my="4">No commission records found.</Text>
                     </Table.Cell>
                   </Table.Row>
                 ) : (
                   records.map((r) => (
                     <Table.Row key={r._id}>
+                      <Table.Cell>
+                        <Text size="2" color="gray">{formatDate(r.orderCreatedAt)}</Text>
+                      </Table.Cell>
                       <Table.Cell>
                         <Text size="2" weight="medium">{r.clientName}</Text>
                       </Table.Cell>
