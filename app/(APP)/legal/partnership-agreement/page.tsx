@@ -45,7 +45,7 @@ export default function PartnershipAgreementPage() {
           <Text size="3" style={{ lineHeight: 1.75, display: 'block', marginBottom: 40 }}>
             This Brand Partner Agreement (the "Agreement") is entered into as of the date of
             digital acceptance (the "Effective Date") by and between{' '}
-            <strong>Gogh Group Inc., a California C-Corporation operating the GG Pickleball
+            <strong>Gogh Group Inc., a Delaware C-Corporation operating the GG Pickleball
             platform ("GG Pickleball")</strong>, and the company accepting this Agreement
             ("Brand Partner").
           </Text>
