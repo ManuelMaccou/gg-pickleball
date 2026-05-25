@@ -1,3 +1,5 @@
+// Reward card
+
 import { motion } from "motion/react";
 import { Badge, Box, Button, Flex, Heading, Text } from "@radix-ui/themes";
 import { LockKeyhole, Gift } from "lucide-react";

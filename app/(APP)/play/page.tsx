@@ -1,3 +1,5 @@
+// /play
+
 'use client'
 
 import { Box, Button, Flex, Spinner, Text, Card, Heading } from "@radix-ui/themes";
