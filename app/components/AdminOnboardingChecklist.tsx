@@ -1,7 +1,7 @@
 'use client';
 
-import { Card, Flex, Heading, Text, Box, Button, Progress, Badge } from '@radix-ui/themes';
-import { CheckCircledIcon, CircleIcon, ArrowRightIcon } from '@radix-ui/react-icons';
+import { Card, Flex, Heading, Text, Box, Button, Progress, Badge, Callout } from '@radix-ui/themes';
+import { CheckCircle2, Circle, ArrowRight, AlertCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { IClient } from '../types/databaseTypes';
 import { ClientUser } from '../contexts/UserContext';
@@ -20,6 +20,12 @@ interface OnboardingChecklistProps {
   }) => void;
 }
 
+function buildPricingUrl(shopDomain: string): string {
+  const storeHandle = shopDomain.replace('.myshopify.com', '');
+  const appHandle = process.env.NEXT_PUBLIC_SHOPIFY_APP_HANDLE ?? 'gg-pickleball-3';
+  return `https://admin.shopify.com/store/${storeHandle}/charges/${appHandle}/pricing_plans`;
+}
+
 export function AdminOnboardingChecklist({
   user,
   client,
@@ -30,10 +36,13 @@ export function AdminOnboardingChecklist({
   const router = useRouter();
   const [cardCustomizerOpen, setCardCustomizerOpen] = useState(false);
 
-  const isAccountClaimed = !!user?.accountClaimed;
-  const isShopifyConnected = !!client.shopify?.accessToken;
-  const isRewardsCreated = hasRewards;
-  const isCardCustomized = !!(client.cardBackgroundImage || client.cardTextColor !== '#ffffff');
+  // ── Step completion logic ──────────────────────────────────────────────────
+  const isAccountClaimed   = !!user?.accountClaimed;
+  const hasCredentials     = !!client.shopify?.accessToken;
+  const hasActivePlan      = !!client.shopify?.hasActivePlan;
+  const isShopifyConnected = hasCredentials && hasActivePlan;
+  const isRewardsCreated   = hasRewards;
+  const isCardCustomized   = !!(client.cardBackgroundImage || client.cardTextColor !== '#ffffff');
 
   const completedSteps = [
     isAccountClaimed,
@@ -44,14 +53,20 @@ export function AdminOnboardingChecklist({
 
   const progressPercent = Math.round((completedSteps / 4) * 100);
 
+  // ── All done + rewards issued — hide ──────────────────────────────────────
+  if (completedSteps === 4 && totalRewardsIssued > 0) return null;
+
+  // ── All done, no rewards yet — success state ──────────────────────────────
   if (completedSteps === 4) {
-    if (totalRewardsIssued > 0) return null;
     return (
-      <Card size="3" style={{ backgroundColor: 'var(--green-2)', border: '1px solid var(--green-5)' }} mb="6">
+      <Card size="3" mb="6" style={{ backgroundColor: 'var(--green-2)', border: '1px solid var(--green-5)' }}>
         <Flex align="center" gap="4" p="2">
-          <Box style={{ backgroundColor: 'var(--green-3)', padding: '12px', borderRadius: '50%' }}>
-            <CheckCircledIcon width="24" height="24" color="var(--green-10)" />
-          </Box>
+          <Flex align="center" justify="center" style={{
+            width: 48, height: 48, borderRadius: '50%', flexShrink: 0,
+            backgroundColor: 'var(--green-3)',
+          }}>
+            <CheckCircle2 size={24} color="var(--green-10)" />
+          </Flex>
           <Box>
             <Heading size="4" style={{ color: 'var(--green-11)' }}>You're all set up!</Heading>
             <Text size="2" style={{ color: 'var(--green-10)' }}>
@@ -63,126 +78,189 @@ export function AdminOnboardingChecklist({
     );
   }
 
+  // ── Step row ──────────────────────────────────────────────────────────────
+  const StepRow = ({
+    done,
+    title,
+    description,
+    action,
+    warning,
+  }: {
+    done: boolean;
+    title: string;
+    description: string;
+    action?: React.ReactNode;
+    warning?: React.ReactNode;
+  }) => (
+    <Flex
+      direction="column"
+      p="3"
+      gap="2"
+      style={{
+        backgroundColor: done ? 'var(--gray-2)' : 'white',
+        borderRadius: 10,
+        border: '1px solid var(--gray-4)',
+        opacity: done ? 0.7 : 1,
+        transition: 'opacity 0.2s ease',
+      }}
+    >
+      <Flex align="center" justify="between" gap="3">
+        <Flex align="center" gap="3" style={{ flex: 1, minWidth: 0 }}>
+          {done
+            ? <CheckCircle2 size={20} color="var(--green-10)" style={{ flexShrink: 0 }} />
+            : <Circle size={20} color="var(--gray-7)" style={{ flexShrink: 0 }} />}
+          <Box>
+            <Text as="div" weight="bold" size="3" color={done ? 'gray' : undefined}>
+              {title}
+            </Text>
+            <Text as="div" size="2" color="gray">{description}</Text>
+          </Box>
+        </Flex>
+        {action}
+      </Flex>
+      {warning}
+    </Flex>
+  );
+
   return (
-    <Card size="4" style={{ backgroundColor: 'var(--slate-1)', border: '1px solid var(--slate-5)' }} mb="6">
+    <Card size="4" mb="6" style={{ backgroundColor: 'white', border: '1px solid var(--gray-4)' }}>
       <Flex direction="column" gap="4">
 
-        {/* Header & Progress */}
+        {/* Header & progress */}
         <Box>
           <Flex justify="between" align="end" mb="2">
             <Box>
               <Heading size="5" mb="1">Welcome to GG Pickleball!</Heading>
-              <Text size="2" color="gray">Complete these steps to launch your rewards program.</Text>
+              <Text size="2" color="gray">
+                Complete these steps to launch your rewards program.
+              </Text>
             </Box>
-            <Text size="2" weight="bold" color="lime">{completedSteps} of Completed</Text>
+            <Text size="2" weight="bold" color="lime" style={{ flexShrink: 0 }}>
+              {completedSteps} of 4 complete
+            </Text>
           </Flex>
-          <Progress value={progressPercent} color="lime" style={{ height: '8px' }} />
+          <Progress value={progressPercent} color="lime" style={{ height: 6 }} />
         </Box>
 
-        <Flex direction="column" gap="3" mt="3">
+        <Flex direction="column" gap="2" mt="1">
 
-          {/* STEP 1: Activate Account */}
-          <Flex align="center" justify="between" p="3" style={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid var(--slate-4)' }}>
-            <Flex align="center" gap="3">
-              {isAccountClaimed
-                ? <CheckCircledIcon width="24" height="24" color="green" />
-                : <CircleIcon width="24" height="24" color="gray" />}
-              <Box>
-                <Text as="div" weight="bold" size="3" color={isAccountClaimed ? 'gray' : 'ruby'}>
-                  1. Activate Your Account
-                </Text>
-                <Text as="div" size="2" color="gray">Set your secure password and log in.</Text>
-              </Box>
-            </Flex>
-            {isAccountClaimed
-              ? <Badge color="green" variant="soft">Completed</Badge>
-              : <Badge color="amber" variant="soft">Pending verification</Badge>}
-          </Flex>
+          {/* Step 1: Activate account */}
+          <StepRow
+            done={isAccountClaimed}
+            title="1. Activate your account"
+            description="Set your secure password and log in."
+            action={
+              isAccountClaimed
+                ? <Badge color="green" variant="soft">Done</Badge>
+                : <Badge color="amber" variant="soft">Pending verification</Badge>
+            }
+          />
 
-          {/* STEP 2: Connect Shopify */}
-          <Flex align="center" justify="between" p="3" style={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid var(--slate-4)' }}>
-            <Flex align="center" gap="3">
-              {isShopifyConnected
-                ? <CheckCircledIcon width="24" height="24" color="green" />
-                : <CircleIcon width="24" height="24" color="gray" />}
-              <Box>
-                <Text as="div" weight="bold" size="3" color={isShopifyConnected ? 'gray' : 'ruby'}>
-                  2. Connect Shopify
-                </Text>
-                <Text as="div" size="2" color="gray">
-                  Link your store so we can generate and track reward codes.
-                </Text>
-              </Box>
-            </Flex>
-            {isShopifyConnected
-              ? <Badge color="green" variant="soft">Connected</Badge>
-              : (
-                <Button size="2" variant="soft" onClick={() => router.push('/admin/brand/connect-shopify')}>
-                  Connect Store <ArrowRightIcon />
+          {/* Step 2: Connect Shopify — three sub-states */}
+          <StepRow
+            done={isShopifyConnected}
+            title="2. Connect Shopify"
+            description="Link your store so we can generate and track reward codes."
+            action={
+              isShopifyConnected ? (
+                <Badge color="green" variant="soft">Connected</Badge>
+              ) : hasCredentials && !hasActivePlan ? (
+                <Button
+                  size="2"
+                  color="amber"
+                  style={{ flexShrink: 0, cursor: 'pointer' }}
+                  onClick={() => {
+                    const shopDomain = client.shopify?.shopDomain;
+                    if (shopDomain) window.open(buildPricingUrl(shopDomain), '_blank');
+                  }}
+                >
+                  Select plan <ArrowRight size={14} />
                 </Button>
-              )}
-          </Flex>
+              ) : (
+                <Button
+                  size="2"
+                  variant="soft"
+                  style={{ flexShrink: 0, cursor: 'pointer' }}
+                  onClick={() => router.push('/admin/brand/connect-shopify')}
+                >
+                  Connect store <ArrowRight size={14} />
+                </Button>
+              )
+            }
+            warning={
+              hasCredentials && !hasActivePlan ? (
+                <Callout.Root color="amber" size="1">
+                  <Callout.Icon><AlertCircle size={14} /></Callout.Icon>
+                  <Callout.Text>
+                    Your store is connected but you haven't selected a plan yet.
+                    Rewards won't work until a plan is active.
+                  </Callout.Text>
+                </Callout.Root>
+              ) : undefined
+            }
+          />
 
-          {/* STEP 4: Create Rewards */}
-          <Flex align="center" justify="between" p="3" style={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid var(--slate-4)' }}>
-            <Flex align="center" gap="3">
-              {isRewardsCreated
-                ? <CheckCircledIcon width="24" height="24" color="green" />
-                : <CircleIcon width="24" height="24" color="gray" />}
-              <Box>
-                <Text as="div" weight="bold" size="3" color={isRewardsCreated ? 'gray' : 'ruby'}>
-                  3. Create Rewards
-                </Text>
-                <Text as="div" size="2" color="gray">
-                  Set up the discounts and perks you want to offer players.
-                </Text>
-              </Box>
-            </Flex>
-            {isRewardsCreated
-              ? <Badge color="green" variant="soft">Created</Badge>
-              : (
+          {/* Step 3: Create rewards */}
+          <StepRow
+            done={isRewardsCreated}
+            title="3. Create rewards"
+            description="Set up the discounts and perks you want to offer players."
+            action={
+              isRewardsCreated ? (
+                <Badge color="green" variant="soft">Created</Badge>
+              ) : (
                 <Button
                   size="2"
                   variant="soft"
                   disabled={!isShopifyConnected}
+                  style={{
+                    flexShrink: 0,
+                    cursor: isShopifyConnected ? 'pointer' : 'not-allowed',
+                  }}
                   onClick={() => router.push('/admin/brand/rewards')}
                 >
-                  Create First Reward <ArrowRightIcon />
+                  Set up <ArrowRight size={14} />
                 </Button>
-              )}
-          </Flex>
+              )
+            }
+          />
 
-          {/* STEP 5: Customize Reward Card */}
+          {/* Step 4: Customize reward card */}
           <Flex
             direction="column"
             p="3"
-            style={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid var(--slate-4)' }}
+            style={{
+              backgroundColor: isCardCustomized && !cardCustomizerOpen ? 'var(--gray-2)' : 'white',
+              borderRadius: 10,
+              border: '1px solid var(--gray-4)',
+              opacity: isCardCustomized && !cardCustomizerOpen ? 0.7 : 1,
+              transition: 'opacity 0.2s, background-color 0.2s',
+            }}
           >
-            <Flex align="center" justify="between">
-              <Flex align="center" gap="3">
+            <Flex align="center" justify="between" gap="3">
+              <Flex align="center" gap="3" style={{ flex: 1, minWidth: 0 }}>
                 {isCardCustomized
-                  ? <CheckCircledIcon width="24" height="24" color="green" />
-                  : <CircleIcon width="24" height="24" color="gray" />}
+                  ? <CheckCircle2 size={20} color="var(--green-10)" style={{ flexShrink: 0 }} />
+                  : <Circle size={20} color="var(--gray-7)" style={{ flexShrink: 0 }} />}
                 <Box>
-                  <Text as="div" weight="bold" size="3" color={isCardCustomized ? 'gray' : 'ruby'}>
-                    4. Customize Your Reward Card
+                  <Text as="div" weight="bold" size="3" color={isCardCustomized ? 'gray' : undefined}>
+                    4. Customize your reward card
                   </Text>
                   <Text as="div" size="2" color="gray">
                     Upload a background image and logo for your reward cards.
                   </Text>
                 </Box>
               </Flex>
-              {isCardCustomized
-                ? (
-                  <Button size="2" variant="soft" color="gray" onClick={() => setCardCustomizerOpen((v) => !v)}>
-                    {cardCustomizerOpen ? 'Close' : 'Edit'}
-                  </Button>
-                )
-                : (
-                  <Button size="2" variant="soft" onClick={() => setCardCustomizerOpen((v) => !v)}>
-                    {cardCustomizerOpen ? 'Close' : 'Customize'} <ArrowRightIcon />
-                  </Button>
-                )}
+              <Button
+                size="2"
+                variant="soft"
+                color={isCardCustomized ? 'gray' : 'blue'}
+                style={{ flexShrink: 0, cursor: 'pointer' }}
+                onClick={() => setCardCustomizerOpen((v) => !v)}
+              >
+                {cardCustomizerOpen ? 'Close' : isCardCustomized ? 'Edit' : 'Customize'}
+                {!cardCustomizerOpen && <ArrowRight size={14} />}
+              </Button>
             </Flex>
 
             {cardCustomizerOpen && (

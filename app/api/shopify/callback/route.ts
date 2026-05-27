@@ -7,6 +7,7 @@ import connectToDatabase from '@/lib/mongodb';
 import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser';
 import { validateShopDomain, verifyShopifyHmac } from '@/lib/shopify/authCodeGrant';
 import { registerOrderPaidWebhook } from '@/lib/shopify/webhooks';
+import { redirectToError } from '@/lib/errors/redirectToError';
 
 const SHOPIFY_API_VERSION = '2025-10';
 
@@ -93,6 +94,8 @@ export async function GET(req: NextRequest) {
   const hmac = searchParams.get('hmac');
 
   // --- SECURITY CHECKS ---
+  // These are low-level security failures that real users won't hit in normal
+  // flow — keep them as JSON responses (not branded error pages).
   if (!shop || !validateShopDomain(shop)) {
     return NextResponse.json({ error: 'Invalid shop parameter' }, { status: 400 });
   }
@@ -136,11 +139,8 @@ export async function GET(req: NextRequest) {
     const tokenData = await tokenResponse.json();
 
     if (!tokenResponse.ok) {
-      console.error('Shopify Token Exchange Failed:', tokenData);
-      return NextResponse.json(
-        { error: 'Failed to exchange token', details: tokenData },
-        { status: 500 }
-      );
+      console.error('[ShopifyCallback] Token exchange failed:', tokenData);
+      return redirectToError('token_exchange_failed');
     }
 
     const {
@@ -179,18 +179,15 @@ export async function GET(req: NextRequest) {
     const user = await getAuthorizedUser(req);
 
     if (!user) {
-      const errorUrl = new URL(
-        `${process.env.NEXT_PUBLIC_BASE_URL}/admin/brand/connect-shopify`
-      );
-      errorUrl.searchParams.set('error', 'session_expired');
-      return NextResponse.redirect(errorUrl);
+      console.warn('[ShopifyCallback] No authenticated user found — session likely expired.');
+      return redirectToError('session_expired');
     }
 
     if (!user.adminLocationId) {
-      return NextResponse.json(
-        { error: 'No admin permissions found for this user.' },
-        { status: 403 }
+      console.warn(
+        `[ShopifyCallback] User ${user.id} has no adminLocationId — not a brand admin.`
       );
+      return redirectToError('no_admin_permissions');
     }
 
     const clientId = user.adminLocationId;
@@ -209,6 +206,8 @@ export async function GET(req: NextRequest) {
     if (refresh_token) updateFields['shopify.refreshToken'] = refresh_token;
     if (tokenExpiresAt) updateFields['shopify.tokenExpiresAt'] = tokenExpiresAt;
     if (refreshTokenExpiresAt) updateFields['shopify.refreshTokenExpiresAt'] = refreshTokenExpiresAt;
+    // Always write hasActivePlan — covers both fresh installs and reinstalls
+    updateFields['shopify.hasActivePlan'] = hasActiveSubscription;
 
     const updatedClient = await Client.findByIdAndUpdate(
       clientId,
@@ -217,7 +216,8 @@ export async function GET(req: NextRequest) {
     );
 
     if (!updatedClient) {
-      return NextResponse.json({ error: 'Client not found' }, { status: 404 });
+      console.error(`[ShopifyCallback] Client not found for id: ${clientId}`);
+      return redirectToError('client_not_found');
     }
 
     await registerOrderPaidWebhook(shop, access_token);
@@ -232,8 +232,8 @@ export async function GET(req: NextRequest) {
     return response;
 
   } catch (error) {
-    console.error('Callback Error:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    console.error('[ShopifyCallback] Unexpected error:', error);
+    return redirectToError('token_exchange_failed');
   }
 }
 

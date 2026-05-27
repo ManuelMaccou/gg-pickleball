@@ -7,6 +7,7 @@ import {
   Separator, Dialog, TextField, Callout, Table, TextArea, Switch,
 } from '@radix-ui/themes';
 import { PlusIcon, ChevronLeftIcon, ChevronRightIcon } from '@radix-ui/react-icons';
+import { ArrowLeft, ArrowRight, Calendar, CheckCircle2, Circle } from 'lucide-react';
 import { DateTime } from 'luxon';
 import { Breadcrumbs } from '../../../components/Breadcrumbs';
 
@@ -26,39 +27,32 @@ interface ClubEventRow {
 type EventTypeChoice = 'past' | 'upcoming' | null;
 
 const formatDate = (s: string) => (s ? DateTime.fromISO(s).toFormat('MMM d, yyyy') : '—');
-
 const today = new Date().toISOString().slice(0, 10);
 
 export default function ClubEventsPage({ params }: { params: Promise<{ clubId: string }> }) {
   const { clubId } = use(params);
   const router = useRouter();
 
+  // ── State (unchanged) ──
   const [club, setClub] = useState<{ _id: string; name: string } | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
-
   const [events, setEvents] = useState<ClubEventRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-
-  // Dialog state
   const [createOpen, setCreateOpen] = useState(false);
   const [eventTypeChoice, setEventTypeChoice] = useState<EventTypeChoice>(null);
-
-  // Shared fields
   const [newName, setNewName] = useState('');
   const [newDate, setNewDate] = useState(today);
   const [newNotes, setNewNotes] = useState('');
-
-  // Upcoming-only fields
   const [newLocation, setNewLocation] = useState('');
   const [newDescription, setNewDescription] = useState('');
   const [duprPlusOnly, setDuprPlusOnly] = useState(false);
-
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
+  // ── Club auth fetch (unchanged) ──
   useEffect(() => {
     fetch(`/api/club/${clubId}`)
       .then(async (r) => {
@@ -69,6 +63,7 @@ export default function ClubEventsPage({ params }: { params: Promise<{ clubId: s
       .catch((e) => setAuthError(e.message));
   }, [clubId]);
 
+  // ── loadEvents (unchanged) ──
   const loadEvents = useCallback(async () => {
     if (!club) return;
     setLoading(true);
@@ -88,6 +83,7 @@ export default function ClubEventsPage({ params }: { params: Promise<{ clubId: s
 
   useEffect(() => { loadEvents(); }, [loadEvents]);
 
+  // ── resetDialog (unchanged) ──
   const resetDialog = () => {
     setEventTypeChoice(null);
     setNewName('');
@@ -99,32 +95,30 @@ export default function ClubEventsPage({ params }: { params: Promise<{ clubId: s
     setCreateError(null);
   };
 
+  // ── handleDialogOpenChange (unchanged) ──
   const handleDialogOpenChange = (open: boolean) => {
     if (!open) resetDialog();
     setCreateOpen(open);
   };
 
+  // ── handleCreate (unchanged — including the Intl.DateTimeFormat timezone check) ──
   const handleCreate = async () => {
     if (!eventTypeChoice) return;
     if (!newName.trim()) return setCreateError('Event name is required.');
     if (!newDate) return setCreateError('Date is required.');
 
-   
-
-
-
     if (eventTypeChoice === 'upcoming') {
-    const todayString = new Intl.DateTimeFormat('en-CA', {
-      year: 'numeric', month: '2-digit', day: '2-digit',
-    }).format(new Date()); // "2026-04-30" in whatever timezone the browser is in
+      const todayString = new Intl.DateTimeFormat('en-CA', {
+        year: 'numeric', month: '2-digit', day: '2-digit',
+      }).format(new Date());
 
-    console.log('new date:', newDate)
-    console.log('todayString:', todayString)
-    
-    if (newDate < todayString) {
-      return setCreateError('Upcoming events must be scheduled for today or a future date.');
+      console.log('new date:', newDate);
+      console.log('todayString:', todayString);
+
+      if (newDate < todayString) {
+        return setCreateError('Upcoming events must be scheduled for today or a future date.');
+      }
     }
-  }
 
     setCreating(true);
     setCreateError(null);
@@ -151,7 +145,6 @@ export default function ClubEventsPage({ params }: { params: Promise<{ clubId: s
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-
       setCreateOpen(false);
       resetDialog();
       router.push(`/admin/club/${clubId}/events/${data.event._id}`);
@@ -166,80 +159,117 @@ export default function ClubEventsPage({ params }: { params: Promise<{ clubId: s
   if (!club) return <Flex justify="center" align="center" height="100vh"><Spinner size="3" /></Flex>;
 
   return (
-    <Flex direction="column" style={{ backgroundColor: '#F9FAFB', minHeight: '100vh' }}>
-      <Flex justify="between" align="center" height="64px" px="6"
-        style={{ backgroundColor: 'white', borderBottom: '1px solid var(--gray-4)' }}>
-        <Flex align="center" gap="4">
-          <Text weight="bold" size="3">Club Events</Text>
-          <Separator orientation="vertical" style={{ height: 20 }} />
-          <Badge size="2" color="gray" variant="surface">{club.name}</Badge>
+    <Flex direction="column" style={{ backgroundColor: '#0a0a0a', minHeight: '100vh' }}>
+
+      {/* ── Header ── */}
+      <Flex
+        justify="between"
+        align="center"
+        px="6"
+        style={{
+          height: 64,
+          backgroundColor: 'rgba(10,10,10,0.85)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          borderBottom: '0.5px solid rgba(255,255,255,0.08)',
+          position: 'sticky', top: 0, zIndex: 50,
+        }}
+      >
+        <Flex align="center" gap="3">
+          <Text weight="bold" size="3" style={{ color: '#fff' }}>Club Events</Text>
+          <Separator orientation="vertical" style={{ height: 16, backgroundColor: 'rgba(255,255,255,0.12)' }} />
+          <Badge size="2" variant="surface" style={{ backgroundColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.6)', border: '0.5px solid rgba(255,255,255,0.12)' }}>
+            {club.name}
+          </Badge>
         </Flex>
-        <Button onClick={() => setCreateOpen(true)}>
+        <Button
+          onClick={() => setCreateOpen(true)}
+          radius="full"
+          style={{ backgroundColor: '#a3e635', color: '#0a0a0a', fontWeight: 600, cursor: 'pointer' }}
+        >
           <PlusIcon /> New Event
         </Button>
       </Flex>
 
-      <Box p="6">
-        <Flex direction="column" gap="6" style={{ maxWidth: 900, margin: '0 auto' }}>
+      <Box px="6" py="7">
+        <Flex direction="column" gap="5" style={{ maxWidth: 900, margin: '0 auto' }}>
+
           <Breadcrumbs crumbs={[
             { label: 'My Clubs', href: '/admin/club' },
             { label: club.name },
           ]} />
-          <Heading size="6">Events</Heading>
+
+          <Flex align="center" justify="between">
+            <Heading size="6" style={{ color: '#fff' }}>Events</Heading>
+          </Flex>
 
           {error && <Callout.Root color="red"><Callout.Text>{error}</Callout.Text></Callout.Root>}
 
-          <Card size="2" style={{ padding: 0, overflow: 'hidden' }}>
-            <Table.Root variant="surface">
+          {/* Events table */}
+          <Box style={{
+            background: '#111',
+            border: '0.5px solid rgba(255,255,255,0.08)',
+            borderRadius: 14,
+            overflow: 'hidden',
+          }}>
+            <Table.Root>
               <Table.Header>
-                <Table.Row>
-                  <Table.ColumnHeaderCell>Event Name</Table.ColumnHeaderCell>
-                  <Table.ColumnHeaderCell>Date</Table.ColumnHeaderCell>
-                  <Table.ColumnHeaderCell></Table.ColumnHeaderCell>
+                <Table.Row style={{ borderBottom: '0.5px solid rgba(255,255,255,0.08)' }}>
+                  <Table.ColumnHeaderCell style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 500 }}>
+                    Event Name
+                  </Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 500 }}>
+                    Date
+                  </Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell />
                 </Table.Row>
               </Table.Header>
               <Table.Body>
                 {loading ? (
                   <Table.Row>
                     <Table.Cell colSpan={3}>
-                      <Flex justify="center" p="4"><Spinner /></Flex>
+                      <Flex justify="center" p="5"><Spinner /></Flex>
                     </Table.Cell>
                   </Table.Row>
                 ) : events.length === 0 ? (
                   <Table.Row>
                     <Table.Cell colSpan={3}>
-                      <Text color="gray" align="center" my="4">
-                        No events yet. Create one to get started.
-                      </Text>
+                      <Flex direction="column" align="center" py="7" gap="2">
+                        <Calendar size={24} color="rgba(255,255,255,0.2)" />
+                        <Text style={{ color: 'rgba(255,255,255,0.3)' }} size="2">
+                          No events yet. Create one to get started.
+                        </Text>
+                      </Flex>
                     </Table.Cell>
                   </Table.Row>
                 ) : (
                   events.map((ev) => (
-                    <Table.Row key={ev._id} style={{ cursor: 'pointer' }}
-                      onClick={() => router.push(`/admin/club/${clubId}/events/${ev._id}`)}>
-                      <Table.Cell>
-                        <Flex direction={{initial: 'column', md: 'row'}} gap={'2'} wrap={'wrap'}>
-                          <Flex align="center" gap="2">
-                            <Text size="2" weight="medium">{ev.name}</Text>
-                          </Flex>
-                      
-                          <Flex align="center" gap="2">
-                            {ev.eventType === 'upcoming' && (
-                              <Badge size="1" color="blue" variant="soft">Upcoming</Badge>
-                            )}
-                            {ev.accessLevel === 'dupr_plus' && (
-                              <Badge size="1" color="amber" variant="soft">DUPR+</Badge>
-                            )}
-                          </Flex>
+                    <Table.Row
+                      key={ev._id}
+                      style={{ cursor: 'pointer', borderBottom: '0.5px solid rgba(255,255,255,0.06)' }}
+                      onClick={() => router.push(`/admin/club/${clubId}/events/${ev._id}`)}
+                    >
+                      <Table.Cell style={{ padding: '12px 16px' }}>
+                        <Flex align="center" gap="2" wrap="wrap">
+                          <Text size="2" weight="medium" style={{ color: '#fff' }}>{ev.name}</Text>
+                          {ev.eventType === 'upcoming' && (
+                            <Badge size="1" color="blue" variant="soft">Upcoming</Badge>
+                          )}
+                          {ev.accessLevel === 'dupr_plus' && (
+                            <Badge size="1" color="amber" variant="soft">DUPR+</Badge>
+                          )}
                         </Flex>
                       </Table.Cell>
-                      <Table.Cell>
-                        <Flex minWidth={'fit-content'}>
-                          <Text size="2" color="gray">{formatDate(ev.eventDate)}</Text>
-                        </Flex>
+                      <Table.Cell style={{ padding: '12px 16px' }}>
+                        <Text size="2" style={{ color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap' }}>
+                          {formatDate(ev.eventDate)}
+                        </Text>
                       </Table.Cell>
-                      <Table.Cell>
-                        <Button variant="soft" size="1">View</Button>
+                      <Table.Cell style={{ padding: '12px 16px' }}>
+                        <Flex align="center" gap="1" justify="end">
+                          <Text size="2" style={{ color: 'rgba(255,255,255,0.3)' }}>View</Text>
+                          <ArrowRight size={14} color="rgba(255,255,255,0.3)" />
+                        </Flex>
                       </Table.Cell>
                     </Table.Row>
                   ))
@@ -247,9 +277,12 @@ export default function ClubEventsPage({ params }: { params: Promise<{ clubId: s
               </Table.Body>
             </Table.Root>
 
-            <Flex justify="between" align="center" p="3"
-              style={{ borderTop: '1px solid var(--gray-a4)', backgroundColor: 'var(--gray-2)' }}>
-              <Text size="1" color="gray">Page {page} of {totalPages}</Text>
+            {/* Pagination */}
+            <Flex
+              justify="between" align="center" px="4" py="3"
+              style={{ borderTop: '0.5px solid rgba(255,255,255,0.08)', backgroundColor: 'rgba(255,255,255,0.02)' }}
+            >
+              <Text size="1" style={{ color: 'rgba(255,255,255,0.3)' }}>Page {page} of {totalPages}</Text>
               <Flex gap="2">
                 <Button variant="soft" color="gray" disabled={page === 1}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}>
@@ -261,14 +294,14 @@ export default function ClubEventsPage({ params }: { params: Promise<{ clubId: s
                 </Button>
               </Flex>
             </Flex>
-          </Card>
+          </Box>
         </Flex>
       </Box>
 
-      {/* Create Event Dialog */}
+      {/* ── Create Event Dialog — all step logic, validation, field handlers unchanged ── */}
       <Dialog.Root open={createOpen} onOpenChange={handleDialogOpenChange}>
-        <Dialog.Content style={{ maxWidth: 500 }}>
-          <Dialog.Title>Create Event</Dialog.Title>
+        <Dialog.Content style={{ maxWidth: 500, backgroundColor: '#111', border: '0.5px solid rgba(255,255,255,0.1)' }}>
+          <Dialog.Title style={{ color: '#fff' }}>Create Event</Dialog.Title>
 
           {createError && (
             <Callout.Root color="red" mb="3">
@@ -276,38 +309,54 @@ export default function ClubEventsPage({ params }: { params: Promise<{ clubId: s
             </Callout.Root>
           )}
 
-          {/* Step 1: Event type choice */}
+          {/* Step 1: type choice (unchanged logic) */}
           {!eventTypeChoice && (
             <>
-              <Dialog.Description size="2" color="gray" mb="4">
+              <Dialog.Description size="2" mb="4" style={{ color: 'rgba(255,255,255,0.5)' }}>
                 What kind of event would you like to create?
               </Dialog.Description>
               <Flex direction="column" gap="3">
-                <Card
-                  style={{ cursor: 'pointer', border: '1px solid var(--gray-5)' }}
-                  onClick={() => setEventTypeChoice('past')}
-                >
-                  <Flex direction="column" gap="1" p="2">
-                    <Text size="2" weight="bold">Log a completed event</Text>
-                    <Text size="2" color="gray">
-                      Record results from a match day that's already happened and submit them to DUPR.
+                {[
+                  {
+                    type: 'past' as const,
+                    title: 'Log a completed event',
+                    description: 'Record results from a match day that\'s already happened and submit them to DUPR.',
+                  },
+                  {
+                    type: 'upcoming' as const,
+                    title: 'Schedule an upcoming event',
+                    description: 'Publish an event players can discover and register for on the app.',
+                  },
+                ].map(({ type, title, description }) => (
+                  <Box
+                    key={type}
+                    onClick={() => {
+                      setEventTypeChoice(type);
+                      if (type === 'upcoming') setNewDate(today);
+                    }}
+                    style={{
+                      cursor: 'pointer',
+                      background: 'rgba(255,255,255,0.04)',
+                      border: '0.5px solid rgba(255,255,255,0.1)',
+                      borderRadius: 10,
+                      padding: '14px 16px',
+                      transition: 'border-color 0.15s, background 0.15s',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = 'rgba(163,230,53,0.4)';
+                      e.currentTarget.style.background = 'rgba(163,230,53,0.04)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                    }}
+                  >
+                    <Text size="2" weight="bold" style={{ color: '#fff', display: 'block', marginBottom: 4 }}>
+                      {title}
                     </Text>
-                  </Flex>
-                </Card>
-                <Card
-                  style={{ cursor: 'pointer', border: '1px solid var(--gray-5)' }}
-                  onClick={() => {
-                    setEventTypeChoice('upcoming');
-                    setNewDate(today);
-                  }}
-                >
-                  <Flex direction="column" gap="1" p="2">
-                    <Text size="2" weight="bold">Schedule an upcoming event</Text>
-                    <Text size="2" color="gray">
-                      Publish an event players can discover and register for on the app.
-                    </Text>
-                  </Flex>
-                </Card>
+                    <Text size="2" style={{ color: 'rgba(255,255,255,0.45)' }}>{description}</Text>
+                  </Box>
+                ))}
               </Flex>
               <Flex justify="end" mt="4">
                 <Button variant="soft" color="gray" onClick={() => handleDialogOpenChange(false)}>
@@ -317,19 +366,18 @@ export default function ClubEventsPage({ params }: { params: Promise<{ clubId: s
             </>
           )}
 
-          {/* Step 2: Shared + type-specific fields */}
+          {/* Step 2: form fields (all fields, handlers, and conditions unchanged) */}
           {eventTypeChoice && (
             <>
-              <Dialog.Description size="2" color="gray" mb="4">
+              <Dialog.Description size="2" mb="4" style={{ color: 'rgba(255,255,255,0.5)' }}>
                 {eventTypeChoice === 'past'
                   ? "Fill in the details. You'll add matches on the next screen."
                   : 'Fill in the details. Players will see this event on the app once published.'}
               </Dialog.Description>
 
               <Flex direction="column" gap="3">
-                {/* Shared fields */}
                 <Box>
-                  <Text size="1" color="gray" mb="1">Event name</Text>
+                  <Text size="1" mb="1" style={{ color: 'rgba(255,255,255,0.5)', display: 'block' }}>Event name</Text>
                   <TextField.Root
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
@@ -337,7 +385,7 @@ export default function ClubEventsPage({ params }: { params: Promise<{ clubId: s
                   />
                 </Box>
                 <Box>
-                  <Text size="1" color="gray" mb="1">
+                  <Text size="1" mb="1" style={{ color: 'rgba(255,255,255,0.5)', display: 'block' }}>
                     {eventTypeChoice === 'past' ? 'Date' : 'Event date'}
                   </Text>
                   <TextField.Root
@@ -347,11 +395,10 @@ export default function ClubEventsPage({ params }: { params: Promise<{ clubId: s
                   />
                 </Box>
 
-                {/* Upcoming-only fields */}
                 {eventTypeChoice === 'upcoming' && (
                   <>
                     <Box>
-                      <Text size="1" color="gray" mb="1">Location (optional)</Text>
+                      <Text size="1" mb="1" style={{ color: 'rgba(255,255,255,0.5)', display: 'block' }}>Location (optional)</Text>
                       <TextField.Root
                         value={newLocation}
                         onChange={(e) => setNewLocation(e.target.value)}
@@ -359,7 +406,7 @@ export default function ClubEventsPage({ params }: { params: Promise<{ clubId: s
                       />
                     </Box>
                     <Box>
-                      <Text size="1" color="gray" mb="1">Description (optional)</Text>
+                      <Text size="1" mb="1" style={{ color: 'rgba(255,255,255,0.5)', display: 'block' }}>Description (optional)</Text>
                       <TextArea
                         value={newDescription}
                         onChange={(e) => setNewDescription(e.target.value)}
@@ -368,7 +415,7 @@ export default function ClubEventsPage({ params }: { params: Promise<{ clubId: s
                       />
                     </Box>
                     <Box>
-                      <Text size="1" color="gray" mb="1">Notes (optional)</Text>
+                      <Text size="1" mb="1" style={{ color: 'rgba(255,255,255,0.5)', display: 'block' }}>Notes (optional)</Text>
                       <TextField.Root
                         value={newNotes}
                         onChange={(e) => setNewNotes(e.target.value)}
@@ -379,27 +426,27 @@ export default function ClubEventsPage({ params }: { params: Promise<{ clubId: s
                       align="center"
                       justify="between"
                       p="3"
-                      style={{ borderRadius: 'var(--radius-3)', backgroundColor: 'var(--amber-2)', border: '1px solid var(--amber-6)' }}
+                      style={{
+                        borderRadius: 8,
+                        backgroundColor: 'rgba(245,158,11,0.08)',
+                        border: '0.5px solid rgba(245,158,11,0.25)',
+                      }}
                     >
                       <Box>
-                        <Text size="2" weight="medium">DUPR+ members only: </Text>
-                        <Text size="1" color="gray" mt="1">
+                        <Text size="2" weight="medium" style={{ color: '#fff' }}>DUPR+ members only</Text>
+                        <Text size="1" style={{ color: 'rgba(255,255,255,0.45)', display: 'block', marginTop: 2 }}>
                           Players will need an active DUPR+ subscription to register.
                         </Text>
                       </Box>
-                      <Switch
-                        checked={duprPlusOnly}
-                        onCheckedChange={setDuprPlusOnly}
-                        color="amber"
-                      />
+                      {/* Switch — prop unchanged */}
+                      <Switch checked={duprPlusOnly} onCheckedChange={setDuprPlusOnly} color="amber" />
                     </Flex>
                   </>
                 )}
 
-                {/* Past event notes */}
                 {eventTypeChoice === 'past' && (
                   <Box>
-                    <Text size="1" color="gray" mb="1">Notes (optional)</Text>
+                    <Text size="1" mb="1" style={{ color: 'rgba(255,255,255,0.5)', display: 'block' }}>Notes (optional)</Text>
                     <TextField.Root
                       value={newNotes}
                       onChange={(e) => setNewNotes(e.target.value)}
@@ -413,18 +460,19 @@ export default function ClubEventsPage({ params }: { params: Promise<{ clubId: s
                 <Button
                   variant="ghost"
                   color="gray"
-                  onClick={() => {
-                    setEventTypeChoice(null);
-                    setCreateError(null);
-                  }}
+                  onClick={() => { setEventTypeChoice(null); setCreateError(null); }}
                 >
-                  ← Back
+                  <ArrowLeft size={14} /> Back
                 </Button>
                 <Flex gap="3">
                   <Button variant="soft" color="gray" onClick={() => handleDialogOpenChange(false)}>
                     Cancel
                   </Button>
-                  <Button onClick={handleCreate} disabled={creating}>
+                  <Button
+                    onClick={handleCreate}
+                    disabled={creating}
+                    style={{ backgroundColor: '#a3e635', color: '#0a0a0a', fontWeight: 600, cursor: creating ? 'default' : 'pointer' }}
+                  >
                     {creating
                       ? 'Creating…'
                       : eventTypeChoice === 'past'
@@ -437,6 +485,7 @@ export default function ClubEventsPage({ params }: { params: Promise<{ clubId: s
           )}
         </Dialog.Content>
       </Dialog.Root>
+
     </Flex>
   );
 }

@@ -9,6 +9,7 @@ import { logError } from '@/lib/sentry/logger';
 
 const SHOPIFY_API_VERSION = '2025-10';
 
+// Includes activeSubscriptions so we can sync hasActivePlan on every check.
 const CURRENT_APP_INSTALLATION_QUERY = `
   query {
     currentAppInstallation {
@@ -63,13 +64,14 @@ export async function GET(req: NextRequest) {
     await connectToDatabase();
 
     const client = await Client.findById(user.adminLocationId)
-      .select('shopify.shopDomain shopify.accessToken shopify.tokenExpiresAt shopify.refreshToken')
+      .select('shopify.shopDomain shopify.accessToken shopify.tokenExpiresAt shopify.refreshToken shopify.hasActivePlan')
       .lean() as {
         shopify?: {
           shopDomain?: string;
           accessToken?: string;
           tokenExpiresAt?: Date;
           refreshToken?: string;
+          hasActivePlan?: boolean;
         };
       } | null;
 
@@ -88,7 +90,6 @@ export async function GET(req: NextRequest) {
       if (refreshResult.success && refreshResult.accessToken) {
         accessToken = refreshResult.accessToken;
       } else {
-        // Refresh failed — token is expired and can't be renewed
         return NextResponse.json({ connected: false, reason: 'uninstalled' });
       }
     }
@@ -111,7 +112,6 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ connected: false, reason: 'uninstalled' });
       }
 
-      // Retry with the new token
       try {
         result = await queryShopifyInstallation(shopDomain, refreshResult.accessToken);
       } catch (fetchErr) {
@@ -119,10 +119,10 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ connected: false, reason: 'query_failed' });
       }
 
-      // If still failing after refresh, something is genuinely wrong
       if (result.status === 401 || result.status === 403) {
         await Client.findByIdAndUpdate(user.adminLocationId, {
           $unset: { 'shopify.accessToken': '' },
+          $set: { 'shopify.hasActivePlan': false },
         });
         return NextResponse.json({ connected: false, reason: 'uninstalled' });
       }
@@ -133,6 +133,7 @@ export async function GET(req: NextRequest) {
       console.log('[ShopifyStatus] Token rejected (403) — clearing credentials');
       await Client.findByIdAndUpdate(user.adminLocationId, {
         $unset: { 'shopify.accessToken': '' },
+        $set: { 'shopify.hasActivePlan': false },
       });
       return NextResponse.json({ connected: false, reason: 'uninstalled' });
     }
@@ -153,6 +154,7 @@ export async function GET(req: NextRequest) {
       if (isAuthError) {
         await Client.findByIdAndUpdate(user.adminLocationId, {
           $unset: { 'shopify.accessToken': '' },
+          $set: { 'shopify.hasActivePlan': false },
         });
         return NextResponse.json({ connected: false, reason: 'uninstalled' });
       }
@@ -164,11 +166,31 @@ export async function GET(req: NextRequest) {
       console.log('[ShopifyStatus] currentAppInstallation returned null');
       await Client.findByIdAndUpdate(user.adminLocationId, {
         $unset: { 'shopify.accessToken': '' },
+        $set: { 'shopify.hasActivePlan': false },
       });
       return NextResponse.json({ connected: false, reason: 'uninstalled' });
     }
 
-    return NextResponse.json({ connected: true });
+    // ── Check active subscription ─────────────────────────────────────────
+    // App is installed but may have no plan selected (merchant closed the
+    // pricing page before choosing one). Sync hasActivePlan to the DB so
+    // the checklist and billing page can read it without an extra query.
+    const hasActivePlan = (result.installation.activeSubscriptions ?? []).length > 0;
+
+    await Client.findByIdAndUpdate(user.adminLocationId, {
+      $set: { 'shopify.hasActivePlan': hasActivePlan },
+    });
+
+    if (!hasActivePlan) {
+      return NextResponse.json({
+        connected: true,
+        hasActivePlan: false,
+        reason: 'no_plan',
+      });
+    }
+
+    return NextResponse.json({ connected: true, hasActivePlan: true });
+
   } catch (err) {
     logError(err, { endpoint: 'GET /api/brand/shopify-status' });
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });

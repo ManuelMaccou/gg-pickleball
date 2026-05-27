@@ -27,32 +27,35 @@ export async function GET(_req: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Look for any existing application for this user (any status)
+    // ── Check for existing application by this user ───────────────────────
     const existing = await BrandApplication.findOne({ userId: dbUser._id })
       .sort({ createdAt: -1 })
       .lean();
 
     if (existing) {
-      // If the existing application is rejected, allow a fresh start
+      // Rejected — create a fresh draft and signal the UI to show a notice
       if (existing.status === 'rejected') {
         const draft = await BrandApplication.create({
           userId: dbUser._id,
           email: dbUser.email,
           status: 'draft',
         });
-        return NextResponse.json({ application: draft.toObject() });
+        return NextResponse.json({
+          application: draft.toObject(),
+          wasRejected: true,
+        });
       }
-      return NextResponse.json({ application: existing });
+      return NextResponse.json({ application: existing, wasRejected: false });
     }
 
-    // No application exists — create a draft
+    // ── Create a fresh draft ──────────────────────────────────────────────
     const draft = await BrandApplication.create({
       userId: dbUser._id,
       email: dbUser.email,
       status: 'draft',
     });
 
-    return NextResponse.json({ application: draft.toObject() });
+    return NextResponse.json({ application: draft.toObject(), wasRejected: false });
   } catch (err: any) {
     console.error('[BrandApplyDraft] Error:', err);
     logError(err, { endpoint: 'GET /api/brand/apply/draft' });

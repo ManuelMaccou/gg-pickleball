@@ -8,17 +8,17 @@ import {
   Badge, Button, Callout, Card, Flex, Spinner, Table, Text,
   Grid, Avatar, Box, Heading,
 } from '@radix-ui/themes';
-import { ChevronLeftIcon, ChevronRightIcon, PersonIcon, ExclamationTriangleIcon } from '@radix-ui/react-icons';
-import { Link2Icon, TicketIcon, TrophyIcon, CheckCircle2 } from 'lucide-react';
+import { ChevronLeftIcon, ChevronRightIcon, ExclamationTriangleIcon } from '@radix-ui/react-icons';
+import { Link2Icon, TicketIcon, TrophyIcon, CheckCircle2, Users } from 'lucide-react';
 import { DateTime } from 'luxon';
 import { AdminPermissionType, IClient } from '@/app/types/databaseTypes';
 import { useIsMobile } from '@/app/hooks/useIsMobile';
 import { AdminOnboardingChecklist } from '@/app/components/AdminOnboardingChecklist';
 import { RewardCardCustomizer } from '../components/RewardCardCustomizer';
 import { BrandPageShell } from '../components/BrandPageShell';
-import Link from 'next/link';
 
-// --- TYPES ---
+// ── Types ──────────────────────────────────────────────────────────────────────
+
 interface BrandDashboardStats {
   uniquePlayerCount: number;
   topPlayers: { name: string; winCount: number }[];
@@ -44,7 +44,7 @@ const formatDate = (dateInput: string | Date | undefined | null): string => {
   return '—';
 };
 
-// --- COMPONENTS ---
+// ── Sub-components ─────────────────────────────────────────────────────────────
 
 const StatCard = ({
   title, value, icon, loading,
@@ -52,19 +52,28 @@ const StatCard = ({
   title: string; value: string | number; icon: React.ReactNode; loading?: boolean;
 }) => (
   <Card size="2">
-    <Flex justify="between" align="start">
-      <Flex direction="column" gap="1">
-        <Text size="2" weight="medium" color="gray">{title}</Text>
-        {loading ? <Spinner /> : <Text size="6" weight="bold">{value}</Text>}
-      </Flex>
-      <Box style={{
-        backgroundColor: 'var(--gray-3)',
-        padding: '8px',
-        borderRadius: '50%',
-        color: 'var(--gray-11)',
-      }}>
+    <Flex align="center" gap="3">
+      <Flex
+        align="center"
+        justify="center"
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: 10,
+          background: 'rgba(132,204,22,0.1)',
+          border: '0.5px solid rgba(132,204,22,0.2)',
+          color: '#65a30d',
+          flexShrink: 0,
+        }}
+      >
         {icon}
-      </Box>
+      </Flex>
+      <Flex direction="column" gap="1">
+        <Text size="2" color="gray">{title}</Text>
+        {loading ? <Spinner /> : (
+          <Text size="6" weight="bold" style={{ lineHeight: 1 }}>{value}</Text>
+        )}
+      </Flex>
     </Flex>
   </Card>
 );
@@ -82,6 +91,8 @@ const CodeBadge = ({ code }: { code: string }) => (
     {code}
   </Text>
 );
+
+// ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function BrandAdminDashboard() {
   const { user } = useUserContext();
@@ -107,14 +118,11 @@ export default function BrandAdminDashboard() {
   const [isLoadingStats, setIsLoadingStats] = useState(true);
   const [isLoadingRewards, setIsLoadingRewards] = useState(true);
 
-  const [adminError, setAdminError] = useState<string | null>(null);
   const [statsError, setStatsError] = useState<string | null>(null);
   const [rewardsError, setRewardsError] = useState<string | null>(null);
 
   const [showCardCustomizer, setShowCardCustomizer] = useState(false);
 
-  // ── Shopify connection status ─────────────────────────────────────────────
-  // 'unknown' while checking, 'connected', 'disconnected', 'check_failed'
   const [shopifyStatus, setShopifyStatus] = useState<
     'unknown' | 'connected' | 'disconnected' | 'check_failed'
   >('unknown');
@@ -126,80 +134,71 @@ export default function BrandAdminDashboard() {
     setLocation((prev) => (prev ? ({ ...prev, ...updates } as IClient) : null));
   };
 
-  // 1. Get Admin User
+  // ── Effect 1: Get admin + redirect if no permissions ──
   useEffect(() => {
     if (!userId) return;
     const getAdminUser = async () => {
-      setAdminError(null);
       try {
         const response = await fetch(`/api/admin?userId=${userId}`);
+
+        // 204 = authenticated user but no admin record
         if (response.status === 204) {
-          setAdminError('Access Denied');
+          router.replace('/error?reason=no_admin_permissions');
           return;
         }
+
+        // Any other non-OK response (500, network error, etc.)
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          console.error('[BrandDashboard] Admin fetch failed:', data);
+          router.replace('/error?reason=unknown');
+          return;
+        }
+
         const data = await response.json();
-        if (!response.ok) throw new Error(data.error);
         if (data.admin.permission) setAdminPermission(data.admin.permission);
         setLocation(data.location);
-      } catch (error: unknown) {
-        setAdminError(error instanceof Error ? error.message : 'Unknown error');
+      } catch (error) {
+        console.error('[BrandDashboard] Unexpected error fetching admin:', error);
+        router.replace('/error?reason=unknown');
       } finally {
         setIsGettingAdmin(false);
       }
     };
     getAdminUser();
-  }, [userId]);
+  }, [userId, router]);
 
-  // 2. Check Shopify connection status (runs after admin/location is loaded)
+  // ── Effect 2: Shopify status check ──
   useEffect(() => {
     if (!location) return;
-
-    // Only check if the DB says Shopify is connected — no point checking
-    // if there are no credentials stored at all
     const isShopifyConnectedInDB = !!(
       location.retailSoftware === 'shopify' &&
       location.shopify?.shopDomain &&
       location.shopify?.accessToken
     );
-
-    if (!isShopifyConnectedInDB) {
-      setShopifyStatus('disconnected');
-      return;
-    }
-
+    if (!isShopifyConnectedInDB) { setShopifyStatus('disconnected'); return; }
     const checkConnection = async () => {
       try {
         const res = await fetch('/api/brand/shopify-status');
         const data = await res.json();
-        if (!res.ok) {
-          setShopifyStatus('check_failed');
-          return;
-        }
+        if (!res.ok) { setShopifyStatus('check_failed'); return; }
         if (data.connected) {
           setShopifyStatus('connected');
         } else {
           setShopifyStatus('disconnected');
           setShopifyStatusReason(data.reason ?? null);
-          // Update local location state to reflect the cleared token
-          // so isShopifyConnected evaluates correctly without a full page reload
           setLocation((prev) =>
-            prev
-              ? ({
-                  ...prev,
-                  shopify: { ...prev.shopify, accessToken: undefined },
-                } as unknown as IClient)
-              : null
+            prev ? ({ ...prev, shopify: { ...prev.shopify, accessToken: undefined } } as unknown as IClient) : null
           );
         }
       } catch {
         setShopifyStatus('check_failed');
       }
     };
-
     checkConnection();
-  }, [location?._id]); // run once per location load, not on every location state update
+  }, [location?._id]);
 
-  // 3. Fetch Stats
+  // ── Effect 3: Fetch stats ──
   useEffect(() => {
     if (!location) return;
     const getBrandStats = async () => {
@@ -211,7 +210,8 @@ export default function BrandAdminDashboard() {
         if (!response.ok) throw new Error(data.error);
         setStats({ uniquePlayerCount: data.uniquePlayerCount, topPlayers: data.topPlayers });
       } catch (error) {
-        setStatsError(error instanceof Error ? error.message : 'Error fetching stats');
+        console.error('[BrandDashboard] Failed to fetch stats:', error);
+        setStatsError('Unable to load stats. Please refresh and try again.');
       } finally {
         setIsLoadingStats(false);
       }
@@ -219,7 +219,7 @@ export default function BrandAdminDashboard() {
     getBrandStats();
   }, [location]);
 
-  // 4. Fetch Rewards
+  // ── Effect 4: Fetch rewards ──
   useEffect(() => {
     if (!location) return;
     const getBrandRewards = async () => {
@@ -235,7 +235,8 @@ export default function BrandAdminDashboard() {
         setTotalPages(data.pagination?.totalPages || 1);
         setTotalRewardsCount(data.pagination?.total || 0);
       } catch (error) {
-        setRewardsError(error instanceof Error ? error.message : 'Error fetching rewards');
+        console.error('[BrandDashboard] Failed to fetch rewards:', error);
+        setRewardsError('Unable to load rewards. Please refresh and try again.');
       } finally {
         setIsLoadingRewards(false);
       }
@@ -243,48 +244,45 @@ export default function BrandAdminDashboard() {
     getBrandRewards();
   }, [location, page]);
 
+  // ── Effect 5: Auto-open card customizer ──
   useEffect(() => {
     if (!isLoadingRewards) setShowCardCustomizer(totalRewardsCount === 0);
   }, [isLoadingRewards, totalRewardsCount]);
 
+  // ── Effect 6: Auth redirect ──
   useEffect(() => {
     if (!auth0IsLoading && !user) router.push('/auth/login?returnTo=/admin/brand');
   }, [auth0IsLoading, user, router]);
 
-  // --- SHOPIFY INSTALL DETECTION ---
+  // ── Effect 7: Shopify install detection ──
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const shop = params.get('shop');
     const hmac = params.get('hmac');
-    if (shop && hmac) {
-      window.location.href = `/api/shopify/install${window.location.search}`;
-    }
+    if (shop && hmac) window.location.href = `/api/shopify/install${window.location.search}`;
   }, []);
 
+  // Shopify is only truly connected when credentials exist AND a plan is active.
+  // accessToken alone means OAuth completed but the merchant closed the pricing
+  // page before selecting a plan — the integration won't work in that state.
   const isShopifyConnected = !!(
     location?.retailSoftware === 'shopify' &&
     location?.shopify?.shopDomain &&
-    location?.shopify?.accessToken
+    location?.shopify?.accessToken &&
+    location?.shopify?.hasActivePlan
   );
 
-  if (isMobile === null || isGettingAdmin) {
-    return (
-      <Flex justify="center" align="center" height="100vh">
-        <Spinner size="3" />
-      </Flex>
-    );
-  }
-  if (adminError) {
-    return (
-      <Flex justify="center" p="9">
-        <Text color="red">{adminError}</Text>
-      </Flex>
-    );
+  // ── Loading gate — shown while we verify the user has admin access ──
+  // Keep this tight: only spinner, no error states. All error paths now
+  // redirect away before setIsGettingAdmin(false) is ever called.
+  if (isMobile === null || auth0IsLoading || isGettingAdmin) {
+    return <Flex justify="center" align="center" height="100vh"><Spinner size="3" /></Flex>;
   }
 
   return (
     <BrandPageShell adminPermission={adminPermission} location={location}>
-      {/* Top Title Bar */}
+
+      {/* ── Top title bar ── */}
       <Flex justify="between" align="center">
         <Heading size="6">Dashboard</Heading>
         <Flex align="center" gap="3">
@@ -296,11 +294,9 @@ export default function BrandAdminDashboard() {
               style={{ cursor: 'pointer', fontWeight: 500 }}
               onClick={() => router.push('/admin/brand/connect-shopify')}
             >
-              {isShopifyConnected ? (
-                <><CheckCircle2 size={16} /> Shopify Active</>
-              ) : (
-                <><Link2Icon size={16} /> Connect Shopify</>
-              )}
+              {isShopifyConnected
+                ? <><CheckCircle2 size={16} /> Shopify Active</>
+                : <><Link2Icon size={16} /> Connect Shopify</>}
             </Button>
           )}
           {location && (
@@ -314,27 +310,19 @@ export default function BrandAdminDashboard() {
         shopifyStatusReason === 'uninstalled' &&
         !shopifyStatusDismissed && (
           <Callout.Root color="amber" size="2">
-            <Callout.Icon>
-              <ExclamationTriangleIcon />
-            </Callout.Icon>
+            <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
             <Flex justify="between" align="center" gap="4" wrap="wrap" style={{ flex: 1 }}>
               <Callout.Text>
                 Your Shopify connection has been lost. This can happen if the app was
                 uninstalled or access was revoked. Reconnect to restore full functionality.
               </Callout.Text>
               <Flex gap="3" align="center" style={{ flexShrink: 0 }}>
-                <Button
-                  size="2"
-                  color="amber"
-                  variant="solid"
+                <Button size="2" color="amber" variant="solid"
                   onClick={() => router.push('/admin/brand/connect-shopify')}
                 >
                   Reconnect Shopify
                 </Button>
-                <Button
-                  size="2"
-                  variant="ghost"
-                  color="gray"
+                <Button size="2" variant="ghost" color="gray"
                   onClick={() => setShopifyStatusDismissed(true)}
                 >
                   Dismiss
@@ -344,7 +332,7 @@ export default function BrandAdminDashboard() {
           </Callout.Root>
         )}
 
-      {/* Onboarding checklist */}
+      {/* ── Onboarding checklist ── */}
       {user && location && (
         <AdminOnboardingChecklist
           user={user}
@@ -355,28 +343,33 @@ export default function BrandAdminDashboard() {
         />
       )}
 
-      {/* Metrics grid */}
+      {/* ── Stat cards ── */}
       <Grid columns={{ initial: '1', sm: '2' }} gap="4">
         <StatCard
-          title="Total Players Engaged"
+          title="Players Engaged"
           value={stats?.uniquePlayerCount ?? 0}
           loading={isLoadingStats}
-          icon={<PersonIcon width="20" height="20" />}
+          icon={<Users size={18} />}
         />
         <StatCard
           title="Rewards Issued"
           value={totalRewardsCount}
           loading={isLoadingRewards}
-          icon={<TicketIcon size={20} />}
+          icon={<TicketIcon size={18} />}
         />
       </Grid>
 
-      {/* Data grid */}
+      {/* ── Data grid ── */}
       <Grid columns={{ initial: '1', lg: '3' }} gap="6">
-        {/* Reward log — 2/3 width */}
+
+        {/* Reward log */}
         <Box style={{ gridColumn: 'span 2' }}>
-          <Heading size="4" mb="3">Reward Log</Heading>
           <Card size="2" style={{ padding: 0, overflow: 'hidden' }}>
+            <Box px="4" py="3" style={{ borderBottom: '1px solid var(--gray-a4)' }}>
+              <Heading size="4">Reward Log</Heading>
+              <Text size="2" color="gray">Players who've earned a reward from your brand</Text>
+            </Box>
+
             {rewardsError && (
               <Callout.Root color="red" m="4">
                 <Callout.Text>{rewardsError}</Callout.Text>
@@ -410,9 +403,9 @@ export default function BrandAdminDashboard() {
                         </Flex>
                       </Table.RowHeaderCell>
                       <Table.Cell>
-                        <Flex direction="column">
+                        <Flex direction="column" gap="1">
                           <Text size="2">{entry.rewardName}</Text>
-                          <Flex gap="2" align="center" mt="1">
+                          <Flex gap="2" align="center">
                             <CodeBadge code={entry.code} />
                             {entry.rewardProduct && (
                               <Text size="1" color="gray">({entry.rewardProduct})</Text>
@@ -421,14 +414,12 @@ export default function BrandAdminDashboard() {
                         </Flex>
                       </Table.Cell>
                       <Table.Cell>
-                        <Text size="2">{entry.achievementName || '—'}</Text>
+                        <Text size="2" color="gray">{entry.achievementName || '—'}</Text>
                       </Table.Cell>
                       <Table.Cell>
-                        {entry.redeemed ? (
-                          <Badge color="green" radius="full">Redeemed</Badge>
-                        ) : (
-                          <Badge color="amber" radius="full">Active</Badge>
-                        )}
+                        {entry.redeemed
+                          ? <Badge color="green" radius="full">Redeemed</Badge>
+                          : <Badge color="amber" radius="full">Active</Badge>}
                       </Table.Cell>
                       <Table.Cell>
                         <Text size="2" color="gray">{formatDate(entry.earnedAt)}</Text>
@@ -446,21 +437,17 @@ export default function BrandAdminDashboard() {
             </Table.Root>
 
             <Flex
-              justify="between"
-              align="center"
-              p="3"
+              justify="between" align="center" p="3"
               style={{ borderTop: '1px solid var(--gray-a4)', backgroundColor: 'var(--gray-2)' }}
             >
               <Text size="1" color="gray">Page {page} of {totalPages}</Text>
               <Flex gap="2">
-                <Button
-                  variant="soft" color="gray" disabled={page === 1}
+                <Button variant="soft" color="gray" disabled={page === 1}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                 >
                   <ChevronLeftIcon /> Prev
                 </Button>
-                <Button
-                  variant="soft" color="gray" disabled={page === totalPages}
+                <Button variant="soft" color="gray" disabled={page === totalPages}
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 >
                   Next <ChevronRightIcon />
@@ -470,21 +457,25 @@ export default function BrandAdminDashboard() {
           </Card>
         </Box>
 
-        {/* Top players — 1/3 width */}
+        {/* Top players */}
         <Flex direction="column">
-          <Heading size="4" mb="3">Top Players</Heading>
-          <Card size="2">
-            {isLoadingStats ? (
-              <Flex justify="center" p="4"><Spinner /></Flex>
-            ) : (
-              <Flex direction="column" gap="1">
-                {stats && stats.topPlayers.length > 0 ? (
-                  stats.topPlayers.map((player, idx) => (
+          <Card size="2" style={{ padding: 0, overflow: 'hidden' }}>
+            <Box px="4" py="3" style={{ borderBottom: '1px solid var(--gray-a4)' }}>
+              <Heading size="4">Top Players</Heading>
+              <Text size="2" color="gray">By match wins</Text>
+            </Box>
+            <Box p="2">
+              {isLoadingStats ? (
+                <Flex justify="center" p="4"><Spinner /></Flex>
+              ) : stats && stats.topPlayers.length > 0 ? (
+                <Flex direction="column">
+                  {stats.topPlayers.map((player, idx) => (
                     <Flex
                       key={idx}
                       justify="between"
                       align="center"
-                      p="2"
+                      px="2"
+                      py="2"
                       style={{
                         borderBottom: idx < stats.topPlayers.length - 1
                           ? '1px solid var(--gray-a3)' : 'none',
@@ -496,24 +487,22 @@ export default function BrandAdminDashboard() {
                         <Text size="2" weight="medium">{player.name}</Text>
                       </Flex>
                       <Flex gap="2" align="center">
-                        {idx === 0 && <TrophyIcon color="gold" size={16} />}
+                        {idx === 0 && <TrophyIcon color="gold" size={14} />}
                         <Text size="2" weight="bold">{player.winCount}</Text>
                         <Text size="1" color="gray">wins</Text>
                       </Flex>
                     </Flex>
-                  ))
-                ) : (
-                  <Text color="gray" size="2" align="center" my="4">
-                    No player data available.
-                  </Text>
-                )}
-              </Flex>
-            )}
+                  ))}
+                </Flex>
+              ) : (
+                <Text color="gray" size="2" align="center" my="4">No player data yet.</Text>
+              )}
+            </Box>
           </Card>
         </Flex>
       </Grid>
 
-      {/* Reward card customizer */}
+      {/* ── Reward card customizer ── */}
       <Box>
         <Flex align="center" gap="4" mb="1">
           <Heading size="4">Reward Card</Heading>
@@ -551,6 +540,7 @@ export default function BrandAdminDashboard() {
           </>
         )}
       </Box>
+
     </BrandPageShell>
   );
 }

@@ -4,33 +4,8 @@ import { useEffect, useState } from "react";
 import { useUser as useAuth0User } from '@auth0/nextjs-auth0';
 import { useUserContext } from "@/app/contexts/UserContext";
 import { useRouter } from "next/navigation";
-import { 
-  Avatar, 
-  Badge, 
-  Box, 
-  Button, 
-  Callout, 
-  Card, 
-  Checkbox, 
-  Dialog, 
-  DropdownMenu, 
-  Flex, 
-  Heading, 
-  Select, 
-  Spinner, 
-  Text, 
-  TextField, 
-  Tooltip 
-} from "@radix-ui/themes";
-import { 
-  InfoCircledIcon, 
-  DotsHorizontalIcon, 
-  GearIcon,          
-  MagicWandIcon,      
-  ExclamationTriangleIcon,
-  CheckCircledIcon,
-  EnvelopeClosedIcon // <--- Added Icon for Invites
-} from "@radix-ui/react-icons"
+import { Avatar, Badge, Box, Button, Callout, Card, Checkbox, Dialog, DropdownMenu, Flex, Heading, Select, Spinner, Text, TextField, Tooltip } from "@radix-ui/themes";
+import { InfoCircledIcon, DotsHorizontalIcon, GearIcon, MagicWandIcon, ExclamationTriangleIcon, CheckCircledIcon, EnvelopeClosedIcon } from "@radix-ui/react-icons"
 import Image from "next/image";
 import darkGgLogo from '../../../../../public/logos/gg_logo_black_transparent.png'
 import { useIsMobile } from "@/app/hooks/useIsMobile";
@@ -74,8 +49,11 @@ type FormState = {
 
 type ClientStatus = {
   shopifyConnected: boolean;
+  shopifyNoPlan: boolean;
   hasRewards: boolean;
   accountClaimed: boolean;
+  attentionFlags: string[];
+  needsAttention: boolean;
 };
 
 type ClientWithStatus = {
@@ -136,6 +114,17 @@ export default function GgpickleballAdminClients() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [isInviting, setIsInviting] = useState(false);
   const [inviteMessage, setInviteMessage] = useState<{type: 'error' | 'success', text: string} | null>(null);
+
+  const FLAG_LABELS: Record<string, string> = {
+    shopify_not_connected: 'Shopify not connected',
+    shopify_no_plan: 'Shopify connected — no plan selected',
+    account_not_claimed: 'Account not claimed',
+    no_rewards_after_3_days: 'No rewards configured (3+ days)',
+  };
+  
+  const attentionClients = clients.filter(
+    (c) => clientStatuses.get(c._id.toString())?.needsAttention
+  );
 
   const fetchClients = async () => {
     setIsFetchingClients(true);
@@ -517,6 +506,54 @@ export default function GgpickleballAdminClients() {
                 <Callout.Root color="red"><Callout.Icon><InfoCircledIcon /></Callout.Icon><Callout.Text>{fetchError}</Callout.Text></Callout.Root>
               ) : (
                 <>
+                {attentionClients.length > 0 && (
+                  <Box mb="5">
+                    <Flex align="center" gap="2" mb="3">
+                      <ExclamationTriangleIcon color="var(--amber-9)" />
+                      <Text weight="bold" size="3">
+                        Needs attention ({attentionClients.length})
+                      </Text>
+                    </Flex>
+                    <Flex direction="column" gap="2">
+                      {attentionClients.map((client) => {
+                        const status = clientStatuses.get(client._id.toString());
+                        if (!status) return null;
+                        return (
+                          <Card key={client._id.toString()} style={{ borderLeft: '3px solid var(--amber-9)' }}>
+                            <Flex justify="between" align="start">
+                              <Box>
+                                <Text weight="bold" size="2">{client.name}</Text>
+                                <Flex direction="column" gap="1" mt="1">
+                                  {status.attentionFlags.map((flag) => (
+                                    <Flex key={flag} align="center" gap="2">
+                                      <ExclamationTriangleIcon
+                                        color="var(--amber-9)"
+                                        width={12}
+                                        height={12}
+                                      />
+                                      <Text size="1" color="amber">
+                                        {FLAG_LABELS[flag] ?? flag}
+                                      </Text>
+                                    </Flex>
+                                  ))}
+                                </Flex>
+                              </Box>
+                              <Button
+                                size="1"
+                                variant="soft"
+                                color="gray"
+                                onClick={() => handleOpenEditDialog(client as IClient)}
+                              >
+                                Edit
+                              </Button>
+                            </Flex>
+                          </Card>
+                        );
+                      })}
+                    </Flex>
+                  </Box>
+                )}
+
                 <Flex direction="column" gap="3">
                   {clients.length > 0 ? clients.map(client => (
                     <Card key={client._id.toString()}>
@@ -557,12 +594,19 @@ export default function GgpickleballAdminClients() {
                                 >
                                   {status.shopifyConnected ? '✓' : '○'} Shopify
                                 </Badge>
+                                // With:
                                 <Badge
-                                  color={status.hasRewards ? 'green' : 'gray'}
+                                  color={
+                                    status.shopifyConnected ? 'green'
+                                    : status.shopifyNoPlan ? 'amber'
+                                    : 'gray'
+                                  }
                                   variant="soft"
                                   size="1"
                                 >
-                                  {status.hasRewards ? '✓' : '○'} Rewards
+                                  {status.shopifyConnected ? '✓'
+                                    : status.shopifyNoPlan ? '!'
+                                    : '○'} Shopify
                                 </Badge>
                               </Flex>
                             );

@@ -1,82 +1,71 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
 import connectToDatabase from "@/lib/mongodb";
 import User from "@/app/models/User";
 import { logError } from "@/lib/sentry/logger";
+import { requiresBrandAdmin } from "@/lib/auth/requiresBrandAdmin";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const clientId = searchParams.get('clientId');
   const page = parseInt(searchParams.get('page') || '1');
   const limit = parseInt(searchParams.get('limit') || '20');
   const skip = (page - 1) * limit;
 
+  // ── Auth guard ────────────────────────────────────────────────────────────
+  const auth = await requiresBrandAdmin(request, clientId);
+  if (auth.error) return auth.error;
+  // auth.clientId is now verified — use it instead of the raw param
+  const verifiedClientId = auth.clientId;
+
   try {
     await connectToDatabase();
 
-    if (!clientId || !Types.ObjectId.isValid(clientId)) {
-      return NextResponse.json({ error: 'Valid Client ID is required' }, { status: 400 });
+    // ObjectId.isValid check is still worth keeping as a belt-and-suspenders
+    // guard against malformed IDs slipping through (e.g. if adminLocationId
+    // was somehow stored in a bad format).
+    if (!Types.ObjectId.isValid(verifiedClientId)) {
+      return NextResponse.json({ error: 'Invalid client ID format' }, { status: 400 });
     }
 
-    const objectIdClient = new Types.ObjectId(clientId);
+    const objectIdClient = new Types.ObjectId(verifiedClientId);
 
-    // Aggregation Pipeline
     const pipeline = [
-      // 1. MATCH: Only look at users who have at least one reward from this client
-      { 
-        $match: { 
-          "stats.global.rewards.sponsoringClientId": objectIdClient 
-        } 
+      {
+        $match: {
+          "stats.global.rewards.sponsoringClientId": objectIdClient
+        }
       },
-
-      // 2. UNWIND: Deconstruct the rewards array so each reward is its own document
       { $unwind: "$stats.global.rewards" },
-
-      // 3. MATCH AGAIN: Filter the unwound documents to keep ONLY this client's rewards
-      { 
-        $match: { 
-          "stats.global.rewards.sponsoringClientId": objectIdClient 
-        } 
+      {
+        $match: {
+          "stats.global.rewards.sponsoringClientId": objectIdClient
+        }
       },
-
-      // 4. SORT: Sort by earnedAt date (newest first)
       { $sort: { "stats.global.rewards.earnedAt": -1 } },
-
-      // 5. FACET: Run two queries in parallel (get data + get total count for pagination)
       {
         $facet: {
           metadata: [{ $count: "total" }],
           data: [
             { $skip: skip },
             { $limit: limit },
-            
-            // 6. LOOKUP: Populate Reward Details (to get name/product)
-            // Note: We use the RewardCode snapshot usually, but fallback to Reward collection if needed
             {
               $lookup: {
-                from: "rewards", 
+                from: "rewards",
                 localField: "stats.global.rewards.rewardId",
                 foreignField: "_id",
                 as: "rewardDetails"
               }
             },
-            
-            // 7. LOOKUP: Populate Reward Code Details (To get code string & redemption status)
             {
               $lookup: {
-                from: "rewardcodes", 
+                from: "rewardcodes",
                 localField: "stats.global.rewards.rewardCodeId",
                 foreignField: "_id",
                 as: "codeDetails"
               }
             },
-
-            // --- NEW STEPS FOR ACHIEVEMENT NAME ---
-            
-            // 7a. Unwind codeDetails so we can access its fields for the next lookup
             { $unwind: { path: "$codeDetails", preserveNullAndEmptyArrays: true } },
-
-            // 7b. Lookup Achievement based on the ID stored in the RewardCode
             {
               $lookup: {
                 from: "achievements",
@@ -85,16 +74,13 @@ export async function GET(request: Request) {
                 as: "achievementDetails"
               }
             },
-
-            // 8. PROJECT: Clean up the output
             {
               $project: {
                 playerName: "$name",
                 playerEmail: "$email",
                 earnedAt: "$stats.global.rewards.earnedAt",
-                // Get the first item from the arrays
                 reward: { $arrayElemAt: ["$rewardDetails", 0] },
-                codeDoc: "$codeDetails", // Already unwound
+                codeDoc: "$codeDetails",
                 achievement: { $arrayElemAt: ["$achievementDetails", 0] }
               }
             }
@@ -104,28 +90,22 @@ export async function GET(request: Request) {
     ];
 
     const result = await User.aggregate(pipeline as any);
-    
+
     const data = result[0].data;
     const total = result[0].metadata[0]?.total || 0;
     const totalPages = Math.ceil(total / limit);
 
-    // --- THIS IS THE MAPPING BLOCK YOU ASKED ABOUT ---
     const formattedRewards = data.map((item: any) => {
-      // Prefer the snapshot inside the code document if available, else fallback
-      const rewardSnapshot = item.codeDoc?.reward; 
+      const rewardSnapshot = item.codeDoc?.reward;
       const activeReward = rewardSnapshot || item.reward;
 
       return {
         _id: item.codeDoc?._id || new Types.ObjectId(),
         playerName: item.playerName,
         playerEmail: item.playerEmail || "No email",
-        
         rewardName: activeReward?.friendlyName || "Unknown",
         rewardProduct: activeReward?.product === 'custom' ? undefined : activeReward?.product,
-        
-        // --- NEW: Map the achievement name ---
         achievementName: item.achievement?.friendlyName || "Unknown Achievement",
-
         code: item.codeDoc?.code || "PENDING",
         earnedAt: item.earnedAt,
         redeemed: !!item.codeDoc?.redeemed,
@@ -135,15 +115,11 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       rewards: formattedRewards,
-      pagination: {
-        total,
-        page,
-        totalPages
-      }
+      pagination: { total, page, totalPages }
     });
 
   } catch (error) {
-    logError(error, { endpoint: 'GET /api/brand/rewards', clientId: clientId ?? 'null' });
+    logError(error, { endpoint: 'GET /api/brand/rewards', clientId: verifiedClientId });
     return NextResponse.json({ error: 'Failed to fetch rewards.' }, { status: 500 });
   }
 }

@@ -336,6 +336,7 @@ export interface ShopifyData {
   refreshToken?: string;
   tokenExpiresAt?: Date;
   refreshTokenExpiresAt?: Date;
+  hasActivePlan?: boolean;
 }
 
 export interface PodplayData {
