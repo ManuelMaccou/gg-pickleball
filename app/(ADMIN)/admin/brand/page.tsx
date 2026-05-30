@@ -98,6 +98,7 @@ export default function BrandAdminDashboard() {
   const [shopifyStatusReason, setShopifyStatusReason] = useState<string | null>(null);
 
   const [isGettingAdmin, setIsGettingAdmin] = useState(true);
+  const [isRedirecting, setIsRedirecting] = useState(false);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
   const [isLoadingRewards, setIsLoadingRewards] = useState(true);
   // True while we're confirming a plan_handle param — blocks render until resolved
@@ -128,10 +129,15 @@ export default function BrandAdminDashboard() {
     const getAdminUser = async () => {
       try {
         const response = await fetch(`/api/admin?userId=${userId}`);
-        if (response.status === 204) { router.replace('/error?reason=no_admin_permissions'); return; }
+        if (response.status === 204 || response.status === 401 || response.status === 403) {
+          setIsRedirecting(true);
+          router.replace('/error?reason=no_admin_permissions');
+          return;
+        }
         if (!response.ok) {
           const data = await response.json().catch(() => ({}));
           console.error('[BrandDashboard] Admin fetch failed:', data);
+          setIsRedirecting(true);
           router.replace('/error?reason=unknown');
           return;
         }
@@ -140,6 +146,7 @@ export default function BrandAdminDashboard() {
         setLocation(data.location);
       } catch (error) {
         console.error('[BrandDashboard] Unexpected error fetching admin:', error);
+        setIsRedirecting(true);
         router.replace('/error?reason=unknown');
       } finally {
         setIsGettingAdmin(false);
@@ -301,7 +308,7 @@ export default function BrandAdminDashboard() {
 
   // Loading gate — includes isConfirmingPlan so the checklist never flashes
   // the wrong state when landing from Shopify's plan selection redirect.
-  if (isMobile === null || auth0IsLoading || isGettingAdmin || isConfirmingPlan) {
+  if (isMobile === null || auth0IsLoading || isGettingAdmin || isConfirmingPlan || isRedirecting) {
     return <Flex justify="center" align="center" height="100vh"><Spinner size="3" /></Flex>;
   }
 
