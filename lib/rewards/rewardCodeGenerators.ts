@@ -7,6 +7,7 @@ import { generateAndSaveCustomDiscountCodes } from './generateAndSaveCustomDisco
 
 interface GeneratorOptions {
   session: ClientSession;
+  errors?: Set<string>;
 }
 
 export type RewardCodeGenerator = (

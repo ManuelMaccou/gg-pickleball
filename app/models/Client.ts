@@ -3,8 +3,19 @@ import { IClient } from "../types/databaseTypes";
 
 const ShopifySubSchema = new Schema({
   shopDomain: { type: String },
+  shopId: { type: String },
   accessToken: { type: String },
   secret: { type: String },
+  refreshToken: { type: String },
+  tokenExpiresAt: { type: Date },
+  refreshTokenExpiresAt: { type: Date },
+  // Tracks whether the merchant has an active Shopify app subscription.
+  // Set by the OAuth callback and kept in sync by the shopify-status route.
+  // A merchant can have valid credentials but no plan if they closed the
+  // pricing page before selecting one — in that state the integration won't
+  // work and the onboarding checklist should prompt them to select a plan.
+  hasActivePlan: { type: Boolean, default: false },
+  planHandle: { type: String },
 }, { _id: false });
 
 const PodplaySubSchema = new Schema({
@@ -27,12 +38,12 @@ const ClientSchema = new Schema<IClient>({
   dupr: { type: DuprSubSchema },
   logo: { type: String },
   cardBackgroundImage: { type: String },
-  cardTextColor: { 
-    type: String, 
-    default: '#ffffff' // Default to White
+  cardTextColor: {
+    type: String,
+    default: '#ffffff'
   },
   admin_logo: { type: String },
-  bannerColor: { type: String, default: 'white'},
+  bannerColor: { type: String, default: 'white' },
   icon: { type: String },
   rewardProducts: {
     type: [String],
@@ -41,7 +52,7 @@ const ClientSchema = new Schema<IClient>({
   latitude: { type: Number },
   longitude: { type: Number },
   altAchievements: [
-    { type: Schema.Types.ObjectId, ref: 'Achievement', required: true,  default: [] },
+    { type: Schema.Types.ObjectId, ref: 'Achievement', required: true, default: [] },
   ],
   altRewardsPerAchievement: {
     type: Map,
@@ -49,7 +60,7 @@ const ClientSchema = new Schema<IClient>({
     default: {}
   },
   achievements: [
-    { type: Schema.Types.ObjectId, ref: 'Achievement', required: true,  default: [] },
+    { type: Schema.Types.ObjectId, ref: 'Achievement', required: true, default: [] },
   ],
   rewardsPerAchievement: {
     type: Map,
@@ -65,16 +76,16 @@ const ClientSchema = new Schema<IClient>({
     enum: ['playbypoint', 'podplay', 'courtreserve'],
   },
   rewardConfigStatus: {
-    type : String ,
+    type: String,
     enum: ['pending', 'active'],
     default: 'active',
   },
   shopify: { type: ShopifySubSchema },
   playbypoint: { type: PlayByPointSubSchema },
   podplay: { type: PodplaySubSchema },
-  needsRetroactiveSweep: { 
-    type: Boolean, 
-    default: true // New clients default to TRUE (they need a sweep)
+  needsRetroactiveSweep: {
+    type: Boolean,
+    default: true
   }
 }, { timestamps: true });
 

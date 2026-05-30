@@ -148,9 +148,6 @@ export function transformAndEnrichDuprMatches(
 export function transformPersonalDuprMatches(duprMatches: DuprMatch[]): TransformedPersonalMatch[] {
   const transformed: TransformedPersonalMatch[] = [];
 
-  console.log('starting transformPersonalDuprMatches')
-  console.log('matches:', duprMatches)
-
   for (const match of duprMatches) {
     const team1Data = match.teams.find(t => t.serial === 1);
     const team2Data = match.teams.find(t => t.serial === 2);

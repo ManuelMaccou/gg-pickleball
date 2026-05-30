@@ -13,56 +13,80 @@ export type AdminPermissionType = typeof ADMIN_PERMISSION_TYPES[number];
 export type CommissionStatus =
   | 'pending'   // Waiting for day 30 check
   | 'held'      // Day 30 check found unresolved activity — re-check in 5 days
-  | 'charged'   // Commission collected via Stripe
+  | 'charged'   // Commission event sent to Shopify App Events API for billing
   | 'waived'    // Dispute lost or full refund — no commission taken
   | 'review';   // Still unresolved at day 60 — flagged for manual review
+ 
+export type HoldReason =
+  | 'unfulfilled'          // Order paid but not yet fulfilled by the merchant
+  | 'return_in_progress'   // Return has been initiated, waiting for resolution
+  | 'dispute_active'       // Open dispute or chargeback under review
+  | 'partial_refund_open'  // Partial refund issued but return still open
+  | null;  
 
 export interface ICommissionRecord extends Document {
   _id: Types.ObjectId;
-
+ 
   // Order context
   shopifyOrderId: string;        // Numeric Shopify order ID (e.g. "1234567890")
   shopifyOrderGid: string;       // GraphQL GID (e.g. "gid://shopify/Order/1234567890")
   shopDomain: string;            // e.g. "my-store.myshopify.com"
   discountCode: string;          // The GG code that was redeemed
-
+ 
   // Client link
   clientId: Types.ObjectId;      // Ref to Client
-
+ 
   // Financials
   orderTotal: number;            // Original order total in dollars
   refundedAmount: number;        // Total refunded at time of decision (0 if clean)
   commissionRate: number;        // 0.05 (stored explicitly in case rate changes later)
   commissionAmount: number;      // Calculated: (orderTotal - refundedAmount) * commissionRate
-  stripeInvoiceId?: string;
-
+  shopifyEventKey?: string;
+ 
   // Scheduling
   orderCreatedAt: Date;          // When Shopify order was placed
   chargeAfter: Date;             // orderCreatedAt + 30 days — first eligible check date
   nextCheckAt: Date;             // Updated every time a held record is re-queued
   lastCheckedAt?: Date;          // When the cron last evaluated this record
-
+ 
   // Status
   status: CommissionStatus;
-  stripePaymentIntentId?: string; // Set when status → 'charged'
-  reviewNote?: string;            // Set when status → 'review'
-
+  holdReason: HoldReason;         // Populated when status === 'held', null otherwise
+  reviewNote?: string;            // Set when status → 'review' or 'waived'
+ 
   createdAt: Date;
   updatedAt: Date;
 }
 
-export interface IStripeCustomer extends Document {
+export type BrandApplicationStatus = 'draft' | 'pending' | 'approved' | 'rejected';
+
+export interface IBrandApplication extends Document {
   _id: Types.ObjectId;
-  clientId: Types.ObjectId;          // Ref to Client
-  stripeCustomerId: string;          // e.g. "cus_ABC123"
-  stripePaymentMethodId?: string;    // e.g. "pm_ABC123" — set after card is saved
-  billingEmail: string;              // Where Stripe invoices are sent
-  cardLast4?: string;                // For display in the UI
-  cardBrand?: string;                // e.g. "visa", "mastercard"
-  cardExpMonth?: number;
-  cardExpYear?: number;
-  bankLast4?: string;
-  bankName?: string;
+  userId: Types.ObjectId;     // The authenticated user who started the application
+  email: string;              // From the authenticated session (business email)
+  legalCompanyName?: string;    // Legal entity name — recorded for audit, not shown publicly
+  brandName?: string;         // Optional on draft, required on submit
+  applicantTitle?: string;      // Job title / role of the accepting individual
+  website?: string;           // Optional on draft, required on submit
+  description?: string;       // Optional on draft, required on submit
+  shopifyConfirmed: boolean;  // Must be true to submit
+
+  status: BrandApplicationStatus;
+  reviewNote?: string;
+  reviewedAt?: Date;
+  reviewedBy?: Types.ObjectId;
+
+  // After approval
+  clientId?: Types.ObjectId;
+
+  submittedAt?: Date;  // Set when status moves from draft → pending
+
+  agreementVersion?: string;     // Agreement version accepted, e.g. '1.0'
+  acceptedAt?: Date;             // Timestamp of acceptance
+  acceptedIp?: string;           // IP address of the submitting request
+  authorityConfirmed: boolean;   // Checkbox: "I have authority to bind my company"
+  agreementAccepted: boolean;    // Checkbox: "I agree to the Brand Partner Agreement"
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -203,6 +227,7 @@ export interface IClubEvent extends Document {
   location?: string;
   description?: string;
   registrationCount: number;
+  published?: boolean
   createdAt: Date;
   updatedAt: Date;
 }
@@ -308,6 +333,12 @@ export interface ShopifyData {
   shopDomain: string;
   accessToken: string;
   secret: string;
+  shopId?: string;   // Shopify GID e.g. "gid://shopify/Shop/12345678"
+  refreshToken?: string;
+  tokenExpiresAt?: Date;
+  refreshTokenExpiresAt?: Date;
+  hasActivePlan?: boolean;
+  planHandle?: string
 }
 
 export interface PodplayData {

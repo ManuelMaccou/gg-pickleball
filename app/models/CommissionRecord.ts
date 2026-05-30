@@ -13,7 +13,7 @@ const CommissionRecordSchema = new Schema<ICommissionRecord>(
     refundedAmount: { type: Number, required: true, default: 0 },
     commissionRate: { type: Number, required: true, default: 0.05 },
     commissionAmount: { type: Number, required: true },
-    stripeInvoiceId: { type: String },
+    shopifyEventKey: { type: String },
 
     orderCreatedAt: { type: Date, required: true },
     chargeAfter: { type: Date, required: true },
@@ -26,7 +26,14 @@ const CommissionRecordSchema = new Schema<ICommissionRecord>(
       required: true,
       default: 'pending',
     },
-    stripePaymentIntentId: { type: String },
+
+    // Populated whenever status === 'held'. Cleared to null on any transition out of held.
+    holdReason: {
+      type: String,
+      enum: ['unfulfilled', 'return_in_progress', 'dispute_active', 'partial_refund_open', null],
+      default: null,
+    },
+
     reviewNote: { type: String },
   },
   { timestamps: true }
@@ -38,6 +45,8 @@ CommissionRecordSchema.index({ status: 1, nextCheckAt: 1 });
 CommissionRecordSchema.index({ shopifyOrderId: 1, discountCode: 1 }, { unique: true });
 // Look up commissions by client for the admin billing UI.
 CommissionRecordSchema.index({ clientId: 1, status: 1 });
+// Sub-filter held records by hold reason.
+CommissionRecordSchema.index({ status: 1, holdReason: 1 });
 
 export const CommissionRecord: Model<ICommissionRecord> =
   mongoose.models.CommissionRecord ||

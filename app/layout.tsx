@@ -8,12 +8,12 @@ import { UserProvider } from "./contexts/UserContext";
 import { CookieWarning } from "./components/CookieWarning";
 
 export const metadata: Metadata = {
-  title: "GG Pickleball: Your Game, Rewarded.",
+  title: "GG Pickleball: Pickleball Rewarded.",
   description: "Turn every match into exclusive gear, discounts, and perks. The ultimate ecosystem for players, brands, and clubs.",
 };
 
 export const viewport: Viewport = {
-  themeColor: '#0f0f0f',
+  themeColor: '#000000',
 }
 
 export default async function RootLayout({

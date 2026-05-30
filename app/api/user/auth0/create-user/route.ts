@@ -60,9 +60,13 @@ async function generateUniqueUsername(baseName: string): Promise<string> {
   return potentialName;
 }
 
-// API Route Handler
-export async function POST(req: NextRequest) {
+// Called by an Auth0 Post-Login Action after a user signs in or signs up.
+// Creates a User record in the database if one doesn't exist.
+//
+// SECURITY: requires `email_verified: true` to ensure the user has completed
+// OTP verification (or any other Auth0 email verification flow).
 
+export async function POST(req: NextRequest) {
   try {
     // 1. Authenticate the request
     const apiKey = req.headers.get('x-api-key');
@@ -71,47 +75,67 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Validate the request body
-    const body = (await req.json()) as Auth0WebhookPayload;
-    const { sub, email, guest_username } = body;
+    const body = (await req.json()) as any;
+    const { sub, email, email_verified, guest_username } = body;
 
     if (!sub || !email) {
       logError(new Error(`Missing required fields: sub and email`), {
         endpoint: 'POST /api/user/auth0/create-user',
         task: 'Creating an auth0 user user.',
       });
-      
-      return NextResponse.json({ error: 'There was an error creating a user. Please try again.' }, { status: 400 });
+
+      return NextResponse.json(
+        { error: 'There was an error creating a user. Please try again.' },
+        { status: 400 }
+      );
     }
+
+    // 3. Require email verification — this proves OTP was completed (or any
+    //    other Auth0 verification flow). Without this, a malicious actor could
+    //    sign up with someone else's email and get a User record before they
+    //    verify ownership.
+
+    /*
+    if (!email_verified) {
+      logError(new Error(`Unverified email attempted user creation: ${email}`), {
+        endpoint: 'POST /api/user/auth0/create-user',
+        task: 'Email verification check',
+      });
+      return NextResponse.json(
+        { error: 'Email not verified.' },
+        { status: 403 }
+      );
+    }
+    */
 
     await connectToDatabase();
 
     // If there is a guest username, they should be promoted to a full user
-
     if (guest_username) {
       const promotedUser = await User.findOneAndUpdate(
-        // Find the guest user by their unique name, ensuring they don't already have an auth0Id
         { name: guest_username, auth0Id: { $exists: false } },
-        // Set their new authenticated details
         { $set: { auth0Id: sub, email: email } },
         { new: true }
       );
 
       if (promotedUser) {
-        return NextResponse.json({ success: true, message: 'User promoted' }, { status: 200 });
+        return NextResponse.json(
+          { success: true, message: 'User promoted' },
+          { status: 200 }
+        );
       }
     }
 
     // Check if the user already exists by their unique Auth0 ID
-    const existingUserByAuth0Id = await User.findOne({ auth0Id: sub }).lean(); // .lean() for faster read-only queries
+    const existingUserByAuth0Id = await User.findOne({ auth0Id: sub }).lean();
     if (existingUserByAuth0Id) {
       return NextResponse.json({ message: 'User already exists' }, { status: 200 });
     }
 
     // 5. Generate a unique username
-    // Extract the part of the email before the "@" symbol as the base name
     const baseName = email.split('@')[0].trim();
     if (!baseName) {
-        return NextResponse.json({ error: 'Invalid email format.' }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid email format.' }, { status: 400 });
     }
 
     const uniqueName = await generateUniqueUsername(baseName);
@@ -120,24 +144,30 @@ export async function POST(req: NextRequest) {
     const newUser = new User({
       auth0Id: sub,
       email,
-      name: uniqueName, // Use the generated unique name
+      name: uniqueName,
       isGuest: false,
       createdAt: new Date(),
     });
 
     await newUser.save();
 
-    return NextResponse.json({ success: true, userId: newUser._id, name: uniqueName }, { status: 201 });
-
+    return NextResponse.json(
+      { success: true, userId: newUser._id, name: uniqueName },
+      { status: 201 }
+    );
   } catch (err: unknown) {
-    const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
+    const errorMessage =
+      err instanceof Error ? err.message : 'An unexpected error occurred';
 
     logError(new Error(`Missing required fields: sub and email`), {
       endpoint: 'POST /api/user/auth0/create-user',
       task: 'Creating an auth0 user user.',
-      error: errorMessage
+      error: errorMessage,
     });
 
-    return NextResponse.json({ error: 'An unexpected error occurred. Please try again.' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'An unexpected error occurred. Please try again.' },
+      { status: 500 }
+    );
   }
 }

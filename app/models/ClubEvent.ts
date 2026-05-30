@@ -23,19 +23,18 @@ const ClubEventSchema = new Schema<IClubEvent>(
     location: { type: String, trim: true },
     description: { type: String, trim: true },
     registrationCount: { type: Number, required: true, default: 0, min: 0 },
+
+    // published: false hides the event from the player feed.
+    // Registered players still see it as "Cancelled" so they know it's off.
+    // Defaults to true so existing events stay visible without a migration.
+    published: { type: Boolean, default: true, index: true },
   },
   { timestamps: true }
 );
 
 ClubEventSchema.index({ club: 1, eventDate: -1 });
-// Supports the /play feed: list upcoming events across all clubs by start time.
 ClubEventSchema.index({ eventType: 1, eventDate: 1 });
 
-// Enforce that upcoming events are scheduled in the future at creation time.
-// We only check on creation, not on update, so events naturally "expire" into
-// the past without admins having to flip eventType manually — but the type
-// stays 'upcoming' so historical registration data remains queryable as
-// "registrations for an upcoming event."
 ClubEventSchema.pre('validate', function (next) {
   if (this.isNew && this.eventType === 'upcoming') {
     const eventDateString = new Date(this.eventDate).toISOString().slice(0, 10);

@@ -1,9 +1,15 @@
 'use client'
 
-import { Box, Button, Card, Flex, Heading, Text, Table, Badge, ScrollArea, Spinner, IconButton } from "@radix-ui/themes";
+import {
+  Box, Button, Flex, Spinner, Text, Table, Badge,
+  ScrollArea, Heading, IconButton, Dialog,
+} from "@radix-ui/themes";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
-import { CheckCircledIcon, CrossCircledIcon, ArrowLeftIcon } from "@radix-ui/react-icons";
+import {
+  CheckCircledIcon, ArrowLeftIcon, ReloadIcon,
+} from "@radix-ui/react-icons";
+import { Trophy, ShieldCheck } from "lucide-react";
 
 interface PotentialMatch {
   matchId: number;
@@ -13,52 +19,65 @@ interface PotentialMatch {
   isSynced: boolean;
 }
 
+const DARK_BG     = '#0a0a0a';
+const CARD_BG     = '#111111';
+const BORDER      = 'rgba(255,255,255,0.08)';
+const LIME        = '#a3e635';
+const LIME_DIM    = 'rgba(163,230,53,0.15)';
+const LIME_BORDER = 'rgba(163,230,53,0.25)';
+const TEXT_MUTED  = 'rgba(255,255,255,0.4)';
+const TEXT_DIM    = 'rgba(255,255,255,0.6)';
+
 export default function SyncPage() {
   const router = useRouter();
-  
-  const [step, setStep] = useState<'loading' | 'preview' | 'syncing' | 'complete'>('loading');
+
+  const [step, setStep] = useState<'loading' | 'error' | 'preview' | 'syncing' | 'complete'>('loading');
   const [matches, setMatches] = useState<PotentialMatch[]>([]);
   const [logs, setLogs] = useState<string[]>([]);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [finalCount, setFinalCount] = useState(0);
+  const [streamError, setStreamError] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Tracks whether COMPLETE was received — used to avoid false-positive
+  // streamError triggers caused by stale closure reads of `step`.
+  const syncCompletedRef = useRef(false);
 
-  // 1. Fetch Preview
-  useEffect(() => {
-    const fetchPreview = async () => {
-      try {
-        const res = await fetch('/api/dupr/player/match-history/preview');
-        if (!res.ok) throw new Error("Failed to fetch matches");
-        const data = await res.json();
-        console.log('match data:', data)
-        setMatches(data.matches || []);
-        setStep('preview');
-      } catch (err) {
-        console.error(err);
-        setLogs(prev => [...prev, "Error fetching match history."]);
-      }
-    };
-    fetchPreview();
-  }, []);
+  const fetchPreview = async () => {
+    setStep('loading');
+    setLogs([]);
+    try {
+      const res = await fetch('/api/dupr/player/match-history/preview');
+      if (!res.ok) throw new Error(`Preview fetch failed (${res.status})`);
+      const data = await res.json();
+      setMatches(data.matches || []);
+      setStep('preview');
+    } catch (err) {
+      console.error('[SyncPage] Preview fetch error:', err);
+      setStep('error');
+    }
+  };
+
+  useEffect(() => { fetchPreview(); }, []);
 
   const unsyncedMatches = matches.filter(m => !m.isSynced);
 
-  // 2. Start Sync Process
   const handleStartSync = async () => {
     if (unsyncedMatches.length === 0) return;
 
     setStep('syncing');
     setLogs([]);
+    setStreamError(false);
+    syncCompletedRef.current = false;
     const matchIds = unsyncedMatches.map(m => m.matchId);
 
     try {
       const response = await fetch('/api/dupr/player/match-history/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ matchIds })
+        body: JSON.stringify({ matchIds }),
       });
 
-      if (!response.ok || !response.body) throw new Error("Connection failed");
+      if (!response.ok || !response.body) throw new Error('Connection failed');
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -71,202 +90,305 @@ export default function SyncPage() {
         const lines = chunk.split('\n\n');
 
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const jsonStr = line.replace('data: ', '');
-            try {
-              const data = JSON.parse(jsonStr);
-
-              if (data.type === 'PROGRESS') {
-                setProgress({ current: data.current, total: data.total });
-                setLogs(prev => [...prev, `[${data.current}/${data.total}] ${data.status}`]);
-              } 
-              else if (data.type === 'LOG') {
-                setLogs(prev => [...prev, `> ${data.message}`]);
-              }
-              else if (data.type === 'COMPLETE') {
-                setFinalCount(data.processed);
-                setStep('complete');
-              }
-              else if (data.type === 'ERROR') {
+          if (!line.startsWith('data: ')) continue;
+          const jsonStr = line.replace('data: ', '');
+          try {
+            const data = JSON.parse(jsonStr);
+            if (data.type === 'PROGRESS') {
+              setProgress({ current: data.current, total: data.total });
+              setLogs(prev => [...prev, `[${data.current}/${data.total}] ${data.status}`]);
+            } else if (data.type === 'LOG') {
+              setLogs(prev => [...prev, `> ${data.message}`]);
+            } else if (data.type === 'COMPLETE') {
+              syncCompletedRef.current = true;
+              setFinalCount(data.processed);
+              setStep('complete');
+            } else if (data.type === 'ERROR') {
+              // Only log to terminal for unexpected errors — the reward code
+              // failure has its own dialog and doesn't need a terminal line.
+              if (data.message !== 'reward_code_creation_failed') {
                 setLogs(prev => [...prev, `ERROR: ${data.message}`]);
               }
-            } catch (e) { console.error("Parse error", e); }
+              setStreamError(true);
+            }
+          } catch (e) {
+            console.error('[SyncPage] Parse error:', e);
           }
         }
-        
+
         if (scrollRef.current) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
       }
+
+      // Use the ref rather than `step` — state reads inside this closure are
+      // stale and would incorrectly trigger the error even on a clean sync.
+      if (!syncCompletedRef.current) {
+        setStreamError(true);
+      }
     } catch (e) {
-      console.error(e);
-      setLogs(prev => [...prev, "Critical connection error."]);
+      console.error('[SyncPage] Stream error:', e);
+      setLogs(prev => [...prev, 'Connection lost. Your progress up to this point has been saved.']);
+      setStreamError(true);
     }
   };
 
   return (
-    <Box style={{ backgroundColor: 'var(--slate-2)', minHeight: '100vh', padding: '40px 20px' }}>
-      <Flex direction="column" gap="4" style={{ maxWidth: 800, margin: '0 auto' }}>
-        
-        {/* Navigation / Header */}
-        <Flex align="center" gap="3" mb="2">
-          <IconButton 
-            variant="soft" 
-            color="gray" 
-            radius="full" 
+    <Box style={{ backgroundColor: DARK_BG, minHeight: '100vh', padding: '32px 20px', paddingBottom: '80px' }}>
+      <Flex direction="column" gap="5" style={{ maxWidth: 720, margin: '0 auto' }}>
+
+        {/* Header */}
+        <Flex align="center" gap="3">
+          <IconButton
+            variant="ghost" color="gray" radius="full"
             onClick={() => router.push('/play')}
-            style={{ cursor: 'pointer' }}
+            style={{ cursor: 'pointer', color: TEXT_DIM }}
           >
-            <ArrowLeftIcon />
+            <ArrowLeftIcon width={18} height={18} />
           </IconButton>
-          <Heading size="6" weight="bold" style={{ color: 'var(--slate-12)', letterSpacing: '-0.01em' }}>
-            Sync DUPR History
+          <Heading size="6" weight="bold" style={{ color: '#fff', letterSpacing: '-0.02em' }}>
+            Sync Match History
           </Heading>
         </Flex>
 
-        {/* Main Content Card */}
-        <Card 
-          size="4" 
-          style={{ 
-            backgroundColor: 'white', 
-            borderRadius: '24px', 
-            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025)',
-            border: 'none',
-            padding: '32px'
-          }}
-        >
-
-          {/* STEP 1: LOADING */}
-          {step === 'loading' && (
-            <Flex direction="column" align="center" justify="center" gap="4" style={{ minHeight: '300px' }}>
-                <Spinner size="3" />
-                <Text size="3" color="gray" weight="medium">Scanning your match history from the last 6 months...</Text>
+        {/* ── LOADING ── */}
+        {step === 'loading' && (
+          <Box style={{ background: CARD_BG, border: `0.5px solid ${BORDER}`, borderRadius: 20, padding: 48 }}>
+            <Flex direction="column" align="center" gap="4">
+              <Spinner size="3" style={{ color: LIME }} />
+              <Text size="3" style={{ color: TEXT_DIM }}>
+                Scanning your match history from the last 6 months…
+              </Text>
             </Flex>
-          )}
+          </Box>
+        )}
 
-          {/* STEP 2: PREVIEW */}
-          {step === 'preview' && (
-            <Flex direction="column" gap="5">
-                <Flex justify="between" align="center" p="3" style={{ backgroundColor: 'var(--slate-2)', borderRadius: '12px' }}>
-                    <Text size="3" weight="medium" color="gray">Found <strong style={{ color: 'var(--slate-12)' }}>{matches.length}</strong> total matches.</Text>
-                    {unsyncedMatches.length > 0 ? (
-                      <Badge color="lime" variant="soft" size="2" radius="full">
-                        {unsyncedMatches.length} New Matches Available
-                      </Badge>
-                    ) : (
-                      <Badge color="green" variant="soft" size="2" radius="full">
-                        <CheckCircledIcon /> All Caught Up
-                      </Badge>
-                    )}
-                </Flex>
-                
-                <ScrollArea type="auto" scrollbars="vertical" style={{ height: 400, border: '1px solid var(--slate-4)', borderRadius: '12px' }}>
-                    <Table.Root variant="ghost">
-                        <Table.Header>
-                            <Table.Row style={{ backgroundColor: 'var(--slate-2)' }}>
-                                <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Date</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Event Name</Table.ColumnHeaderCell>
-                            </Table.Row>
-                        </Table.Header>
-                        <Table.Body>
-                            {matches.map(m => (
-                                <Table.Row key={m.matchId} style={{ transition: 'background-color 0.2s' }} className="hover-row">
-                                    <Table.Cell>
-                                        {m.isSynced ? (
-                                            <Badge color="gray" variant="soft" radius="full">Synced</Badge>
-                                        ) : (
-                                            <Badge color="lime" variant="solid" radius="full">New</Badge>
-                                        )}
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                     <Text size="2" color="gray" weight="medium">
-                                      {(() => {
-                                        const d = new Date(m.matchDate);
-                                        return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
-                                          .toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-                                      })()}
-                                    </Text>
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                      <Text size="2" weight="bold" style={{ color: 'var(--slate-11)' }}>
-                                        {m.eventName}
-                                      </Text>
-                                    </Table.Cell>
-                                </Table.Row>
-                            ))}
-                        </Table.Body>
-                    </Table.Root>
-                </ScrollArea>
-
-                <Button 
-                    size="4" 
-                    radius="full"
-                    onClick={handleStartSync} 
-                    disabled={unsyncedMatches.length === 0}
-                    style={{ 
-                      backgroundColor: unsyncedMatches.length === 0 ? 'var(--slate-5)' : 'var(--slate-12)', 
-                      color: unsyncedMatches.length === 0 ? 'var(--slate-9)' : 'white',
-                      fontWeight: 'bold',
-                      cursor: unsyncedMatches.length === 0 ? 'not-allowed' : 'pointer'
-                    }}
-                >
-                    {unsyncedMatches.length === 0 
-                        ? "All Matches Up to Date" 
-                        : `Sync ${unsyncedMatches.length} New Matches`}
+        {/* ── ERROR ── */}
+        {step === 'error' && (
+          <Box style={{ background: CARD_BG, border: `0.5px solid ${BORDER}`, borderRadius: 20, padding: 48 }}>
+            <Flex direction="column" align="center" gap="5">
+              <Flex align="center" justify="center" style={{
+                width: 56, height: 56, borderRadius: '50%',
+                background: 'rgba(239,68,68,0.1)', border: '0.5px solid rgba(239,68,68,0.25)',
+              }}>
+                <Text size="6">⚠</Text>
+              </Flex>
+              <Flex direction="column" align="center" gap="2">
+                <Heading size="5" style={{ color: '#fff' }}>Couldn't load your matches</Heading>
+                <Text size="2" align="center" style={{ color: TEXT_DIM, maxWidth: 360 }}>
+                  We had trouble connecting to DUPR. This is usually temporary — try again in a moment.
+                </Text>
+              </Flex>
+              <Flex gap="3">
+                <Button size="3" radius="full" onClick={fetchPreview}
+                  style={{ backgroundColor: LIME, color: DARK_BG, fontWeight: 'bold', cursor: 'pointer' }}>
+                  <ReloadIcon style={{ marginRight: 6 }} /> Try Again
                 </Button>
+                <Button size="3" radius="full" variant="ghost" color="gray"
+                  onClick={() => router.push('/play')}
+                  style={{ cursor: 'pointer', color: TEXT_DIM }}>
+                  Back to Rewards
+                </Button>
+              </Flex>
             </Flex>
-          )}
+          </Box>
+        )}
 
-          {/* STEP 3 & 4: SYNCING / COMPLETE */}
-          {(step === 'syncing' || step === 'complete') && (
-            <Flex direction="column" gap="4">
-                {step === 'complete' && (
-                    <Box p="4" style={{ backgroundColor: 'var(--green-2)', borderRadius: '12px', border: '1px solid var(--green-5)' }}>
-                        <Flex gap="4" align="center">
-                            <Box style={{ backgroundColor: 'white', padding: '8px', borderRadius: '50%', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-                              <CheckCircledIcon width="24" height="24" color="var(--green-9)" />
-                            </Box>
-                            <Box flexGrow="1">
-                                <Text as="div" weight="bold" size="4" style={{ color: 'var(--green-11)' }}>Sync Complete!</Text>
-                                <Text as="div" size="2" style={{ color: 'var(--green-10)' }}>Successfully processed {finalCount} games into your profile.</Text>
-                            </Box>
-                            <Button variant="solid" color="green" radius="full" onClick={() => router.push('/play')}>
-                              View Rewards
-                            </Button>
-                        </Flex>
-                    </Box>
-                )}
+        {/* ── PREVIEW ── */}
+        {step === 'preview' && (
+          <Flex direction="column" gap="4">
+            <Flex justify="between" align="center" px="4" py="3" style={{
+              background: CARD_BG, border: `0.5px solid ${BORDER}`, borderRadius: 14,
+            }}>
+              <Text size="2" style={{ color: TEXT_DIM }}>
+                Found <Text weight="bold" style={{ color: '#fff' }}>{matches.length}</Text> total matches
+              </Text>
+              {unsyncedMatches.length > 0 ? (
+                <Badge radius="full" style={{ backgroundColor: LIME_DIM, color: LIME, border: `0.5px solid ${LIME_BORDER}`, fontWeight: 600 }}>
+                  {unsyncedMatches.length} new
+                </Badge>
+              ) : (
+                <Badge radius="full" style={{ backgroundColor: 'rgba(34,197,94,0.1)', color: '#4ade80', border: '0.5px solid rgba(34,197,94,0.2)', fontWeight: 600 }}>
+                  <CheckCircledIcon style={{ marginRight: 4 }} /> All caught up
+                </Badge>
+              )}
+            </Flex>
 
-                <Box 
-                  ref={scrollRef} 
-                  style={{ 
-                    height: 400, 
-                    overflowY: 'auto', 
-                    padding: '20px',
-                    backgroundColor: '#0f172a', // Deep slate for terminal feel
-                    color: '#10b981', // Emerald green text
-                    fontFamily: '"SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace',
-                    fontSize: '13px',
-                    borderRadius: '12px',
-                    boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)'
-                  }}
-                >
-                    {logs.map((log, i) => (
-                        <div key={i} style={{ marginBottom: '6px', lineHeight: '1.5' }}>{log}</div>
+            <Box style={{ background: CARD_BG, border: `0.5px solid ${BORDER}`, borderRadius: 20, overflow: 'hidden' }}>
+              <ScrollArea type="auto" scrollbars="vertical" style={{ maxHeight: 380 }}>
+                <Table.Root variant="ghost">
+                  <Table.Header>
+                    <Table.Row style={{ borderBottom: `0.5px solid ${BORDER}` }}>
+                      {['Status', 'Date', 'Event'].map(h => (
+                        <Table.ColumnHeaderCell key={h} style={{ color: TEXT_MUTED, fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                          {h}
+                        </Table.ColumnHeaderCell>
+                      ))}
+                    </Table.Row>
+                  </Table.Header>
+                  <Table.Body>
+                    {matches.map(m => (
+                      <Table.Row key={m.matchId} style={{ borderBottom: `0.5px solid ${BORDER}` }}>
+                        <Table.Cell>
+                          {m.isSynced ? (
+                            <Badge radius="full" style={{ backgroundColor: 'rgba(255,255,255,0.06)', color: TEXT_MUTED, fontSize: 11 }}>Synced</Badge>
+                          ) : (
+                            <Badge radius="full" style={{ backgroundColor: LIME_DIM, color: LIME, border: `0.5px solid ${LIME_BORDER}`, fontSize: 11, fontWeight: 600 }}>New</Badge>
+                          )}
+                        </Table.Cell>
+                        <Table.Cell>
+                          <Text size="2" style={{ color: TEXT_DIM }}>
+                            {(() => {
+                              const d = new Date(m.matchDate);
+                              return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
+                                .toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+                            })()}
+                          </Text>
+                        </Table.Cell>
+                        <Table.Cell>
+                          <Text size="2" weight="medium" style={{ color: '#fff' }}>{m.eventName}</Text>
+                        </Table.Cell>
+                      </Table.Row>
                     ))}
-                    {step === 'syncing' && <div className="blink" style={{ marginTop: '10px' }}>_</div>}
-                </Box>
-                
-                <style jsx>{`
-                    .blink { animation: blinker 1s linear infinite; }
-                    @keyframes blinker { 50% { opacity: 0; } }
-                    :global(.hover-row:hover) { background-color: var(--slate-2) !important; }
-                `}</style>
-            </Flex>
-          )}
+                  </Table.Body>
+                </Table.Root>
+              </ScrollArea>
+            </Box>
 
-        </Card>
+            {unsyncedMatches.length > 0 ? (
+              <Button size="4" radius="full" onClick={handleStartSync}
+                style={{ backgroundColor: LIME, color: DARK_BG, fontWeight: 'bold', cursor: 'pointer', height: 52 }}>
+                Sync {unsyncedMatches.length} New {unsyncedMatches.length === 1 ? 'Match' : 'Matches'}
+              </Button>
+            ) : (
+              <Box style={{ background: 'rgba(34,197,94,0.06)', border: '0.5px solid rgba(34,197,94,0.15)', borderRadius: 16, padding: '24px', textAlign: 'center' }}>
+                <Flex direction="column" align="center" gap="4">
+                  <Flex align="center" justify="center" style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(34,197,94,0.1)', border: '0.5px solid rgba(34,197,94,0.2)' }}>
+                    <Trophy size={22} style={{ color: '#4ade80' }} />
+                  </Flex>
+                  <Flex direction="column" align="center" gap="1">
+                    <Heading size="4" style={{ color: '#fff' }}>You're all caught up</Heading>
+                    <Text size="2" style={{ color: TEXT_DIM }}>All your recent matches are already synced. Head back to see your rewards.</Text>
+                  </Flex>
+                  <Button size="3" radius="full" onClick={() => router.push('/play')}
+                    style={{ backgroundColor: LIME, color: DARK_BG, fontWeight: 'bold', cursor: 'pointer' }}>
+                    View Rewards
+                  </Button>
+                </Flex>
+              </Box>
+            )}
+          </Flex>
+        )}
+
+        {/* ── SYNCING / COMPLETE ── */}
+        {(step === 'syncing' || step === 'complete') && (
+          <Flex direction="column" gap="4">
+
+            {/* Completion banner — only when no error */}
+            {step === 'complete' && !streamError && (
+              <Box style={{ background: 'rgba(34,197,94,0.08)', border: '0.5px solid rgba(34,197,94,0.2)', borderRadius: 16, padding: '20px 24px' }}>
+                <Flex justify="between" align="center" gap="4" wrap="wrap">
+                  <Flex align="center" gap="3">
+                    <CheckCircledIcon width={24} height={24} color="#4ade80" />
+                    <Box>
+                      <Text weight="bold" size="3" style={{ color: '#4ade80', display: 'block' }}>Sync complete</Text>
+                      <Text size="2" style={{ color: 'rgba(74,222,128,0.7)' }}>
+                        {finalCount} {finalCount === 1 ? 'game' : 'games'} added to your profile
+                      </Text>
+                    </Box>
+                  </Flex>
+                  <Button size="3" radius="full" onClick={() => router.push('/play')}
+                    style={{ backgroundColor: LIME, color: DARK_BG, fontWeight: 'bold', cursor: 'pointer', flexShrink: 0 }}>
+                    View Rewards
+                  </Button>
+                </Flex>
+              </Box>
+            )}
+
+            {/* Terminal log */}
+            <Box ref={scrollRef} style={{
+              height: 360, overflowY: 'auto', padding: '20px',
+              background: '#0d0d0d', border: `0.5px solid ${BORDER}`, borderRadius: 16,
+              fontFamily: '"SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace',
+              fontSize: 13, lineHeight: 1.6,
+            }}>
+              {logs.map((log, i) => (
+                <div key={i} style={{
+                  marginBottom: 4,
+                  color: log.startsWith('ERROR') ? '#f87171' : log.startsWith('>') ? 'rgba(163,230,53,0.5)' : LIME,
+                }}>
+                  {log}
+                </div>
+              ))}
+              {step === 'syncing' && (
+                <div style={{ color: LIME, marginTop: 8, animation: 'blink 1s linear infinite' }}>_</div>
+              )}
+            </Box>
+
+            {step === 'syncing' && progress.total > 0 && (
+              <Box>
+                <Flex justify="between" mb="1">
+                  <Text size="1" style={{ color: TEXT_MUTED }}>Progress</Text>
+                  <Text size="1" style={{ color: TEXT_MUTED }}>{progress.current} / {progress.total}</Text>
+                </Flex>
+                <Box style={{ height: 4, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 9999, overflow: 'hidden' }}>
+                  <Box style={{
+                    height: '100%',
+                    width: `${Math.round((progress.current / progress.total) * 100)}%`,
+                    backgroundColor: LIME, borderRadius: 9999, transition: 'width 0.3s ease',
+                  }} />
+                </Box>
+              </Box>
+            )}
+          </Flex>
+        )}
+
+        {/* ── STREAM ERROR DIALOG ── */}
+        <Dialog.Root open={streamError} onOpenChange={(open) => { if (!open) setStreamError(false); }}>
+          <Dialog.Content
+            maxWidth="420px"
+            style={{ backgroundColor: '#111', border: '0.5px solid rgba(255,255,255,0.1)' }}
+          >
+            {/* Icon + title */}
+            <Flex direction="column" align="center" gap="3" mb="4">
+              <Flex align="center" justify="center" style={{
+                width: 52, height: 52, borderRadius: '50%',
+                background: LIME_DIM, border: `0.5px solid ${LIME_BORDER}`,
+              }}>
+                <ShieldCheck size={24} color={LIME} />
+              </Flex>
+              <Dialog.Title style={{ color: '#fff', textAlign: 'center', margin: 0 }}>
+                Achievements saved
+              </Dialog.Title>
+            </Flex>
+
+            <Dialog.Description size="2" mb="2" style={{ color: TEXT_DIM, textAlign: 'center', display: 'block' }}>
+              We ran into an issue creating your reward codes, but your achievements are safe.
+            </Dialog.Description>
+            <Text size="2" mb="5" style={{ color: TEXT_MUTED, textAlign: 'center', display: 'block' }}>
+              We're working on it. Your rewards will appear automatically once the issue is resolved — you won't need to sync again.
+            </Text>
+
+            <Flex justify="between">
+              <Button
+                variant="ghost"
+                onClick={() => setStreamError(false)}
+                style={{ color: 'white', cursor: 'pointer' }}
+              >
+                Dismiss
+              </Button>
+              <Button
+                onClick={() => router.push('/play')}
+                style={{ backgroundColor: LIME, color: DARK_BG, fontWeight: 'bold', cursor: 'pointer' }}
+                radius="full"
+              >
+                View Rewards
+              </Button>
+            </Flex>
+          </Dialog.Content>
+        </Dialog.Root>
+
+        <style>{`@keyframes blink { 50% { opacity: 0; } }`}</style>
       </Flex>
     </Box>
   );

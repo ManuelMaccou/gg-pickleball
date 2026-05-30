@@ -4,7 +4,7 @@ import "@radix-ui/themes/styles.css";
 import { Theme } from "@radix-ui/themes";
 
 export const viewport: Viewport = {
-  themeColor: '#06287C',
+  themeColor: '#000000',
 }
 
 export default async function RootLayout({

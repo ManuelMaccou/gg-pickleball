@@ -239,11 +239,6 @@ export default function PrivacyPolicyPage() {
                     <Table.Cell>Merchant store token, order &amp; code data</Table.Cell>
                   </Table.Row>
                   <Table.Row>
-                    <Table.Cell><strong>Stripe</strong></Table.Cell>
-                    <Table.Cell>Payment processing (where applicable)</Table.Cell>
-                    <Table.Cell>Transaction data; no raw card data stored by us</Table.Cell>
-                  </Table.Row>
-                  <Table.Row>
                     <Table.Cell><strong>Email provider</strong></Table.Cell>
                     <Table.Cell>Transactional &amp; marketing email delivery</Table.Cell>
                     <Table.Cell>Email address, name</Table.Cell>

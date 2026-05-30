@@ -4,33 +4,8 @@ import { useEffect, useState } from "react";
 import { useUser as useAuth0User } from '@auth0/nextjs-auth0';
 import { useUserContext } from "@/app/contexts/UserContext";
 import { useRouter } from "next/navigation";
-import { 
-  Avatar, 
-  Badge, 
-  Box, 
-  Button, 
-  Callout, 
-  Card, 
-  Checkbox, 
-  Dialog, 
-  DropdownMenu, 
-  Flex, 
-  Heading, 
-  Select, 
-  Spinner, 
-  Text, 
-  TextField, 
-  Tooltip 
-} from "@radix-ui/themes";
-import { 
-  InfoCircledIcon, 
-  DotsHorizontalIcon, 
-  GearIcon,          
-  MagicWandIcon,      
-  ExclamationTriangleIcon,
-  CheckCircledIcon,
-  EnvelopeClosedIcon // <--- Added Icon for Invites
-} from "@radix-ui/react-icons"
+import { Avatar, Badge, Box, Button, Callout, Card, Checkbox, Dialog, DropdownMenu, Flex, Heading, Select, Spinner, Text, TextField, Tooltip } from "@radix-ui/themes";
+import { InfoCircledIcon, DotsHorizontalIcon, GearIcon, MagicWandIcon, ExclamationTriangleIcon, CheckCircledIcon, EnvelopeClosedIcon } from "@radix-ui/react-icons"
 import Image from "next/image";
 import darkGgLogo from '../../../../../public/logos/gg_logo_black_transparent.png'
 import { useIsMobile } from "@/app/hooks/useIsMobile";
@@ -70,6 +45,20 @@ type FormState = {
   };
   cardBackgroundImage?: string;
   cardTextColor?: string;
+};
+
+type ClientStatus = {
+  shopifyConnected: boolean;
+  shopifyNoPlan: boolean;
+  hasRewards: boolean;
+  accountClaimed: boolean;
+  attentionFlags: string[];
+  needsAttention: boolean;
+};
+
+type ClientWithStatus = {
+  _id: string;
+  status: ClientStatus;
 };
 
 const initialClientState: FormState = {
@@ -116,6 +105,7 @@ export default function GgpickleballAdminClients() {
   const [selectedClientForEdit, setSelectedClientForEdit] = useState<IClient | null>(null);
   const [formData, setFormData] = useState<FormState>(initialClientState);
   const [adminPermission, setAdminPermission] = useState<AdminPermissionType>(null);
+  const [clientStatuses, setClientStatuses] = useState<Map<string, ClientStatus>>(new Map());
 
   // --- NEW: Invite Admin State ---
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
@@ -125,6 +115,17 @@ export default function GgpickleballAdminClients() {
   const [isInviting, setIsInviting] = useState(false);
   const [inviteMessage, setInviteMessage] = useState<{type: 'error' | 'success', text: string} | null>(null);
 
+  const FLAG_LABELS: Record<string, string> = {
+    shopify_not_connected: 'Shopify not connected',
+    shopify_no_plan: 'Shopify connected — no plan selected',
+    account_not_claimed: 'Account not claimed',
+    no_rewards_after_3_days: 'No rewards configured (3+ days)',
+  };
+  
+  const attentionClients = clients.filter(
+    (c) => clientStatuses.get(c._id.toString())?.needsAttention
+  );
+
   const fetchClients = async () => {
     setIsFetchingClients(true);
     setFetchError(null);
@@ -133,6 +134,17 @@ export default function GgpickleballAdminClients() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Failed to fetch clients");
       setClients(data.clients);
+
+      // Fetch status for all clients in parallel with the main fetch.
+      const statusRes = await fetch('/api/admin/client-status');
+      if (statusRes.ok) {
+        const statusData = await statusRes.json();
+        const statusMap = new Map<string, ClientStatus>();
+        (statusData.clients as ClientWithStatus[]).forEach((c) => {
+          statusMap.set(c._id, c.status);
+        });
+        setClientStatuses(statusMap);
+      }
     } catch (error: unknown) {
       if (error instanceof Error) {
         setFetchError(error.message);
@@ -494,21 +506,112 @@ export default function GgpickleballAdminClients() {
                 <Callout.Root color="red"><Callout.Icon><InfoCircledIcon /></Callout.Icon><Callout.Text>{fetchError}</Callout.Text></Callout.Root>
               ) : (
                 <>
+                {attentionClients.length > 0 && (
+                  <Box mb="5">
+                    <Flex align="center" gap="2" mb="3">
+                      <ExclamationTriangleIcon color="var(--amber-9)" />
+                      <Text weight="bold" size="3">
+                        Needs attention ({attentionClients.length})
+                      </Text>
+                    </Flex>
+                    <Flex direction="column" gap="2">
+                      {attentionClients.map((client) => {
+                        const status = clientStatuses.get(client._id.toString());
+                        if (!status) return null;
+                        return (
+                          <Card key={client._id.toString()} style={{ borderLeft: '3px solid var(--amber-9)' }}>
+                            <Flex justify="between" align="start">
+                              <Box>
+                                <Text weight="bold" size="2">{client.name}</Text>
+                                <Flex direction="column" gap="1" mt="1">
+                                  {status.attentionFlags.map((flag) => (
+                                    <Flex key={flag} align="center" gap="2">
+                                      <ExclamationTriangleIcon
+                                        color="var(--amber-9)"
+                                        width={12}
+                                        height={12}
+                                      />
+                                      <Text size="1" color="amber">
+                                        {FLAG_LABELS[flag] ?? flag}
+                                      </Text>
+                                    </Flex>
+                                  ))}
+                                </Flex>
+                              </Box>
+                              <Button
+                                size="1"
+                                variant="soft"
+                                color="gray"
+                                onClick={() => handleOpenEditDialog(client as IClient)}
+                              >
+                                Edit
+                              </Button>
+                            </Flex>
+                          </Card>
+                        );
+                      })}
+                    </Flex>
+                  </Box>
+                )}
+
                 <Flex direction="column" gap="3">
                   {clients.length > 0 ? clients.map(client => (
                     <Card key={client._id.toString()}>
-                      <Flex gap="4" align="center">
-                        <Avatar radius="full" size="3" src={client.icon || undefined} fallback={client.name.charAt(0).toUpperCase()}/>
-                        <Box flexGrow={'1'}>
-                          <Text as="div" weight="bold">{client.name}</Text>
-                          {client.needsRetroactiveSweep && (
-                            <Badge color="amber" variant="solid" size="1" mb="1">
+                      <Flex gap="4" align="start">
+                        <Avatar
+                          radius="full"
+                          size="3"
+                          src={client.icon || undefined}
+                          fallback={client.name.charAt(0).toUpperCase()}
+                        />
+                        <Box flexGrow="1">
+                          <Flex align="center" gap="2" mb="1">
+                            <Text as="div" weight="bold">{client.name}</Text>
+                            {client.needsRetroactiveSweep && (
+                              <Badge color="amber" variant="solid" size="1">
                                 <ExclamationTriangleIcon /> Sweep Needed
-                            </Badge>
-                          )}
-                          <Text as="div" size="2" color="gray">ID: {client._id.toString()}</Text>
+                              </Badge>
+                            )}
+                          </Flex>
+                          <Text as="div" size="2" color="gray" mb="2">ID: {client._id.toString()}</Text>
+                    
+                          {(() => {
+                            const status = clientStatuses.get(client._id.toString());
+                            if (!status) return null;
+                            return (
+                              <Flex gap="2" wrap="wrap">
+                                <Badge
+                                  color={status.accountClaimed ? 'green' : 'gray'}
+                                  variant="soft"
+                                  size="1"
+                                >
+                                  {status.accountClaimed ? '✓' : '○'} Account
+                                </Badge>
+                                <Badge
+                                  color={status.shopifyConnected ? 'green' : 'gray'}
+                                  variant="soft"
+                                  size="1"
+                                >
+                                  {status.shopifyConnected ? '✓' : '○'} Shopify
+                                </Badge>
+                                <Badge
+                                  color={
+                                    status.shopifyConnected ? 'green'
+                                    : status.shopifyNoPlan ? 'amber'
+                                    : 'gray'
+                                  }
+                                  variant="soft"
+                                  size="1"
+                                >
+                                  {status.shopifyConnected ? '✓'
+                                    : status.shopifyNoPlan ? '!'
+                                    : '○'} Shopify
+                                </Badge>
+                              </Flex>
+                            );
+                          })()}
                         </Box>
-                        
+                    
                         <DropdownMenu.Root>
                           <DropdownMenu.Trigger>
                             <Button variant="soft" color="gray">
@@ -516,47 +619,35 @@ export default function GgpickleballAdminClients() {
                             </Button>
                           </DropdownMenu.Trigger>
                           <DropdownMenu.Content>
-                            
-                            {/* --- NEW ACTION --- */}
                             <DropdownMenu.Item onClick={() => handleOpenInviteDialog(client)}>
                               <EnvelopeClosedIcon /> Invite Admin
                             </DropdownMenu.Item>
-                            
                             <DropdownMenu.Separator />
-
                             <DropdownMenu.Item onClick={() => handleOpenEditDialog(client as IClient)}>
                               <GearIcon /> Edit Configuration
                             </DropdownMenu.Item>
-                            
                             <DropdownMenu.Separator />
-                            
-                            <DropdownMenu.Item 
+                            <DropdownMenu.Item
                               color="blue"
                               onClick={() => router.push(`/admin/client/${client._id.toString()}/retroactive`)}
                             >
                               <MagicWandIcon /> Retroactive Sweep
                             </DropdownMenu.Item>
-
                             {client.needsRetroactiveSweep && (
-                              <DropdownMenu.Item 
+                              <DropdownMenu.Item
                                 color="gray"
                                 onClick={() => handleToggleSweepFlag(client, false)}
                               >
                                 <CheckCircledIcon /> Mark as Complete (Ignore)
                               </DropdownMenu.Item>
                             )}
-
                             {!client.needsRetroactiveSweep && (
-                              <DropdownMenu.Item 
-                                onClick={() => handleToggleSweepFlag(client, true)}
-                              >
+                              <DropdownMenu.Item onClick={() => handleToggleSweepFlag(client, true)}>
                                 Flag for Sweep
                               </DropdownMenu.Item>
                             )}
-
                           </DropdownMenu.Content>
                         </DropdownMenu.Root>
-
                       </Flex>
                     </Card>
                   )) : (

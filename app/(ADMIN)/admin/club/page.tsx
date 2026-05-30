@@ -3,11 +3,13 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Flex, Spinner, Text, Card, Button, Box, Callout, Heading,
-  Badge, Table, Dialog,
+  Badge, Button, Card, Flex, Spinner, Text, Box, Heading,
+  Callout, Dialog,
 } from '@radix-ui/themes';
-import { PlusIcon, CheckCircledIcon } from '@radix-ui/react-icons';
+import { PlusIcon, CheckCircledIcon, ReloadIcon } from '@radix-ui/react-icons';
+import { ArrowRight, Building2, AlertCircle } from 'lucide-react';
 import { useUserContext } from '@/app/contexts/UserContext';
+import { useUser as useAuth0User } from '@auth0/nextjs-auth0';
 import { DuprConnectModal } from '@/app/components/DuprConnectModal';
 import { FrontendUser } from '@/app/types/frontendTypes';
 
@@ -27,30 +29,35 @@ interface DuprClub {
 export default function ClubEntryPage() {
   const router = useRouter();
   const { user, setUser } = useUserContext();
+  const { isLoading: auth0IsLoading } = useAuth0User();
 
   const [connectedClubs, setConnectedClubs] = useState<ConnectedClub[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // DUPR connect modal
   const [duprConnectOpen, setDuprConnectOpen] = useState(false);
-
-  // Connect club dialog state
   const [connectOpen, setConnectOpen] = useState(false);
   const [duprClubs, setDuprClubs] = useState<DuprClub[]>([]);
   const [fetchingDupr, setFetchingDupr] = useState(false);
   const [connectingId, setConnectingId] = useState<number | null>(null);
   const [connectError, setConnectError] = useState<string | null>(null);
+  const [noClubsFound, setNoClubsFound] = useState(false);
 
   const isDuprConnected = !!user?.duprId;
 
-  // Load connected clubs
-  const loadClubs = async () => {
+  // ── Auth redirect — wait for auth0 to resolve before acting ──────────────
+  useEffect(() => {
+    if (auth0IsLoading) return;
     if (!user) {
       router.replace('/auth/login?returnTo=/admin/club');
-      return;
     }
+  }, [auth0IsLoading, user, router]);
+
+  // ── Load clubs ─────────────────────────────────────────────────────────────
+  const loadClubs = async () => {
     if (!user?.id) return;
+    setError(null);
+    setLoading(true);
     try {
       const res = await fetch(`/api/club?adminId=${user.id}`);
       const data = await res.json();
@@ -63,18 +70,17 @@ export default function ClubEntryPage() {
     }
   };
 
-  useEffect(() => { loadClubs(); }, [user]);
+  useEffect(() => {
+    if (!auth0IsLoading && user) loadClubs();
+  }, [auth0IsLoading, user]);
 
-  // Fetch available DUPR clubs when connect dialog opens
+  // ── Open connect dialog ────────────────────────────────────────────────────
   const handleOpenConnect = async () => {
-    if (!isDuprConnected) {
-      // User needs to connect DUPR first
-      setDuprConnectOpen(true);
-      return;
-    }
+    if (!isDuprConnected) { setDuprConnectOpen(true); return; }
 
     setConnectOpen(true);
     setConnectError(null);
+    setNoClubsFound(false);
     setFetchingDupr(true);
     setDuprClubs([]);
 
@@ -86,10 +92,9 @@ export default function ClubEntryPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Failed to fetch DUPR clubs');
-      setDuprClubs(data.clubs ?? []);
-      if ((data.clubs ?? []).length === 0) {
-        setConnectError('No eligible clubs found on your DUPR account. You need an ORGANIZER or DIRECTOR role.');
-      }
+      const clubs = data.clubs ?? [];
+      setDuprClubs(clubs);
+      if (clubs.length === 0) setNoClubsFound(true);
     } catch (e) {
       setConnectError(e instanceof Error ? e.message : 'Failed to fetch clubs from DUPR');
     } finally {
@@ -97,11 +102,10 @@ export default function ClubEntryPage() {
     }
   };
 
-  // Connect a specific DUPR club
+  // ── Connect a club ─────────────────────────────────────────────────────────
   const handleConnect = async (club: DuprClub) => {
     setConnectingId(club.clubId);
     setConnectError(null);
-
     try {
       const res = await fetch('/api/club', {
         method: 'POST',
@@ -115,12 +119,10 @@ export default function ClubEntryPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Failed to connect club');
-
       setConnectedClubs((prev) => [
         ...prev,
         { _id: data.club._id, name: data.club.name, duprClubId: data.club.duprClubId },
       ]);
-
       setDuprClubs((prev) =>
         prev.map((c) => (c.clubId === club.clubId ? { ...c, alreadyConnected: true } : c))
       );
@@ -131,99 +133,202 @@ export default function ClubEntryPage() {
     }
   };
 
-const handleDuprConnected = (updatedUser: FrontendUser) => {
-  if (user) setUser({ ...user, duprId: updatedUser.dupr?.id });
-  loadClubs();
-};
+  // ── DUPR connected callback ────────────────────────────────────────────────
+  const handleDuprConnected = (updatedUser: FrontendUser) => {
+    if (user) setUser({ ...user, duprId: updatedUser.dupr?.id });
+    loadClubs();
+  };
 
-  if (loading) {
+  // ── Handle connect dialog close — reset all state ─────────────────────────
+  const handleConnectDialogChange = (open: boolean) => {
+    if (!open) {
+      setConnectError(null);
+      setNoClubsFound(false);
+      setDuprClubs([]);
+    }
+    setConnectOpen(open);
+  };
+
+  // ── Loading / auth pending ─────────────────────────────────────────────────
+  if (auth0IsLoading || (loading && !error)) {
     return (
-      <Flex justify="center" align="center" height="100vh" direction="column" gap="3">
-        <Spinner size="3" />
-        <Text size="2" color="gray">Loading your clubs...</Text>
+      <Flex
+        justify="center"
+        align="center"
+        height="100vh"
+        direction="column"
+        gap="3"
+        style={{ backgroundColor: '#0a0a0a' }}
+      >
+        <Spinner size="3" style={{color: '#a3e635'}} />
+        <Text size="2" style={{ color: 'rgba(255,255,255,0.5)' }}>Loading your clubs…</Text>
       </Flex>
     );
   }
 
   return (
-    <Flex direction="column" style={{ backgroundColor: '#F9FAFB', minHeight: '100vh' }}>
-      <Flex justify="between" align="center" height="64px" px="6"
-        style={{ backgroundColor: 'white', borderBottom: '1px solid var(--gray-4)' }}>
-        <Text weight="bold" size="3">My Clubs</Text>
-        <Button onClick={handleOpenConnect}>
-          <PlusIcon /> {isDuprConnected ? 'Connect Club' : 'Connect DUPR Account'}
+    <Flex direction="column" style={{ backgroundColor: '#0a0a0a', minHeight: '100vh' }}>
+
+      {/* Header */}
+      <Flex
+        justify="between"
+        align="center"
+        px="6"
+        style={{
+          height: 64,
+          backgroundColor: 'rgba(10,10,10,0.85)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          borderBottom: '0.5px solid rgba(255,255,255,0.08)',
+          position: 'sticky', top: 0, zIndex: 50,
+        }}
+      >
+        <Text weight="bold" size="3" style={{ color: '#fff' }}>My Clubs</Text>
+        <Button
+          onClick={handleOpenConnect}
+          radius="full"
+          style={{ backgroundColor: '#a3e635', color: '#0a0a0a', fontWeight: 600, cursor: 'pointer' }}
+        >
+          <PlusIcon />
+          {isDuprConnected ? 'Connect Club' : 'Connect DUPR Account'}
         </Button>
       </Flex>
 
-      <Box p="6">
+      <Box px="6" py="7">
         <Flex direction="column" gap="6" style={{ maxWidth: 800, margin: '0 auto' }}>
 
+          {/* Fetch error with retry */}
           {error && (
             <Callout.Root color="red">
-              <Callout.Text>{error}</Callout.Text>
-            </Callout.Root>
-          )}
-
-          {!isDuprConnected && (
-            <Callout.Root color="blue" mb="2">
-              <Callout.Text>
-                Connect your DUPR account to get started. This is required to manage clubs and upload matches.
-              </Callout.Text>
-            </Callout.Root>
-          )}
-
-          {connectedClubs.length === 0 ? (
-            <Card size="3">
-              <Flex direction="column" align="center" gap="3" py="6">
-                <Heading size="4">No clubs connected</Heading>
-                <Text size="2" color="gray" align="center">
-                  {isDuprConnected
-                    ? 'Connect a club from your DUPR account to start uploading matches.'
-                    : 'Connect your DUPR account first, then link your clubs.'}
-                </Text>
-                <Button onClick={handleOpenConnect} mt="2">
-                  <PlusIcon /> {isDuprConnected ? 'Connect Club' : 'Connect DUPR Account'}
+              <Flex justify="between" align="center" gap="4" style={{ flex: 1 }}>
+                <Callout.Text>{error}</Callout.Text>
+                <Button
+                  size="1"
+                  variant="soft"
+                  color="red"
+                  onClick={loadClubs}
+                  style={{ flexShrink: 0, cursor: 'pointer' }}
+                >
+                  <ReloadIcon /> Try again
                 </Button>
               </Flex>
-            </Card>
-          ) : (
-            <Card size="2" style={{ padding: 0, overflow: 'hidden' }}>
-              <Table.Root variant="surface">
-                <Table.Header>
-                  <Table.Row>
-                    <Table.ColumnHeaderCell>Club Name</Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell>DUPR Club ID</Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell></Table.ColumnHeaderCell>
-                  </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                  {connectedClubs.map((club) => (
-                    <Table.Row key={club._id}>
-                      <Table.Cell>
-                        <Text size="2" weight="medium">{club.name}</Text>
-                      </Table.Cell>
-                      <Table.Cell>
-                        <Badge color="gray" variant="surface">{club.duprClubId ?? '—'}</Badge>
-                      </Table.Cell>
-                      <Table.Cell>
-                        <Button
-                          variant="soft"
-                          size="1"
-                          onClick={() => router.push(`/admin/club/${club._id}/events`)}
-                        >
-                          Manage
-                        </Button>
-                      </Table.Cell>
-                    </Table.Row>
-                  ))}
-                </Table.Body>
-              </Table.Root>
-            </Card>
+            </Callout.Root>
+          )}
+
+          {/* DUPR not connected callout */}
+          {!isDuprConnected && (
+            <Box style={{
+              background: 'rgba(163,230,53,0.06)',
+              border: '0.5px solid rgba(163,230,53,0.2)',
+              borderRadius: 12,
+              padding: '14px 18px',
+            }}>
+              <Text size="2" style={{ color: '#a3e635', fontWeight: 500, display: 'block', marginBottom: 4 }}>
+                DUPR account required
+              </Text>
+              <Text size="2" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                Connect your DUPR account to get started. This is required to manage clubs and upload matches.
+              </Text>
+            </Box>
+          )}
+
+          {/* Empty state */}
+          {!error && connectedClubs.length === 0 && (
+            <Box style={{
+              background: '#111',
+              border: '0.5px solid rgba(255,255,255,0.08)',
+              borderRadius: 16,
+              padding: '48px 32px',
+              textAlign: 'center',
+            }}>
+              <Flex
+                align="center" justify="center" mb="4"
+                style={{
+                  width: 52, height: 52, borderRadius: 14,
+                  background: 'rgba(163,230,53,0.1)',
+                  border: '0.5px solid rgba(163,230,53,0.2)',
+                  margin: '0 auto 16px',
+                }}
+              >
+                <Building2 size={22} color="#a3e635" />
+              </Flex>
+              <Heading size="5" mb="2" style={{ color: '#fff' }}>No clubs connected</Heading>
+              <Text size="2" mb="5" style={{ color: 'rgba(255,255,255,0.6)', display: 'block' }}>
+                {isDuprConnected
+                  ? 'Connect a club from your DUPR account to start uploading matches.'
+                  : 'Connect your DUPR account first, then link your clubs.'}
+              </Text>
+              <Button
+                onClick={handleOpenConnect}
+                radius="full"
+                style={{ backgroundColor: '#a3e635', color: '#0a0a0a', fontWeight: 600, cursor: 'pointer' }}
+              >
+                <PlusIcon />
+                {isDuprConnected ? 'Connect Club' : 'Connect DUPR Account'}
+              </Button>
+            </Box>
+          )}
+
+          {/* Club list */}
+          {connectedClubs.length > 0 && (
+            <Flex direction="column" gap="3">
+              <Text
+                size="1"
+                weight="bold"
+                style={{ color: 'rgba(255,255,255,0.8)', letterSpacing: '0.1em', textTransform: 'uppercase' }}
+              >
+                {connectedClubs.length} {connectedClubs.length === 1 ? 'club' : 'clubs'} connected
+              </Text>
+              {connectedClubs.map((club) => (
+                <Box
+                  key={club._id}
+                  style={{
+                    background: '#111',
+                    border: '0.5px solid rgba(255,255,255,0.08)',
+                    borderRadius: 14,
+                    padding: '18px 20px',
+                    cursor: 'pointer',
+                    transition: 'border-color 0.15s',
+                  }}
+                  onClick={() => router.push(`/admin/club/${club._id}/events`)}
+                  onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'rgba(163,230,53,0.3)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)')}
+                >
+                  <Flex align="center" justify="between">
+                    <Flex align="center" gap="3">
+                      <Flex
+                        align="center" justify="center"
+                        style={{
+                          width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+                          background: 'rgba(163,230,53,0.1)',
+                          border: '0.5px solid rgba(163,230,53,0.2)',
+                        }}
+                      >
+                        <Building2 size={18} color="#a3e635" />
+                      </Flex>
+                      <Box>
+                        <Text size="3" weight="bold" style={{ color: '#fff', display: 'block' }}>
+                          {club.name}
+                        </Text>
+                        {club.duprClubId && (
+                          <Text size="1" style={{ color: 'rgba(255,255,255,0.8)', fontFamily: 'monospace' }}>
+                            DUPR ID: {club.duprClubId}
+                          </Text>
+                        )}
+                      </Box>
+                    </Flex>
+                    <Flex align="center" gap="2">
+                      <Text size="2" style={{ color: 'rgba(255,255,255)' }}>Manage events</Text>
+                      <ArrowRight size={16} color="rgba(255,255,255,0.8)" />
+                    </Flex>
+                  </Flex>
+                </Box>
+              ))}
+            </Flex>
           )}
         </Flex>
       </Box>
 
-      {/* DUPR Account Connect Modal */}
       <DuprConnectModal
         open={duprConnectOpen}
         onOpenChange={setDuprConnectOpen}
@@ -231,36 +336,75 @@ const handleDuprConnected = (updatedUser: FrontendUser) => {
       />
 
       {/* Connect Club Dialog */}
-      <Dialog.Root open={connectOpen} onOpenChange={setConnectOpen}>
-        <Dialog.Content style={{ maxWidth: 560 }}>
-          <Dialog.Title>Connect a DUPR Club</Dialog.Title>
-          <Dialog.Description size="2" color="gray" mb="4">
+      <Dialog.Root open={connectOpen} onOpenChange={handleConnectDialogChange}>
+        <Dialog.Content
+          style={{ maxWidth: 560, backgroundColor: '#111', border: '0.5px solid rgba(255,255,255,0.1)' }}
+        >
+          <Dialog.Title style={{ color: '#fff' }}>Connect a DUPR Club</Dialog.Title>
+          <Dialog.Description size="2" mb="4" style={{ color: 'rgba(255,255,255,0.8)' }}>
             Showing clubs where you are an Organizer or Director on DUPR.
           </Dialog.Description>
 
+          {/* Error from API */}
           {connectError && (
             <Callout.Root color="red" mb="3">
               <Callout.Text>{connectError}</Callout.Text>
               {connectError.includes('reconnect') && (
-                <Button size="1" variant="soft" mt="2"
-                  onClick={() => { setConnectOpen(false); setDuprConnectOpen(true); }}>
+                <Button
+                  size="1" variant="soft" mt="2"
+                  onClick={() => { setConnectOpen(false); setDuprConnectOpen(true); }}
+                >
                   Reconnect DUPR Account
                 </Button>
               )}
             </Callout.Root>
           )}
 
+          {/* No clubs found — neutral empty state, not an error */}
+          {noClubsFound && !connectError && (
+            <Flex
+              direction="column" align="center" gap="2" py="5"
+              style={{
+                background: 'rgba(255,255,255,0.03)',
+                border: '0.5px solid rgba(255,255,255,0.08)',
+                borderRadius: 10,
+                marginBottom: 12,
+              }}
+            >
+              <AlertCircle size={20} color="rgba(255,255,255,0.5)" />
+              <Text size="2" align="center" style={{ color: 'rgba(255,255,255,0.7)', maxWidth: 320 }}>
+                No eligible clubs found on your DUPR account. You need an Organizer or Director role to connect a club.
+              </Text>
+            </Flex>
+          )}
+
+          {noClubsFound && !connectError && (
+            <Flex align={'center'} justify={'center'}>
+             <Dialog.Close>
+                <Button mt={'5'} mb={'-5'} variant='soft'>Close</Button>
+              </Dialog.Close>
+              </Flex>
+          )}
+
           {fetchingDupr ? (
-            <Flex justify="center" p="6"><Spinner size="2" /></Flex>
+            <Flex justify="center" p="6"><Spinner size="2" style={{color: '#a3e635'}}/></Flex>
           ) : (
             <Flex direction="column" gap="2">
               {duprClubs.map((club) => (
-                <Card key={club.clubId} size="1">
+                <Box
+                  key={club.clubId}
+                  style={{
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '0.5px solid rgba(255,255,255,0.08)',
+                    borderRadius: 10,
+                    padding: '12px 14px',
+                  }}
+                >
                   <Flex justify="between" align="center">
                     <Flex direction="column" gap="1">
-                      <Text size="2" weight="medium">{club.clubName}</Text>
-                      <Flex gap="2">
-                        <Badge size="1" color="gray">ID: {club.clubId}</Badge>
+                      <Text size="2" weight="medium" style={{ color: '#fff' }}>{club.clubName}</Text>
+                      <Flex gap="4" align={'center'}>
+                        <Text size="1" style={{color: 'white'}}>ID: {club.clubId}</Text>
                         <Badge size="1" color="blue">{club.role}</Badge>
                       </Flex>
                     </Flex>
@@ -271,21 +415,24 @@ const handleDuprConnected = (updatedUser: FrontendUser) => {
                       </Flex>
                     ) : (
                       <Button
-                        size="1"
+                        size="1" radius="full"
                         onClick={() => handleConnect(club)}
                         disabled={connectingId === club.clubId}
+                        style={{ backgroundColor: '#a3e635', color: '#0a0a0a', fontWeight: 600, cursor: 'pointer' }}
                       >
                         {connectingId === club.clubId ? 'Connecting…' : 'Connect'}
                       </Button>
                     )}
                   </Flex>
-                </Card>
+                </Box>
               ))}
             </Flex>
           )}
 
-          <Flex justify="end" mt="5">
-            <Button variant="soft" color="gray" onClick={() => setConnectOpen(false)}>Close</Button>
+          <Flex justify="center" mt="5">
+            <Button variant="ghost" onClick={() => handleConnectDialogChange(false)}>
+              Close
+            </Button>
           </Flex>
         </Dialog.Content>
       </Dialog.Root>

@@ -37,6 +37,12 @@ export async function registerOrderPaidWebhook(shopDomain: string, accessToken: 
     body: JSON.stringify({ query, variables }),
   });
 
+  if (!response.ok) {
+    const body = await response.text();
+    console.error(`[Webhook] GraphQL call failed (${response.status}):`, body);
+    return;
+  }
+
   const json = await response.json();
   
   if (json.data?.webhookSubscriptionCreate?.userErrors?.length > 0) {

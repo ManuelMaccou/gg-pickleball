@@ -2,71 +2,44 @@
 
 import { useEffect, useState, useCallback, use } from 'react';
 import {
-  Badge, Button, Callout, Card, Flex, Spinner, Table, Text,
-  Grid, Box, Heading, Separator, IconButton,
+  Badge, Button, Callout, Flex, Spinner, Table, Text,
+  Box, Heading, Separator, IconButton, Dialog,
 } from '@radix-ui/themes';
-import { PlusIcon, TrashIcon, CheckCircledIcon, CrossCircledIcon } from '@radix-ui/react-icons';
+import { ReloadIcon } from '@radix-ui/react-icons';
+import { PlusIcon, TrashIcon, CheckCircledIcon, CrossCircledIcon, Pencil1Icon } from '@radix-ui/react-icons';
+import { ArrowRight, Upload, AlertCircle } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { DateTime } from 'luxon';
 import { UploadMatchesDrawer } from '../../../components/UploadMatchesDrawer';
-import { Pencil1Icon } from '@radix-ui/react-icons';
 import { EditMatchDrawer } from '../../../components/EditMatchDrawer';
 import { Breadcrumbs } from '@/app/(ADMIN)/admin/components/Breadcrumbs';
+import { ConfirmDialog } from '../../../components/ConfirmDialog';
 
-interface PlayerWithSync {
-  name: string;
-  email?: string;
-  duprId: string;
-  synced: boolean;
-}
+
+interface PlayerWithSync { name: string; email?: string; duprId: string; synced: boolean; }
 interface TeamWithSync {
-  player1: PlayerWithSync;
-  player2: PlayerWithSync;
+  player1: PlayerWithSync; player2: PlayerWithSync;
   game1: number; game2: number; game3: number; game4: number; game5: number;
 }
-interface SyncedMatchRow {
-  _id: string;
-  matchDate: string;
-  duprMatchId: string;
-  teamA: TeamWithSync;
-  teamB: TeamWithSync;
-}
-interface SyncSummary {
-  totalMatches: number;
-  syncedMatches: number;
-  totalPlayers: number;
-  syncedPlayers: number;
-}
-interface UploadedMatchRow {
-  _id: string;
-  matchDate: string;
-  teamA: any;
-  teamB: any;
-  duprSubmissionStatus: string;
-  duprMatchId?: string;
-}
-interface RegistrantRow {
-  _id: string;
-  name: string;
-  email?: string;
-  duprId: string;
-  duprPlusVerifiedAtRegistration: boolean;
-  registeredAt: string;
-}
+interface SyncedMatchRow { _id: string; matchDate: string; duprMatchId: string; teamA: TeamWithSync; teamB: TeamWithSync; }
+interface SyncSummary { totalMatches: number; syncedMatches: number; totalPlayers: number; syncedPlayers: number; }
+interface UploadedMatchRow { _id: string; matchDate: string; teamA: any; teamB: any; duprSubmissionStatus: string; duprMatchId?: string; }
+interface RegistrantRow { _id: string; name: string; email?: string; duprId: string; duprPlusVerifiedAtRegistration: boolean; registeredAt: string; }
 interface EventDetail {
-  _id: string;
-  name: string;
-  eventDate: string;
-  eventType: 'past' | 'upcoming';
-  accessLevel: 'open' | 'dupr_plus';
-  location?: string;
-  description?: string;
-  registrationCount: number;
-  notes?: string;
+  _id: string; name: string; eventDate: string; eventType: 'past' | 'upcoming';
+  accessLevel: 'open' | 'dupr_plus'; location?: string; description?: string;
+  registrationCount: number; notes?: string; published: boolean;
 }
 
-const formatDate = (s: string) => (s ? DateTime.fromISO(s).toFormat('MMM d, yyyy') : '—');
+const formatDate = (s: string) =>
+  s ? DateTime.fromISO(s).setZone('America/Los_Angeles').toFormat('MMM d, yyyy') : '—';
+
 const formatDateTime = (s: string) =>
-  s ? DateTime.fromISO(s).toFormat('MMM d, yyyy · h:mm a') : '—';
+  s ? DateTime.fromISO(s).setZone('America/Los_Angeles').toFormat('MMM d, yyyy · h:mm a') + ' PT' : '—';
+
+// Header shows date + time for upcoming events
+const formatEventDateTimeHeader = (s: string) =>
+  s ? DateTime.fromISO(s).setZone('America/Los_Angeles').toFormat('MMM d, yyyy · h:mm a') + ' PT' : '—';
 
 const SyncIcon = ({ synced }: { synced: boolean }) =>
   synced
@@ -84,8 +57,28 @@ const formatScore = (a: any, b: any): string => {
   return games.join(', ') || '—';
 };
 
+const StatCard = ({ label, value, accent = false }: { label: string; value: string | number; accent?: boolean }) => (
+  <Box style={{
+    background: accent ? 'rgba(163,230,53,0.1)' : 'rgba(255,255,255,0.04)',
+    border: `0.5px solid ${accent ? 'rgba(163,230,53,0.2)' : 'rgba(255,255,255,0.08)'}`,
+    borderRadius: 10, padding: '12px 16px',
+  }}>
+    <Text size="1" style={{ color: accent ? 'rgba(163,230,53,0.6)' : 'rgba(255,255,255,0.7)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: 11 }}>{label}</Text>
+    <Text size="6" weight="bold" style={{ color: accent ? '#a3e635' : '#fff', lineHeight: 1 }}>{value}</Text>
+  </Box>
+);
+
+const DarkTableWrap = ({ children }: { children: React.ReactNode }) => (
+  <Box style={{ background: '#111', border: '0.5px solid rgba(255,255,255,0.08)', borderRadius: 14, overflow: 'hidden' }}>
+    {children}
+  </Box>
+);
+
+const thStyle = { color: 'rgba(255,255,255,0.7)', fontSize: 11, textTransform: 'uppercase' as const, letterSpacing: '0.08em', fontWeight: 500 };
+
 export default function EventDetailPage({ params }: { params: Promise<{ clubId: string; eventId: string }> }) {
   const { clubId, eventId } = use(params);
+  const router = useRouter();
 
   const [event, setEvent] = useState<EventDetail | null>(null);
   const [uploadedMatches, setUploadedMatches] = useState<UploadedMatchRow[]>([]);
@@ -94,9 +87,20 @@ export default function EventDetailPage({ params }: { params: Promise<{ clubId: 
   const [loading, setLoading] = useState(true);
   const [syncLoading, setSyncLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingMatch, setEditingMatch] = useState<any>(null);
   const [editOpen, setEditOpen] = useState(false);
+
+  // ── Delete confirmation state ──────────────────────────────────────────────
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // ── Publish/unpublish state ───────────────────────────────────────────────
+  const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
 
   const loadEvent = useCallback(async () => {
     setLoading(true);
@@ -104,7 +108,14 @@ export default function EventDetailPage({ params }: { params: Promise<{ clubId: 
     try {
       const res = await fetch(`/api/club/events/${eventId}`);
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      if (!res.ok) {
+        // 403 is an auth error — surface differently
+        if (res.status === 403 || res.status === 401) {
+          setAuthError(data.error ?? 'Access denied');
+          return;
+        }
+        throw new Error(data.error);
+      }
       setEvent(data.event);
       setUploadedMatches(data.matches ?? []);
       setRegistrations(data.registrations ?? []);
@@ -123,32 +134,121 @@ export default function EventDetailPage({ params }: { params: Promise<{ clubId: 
       if (!res.ok) throw new Error(data.error);
       setSyncData(data);
     } catch (e) {
-      console.error('Sync status error:', e);
+      console.error('[EventDetail] Sync status error:', e);
     } finally {
       setSyncLoading(false);
     }
   }, [eventId]);
 
   useEffect(() => { loadEvent(); }, [loadEvent]);
+
   useEffect(() => {
     if (uploadedMatches.some((m) => m.duprSubmissionStatus === 'submitted')) {
       loadSyncStatus();
     }
   }, [uploadedMatches, loadSyncStatus]);
 
-  const handleDelete = async (matchId: string) => {
-    if (!confirm('Delete this match? This will also delete it from DUPR.')) return;
-    const res = await fetch(`/api/club/matches/${matchId}`, { method: 'DELETE' });
-    if (!res.ok) {
-      const data = await res.json();
-      alert(data.error ?? 'Delete failed');
-      return;
+  const handleTogglePublished = async () => {
+    if (!event) return;
+    setPublishing(true);
+    setPublishError(null);
+    const newValue = !event.published;
+    try {
+      const res = await fetch(`/api/club/events/${eventId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ published: newValue }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error ?? 'Failed to update event');
+      }
+      setEvent((prev) => prev ? { ...prev, published: newValue } : prev);
+      setPublishConfirmOpen(false);
+    } catch (e) {
+      setPublishError(e instanceof Error ? e.message : 'Something went wrong');
+    } finally {
+      setPublishing(false);
     }
-    loadEvent();
   };
 
-  if (loading) return <Flex justify="center" align="center" height="100vh"><Spinner size="3" /></Flex>;
-  if (error) return <Flex justify="center" p="9"><Text color="red">{error}</Text></Flex>;
+  const handleDelete = async () => {
+    if (!deleteTargetId) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/club/matches/${deleteTargetId}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error ?? 'Delete failed');
+      }
+      setDeleteTargetId(null);
+      loadEvent();
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : 'Delete failed');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  // Auth error state
+  if (authError) {
+    return (
+      <Flex direction="column" align="center" justify="center" gap="5"
+        style={{ backgroundColor: '#0a0a0a', minHeight: '100vh' }}>
+        <Flex align="center" justify="center" style={{
+          width: 52, height: 52, borderRadius: '50%',
+          background: 'rgba(239,68,68,0.1)', border: '0.5px solid rgba(239,68,68,0.25)',
+        }}>
+          <AlertCircle size={22} color="#f87171" />
+        </Flex>
+        <Flex direction="column" align="center" gap="2" style={{ textAlign: 'center', maxWidth: 360 }}>
+          <Text size="4" weight="bold" style={{ color: '#fff' }}>Access denied</Text>
+          <Text size="2" style={{ color: 'rgba(255,255,255,0.8)' }}>{authError}</Text>
+        </Flex>
+        <Button variant="soft" color="gray" onClick={() => router.push(`/admin/club/${clubId}/events`)} style={{ cursor: 'pointer' }}>
+          ← Back to events
+        </Button>
+      </Flex>
+    );
+  }
+
+  // Loading state
+  if (loading) {
+    return (
+      <Flex justify="center" align="center" height="100vh" style={{ backgroundColor: '#0a0a0a' }}>
+        <Spinner size="3" style={{color: '#a3e635'}}/>
+      </Flex>
+    );
+  }
+
+  // Fetch error state with retry
+  if (error) {
+    return (
+      <Flex direction="column" align="center" justify="center" gap="5"
+        style={{ backgroundColor: '#0a0a0a', minHeight: '100vh' }}>
+        <Flex align="center" justify="center" style={{
+          width: 52, height: 52, borderRadius: '50%',
+          background: 'rgba(239,68,68,0.1)', border: '0.5px solid rgba(239,68,68,0.25)',
+        }}>
+          <AlertCircle size={22} color="#f87171" />
+        </Flex>
+        <Flex direction="column" align="center" gap="2" style={{ textAlign: 'center', maxWidth: 360 }}>
+          <Text size="4" weight="bold" style={{ color: '#fff' }}>Couldn't load event</Text>
+          <Text size="2" style={{ color: 'rgba(255,255,255,0.5)' }}>{error}</Text>
+        </Flex>
+        <Flex gap="3">
+          <Button onClick={loadEvent} style={{ backgroundColor: '#a3e635', color: '#0a0a0a', fontWeight: 'bold', cursor: 'pointer' }} radius="full">
+            Try again
+          </Button>
+          <Button variant="soft" color="gray" onClick={() => router.push(`/admin/club/${clubId}/events`)} style={{ cursor: 'pointer' }}>
+            ← Back to events
+          </Button>
+        </Flex>
+      </Flex>
+    );
+  }
+
   if (!event) return null;
 
   const isUpcoming = event.eventType === 'upcoming';
@@ -156,30 +256,41 @@ export default function EventDetailPage({ params }: { params: Promise<{ clubId: 
   const failedCount = uploadedMatches.filter((m) => m.duprSubmissionStatus === 'failed').length;
 
   return (
-    <Flex direction="column" style={{ backgroundColor: '#F9FAFB', minHeight: '100vh' }}>
-      {/* Header */}
-      <Flex justify="between" align="center" height="64px" px="6"
-        style={{ backgroundColor: 'white', borderBottom: '1px solid var(--gray-4)' }}>
-        <Flex align="center" gap="4">
-          <Text weight="bold" size="3">{event.name}</Text>
-          <Separator orientation="vertical" style={{ height: 20 }} />
-          <Text size="2" color="gray">{formatDate(event.eventDate)}</Text>
+    <Flex direction="column" style={{ backgroundColor: '#0a0a0a', minHeight: '100vh' }}>
+      <Flex justify="between" align="center" px="6" style={{
+        height: 64, backgroundColor: 'rgba(10,10,10,0.85)',
+        backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
+        borderBottom: '0.5px solid rgba(255,255,255,0.08)',
+        position: 'sticky', top: 0, zIndex: 50, gap: 12,
+      }}>
+        <Flex align="center" gap="3" style={{ minWidth: 0 }}>
+          <Text weight="bold" size="3" style={{ color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{event.name}</Text>
+          <Separator orientation="vertical" style={{ height: 16, backgroundColor: 'rgba(255,255,255,0.12)', flexShrink: 0 }} />
+          <Text size="2" style={{ color: 'rgba(255,255,255,0.8)', whiteSpace: 'nowrap' }}>{formatEventDateTimeHeader(event.eventDate)}</Text>
+          {isUpcoming && <Badge size="1" color="blue" variant="soft">Upcoming</Badge>}
+          {event.accessLevel === 'dupr_plus' && <Badge size="1" color="amber" variant="soft">DUPR+</Badge>}
+        </Flex>
+        <Flex align="center" gap="2" style={{ flexShrink: 0 }}>
           {isUpcoming && (
-            <Badge size="1" color="blue" variant="soft">Upcoming</Badge>
+            <Button
+              color={event.published ? 'red' : 'green'}
+              radius="full"
+              onClick={() => { setPublishError(null); setPublishConfirmOpen(true); }}
+              style={{ cursor: 'pointer' }}
+            >
+              {event.published ? 'Unpublish' : 'Publish'}
+            </Button>
           )}
-          {event.accessLevel === 'dupr_plus' && (
-            <Badge size="1" color="amber" variant="soft">DUPR+</Badge>
+          {!isUpcoming && (
+            <Button onClick={() => setDrawerOpen(true)} radius="full"
+              style={{ backgroundColor: '#a3e635', color: '#0a0a0a', fontWeight: 600, cursor: 'pointer' }}>
+              <PlusIcon /> Add Matches
+            </Button>
           )}
         </Flex>
-        {/* Only past events can have matches added */}
-        {!isUpcoming && (
-          <Button onClick={() => setDrawerOpen(true)}>
-            <PlusIcon /> Add Matches
-          </Button>
-        )}
       </Flex>
 
-      <Box p="6">
+      <Box px="6" py="7">
         <Flex direction="column" gap="6" style={{ maxWidth: 1200, margin: '0 auto' }}>
           <Breadcrumbs crumbs={[
             { label: 'My Clubs', href: '/admin/club' },
@@ -187,239 +298,236 @@ export default function EventDetailPage({ params }: { params: Promise<{ clubId: 
             { label: event.name },
           ]} />
 
-          {/* ── UPCOMING EVENT VIEW ─────────────────────────────────────────── */}
+          {/* Delete error banner */}
+          {deleteError && (
+            <Callout.Root color="red">
+              <Callout.Text>{deleteError}</Callout.Text>
+            </Callout.Root>
+          )}
+
+          {/* Publish error */}
+          {publishError && (
+            <Callout.Root color="red">
+              <Callout.Text>{publishError}</Callout.Text>
+            </Callout.Root>
+          )}
+
+          {/* Unpublished banner */}
+          {isUpcoming && !event.published && (
+            <Box style={{
+              background: 'rgba(245,158,11,0.08)',
+              border: '0.5px solid rgba(245,158,11,0.2)',
+              borderRadius: 12,
+              padding: '14px 18px',
+            }}>
+              <Flex align="center" gap="3">
+                <Box>
+                  <Text size="2" weight="bold" style={{ color: '#fbbf24', display: 'block' }}>
+                    This event is unpublished
+                  </Text>
+                  <Text size="2" style={{ color: 'rgba(255,255,255,0.8)' }}>
+                    Players can no longer see or register for this event. Existing registrations are preserved.
+                    Click "Publish" to make it visible again.
+                  </Text>
+                </Box>
+              </Flex>
+            </Box>
+          )}
+
           {isUpcoming && (
             <>
-              {/* Event info summary */}
-              <Grid columns={{ initial: '2', sm: '3' }} gap="4">
-                <Card size="2">
-                  <Text size="2" color="gray">Registered: </Text>
-                  <Text size="6" weight="bold">{event.registrationCount}</Text>
-                </Card>
-                {event.location && (
-                  <Card size="2">
-                    <Text size="2" color="gray">Location: </Text>
-                    <Text size="3" weight="medium">{event.location}</Text>
-                  </Card>
-                )}
-                <Card size="2">
-                  <Text size="2" color="gray">Access: </Text>
-                  <Text size="3" weight="medium">
-                    {event.accessLevel === 'dupr_plus' ? 'DUPR+ only' : 'Open to all'}
-                  </Text>
-                </Card>
-              </Grid>
+              <Box style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
+                <StatCard label="Registered" value={event.registrationCount} accent />
+                {event.location && <StatCard label="Location" value={event.location} />}
+                <StatCard label="Access" value={event.accessLevel === 'dupr_plus' ? 'DUPR+ only' : 'Open to all'} />
+              </Box>
+
+              {/* Live / unpublished banner — shown inline in the upcoming content area */}
+              {event.published ? (
+                <Box style={{
+                  background: 'rgba(163,230,53,0.06)',
+                  border: '0.5px solid rgba(163,230,53,0.2)',
+                  borderRadius: 12,
+                  padding: '14px 18px',
+                }}>
+                  <Flex align="center" gap="3">
+                    <Flex align="center" justify="center" style={{
+                      width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+                      background: 'rgba(163,230,53,0.15)',
+                      border: '0.5px solid rgba(163,230,53,0.3)',
+                    }}>
+                      <CheckCircledIcon color="#a3e635" width={16} height={16} />
+                    </Flex>
+                    <Box>
+                      <Text size="2" weight="bold" style={{ color: '#a3e635', display: 'block' }}>
+                        Your event is live
+                      </Text>
+                      <Text size="2" style={{ color: 'rgba(255,255,255,0.8)' }}>
+                        Players can see and register for this event. Check back here to monitor registrations.
+                      </Text>
+                    </Box>
+                  </Flex>
+                </Box>
+              ) : null}
 
               {event.description && (
-                <Box>
-                  <Text size="2" color="gray" mb="1">Description: </Text>
-                  <Text size="2">{event.description}</Text>
+                <Box style={{ background: 'rgba(255,255,255,0.04)', border: '0.5px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '12px 16px' }}>
+                  <Text size="1" style={{ color: 'rgba(255,255,255,0.7)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: 11 }}>Description</Text>
+                  <Text size="2" style={{ color: 'rgba(255,255,255,0.8)' }}>{event.description}</Text>
                 </Box>
               )}
 
-              {/* Registrants table */}
-              <Heading size="4">
-                Registrants
-                {registrations.length > 0 && (
-                  <Text size="3" color="gray" ml="2" weight="regular">
-                    ({registrations.length})
-                  </Text>
-                )}
-              </Heading>
+              <Flex align="center" gap="2">
+                <Heading size="5" style={{ color: '#fff' }}>Registrants</Heading>
+                {registrations.length > 0 && <Text size="3" style={{ color: 'rgba(255,255,255,0.8)' }}>({registrations.length})</Text>}
+              </Flex>
 
-              <Card size="2" style={{ padding: 0, overflow: 'hidden' }}>
-                <Table.Root variant="surface">
+              <DarkTableWrap>
+                <Table.Root>
                   <Table.Header>
-                    <Table.Row>
-                      <Table.ColumnHeaderCell>Name</Table.ColumnHeaderCell>
-                      <Table.ColumnHeaderCell>Email</Table.ColumnHeaderCell>
-                      <Table.ColumnHeaderCell>DUPR ID</Table.ColumnHeaderCell>
-                      {event.accessLevel === 'dupr_plus' && (
-                        <Table.ColumnHeaderCell>DUPR+ Verified</Table.ColumnHeaderCell>
-                      )}
-                      <Table.ColumnHeaderCell>Registered</Table.ColumnHeaderCell>
+                    <Table.Row style={{ borderBottom: '0.5px solid rgba(255,255,255,0.08)' }}>
+                      <Table.ColumnHeaderCell style={thStyle}>Name</Table.ColumnHeaderCell>
+                      <Table.ColumnHeaderCell style={thStyle}>Email</Table.ColumnHeaderCell>
+                      <Table.ColumnHeaderCell style={thStyle}>DUPR ID</Table.ColumnHeaderCell>
+                      {event.accessLevel === 'dupr_plus' && <Table.ColumnHeaderCell style={thStyle}>DUPR+ Verified</Table.ColumnHeaderCell>}
+                      <Table.ColumnHeaderCell style={thStyle}>Registered</Table.ColumnHeaderCell>
                     </Table.Row>
                   </Table.Header>
                   <Table.Body>
                     {registrations.length === 0 ? (
-                      <Table.Row>
-                        <Table.Cell colSpan={event.accessLevel === 'dupr_plus' ? 5 : 4}>
-                          <Text color="gray" align="center" my="4">
-                            No registrations yet.
-                          </Text>
-                        </Table.Cell>
+                      <Table.Row><Table.Cell colSpan={event.accessLevel === 'dupr_plus' ? 5 : 4}>
+                        <Text style={{ color: 'rgba(255,255,255,0.8)' }} align="center" my="4" size="2">No registrations yet.</Text>
+                      </Table.Cell></Table.Row>
+                    ) : registrations.map((r) => (
+                      <Table.Row key={r._id} style={{ borderBottom: '0.5px solid rgba(255,255,255,0.06)' }}>
+                        <Table.Cell><Text size="2" weight="medium" style={{ color: '#fff' }}>{r.name}</Text></Table.Cell>
+                        <Table.Cell><Text size="2" style={{ color: 'rgba(255,255,255,0.8)' }}>{r.email ?? '—'}</Text></Table.Cell>
+                        <Table.Cell><Text size="2" style={{ fontFamily: 'monospace', color: 'rgba(255,255,255,0.8)' }}>{r.duprId}</Text></Table.Cell>
+                        {event.accessLevel === 'dupr_plus' && (
+                          <Table.Cell>
+                            <Flex align="center" gap="1">
+                              <SyncIcon synced={r.duprPlusVerifiedAtRegistration} />
+                              <Text size="2" style={{ color: r.duprPlusVerifiedAtRegistration ? '#84cc16' : 'rgba(255,255,255,0.8)' }}>
+                                {r.duprPlusVerifiedAtRegistration ? 'Verified' : 'Not verified'}
+                              </Text>
+                            </Flex>
+                          </Table.Cell>
+                        )}
+                        <Table.Cell><Text size="2" style={{ color: 'rgba(255,255,255,0.8)' }}>{formatDateTime(r.registeredAt)}</Text></Table.Cell>
                       </Table.Row>
-                    ) : (
-                      registrations.map((r) => (
-                        <Table.Row key={r._id}>
-                          <Table.Cell>
-                            <Text size="2" weight="medium">{r.name}</Text>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <Text size="2" color="gray">{r.email ?? '—'}</Text>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <Text size="2" style={{ fontFamily: 'monospace' }}>{r.duprId}</Text>
-                          </Table.Cell>
-                          {event.accessLevel === 'dupr_plus' && (
-                            <Table.Cell>
-                              <Flex align="center" gap="1">
-                                <SyncIcon synced={r.duprPlusVerifiedAtRegistration} />
-                                <Text size="2" color={r.duprPlusVerifiedAtRegistration ? undefined : 'gray'}>
-                                  {r.duprPlusVerifiedAtRegistration ? 'Verified' : 'Not verified'}
-                                </Text>
-                              </Flex>
-                            </Table.Cell>
-                          )}
-                          <Table.Cell>
-                            <Text size="2" color="gray">{formatDateTime(r.registeredAt)}</Text>
-                          </Table.Cell>
-                        </Table.Row>
-                      ))
-                    )}
+                    ))}
                   </Table.Body>
                 </Table.Root>
-              </Card>
+              </DarkTableWrap>
             </>
           )}
 
-          {/* ── PAST EVENT VIEW ─────────────────────────────────────────────── */}
           {!isUpcoming && (
             <>
-              <Grid columns={{ initial: '2', sm: '4' }} gap="4">
-                <Card size="2">
-                  <Text size="2" mr="4" color="gray">Total Matches</Text>
-                  <Text size="6" weight="bold">{uploadedMatches.length}</Text>
-                </Card>
-                <Card size="2">
-                  <Text size="2" mr="4" color="gray">Submitted to DUPR</Text>
-                  <Text size="6" weight="bold" color={submittedCount > 0 ? undefined : 'gray'}>
-                    {submittedCount}
-                  </Text>
-                </Card>
+              <Box style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
+                <StatCard label="Total Matches" value={uploadedMatches.length} />
+                <StatCard label="Submitted to DUPR" value={submittedCount} accent={submittedCount > 0} />
                 {syncData && (
                   <>
-                    <Card size="2">
-                      <Text size="2" mr="4" color="gray">Players Synced</Text>
-                      <Text size="6" weight="bold">
-                        {syncData.summary.syncedPlayers} / {syncData.summary.totalPlayers}
-                      </Text>
-                    </Card>
-                    <Card size="2">
-                      <Text size="2" mr="4" color="gray">Matches Synced</Text>
-                      <Text size="6" weight="bold">
-                        {syncData.summary.syncedMatches} / {syncData.summary.totalMatches}
-                      </Text>
-                    </Card>
+                    <StatCard label="Players Synced" value={`${syncData.summary.syncedPlayers} / ${syncData.summary.totalPlayers}`} accent={syncData.summary.syncedPlayers > 0} />
+                    <StatCard label="Matches Synced" value={`${syncData.summary.syncedMatches} / ${syncData.summary.totalMatches}`} />
                   </>
                 )}
                 {failedCount > 0 && (
-                  <Card size="2">
-                    <Text size="2" mr="4" color="red">Failed</Text>
-                    <Text size="6" weight="bold" color="red">{failedCount}</Text>
-                  </Card>
+                  <Box style={{ background: 'rgba(239,68,68,0.1)', border: '0.5px solid rgba(239,68,68,0.2)', borderRadius: 10, padding: '12px 16px' }}>
+                    <Text size="1" style={{ color: 'rgba(239,68,68,0.6)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: 11 }}>Failed</Text>
+                    <Text size="6" weight="bold" style={{ color: '#f87171', lineHeight: 1 }}>{failedCount}</Text>
+                  </Box>
                 )}
-              </Grid>
+              </Box>
 
-              <Heading size="4">Matches</Heading>
-              <Card size="2" style={{ padding: 0, overflow: 'hidden' }}>
-                <Table.Root variant="surface">
+              <Heading size="5" style={{ color: '#fff' }}>Matches</Heading>
+
+              <DarkTableWrap>
+                <Table.Root>
                   <Table.Header>
-                    <Table.Row>
-                      <Table.ColumnHeaderCell>Date</Table.ColumnHeaderCell>
-                      <Table.ColumnHeaderCell>Team A</Table.ColumnHeaderCell>
-                      <Table.ColumnHeaderCell>Team B</Table.ColumnHeaderCell>
-                      <Table.ColumnHeaderCell>Score</Table.ColumnHeaderCell>
-                      <Table.ColumnHeaderCell>DUPR Status</Table.ColumnHeaderCell>
-                      <Table.ColumnHeaderCell></Table.ColumnHeaderCell>
-                      <Table.ColumnHeaderCell></Table.ColumnHeaderCell>
+                    <Table.Row style={{ borderBottom: '0.5px solid rgba(255,255,255,0.08)' }}>
+                      <Table.ColumnHeaderCell style={thStyle}>Date</Table.ColumnHeaderCell>
+                      <Table.ColumnHeaderCell style={thStyle}>Team A</Table.ColumnHeaderCell>
+                      <Table.ColumnHeaderCell style={thStyle}>Team B</Table.ColumnHeaderCell>
+                      <Table.ColumnHeaderCell style={thStyle}>Score</Table.ColumnHeaderCell>
+                      <Table.ColumnHeaderCell style={thStyle}>DUPR Status</Table.ColumnHeaderCell>
+                      <Table.ColumnHeaderCell />
+                      <Table.ColumnHeaderCell />
                     </Table.Row>
                   </Table.Header>
                   <Table.Body>
                     {uploadedMatches.length === 0 ? (
-                      <Table.Row>
-                        <Table.Cell colSpan={6}>
-                          <Text color="gray" align="center" my="4">
-                            No matches yet. Click "Add Matches" to get started.
-                          </Text>
+                      <Table.Row><Table.Cell colSpan={6}>
+                        <Flex direction="column" align="center" py="7" gap="2">
+                          <Upload size={24} color="rgba(255,255,255,0.5)" />
+                          <Text size="2" style={{ color: 'rgba(255,255,255,0.7)' }}>No matches yet. Click "Add Matches" to get started.</Text>
+                        </Flex>
+                      </Table.Cell></Table.Row>
+                    ) : uploadedMatches.map((m) => (
+                      <Table.Row key={m._id} style={{ borderBottom: '0.5px solid rgba(255,255,255,0.06)' }}>
+                        <Table.Cell><Text size="2" style={{ color: 'rgba(255,255,255,0.7)', whiteSpace: 'nowrap' }}>{formatDate(m.matchDate)}</Text></Table.Cell>
+                        <Table.Cell><Text size="2" style={{ color: '#fff' }}>{m.teamA.player1.name} & {m.teamA.player2.name}</Text></Table.Cell>
+                        <Table.Cell><Text size="2" style={{ color: '#fff' }}>{m.teamB.player1.name} & {m.teamB.player2.name}</Text></Table.Cell>
+                        <Table.Cell><Text size="2" style={{ fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)' }}>{formatScore(m.teamA, m.teamB)}</Text></Table.Cell>
+                        <Table.Cell>
+                          <Badge radius="full" color={
+                            m.duprSubmissionStatus === 'submitted' ? 'green' :
+                            m.duprSubmissionStatus === 'failed' ? 'red' :
+                            m.duprSubmissionStatus === 'pending' ? 'blue' : 'gray'
+                          }>
+                            {m.duprSubmissionStatus}
+                          </Badge>
+                        </Table.Cell>
+                        <Table.Cell>
+                          <IconButton size="1" variant="ghost" color="gray"
+                            onClick={() => { setEditingMatch(m); setEditOpen(true); }}
+                            disabled={m.duprSubmissionStatus !== 'submitted'}>
+                            <Pencil1Icon />
+                          </IconButton>
+                        </Table.Cell>
+                        <Table.Cell>
+                          <IconButton size="1" variant="ghost" color="red"
+                            onClick={() => { setDeleteError(null); setDeleteTargetId(m._id); }}
+                            style={{ cursor: 'pointer' }}>
+                            <TrashIcon />
+                          </IconButton>
                         </Table.Cell>
                       </Table.Row>
-                    ) : (
-                      uploadedMatches.map((m) => (
-                        <Table.Row key={m._id}>
-                          <Table.Cell><Text size="2">{formatDate(m.matchDate)}</Text></Table.Cell>
-                          <Table.Cell>
-                            <Text size="2">{m.teamA.player1.name} & {m.teamA.player2.name}</Text>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <Text size="2">{m.teamB.player1.name} & {m.teamB.player2.name}</Text>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <Text size="2" style={{ fontFamily: 'monospace' }}>
-                              {formatScore(m.teamA, m.teamB)}
-                            </Text>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <Badge
-                              color={
-                                m.duprSubmissionStatus === 'submitted' ? 'green' :
-                                m.duprSubmissionStatus === 'failed' ? 'red' :
-                                m.duprSubmissionStatus === 'pending' ? 'blue' : 'gray'
-                              }
-                              radius="full"
-                            >
-                              {m.duprSubmissionStatus}
-                            </Badge>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <IconButton size="1" variant="ghost" color="gray"
-                              onClick={() => { setEditingMatch(m); setEditOpen(true); }}
-                              disabled={m.duprSubmissionStatus !== 'submitted'}
-                            >
-                              <Pencil1Icon />
-                            </IconButton>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <IconButton size="1" variant="ghost" color="red"
-                              onClick={() => handleDelete(m._id)}>
-                              <TrashIcon />
-                            </IconButton>
-                          </Table.Cell>
-                        </Table.Row>
-                      ))
-                    )}
+                    ))}
                   </Table.Body>
                 </Table.Root>
-              </Card>
+              </DarkTableWrap>
 
               {syncData && syncData.matches.length > 0 && (
                 <>
-                  <Heading size="4">Player Sync Status</Heading>
-                  <Text size="2" color="gray" mb="2">
+                  <Flex align="center" gap="3">
+                    <Heading size="5" style={{ color: '#fff' }}>Player Sync Status</Heading>
+                    {syncLoading && <Spinner size="1" style={{color: '#a3e635'}}/>}
+                  </Flex>
+                  <Text size="2" style={{ color: 'rgba(255,255,255,0.7)', marginTop: -12 }}>
                     Shows which players have synced their DUPR account to pick up these matches.
                   </Text>
-                  <Card size="2" style={{ padding: 0, overflow: 'hidden' }}>
-                    <Table.Root variant="surface">
+                  <DarkTableWrap>
+                    <Table.Root>
                       <Table.Header>
-                        <Table.Row>
-                          <Table.ColumnHeaderCell>Match</Table.ColumnHeaderCell>
-                          <Table.ColumnHeaderCell>Team A - Player 1</Table.ColumnHeaderCell>
-                          <Table.ColumnHeaderCell>Team A - Player 2</Table.ColumnHeaderCell>
-                          <Table.ColumnHeaderCell>Team B - Player 1</Table.ColumnHeaderCell>
-                          <Table.ColumnHeaderCell>Team B - Player 2</Table.ColumnHeaderCell>
+                        <Table.Row style={{ borderBottom: '0.5px solid rgba(255,255,255,0.08)' }}>
+                          <Table.ColumnHeaderCell style={thStyle}>Match</Table.ColumnHeaderCell>
+                          <Table.ColumnHeaderCell style={thStyle}>Team A · P1</Table.ColumnHeaderCell>
+                          <Table.ColumnHeaderCell style={thStyle}>Team A · P2</Table.ColumnHeaderCell>
+                          <Table.ColumnHeaderCell style={thStyle}>Team B · P1</Table.ColumnHeaderCell>
+                          <Table.ColumnHeaderCell style={thStyle}>Team B · P2</Table.ColumnHeaderCell>
                         </Table.Row>
                       </Table.Header>
                       <Table.Body>
                         {syncData.matches.map((m) => (
-                          <Table.Row key={m._id}>
-                            <Table.Cell>
-                              <Text size="2" color="gray">{formatDate(m.matchDate)}</Text>
-                            </Table.Cell>
+                          <Table.Row key={m._id} style={{ borderBottom: '0.5px solid rgba(255,255,255,0.06)' }}>
+                            <Table.Cell><Text size="2" style={{ color: 'rgba(255,255,255,0.7)', whiteSpace: 'nowrap' }}>{formatDate(m.matchDate)}</Text></Table.Cell>
                             {[m.teamA.player1, m.teamA.player2, m.teamB.player1, m.teamB.player2].map((p, i) => (
                               <Table.Cell key={i}>
                                 <Flex align="center" gap="2">
                                   <SyncIcon synced={p.synced} />
-                                  <Text size="2">{p.name}</Text>
+                                  <Text size="2" style={{ color: p.synced ? '#fff' : 'rgba(255,255,255,0.7)' }}>{p.name}</Text>
                                 </Flex>
                               </Table.Cell>
                             ))}
@@ -427,8 +535,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ clubId: 
                         ))}
                       </Table.Body>
                     </Table.Root>
-                  </Card>
-                  {syncLoading && <Flex justify="center" p="2"><Spinner size="1" /></Flex>}
+                  </DarkTableWrap>
                 </>
               )}
             </>
@@ -436,24 +543,53 @@ export default function EventDetailPage({ params }: { params: Promise<{ clubId: 
         </Flex>
       </Box>
 
-      {/* Drawers only mount for past events */}
       {!isUpcoming && (
         <>
-          <UploadMatchesDrawer
-            clubId={clubId}
-            eventId={eventId}
-            open={drawerOpen}
-            onOpenChange={setDrawerOpen}
-            onSubmitted={loadEvent}
-          />
-          <EditMatchDrawer
-            match={editingMatch}
-            open={editOpen}
-            onOpenChange={setEditOpen}
-            onUpdated={loadEvent}
-          />
+          <UploadMatchesDrawer clubId={clubId} eventId={eventId} open={drawerOpen} onOpenChange={setDrawerOpen} onSubmitted={loadEvent} />
+          <EditMatchDrawer match={editingMatch} open={editOpen} onOpenChange={setEditOpen} onUpdated={loadEvent} />
         </>
       )}
+
+      {/* Publish / unpublish confirmation */}
+      <Dialog.Root open={publishConfirmOpen} onOpenChange={setPublishConfirmOpen}>
+        <Dialog.Content style={{ maxWidth: 420, backgroundColor: '#111', border: '0.5px solid rgba(255,255,255,0.1)' }}>
+          <Dialog.Title style={{ color: '#fff' }}>
+            {event?.published ? 'Unpublish this event?' : 'Re-publish this event?'}
+          </Dialog.Title>
+          <Dialog.Description size="2" mb="5" style={{ color: 'rgba(255,255,255,0.8)' }}>
+            {event?.published
+              ? 'The event will be hidden from the player feed immediately. Players who are already registered will see it marked as cancelled and can contact you. All registrations are preserved.'
+              : 'The event will become visible to players again. Existing registrations will be restored to active status.'}
+          </Dialog.Description>
+          <Flex gap="3" justify="between">
+            <Button variant="ghost" onClick={() => setPublishConfirmOpen(false)} style={{ cursor: 'pointer' }}>
+              Cancel
+            </Button>
+            <Button
+              color={event?.published ? 'amber' : 'green'}
+              onClick={handleTogglePublished}
+              disabled={publishing}
+              style={{ cursor: publishing ? 'default' : 'pointer' }}
+            >
+              {publishing
+                ? (event?.published ? 'Unpublishing…' : 'Re-publishing…')
+                : (event?.published ? 'Unpublish' : 'Re-publish')}
+            </Button>
+          </Flex>
+        </Dialog.Content>
+      </Dialog.Root>
+
+      {/* Delete confirmation dialog — replaces confirm() */}
+      <ConfirmDialog
+        open={!!deleteTargetId}
+        onOpenChange={(open) => { if (!open) setDeleteTargetId(null); }}
+        title="Delete match"
+        description="This will permanently delete the match from DUPR. This cannot be undone."
+        confirmLabel="Delete"
+        onConfirm={handleDelete}
+        confirming={deleting}
+        destructive
+      />
     </Flex>
   );
 }

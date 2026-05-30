@@ -98,7 +98,7 @@ export default function PlayMenu({ user, isAuthorized, onUserUpdate, onInitiateD
             size="3" 
             style={{ cursor: 'pointer', color: 'var(--slate-12)' }}
           >
-            <HamburgerMenuIcon width="24" height="24" />
+            <HamburgerMenuIcon width="24" height="24" color="#ffffff"/>
           </IconButton>
         </Dialog.Trigger>
 

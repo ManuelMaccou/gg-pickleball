@@ -16,6 +16,7 @@ const superAdminLinks: NavLink[] = [
   { href: '/admin/achievements', text: 'Set Achievements' },
   { href: '/admin/rewards', text: 'Configure Rewards' },
   { href: '/admin/upload-matches', text: 'Upload Matches' },
+  { href: '/admin/gg/brand-applications', text: 'Brand Applications' },
 ];
 
 const ggAdminLinks: NavLink[] = [

@@ -19,7 +19,7 @@ export function Breadcrumbs({ crumbs }: { crumbs: Crumb[] }) {
             {i > 0 && <ChevronRightIcon color="var(--gray-8)" width="14" height="14" />}
             {crumb.href && !isLast ? (
               <Link href={crumb.href} style={{ textDecoration: 'none' }}>
-                <Text size="2" color="gray" style={{ cursor: 'pointer' }}
+                <Text size="2" style={{ cursor: 'pointer', color: 'gray' }}
                   onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
                   onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}>
                   {crumb.label}
@@ -27,7 +27,7 @@ export function Breadcrumbs({ crumbs }: { crumbs: Crumb[] }) {
               </Link>
             ) : (
               <Text size="2" weight={isLast ? 'medium' : undefined}
-                style={{ color: isLast ? 'var(--gray-12)' : 'var(--gray-9)' }}>
+                style={{ color: isLast ? 'white' : 'var(--gray-9)' }}>
                 {crumb.label}
               </Text>
             )}

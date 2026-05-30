@@ -1,12 +1,17 @@
+// lib/rewards/generateAndSaveShopifyDiscountCodes.ts
+
 import RewardCode from '@/app/models/RewardCode';
 import { Types, ClientSession } from 'mongoose';
 import { createShopifyDiscountCode } from '../shopify/createShopifyDiscountCode';
 import { RewardCodeTask } from '@/app/types/rewardTypes';
 import { IRewardCode } from '@/app/types/databaseTypes';
 
-// Define the GeneratorOptions type here or import it from a shared types file
 interface GeneratorOptions {
   session: ClientSession;
+  // Optional side-channel for surfacing non-throwing errors back to the caller.
+  // Generators add string flags here (e.g. 'auth_error') when a known failure
+  // occurs that should be communicated upstream without aborting the whole flow.
+  errors?: Set<string>;
 }
 
 type RewardCodeCreationPayload = Omit<IRewardCode, '_id' | 'createdAt' | 'updatedAt' | 'redemptionDate'>;
@@ -17,20 +22,19 @@ export async function generateAndSaveShopifyDiscountCodes(
   clientId: Types.ObjectId,
   options: GeneratorOptions
 ): Promise<Map<string, Types.ObjectId>> {
-  const { session } = options; // <-- Extract session
+  const { session, errors } = options;
   const result = new Map<string, Types.ObjectId>();
 
   const rewardCodeDocsToCreate: RewardCodeCreationPayload[] = [];
   const tasksToProcess: RewardCodeTask[] = [];
 
-// Phase 1: Create all Shopify codes first
+  // Phase 1: Create all Shopify codes first (outside the session)
   for (const task of tasks) {
     try {
       const code = await createShopifyDiscountCode(task.reward._id, clientId, options);
       if (code) {
-        // Inside this block, TypeScript knows `code` is a `string`.
         rewardCodeDocsToCreate.push({
-          code, // No more error here
+          code,
           userId: task.userId,
           achievementId: task.achievementId,
           reward: task.reward,
@@ -40,23 +44,45 @@ export async function generateAndSaveShopifyDiscountCodes(
           isGlobalReward: task.isGlobalReward ?? false,
           dataSourceId: task.dataSourceId ? new Types.ObjectId(task.dataSourceId) : undefined,
         });
-        tasksToProcess.push(task); // Keep track of the original task
+        tasksToProcess.push(task);
       } else {
-        // Optional: Log that a code was not generated for this task
-        console.warn(`Failed to generate a Shopify code for reward ${task.reward._id.toString()}, skipping.`);
+        console.warn(
+          `Failed to generate a Shopify code for reward ${task.reward._id.toString()}, skipping.`
+        );
       }
-    } catch (err) {
-      console.error(`Failed to create Shopify discount for reward ${task.reward._id}:`, err);
+    } catch (err: any) {
+      // Auth errors mean the merchant's Shopify connection is broken.
+      // We log clearly but DO NOT re-throw — the player's match stats and
+      // achievements must still be saved even if a reward code fails.
+      const isAuthError =
+        err.message?.includes('Client or Shopify credentials missing') ||
+        err.message?.includes('401') ||
+        err.message?.includes('Token refresh failed') ||
+        err.message?.includes('merchant must reconnect');
+
+      if (isAuthError) {
+        console.error(
+          `[RewardCode] ⚠️ AUTH FAILURE for client ${clientId} — Shopify token is invalid ` +
+          `and could not be refreshed. Reward ${task.reward._id} skipped. ` +
+          `Match processing continues. Merchant must reconnect Shopify.`
+        );
+        // Signal the auth failure upstream via the errors Set so the process
+        // route can send ERROR instead of COMPLETE to the frontend.
+        errors?.add('auth_error');
+      } else {
+        console.error(
+          `Failed to create Shopify discount for reward ${task.reward._id}:`,
+          err
+        );
+      }
     }
   }
 
-  // Phase 2: Create all database documents in a single, atomic operation
+  // Phase 2: Save all reward code documents atomically within the session
   if (rewardCodeDocsToCreate.length > 0) {
     try {
-      // Use insertMany for efficiency and pass the session
       const createdDocs = await RewardCode.insertMany(rewardCodeDocsToCreate, { session });
-      
-      // Map the results back to the original reward IDs
+
       for (let i = 0; i < createdDocs.length; i++) {
         const originalTask = tasksToProcess[i];
         const newDoc = createdDocs[i];

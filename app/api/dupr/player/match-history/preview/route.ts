@@ -124,8 +124,6 @@ export async function GET(req: NextRequest) {
         }));
     }
 
-    console.log('potential matches:', potentialMatches)
-
     return NextResponse.json({ matches: potentialMatches });
 
   } catch (error: any) {
