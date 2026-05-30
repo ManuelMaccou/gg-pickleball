@@ -16,7 +16,6 @@ async function loadAndAuthorize(eventId: string, userId: string) {
   if (!club.admins.some((a: any) => a.user.toString() === userId)) {
     return { error: 'Forbidden', status: 403 as const };
   }
-  
   return { event, club };
 }
 
@@ -33,14 +32,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ even
     if ('error' in loaded) return NextResponse.json({ error: loaded.error }, { status: loaded.status });
     const { event } = loaded;
 
-    // Matches — only past events have uploaded matches.
     const matches = event.eventType === 'past'
       ? await ClubUploadedMatch.find({ event: event._id, deletedAt: null })
           .sort({ matchDate: -1, createdAt: -1 })
           .lean()
       : [];
 
-    // Registrations — only upcoming events have registrants.
     const registrations = event.eventType === 'upcoming'
       ? await EventRegistration.find({ event: event._id, status: 'registered' })
           .sort({ registeredAt: 1 })
@@ -54,7 +51,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ even
   }
 }
 
-// PATCH /api/club/events/[eventId] — update event name/date/notes
+// PATCH /api/club/events/[eventId] — update event fields including published
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
   try {
@@ -68,11 +65,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ev
     const { event } = loaded;
 
     const body = await req.json();
-    const { name, eventDate, notes } = body ?? {};
+    const { name, eventDate, notes, published } = body ?? {};
 
     if (name !== undefined) event.name = name;
     if (eventDate !== undefined) event.eventDate = eventDate;
     if (notes !== undefined) event.notes = notes;
+    if (published !== undefined) event.published = published;
+
     await event.save();
 
     return NextResponse.json({ event });
@@ -95,7 +94,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ e
     if ('error' in loaded) return NextResponse.json({ error: loaded.error }, { status: loaded.status });
     const { event } = loaded;
 
-    // Unlink matches from this event (don't delete the matches themselves)
     await ClubUploadedMatch.updateMany(
       { event: event._id },
       { $unset: { event: '' } }

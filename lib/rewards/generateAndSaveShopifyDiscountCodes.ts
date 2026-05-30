@@ -8,6 +8,10 @@ import { IRewardCode } from '@/app/types/databaseTypes';
 
 interface GeneratorOptions {
   session: ClientSession;
+  // Optional side-channel for surfacing non-throwing errors back to the caller.
+  // Generators add string flags here (e.g. 'auth_error') when a known failure
+  // occurs that should be communicated upstream without aborting the whole flow.
+  errors?: Set<string>;
 }
 
 type RewardCodeCreationPayload = Omit<IRewardCode, '_id' | 'createdAt' | 'updatedAt' | 'redemptionDate'>;
@@ -18,7 +22,7 @@ export async function generateAndSaveShopifyDiscountCodes(
   clientId: Types.ObjectId,
   options: GeneratorOptions
 ): Promise<Map<string, Types.ObjectId>> {
-  const { session } = options;
+  const { session, errors } = options;
   const result = new Map<string, Types.ObjectId>();
 
   const rewardCodeDocsToCreate: RewardCodeCreationPayload[] = [];
@@ -50,9 +54,8 @@ export async function generateAndSaveShopifyDiscountCodes(
       // Auth errors mean the merchant's Shopify connection is broken.
       // We log clearly but DO NOT re-throw — the player's match stats and
       // achievements must still be saved even if a reward code fails.
-      // The daily token refresh cron prevents this from happening in normal
-      // operation. If it does occur, the merchant needs to reconnect Shopify.
       const isAuthError =
+        err.message?.includes('Client or Shopify credentials missing') ||
         err.message?.includes('401') ||
         err.message?.includes('Token refresh failed') ||
         err.message?.includes('merchant must reconnect');
@@ -63,6 +66,9 @@ export async function generateAndSaveShopifyDiscountCodes(
           `and could not be refreshed. Reward ${task.reward._id} skipped. ` +
           `Match processing continues. Merchant must reconnect Shopify.`
         );
+        // Signal the auth failure upstream via the errors Set so the process
+        // route can send ERROR instead of COMPLETE to the frontend.
+        errors?.add('auth_error');
       } else {
         console.error(
           `Failed to create Shopify discount for reward ${task.reward._id}:`,

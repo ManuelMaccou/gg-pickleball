@@ -226,7 +226,7 @@ const ClubScreen = () => (
         <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
           <div style={{ background: 'rgba(132,204,22,0.12)', border: '0.5px solid rgba(132,204,22,0.25)', borderRadius: 5, padding: '3px 10px', fontSize: 12, fontWeight: 500, color: '#a3e635' }}>11</div>
           <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)' }}>—</div>
-          <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 5, padding: '3px 10px', fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>7</div>
+          <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 5, padding: '3px 10px', fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>7</div>
           <div style={{ marginLeft: 'auto', background: 'rgba(132,204,22,0.1)', border: '0.5px solid rgba(132,204,22,0.2)', borderRadius: 5, padding: '2px 7px' }}>
             <span style={{ fontSize: 9, color: '#a3e635' }}>✓ Submitted</span>
           </div>

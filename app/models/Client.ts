@@ -15,6 +15,7 @@ const ShopifySubSchema = new Schema({
   // pricing page before selecting one — in that state the integration won't
   // work and the onboarding checklist should prompt them to select a plan.
   hasActivePlan: { type: Boolean, default: false },
+  planHandle: { type: String },
 }, { _id: false });
 
 const PodplaySubSchema = new Schema({

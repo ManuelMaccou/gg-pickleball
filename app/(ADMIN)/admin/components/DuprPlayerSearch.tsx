@@ -151,7 +151,7 @@ export function DuprPlayerSearch({
     browseLink:     '#a3e635',
     iconColor:      'rgba(255,255,255,0.4)',
     helperText:     'rgba(255,255,255,0.35)',
-    emptyText:      'rgba(255,255,255,0.35)',
+    emptyText:      'rgba(255,255,255,0.8)',
   } : {
     inputBg:        'white',
     inputBorder:    'var(--gray-6)',
@@ -370,7 +370,7 @@ export function DuprPlayerSearch({
 
           {mode === 'browse' && (
             membersLoading ? (
-              <Flex justify="center" p="4"><Spinner size="2" /></Flex>
+              <Flex justify="center" p="4"><Spinner size="2" style={{color: '#a3e635'}}/></Flex>
             ) : membersError ? (
               <Box style={{ padding: '10px 12px' }}>
                 <Text size="2" color="red">{membersError}</Text>

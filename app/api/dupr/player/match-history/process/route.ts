@@ -63,6 +63,7 @@ export async function POST(req: NextRequest) {
 
         const dataSourceId = dataSource._id.toString();
         let processedCount = 0;
+        let rewardCodeError = false; // set true if any Shopify code creation fails
         const total = matchIdsToProcess.length;
 
         for (let i = 0; i < total; i++) {
@@ -184,7 +185,7 @@ export async function POST(req: NextRequest) {
                 const validT2 = t2Ids.map(id => id || 'UNKNOWN');
                 const validWinners = matchWinnerIds.map(id => id || 'UNKNOWN');
 
-                await updateUserAndAchievements({
+                const matchResult = await updateUserAndAchievements({
                   team1Ids: validT1,
                   team2Ids: validT2,
                   winners: validWinners,
@@ -201,6 +202,9 @@ export async function POST(req: NextRequest) {
                   countAsWin: game.isLastGame,
                 }, { session });
 
+                if ((matchResult as any)?.hadRewardCodeError) {
+                  rewardCodeError = true;
+                }
                 processedCount++;
               }
               await session.commitTransaction();
@@ -208,16 +212,22 @@ export async function POST(req: NextRequest) {
           } catch (err: any) {
             await session.abortTransaction();
             console.error(`Error saving match ${matchId}`, err);
-            // Per-match errors are LOGs not ERRORs — the loop continues
-            // and COMPLETE still fires at the end. The Shopify credentials
-            // error surfaces here and is visible in the terminal log.
+
+            // Per-match errors are LOGs not ERRORs — the loop continues.
             sendEvent({ type: 'LOG', message: `Error saving match ${matchId}: ${err.message}` });
           } finally {
             session.endSession();
           }
         }
 
-        sendEvent({ type: 'COMPLETE', processed: processedCount });
+        if (rewardCodeError) {
+          // Achievements were saved but reward codes couldn't be created.
+          // Send ERROR so the frontend shows the "achievements saved" dialog
+          // rather than the success banner.
+          sendEvent({ type: 'ERROR', message: 'reward_code_creation_failed' });
+        } else {
+          sendEvent({ type: 'COMPLETE', processed: processedCount });
+        }
         controller.close();
 
       } catch (error: any) {

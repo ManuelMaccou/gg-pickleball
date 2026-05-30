@@ -178,7 +178,7 @@ export function UploadMatchesDrawer({
 
         {(['player1', 'player2'] as const).map((slot, i) => (
           <Box key={slot} mb="3">
-            <Text size="1" style={{ color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: 4 }}>
+            <Text size="1" style={{ color: 'rgba(255,255,255,0.7)', display: 'block', marginBottom: 4 }}>
               Player {i + 1}
             </Text>
             <DuprPlayerSearch
@@ -192,7 +192,7 @@ export function UploadMatchesDrawer({
           </Box>
         ))}
 
-        <Text size="1" style={{ color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: 6 }}>
+        <Text size="1" style={{ color: 'rgba(255,255,255,0.7)', display: 'block', marginBottom: 6 }}>
           Game scores
         </Text>
         <Flex gap="2">
@@ -200,7 +200,7 @@ export function UploadMatchesDrawer({
             const key = `game${n}` as const;
             return (
               <Box key={n} style={{ flex: 1, minWidth: 0 }}>
-                <Text size="1" style={{ color: 'rgba(255,255,255,0.35)', display: 'block', marginBottom: 3 }}>
+                <Text size="1" style={{ color: 'rgba(255,255,255,0.7)', display: 'block', marginBottom: 3 }}>
                   G{n}
                 </Text>
                 <TextField.Root
@@ -248,7 +248,7 @@ export function UploadMatchesDrawer({
         <Flex justify="between" align="center" mb="4">
           <Box>
             <Dialog.Title style={{ color: '#fff', marginBottom: 4 }}>Upload matches to DUPR</Dialog.Title>
-            <Dialog.Description size="2" style={{ color: 'rgba(255,255,255,0.45)' }}>
+            <Dialog.Description size="2" style={{ color: 'rgba(255,255,255,0.8)' }}>
               Search for each player by name to select them from DUPR. Add scores, then submit.
               Tell your community to sync afterwards to see results in their accounts.
             </Dialog.Description>
@@ -311,7 +311,7 @@ export function UploadMatchesDrawer({
               {/* Date + location */}
               <Flex gap="3" mb="3" wrap="wrap">
                 <Box style={{ flex: '1 1 160px' }}>
-                  <Text size="1" style={{ color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: 4 }}>Date</Text>
+                  <Text size="1" style={{ color: 'rgba(255,255,255,0.7)', display: 'block', marginBottom: 4 }}>Date</Text>
                   <TextField.Root
                     style={{backgroundColor: '#383838', color: 'white'}}
                     type="date"
@@ -320,7 +320,7 @@ export function UploadMatchesDrawer({
                   />
                 </Box>
                 <Box style={{ flex: '1 1 160px' }}>
-                  <Text size="1" style={{ color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: 4 }}>Location (optional)</Text>
+                  <Text size="1" style={{ color: 'rgba(255,255,255,0.7)', display: 'block', marginBottom: 4 }}>Location (optional)</Text>
                   <TextField.Root
                     style={{backgroundColor: '#383838', color: 'white'}}
                     value={row.location ?? ''}

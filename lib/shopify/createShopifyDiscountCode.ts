@@ -15,20 +15,30 @@ interface GeneratorOptions {
 async function getValidAccessToken(
   clientId: Types.ObjectId
 ): Promise<{ shopDomain: string; accessToken: string } | null> {
-  // Fetch fresh from DB — don't use the session here since we may need to
-  // write updated tokens and session writes must stay within the transaction scope
   const client = await Client.findById(clientId)
-    .select('shopify.shopDomain shopify.accessToken shopify.tokenExpiresAt shopify.refreshToken')
+    .select('shopify.shopDomain shopify.accessToken shopify.tokenExpiresAt shopify.refreshToken shopify.hasActivePlan')
     .lean() as {
       shopify?: {
         shopDomain?: string;
         accessToken?: string;
         tokenExpiresAt?: Date;
         refreshToken?: string;
+        hasActivePlan?: boolean;
       };
     } | null;
 
   if (!client?.shopify?.shopDomain || !client?.shopify?.accessToken) {
+    return null;
+  }
+
+  // No active plan — treat the same as missing credentials so the auth error
+  // path fires and the player sees the "achievements saved" dialog rather than
+  // silently getting a discount code from a store that's no longer paying.
+  if (!client.shopify.hasActivePlan) {
+    console.warn(
+      `[createShopifyDiscountCode] Client ${clientId} has no active Shopify plan — ` +
+      `skipping discount code creation. Merchant must select a plan.`
+    );
     return null;
   }
 
@@ -148,7 +158,6 @@ export async function createShopifyDiscountCode(
         const refreshResult = await refreshShopifyToken(clientId.toString());
         if (refreshResult.success && refreshResult.accessToken) {
           credentials = { shopDomain: credentials.shopDomain, accessToken: refreshResult.accessToken };
-          // Decrement attempts so this iteration doesn't count against the retry budget
           attempts--;
           continue;
         }

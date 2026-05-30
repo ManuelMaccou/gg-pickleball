@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useUser as useAuth0User } from '@auth0/nextjs-auth0';
 import { useUserContext } from '@/app/contexts/UserContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Badge, Button, Callout, Card, Flex, Spinner, Table, Text,
   Grid, Avatar, Box, Heading,
@@ -16,8 +16,6 @@ import { useIsMobile } from '@/app/hooks/useIsMobile';
 import { AdminOnboardingChecklist } from '@/app/components/AdminOnboardingChecklist';
 import { RewardCardCustomizer } from '../components/RewardCardCustomizer';
 import { BrandPageShell } from '../components/BrandPageShell';
-
-// ── Types ──────────────────────────────────────────────────────────────────────
 
 interface BrandDashboardStats {
   uniquePlayerCount: number;
@@ -44,8 +42,6 @@ const formatDate = (dateInput: string | Date | undefined | null): string => {
   return '—';
 };
 
-// ── Sub-components ─────────────────────────────────────────────────────────────
-
 const StatCard = ({
   title, value, icon, loading,
 }: {
@@ -53,19 +49,11 @@ const StatCard = ({
 }) => (
   <Card size="2">
     <Flex align="center" gap="3">
-      <Flex
-        align="center"
-        justify="center"
-        style={{
-          width: 40,
-          height: 40,
-          borderRadius: 10,
-          background: 'rgba(132,204,22,0.1)',
-          border: '0.5px solid rgba(132,204,22,0.2)',
-          color: '#65a30d',
-          flexShrink: 0,
-        }}
-      >
+      <Flex align="center" justify="center" style={{
+        width: 40, height: 40, borderRadius: 10,
+        background: 'rgba(132,204,22,0.1)', border: '0.5px solid rgba(132,204,22,0.2)',
+        color: '#65a30d', flexShrink: 0,
+      }}>
         {icon}
       </Flex>
       <Flex direction="column" gap="1">
@@ -80,23 +68,18 @@ const StatCard = ({
 
 const CodeBadge = ({ code }: { code: string }) => (
   <Text style={{
-    fontFamily: 'monospace',
-    fontWeight: 'bold',
-    letterSpacing: '1px',
-    backgroundColor: 'var(--gray-3)',
-    padding: '4px 8px',
-    borderRadius: '4px',
-    fontSize: '0.85rem',
+    fontFamily: 'monospace', fontWeight: 'bold', letterSpacing: '1px',
+    backgroundColor: 'var(--gray-3)', padding: '4px 8px',
+    borderRadius: '4px', fontSize: '0.85rem',
   }}>
     {code}
   </Text>
 );
 
-// ── Page ───────────────────────────────────────────────────────────────────────
-
 export default function BrandAdminDashboard() {
   const { user } = useUserContext();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const isMobile = useIsMobile();
 
   const userId = user?.id;
@@ -117,6 +100,11 @@ export default function BrandAdminDashboard() {
   const [isGettingAdmin, setIsGettingAdmin] = useState(true);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
   const [isLoadingRewards, setIsLoadingRewards] = useState(true);
+  // True while we're confirming a plan_handle param — blocks render until resolved
+  // so the checklist never flashes the wrong state on first load after plan selection.
+  const [isConfirmingPlan, setIsConfirmingPlan] = useState(
+    () => !!new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('plan_handle')
+  );
 
   const [statsError, setStatsError] = useState<string | null>(null);
   const [rewardsError, setRewardsError] = useState<string | null>(null);
@@ -140,21 +128,13 @@ export default function BrandAdminDashboard() {
     const getAdminUser = async () => {
       try {
         const response = await fetch(`/api/admin?userId=${userId}`);
-
-        // 204 = authenticated user but no admin record
-        if (response.status === 204) {
-          router.replace('/error?reason=no_admin_permissions');
-          return;
-        }
-
-        // Any other non-OK response (500, network error, etc.)
+        if (response.status === 204) { router.replace('/error?reason=no_admin_permissions'); return; }
         if (!response.ok) {
           const data = await response.json().catch(() => ({}));
           console.error('[BrandDashboard] Admin fetch failed:', data);
           router.replace('/error?reason=unknown');
           return;
         }
-
         const data = await response.json();
         if (data.admin.permission) setAdminPermission(data.admin.permission);
         setLocation(data.location);
@@ -184,6 +164,12 @@ export default function BrandAdminDashboard() {
         if (!res.ok) { setShopifyStatus('check_failed'); return; }
         if (data.connected) {
           setShopifyStatus('connected');
+          // Sync hasActivePlan from the live check back into local state
+          if (data.hasActivePlan !== undefined) {
+            setLocation((prev) =>
+              prev ? ({ ...prev, shopify: { ...prev.shopify, hasActivePlan: data.hasActivePlan } } as unknown as IClient) : null
+            );
+          }
         } else {
           setShopifyStatus('disconnected');
           setShopifyStatusReason(data.reason ?? null);
@@ -217,7 +203,7 @@ export default function BrandAdminDashboard() {
       }
     };
     getBrandStats();
-  }, [location]);
+  }, [location?._id]);
 
   // ── Effect 4: Fetch rewards ──
   useEffect(() => {
@@ -242,7 +228,7 @@ export default function BrandAdminDashboard() {
       }
     };
     getBrandRewards();
-  }, [location, page]);
+  }, [location?._id, page]);
 
   // ── Effect 5: Auto-open card customizer ──
   useEffect(() => {
@@ -262,9 +248,50 @@ export default function BrandAdminDashboard() {
     if (shop && hmac) window.location.href = `/api/shopify/install${window.location.search}`;
   }, []);
 
-  // Shopify is only truly connected when credentials exist AND a plan is active.
-  // accessToken alone means OAuth completed but the merchant closed the pricing
-  // page before selecting a plan — the integration won't work in that state.
+  // ── Effect 8: Confirm plan when redirected back from Shopify pricing page ──
+  // After plan selection, Shopify redirects to /admin/brand?plan_handle=...
+  // The callback never sees this param. We call confirm-plan immediately,
+  // update local state, and only then release the loading gate so the checklist
+  // never renders with the wrong plan state.
+  useEffect(() => {
+    const planHandle = searchParams.get('plan_handle');
+    if (!planHandle || !location) return;
+
+    const confirmPlan = async () => {
+      try {
+        console.log('[BrandDashboard] plan_handle detected:', planHandle, '— confirming plan');
+        const res = await fetch('/api/brand/confirm-plan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ planHandle }),
+        });
+        if (res.ok) {
+          console.log('[BrandDashboard] Plan confirmed — updating local state');
+          setLocation((prev) =>
+            prev
+              ? ({ ...prev, shopify: { ...prev.shopify, hasActivePlan: true, planHandle } } as unknown as IClient)
+              : null
+          );
+        } else {
+          console.error('[BrandDashboard] confirm-plan failed:', await res.json());
+        }
+      } catch (err) {
+        console.error('[BrandDashboard] confirm-plan error:', err);
+      } finally {
+        // Always release the gate — even if confirm-plan failed, don't leave
+        // the page stuck in a loading state.
+        setIsConfirmingPlan(false);
+      }
+    };
+
+    confirmPlan();
+  }, [searchParams, location?._id]);
+
+  // If no plan_handle in URL, the confirming gate isn't needed — release it.
+  useEffect(() => {
+    if (!searchParams.get('plan_handle')) setIsConfirmingPlan(false);
+  }, [searchParams]);
+
   const isShopifyConnected = !!(
     location?.retailSoftware === 'shopify' &&
     location?.shopify?.shopDomain &&
@@ -272,17 +299,15 @@ export default function BrandAdminDashboard() {
     location?.shopify?.hasActivePlan
   );
 
-  // ── Loading gate — shown while we verify the user has admin access ──
-  // Keep this tight: only spinner, no error states. All error paths now
-  // redirect away before setIsGettingAdmin(false) is ever called.
-  if (isMobile === null || auth0IsLoading || isGettingAdmin) {
+  // Loading gate — includes isConfirmingPlan so the checklist never flashes
+  // the wrong state when landing from Shopify's plan selection redirect.
+  if (isMobile === null || auth0IsLoading || isGettingAdmin || isConfirmingPlan) {
     return <Flex justify="center" align="center" height="100vh"><Spinner size="3" /></Flex>;
   }
 
   return (
     <BrandPageShell adminPermission={adminPermission} location={location}>
 
-      {/* ── Top title bar ── */}
       <Flex justify="between" align="center">
         <Heading size="6">Dashboard</Heading>
         <Flex align="center" gap="3">
@@ -305,7 +330,6 @@ export default function BrandAdminDashboard() {
         </Flex>
       </Flex>
 
-      {/* ── Shopify reconnect callout ── */}
       {shopifyStatus === 'disconnected' &&
         shopifyStatusReason === 'uninstalled' &&
         !shopifyStatusDismissed && (
@@ -318,13 +342,11 @@ export default function BrandAdminDashboard() {
               </Callout.Text>
               <Flex gap="3" align="center" style={{ flexShrink: 0 }}>
                 <Button size="2" color="amber" variant="solid"
-                  onClick={() => router.push('/admin/brand/connect-shopify')}
-                >
+                  onClick={() => router.push('/admin/brand/connect-shopify')}>
                   Reconnect Shopify
                 </Button>
                 <Button size="2" variant="ghost" color="gray"
-                  onClick={() => setShopifyStatusDismissed(true)}
-                >
+                  onClick={() => setShopifyStatusDismissed(true)}>
                   Dismiss
                 </Button>
               </Flex>
@@ -332,7 +354,6 @@ export default function BrandAdminDashboard() {
           </Callout.Root>
         )}
 
-      {/* ── Onboarding checklist ── */}
       {user && location && (
         <AdminOnboardingChecklist
           user={user}
@@ -343,26 +364,12 @@ export default function BrandAdminDashboard() {
         />
       )}
 
-      {/* ── Stat cards ── */}
       <Grid columns={{ initial: '1', sm: '2' }} gap="4">
-        <StatCard
-          title="Players Engaged"
-          value={stats?.uniquePlayerCount ?? 0}
-          loading={isLoadingStats}
-          icon={<Users size={18} />}
-        />
-        <StatCard
-          title="Rewards Issued"
-          value={totalRewardsCount}
-          loading={isLoadingRewards}
-          icon={<TicketIcon size={18} />}
-        />
+        <StatCard title="Players Engaged" value={stats?.uniquePlayerCount ?? 0} loading={isLoadingStats} icon={<Users size={18} />} />
+        <StatCard title="Rewards Issued" value={totalRewardsCount} loading={isLoadingRewards} icon={<TicketIcon size={18} />} />
       </Grid>
 
-      {/* ── Data grid ── */}
       <Grid columns={{ initial: '1', lg: '3' }} gap="6">
-
-        {/* Reward log */}
         <Box style={{ gridColumn: 'span 2' }}>
           <Card size="2" style={{ padding: 0, overflow: 'hidden' }}>
             <Box px="4" py="3" style={{ borderBottom: '1px solid var(--gray-a4)' }}>
@@ -371,9 +378,7 @@ export default function BrandAdminDashboard() {
             </Box>
 
             {rewardsError && (
-              <Callout.Root color="red" m="4">
-                <Callout.Text>{rewardsError}</Callout.Text>
-              </Callout.Root>
+              <Callout.Root color="red" m="4"><Callout.Text>{rewardsError}</Callout.Text></Callout.Root>
             )}
 
             <Table.Root variant="surface">
@@ -389,9 +394,7 @@ export default function BrandAdminDashboard() {
               <Table.Body>
                 {isLoadingRewards ? (
                   <Table.Row>
-                    <Table.Cell colSpan={5}>
-                      <Flex justify="center" p="4"><Spinner /></Flex>
-                    </Table.Cell>
+                    <Table.Cell colSpan={5}><Flex justify="center" p="4"><Spinner /></Flex></Table.Cell>
                   </Table.Row>
                 ) : rewards.length > 0 ? (
                   rewards.map((entry) => (
@@ -407,49 +410,35 @@ export default function BrandAdminDashboard() {
                           <Text size="2">{entry.rewardName}</Text>
                           <Flex gap="2" align="center">
                             <CodeBadge code={entry.code} />
-                            {entry.rewardProduct && (
-                              <Text size="1" color="gray">({entry.rewardProduct})</Text>
-                            )}
+                            {entry.rewardProduct && <Text size="1" color="gray">({entry.rewardProduct})</Text>}
                           </Flex>
                         </Flex>
                       </Table.Cell>
-                      <Table.Cell>
-                        <Text size="2" color="gray">{entry.achievementName || '—'}</Text>
-                      </Table.Cell>
+                      <Table.Cell><Text size="2" color="gray">{entry.achievementName || '—'}</Text></Table.Cell>
                       <Table.Cell>
                         {entry.redeemed
                           ? <Badge color="green" radius="full">Redeemed</Badge>
                           : <Badge color="amber" radius="full">Active</Badge>}
                       </Table.Cell>
-                      <Table.Cell>
-                        <Text size="2" color="gray">{formatDate(entry.earnedAt)}</Text>
-                      </Table.Cell>
+                      <Table.Cell><Text size="2" color="gray">{formatDate(entry.earnedAt)}</Text></Table.Cell>
                     </Table.Row>
                   ))
                 ) : (
                   <Table.Row>
-                    <Table.Cell colSpan={5}>
-                      <Text color="gray" align="center" my="4">No rewards issued yet.</Text>
-                    </Table.Cell>
+                    <Table.Cell colSpan={5}><Text color="gray" align="center" my="4">No rewards issued yet.</Text></Table.Cell>
                   </Table.Row>
                 )}
               </Table.Body>
             </Table.Root>
 
-            <Flex
-              justify="between" align="center" p="3"
-              style={{ borderTop: '1px solid var(--gray-a4)', backgroundColor: 'var(--gray-2)' }}
-            >
+            <Flex justify="between" align="center" p="3"
+              style={{ borderTop: '1px solid var(--gray-a4)', backgroundColor: 'var(--gray-2)' }}>
               <Text size="1" color="gray">Page {page} of {totalPages}</Text>
               <Flex gap="2">
-                <Button variant="soft" color="gray" disabled={page === 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                >
+                <Button variant="soft" color="gray" disabled={page === 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
                   <ChevronLeftIcon /> Prev
                 </Button>
-                <Button variant="soft" color="gray" disabled={page === totalPages}
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                >
+                <Button variant="soft" color="gray" disabled={page === totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
                   Next <ChevronRightIcon />
                 </Button>
               </Flex>
@@ -457,7 +446,6 @@ export default function BrandAdminDashboard() {
           </Card>
         </Box>
 
-        {/* Top players */}
         <Flex direction="column">
           <Card size="2" style={{ padding: 0, overflow: 'hidden' }}>
             <Box px="4" py="3" style={{ borderBottom: '1px solid var(--gray-a4)' }}>
@@ -470,17 +458,8 @@ export default function BrandAdminDashboard() {
               ) : stats && stats.topPlayers.length > 0 ? (
                 <Flex direction="column">
                   {stats.topPlayers.map((player, idx) => (
-                    <Flex
-                      key={idx}
-                      justify="between"
-                      align="center"
-                      px="2"
-                      py="2"
-                      style={{
-                        borderBottom: idx < stats.topPlayers.length - 1
-                          ? '1px solid var(--gray-a3)' : 'none',
-                      }}
-                    >
+                    <Flex key={idx} justify="between" align="center" px="2" py="2"
+                      style={{ borderBottom: idx < stats.topPlayers.length - 1 ? '1px solid var(--gray-a3)' : 'none' }}>
                       <Flex gap="3" align="center">
                         <Text size="2" color="gray" style={{ width: '20px' }}>#{idx + 1}</Text>
                         <Avatar size="1" fallback={player.name.charAt(0)} radius="full" />
@@ -502,16 +481,11 @@ export default function BrandAdminDashboard() {
         </Flex>
       </Grid>
 
-      {/* ── Reward card customizer ── */}
       <Box>
         <Flex align="center" gap="4" mb="1">
           <Heading size="4">Reward Card</Heading>
-          <Button
-            variant="soft"
-            color={showCardCustomizer ? 'red' : 'blue'}
-            size="2"
-            onClick={() => setShowCardCustomizer((v) => !v)}
-          >
+          <Button variant="soft" color={showCardCustomizer ? 'red' : 'blue'} size="2"
+            onClick={() => setShowCardCustomizer((v) => !v)}>
             {showCardCustomizer ? 'Hide' : 'Show'}
           </Button>
         </Flex>

@@ -6,10 +6,10 @@ import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser';
 import Client from '@/app/models/Client';
 import { refreshShopifyToken, tokenNeedsRefresh } from '@/lib/shopify/refreshShopifyToken';
 import { logError } from '@/lib/sentry/logger';
+import { checkPartnerSubscription } from '@/lib/shopify/checkPartnerSubscription';
 
 const SHOPIFY_API_VERSION = '2025-10';
 
-// Includes activeSubscriptions so we can sync hasActivePlan on every check.
 const CURRENT_APP_INSTALLATION_QUERY = `
   query {
     currentAppInstallation {
@@ -51,6 +51,19 @@ async function queryShopifyInstallation(
   };
 }
 
+// Fetches shopId from DB — needed for the Partner API subscription check.
+// Returns null if not stored yet (will be fetched lazily on next billing event).
+async function getShopId(clientId: string): Promise<string | null> {
+  try {
+    const client = await Client.findById(clientId)
+      .select('shopify.shopId')
+      .lean() as { shopify?: { shopId?: string } } | null;
+    return client?.shopify?.shopId ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(req: NextRequest) {
   try {
     const user = await getAuthorizedUser(req);
@@ -75,15 +88,17 @@ export async function GET(req: NextRequest) {
         };
       } | null;
 
-    // ── No credentials stored ─────────────────────────────────────────────
     if (!client?.shopify?.shopDomain || !client?.shopify?.accessToken) {
       return NextResponse.json({ connected: false, reason: 'no_credentials' });
     }
 
     let { accessToken } = client.shopify;
     const { shopDomain, tokenExpiresAt } = client.shopify;
+    // Capture the DB value before any Shopify queries so we can use it
+    // as a tiebreaker in the eventual consistency window after plan selection.
+    const dbHasActivePlan = client.shopify.hasActivePlan ?? false;
+    console.log(`[ShopifyStatus] DB state on load — hasActivePlan: ${dbHasActivePlan}, shopDomain: ${client.shopify.shopDomain}`);
 
-    // ── Proactive refresh if token is near expiry ─────────────────────────
     if (tokenNeedsRefresh(tokenExpiresAt)) {
       console.log('[ShopifyStatus] Token near expiry — refreshing proactively');
       const refreshResult = await refreshShopifyToken(user.adminLocationId);
@@ -94,7 +109,6 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // ── Query Shopify directly ────────────────────────────────────────────
     let result: Awaited<ReturnType<typeof queryShopifyInstallation>>;
     try {
       result = await queryShopifyInstallation(shopDomain, accessToken);
@@ -103,7 +117,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ connected: false, reason: 'query_failed' });
     }
 
-    // ── 401 — attempt refresh then retry once ─────────────────────────────
     if (result.status === 401) {
       console.log('[ShopifyStatus] Token rejected (401) — attempting refresh');
       const refreshResult = await refreshShopifyToken(user.adminLocationId);
@@ -128,7 +141,6 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // ── 403 — permanent auth failure ─────────────────────────────────────
     if (result.status === 403) {
       console.log('[ShopifyStatus] Token rejected (403) — clearing credentials');
       await Client.findByIdAndUpdate(user.adminLocationId, {
@@ -138,12 +150,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ connected: false, reason: 'uninstalled' });
     }
 
-    // ── Other non-OK ──────────────────────────────────────────────────────
     if (!result.ok) {
       return NextResponse.json({ connected: false, reason: 'query_failed' });
     }
 
-    // ── GraphQL auth errors ───────────────────────────────────────────────
     if (result.errors.length > 0) {
       const isAuthError = result.errors.some(
         (e: any) =>
@@ -161,7 +171,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ connected: false, reason: 'query_failed' });
     }
 
-    // ── No installation returned ──────────────────────────────────────────
     if (!result.installation) {
       console.log('[ShopifyStatus] currentAppInstallation returned null');
       await Client.findByIdAndUpdate(user.adminLocationId, {
@@ -171,15 +180,56 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ connected: false, reason: 'uninstalled' });
     }
 
-    // ── Check active subscription ─────────────────────────────────────────
-    // App is installed but may have no plan selected (merchant closed the
-    // pricing page before choosing one). Sync hasActivePlan to the DB so
-    // the checklist and billing page can read it without an extra query.
-    const hasActivePlan = (result.installation.activeSubscriptions ?? []).length > 0;
+    // ── Check active subscription via Partner API ────────────────────────
+    // The Partner API's activeSubscription query is the canonical source of
+    // truth for Shopify App Pricing. It correctly reflects cancellations and
+    // freezes that the Admin API activeSubscriptions field doesn't surface.
+    //
+    // We only use the Admin API result as a fallback when the Partner API is
+    // unavailable (missing credentials, network error, etc.).
+    const shopId = result.installation
+      ? await getShopId(user.adminLocationId)
+      : null;
+    console.log(`[ShopifyStatus] shopId for Partner API check: ${shopId ?? 'NOT FOUND — will use Admin API fallback'}`);
 
-    await Client.findByIdAndUpdate(user.adminLocationId, {
-      $set: { 'shopify.hasActivePlan': hasActivePlan },
-    });
+    let hasActivePlan: boolean;
+
+    if (shopId) {
+      const partnerResult = await checkPartnerSubscription(shopId);
+
+      if (partnerResult === null) {
+        // Partner API query itself failed (network error, wrong credentials,
+        // API down) — we have no signal either way. Leave DB unchanged and
+        // use the existing DB value. This is the only case where we don't
+        // update — a real cancellation returns false, not null.
+        console.log('[ShopifyStatus] Partner API query failed — leaving DB unchanged, using existing value');
+        hasActivePlan = dbHasActivePlan;
+      } else {
+        // partnerResult is true or false — Shopify gave us a definitive answer.
+        // Always write this back to DB so it stays current regardless of
+        // which direction the change went.
+        hasActivePlan = partnerResult;
+        if (partnerResult !== dbHasActivePlan) {
+          await Client.findByIdAndUpdate(user.adminLocationId, {
+            $set: { 'shopify.hasActivePlan': partnerResult },
+          });
+          console.log(`[ShopifyStatus] Synced hasActivePlan: ${dbHasActivePlan} → ${partnerResult}`);
+        }
+      }
+    } else {
+      // No shopId — can't call Partner API. Fall back to Admin API subscription
+      // check as a best-effort signal.
+      const adminHasActivePlan = (result.installation?.activeSubscriptions ?? []).length > 0;
+      hasActivePlan = adminHasActivePlan;
+      if (adminHasActivePlan !== dbHasActivePlan) {
+        await Client.findByIdAndUpdate(user.adminLocationId, {
+          $set: { 'shopify.hasActivePlan': adminHasActivePlan },
+        });
+        console.log(`[ShopifyStatus] No shopId — Admin API synced hasActivePlan: ${dbHasActivePlan} → ${adminHasActivePlan}`);
+      }
+    }
+
+    console.log(`[ShopifyStatus] Final hasActivePlan decision: ${hasActivePlan}`);
 
     if (!hasActivePlan) {
       return NextResponse.json({

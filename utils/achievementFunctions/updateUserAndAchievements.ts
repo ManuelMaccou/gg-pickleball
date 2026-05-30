@@ -703,7 +703,7 @@ async function processGlobalMatch(
     const sourceConfigs = await SourceRewardConfig.find({ dataSourceId: dataSourceId }).session(session);
 
     if (!sourceConfigs || sourceConfigs.length === 0) {
-      return { success: true, earnedAchievements: [], message: 'No source config found.', updatedUsers: [] };
+      return { success: true, earnedAchievements: [], message: 'No source config found.', updatedUsers: [], hadRewardCodeError: false };
     }
 
     const sourceRewardConfigMap = new Map<string, ISourceRewardSponsorship[]>();
@@ -811,7 +811,8 @@ async function processGlobalMatch(
         success: true,
         earnedAchievements: [],
         message: 'Match stats updated. No new achievements.',
-        updatedUsers: Array.from(participantIdsSet)
+        updatedUsers: Array.from(participantIdsSet),
+        hadRewardCodeError: false,
       };
     }
 
@@ -828,6 +829,8 @@ async function processGlobalMatch(
     const achievementDocs = await Achievement.find({ name: { $in: Array.from(allNewKeys) } }).session(session);
     const achievementMap = new Map(achievementDocs.map((a) => [a.name, a]));
 
+    const generatorErrors = new Set<string>();
+    
     for (const user of updatedUsers) {
       // 2. Temp list for this user
       const userEarnedItems: string[] = [];
@@ -953,7 +956,8 @@ async function processGlobalMatch(
           const generator = getRewardCodeGenerator(category, software);
 
           if (generator) {
-            const map = await generator(tasks, client._id, { session }); 
+            const map = await generator(tasks, client._id, { session, errors: generatorErrors });
+            console.log('[ProcessGlobalMatch] After generator — generatorErrors:', [...generatorErrors]);
               
             for (const [rewardId, codeId] of map.entries()) {
               rewardCodeIdMap.set(rewardId, codeId);
@@ -1025,10 +1029,14 @@ async function processGlobalMatch(
     }
 
     return {
-        success: true,
-        earnedAchievements: earnedAchievementsList,
-        message: 'Global match processed successfully.',
-        updatedUsers: Array.from(participantIdsSet),
+      success: true,
+      earnedAchievements: earnedAchievementsList,
+      message: 'Global match processed successfully.',
+      updatedUsers: Array.from(participantIdsSet),
+      // True when any reward code generator encountered an auth/credentials
+      // failure. Achievements are still saved. The process route uses this
+      // to send ERROR instead of COMPLETE so the frontend shows the right UI.
+      hadRewardCodeError: generatorErrors.size > 0,
     };
   } catch (error) {
     throw error;

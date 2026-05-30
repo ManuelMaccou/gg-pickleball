@@ -8,6 +8,7 @@ import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser';
 import { validateShopDomain, verifyShopifyHmac } from '@/lib/shopify/authCodeGrant';
 import { registerOrderPaidWebhook } from '@/lib/shopify/webhooks';
 import { redirectToError } from '@/lib/errors/redirectToError';
+import SourceRewardConfig from '@/app/models/SourceRewardConfig';
 
 const SHOPIFY_API_VERSION = '2025-10';
 
@@ -42,47 +43,7 @@ async function fetchShopId(
   }
 }
 
-async function fetchActiveSubscriptions(
-  shopDomain: string,
-  accessToken: string
-): Promise<boolean> {
-  try {
-    const res = await fetch(
-      `https://${shopDomain}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Shopify-Access-Token': accessToken,
-        },
-        body: JSON.stringify({
-          query: `
-            query {
-              currentAppInstallation {
-                activeSubscriptions {
-                  id
-                  name
-                  status
-                  currentPeriodEnd
-                }
-              }
-            }
-          `,
-        }),
-      }
-    );
-    if (!res.ok) {
-      console.error(`[ShopifyCallback] Failed to fetch subscriptions (${res.status})`);
-      return false;
-    }
-    const json = await res.json();
-    const subs = json?.data?.currentAppInstallation?.activeSubscriptions ?? [];
-    return subs.length > 0;
-  } catch (err) {
-    console.error('[ShopifyCallback] Error fetching subscriptions:', err);
-    return false;
-  }
-}
+
 
 // ── Route ─────────────────────────────────────────────────────────────────────
 
@@ -92,7 +53,6 @@ export async function GET(req: NextRequest) {
   const code = searchParams.get('code');
   const state = searchParams.get('state');
   const hmac = searchParams.get('hmac');
-
   // --- SECURITY CHECKS ---
   // These are low-level security failures that real users won't hit in normal
   // flow — keep them as JSON responses (not branded error pages).
@@ -160,11 +120,14 @@ export async function GET(req: NextRequest) {
       ? new Date(now + refresh_token_expires_in * 1000)
       : null;
 
-    // --- FETCH SHOP ID & SUBSCRIPTION STATUS IN PARALLEL ---
-    const [shopId, hasActiveSubscription] = await Promise.all([
-      fetchShopId(shop, access_token),
-      fetchActiveSubscriptions(shop, access_token),
-    ]);
+    // --- FETCH SHOP ID ---
+    // The callback only fires on fresh OAuth install — plan selection redirects
+    // directly to /admin/brand, never back through here. So hasActivePlan is
+    // always false at this point; the dashboard's confirm-plan endpoint handles
+    // setting it true after the merchant selects a plan.
+    const shopId = await fetchShopId(shop, access_token);
+    const hasActiveSubscription = false;
+    console.log(`[ShopifyCallback] Fresh install for ${shop}. shopId: ${shopId ?? 'not fetched'}`);
 
     if (!shopId) {
       console.warn(
@@ -192,6 +155,30 @@ export async function GET(req: NextRequest) {
 
     const clientId = user.adminLocationId;
 
+    // ── Guard against connecting a different store when rewards exist ─────
+    // Someone could manually hit /api/shopify/install?shop=otherstore even
+    // if the UI blocked them. If this client already has a different shop
+    // connected AND has rewards configured, block the change at the API level.
+    const existingClient = await Client.findById(clientId)
+      .select('shopify.shopDomain')
+      .lean() as { shopify?: { shopDomain?: string } } | null;
+
+    const existingDomain = existingClient?.shopify?.shopDomain;
+    const isDomainChange = existingDomain && existingDomain !== shop;
+
+    if (isDomainChange) {
+      const hasRewards = await SourceRewardConfig.exists({
+        'sponsorships.sponsoringClientId': clientId,
+      });
+      if (hasRewards) {
+        console.warn(
+          `[ShopifyCallback] Blocked domain change for client ${clientId}: ` +
+          `has rewards configured. Existing: ${existingDomain}, Attempted: ${shop}`
+        );
+        return redirectToError('unknown');
+      }
+    }
+
     // Dot-notation $set — each field updated independently so a second
     // OAuth pass (e.g. after plan selection) never wipes shopId.
     const updateFields: Record<string, unknown> = {
@@ -208,6 +195,7 @@ export async function GET(req: NextRequest) {
     if (refreshTokenExpiresAt) updateFields['shopify.refreshTokenExpiresAt'] = refreshTokenExpiresAt;
     // Always write hasActivePlan — covers both fresh installs and reinstalls
     updateFields['shopify.hasActivePlan'] = hasActiveSubscription;
+    console.log(`[ShopifyCallback] Writing to DB — hasActivePlan: false (plan selected later via /admin/brand)`);
 
     const updatedClient = await Client.findByIdAndUpdate(
       clientId,
@@ -219,6 +207,7 @@ export async function GET(req: NextRequest) {
       console.error(`[ShopifyCallback] Client not found for id: ${clientId}`);
       return redirectToError('client_not_found');
     }
+    console.log(`[ShopifyCallback] DB write complete — shopify.hasActivePlan: ${updatedClient.shopify?.hasActivePlan}, redirecting to: ${hasActiveSubscription ? '/admin/brand' : 'pricing page'}`);
 
     await registerOrderPaidWebhook(shop, access_token);
 

@@ -594,7 +594,6 @@ export default function GgpickleballAdminClients() {
                                 >
                                   {status.shopifyConnected ? '✓' : '○'} Shopify
                                 </Badge>
-                                // With:
                                 <Badge
                                   color={
                                     status.shopifyConnected ? 'green'

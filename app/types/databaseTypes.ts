@@ -227,6 +227,7 @@ export interface IClubEvent extends Document {
   location?: string;
   description?: string;
   registrationCount: number;
+  published?: boolean
   createdAt: Date;
   updatedAt: Date;
 }
@@ -337,6 +338,7 @@ export interface ShopifyData {
   tokenExpiresAt?: Date;
   refreshTokenExpiresAt?: Date;
   hasActivePlan?: boolean;
+  planHandle?: string
 }
 
 export interface PodplayData {

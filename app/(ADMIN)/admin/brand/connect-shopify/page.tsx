@@ -1,15 +1,16 @@
 'use client';
 
 import { useEffect, useState, Suspense } from 'react';
-import { Flex, Heading, Text, TextField, Button, Callout, Spinner, Box, Card } from '@radix-ui/themes';
-import { InfoCircledIcon, CheckCircledIcon } from '@radix-ui/react-icons';
+import {
+  Flex, Heading, Text, TextField, Button, Callout,
+  Spinner, Box, Card, Dialog,
+} from '@radix-ui/themes';
+import { InfoCircledIcon, CheckCircledIcon, LockClosedIcon, ExclamationTriangleIcon } from '@radix-ui/react-icons';
 import { useUserContext } from '@/app/contexts/UserContext';
 import { useUser as useAuth0User } from '@auth0/nextjs-auth0';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AdminPermissionType, IClient } from '@/app/types/databaseTypes';
 import { BrandPageShell } from '../../components/BrandPageShell';
-
-// ── Inner component (needs useSearchParams → must be inside Suspense) ─────────
 
 function ConnectShopifyContent() {
   const { user } = useUserContext();
@@ -21,51 +22,38 @@ function ConnectShopifyContent() {
   const [installError, setInstallError] = useState<string | null>(null);
   const [isRedirecting, setIsRedirecting] = useState(false);
 
-  // Admin / location state — needed to pass to BrandPageShell
   const [isAdminChecking, setIsAdminChecking] = useState(true);
   const [adminPermission, setAdminPermission] = useState<AdminPermissionType>(null);
   const [location, setLocation] = useState<IClient | null>(null);
   const [connectedShop, setConnectedShop] = useState<string | null>(null);
   const [fullyConnectedToShopify, setFullyConnectedToShopify] = useState(false);
+  const [hasConfiguredRewards, setHasConfiguredRewards] = useState(false);
+  const [changeWarningOpen, setChangeWarningOpen] = useState(false);
 
-  // ── Auth redirect ──
   useEffect(() => {
     if (!isAuthLoading && !user) {
-      const returnUrl = encodeURIComponent('/admin/brand/connect-shopify');
-      router.push(`/auth/login?returnTo=${returnUrl}`);
+      router.push(`/auth/login?returnTo=${encodeURIComponent('/admin/brand/connect-shopify')}`);
     }
   }, [isAuthLoading, user, router]);
 
-  // ── Admin check + redirect if no permissions ──
   useEffect(() => {
     if (isAuthLoading || !user) return;
     const checkAdmin = async () => {
       try {
         const res = await fetch(`/api/admin?userId=${user.id}`);
-
-        if (res.status === 204 || res.status === 403) {
-          router.replace('/error?reason=no_admin_permissions');
-          return;
-        }
-
-        if (!res.ok) {
-          router.replace('/error?reason=unknown');
-          return;
-        }
-
+        if (res.status === 204 || res.status === 403) { router.replace('/error?reason=no_admin_permissions'); return; }
+        if (!res.ok) { router.replace('/error?reason=unknown'); return; }
         const data = await res.json();
         setAdminPermission(data.admin?.permission ?? null);
         setLocation(data.location ?? null);
-
+        setHasConfiguredRewards(!!data.location?.hasConfiguredRewards);
         const shopDomainFromDB = data.location?.shopify?.shopDomain;
         const accessTokenFromDB = data.location?.shopify?.accessToken;
         if (shopDomainFromDB) {
           setConnectedShop(shopDomainFromDB);
           setShopDomain(shopDomainFromDB);
         }
-        if (shopDomainFromDB && accessTokenFromDB) {
-          setFullyConnectedToShopify(true);
-        }
+        if (shopDomainFromDB && accessTokenFromDB) setFullyConnectedToShopify(true);
       } catch (e) {
         console.error('[ConnectShopify] Failed to check admin permissions:', e);
         router.replace('/error?reason=unknown');
@@ -76,13 +64,10 @@ function ConnectShopifyContent() {
     checkAdmin();
   }, [user, isAuthLoading, router]);
 
-  // ── Install handler ──
   const handleInstall = () => {
     setInstallError(null);
     setIsRedirecting(true);
-
     let cleanDomain = shopDomain.trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
-
     if (!cleanDomain.includes('.')) {
       cleanDomain = `${cleanDomain}.myshopify.com`;
     } else if (!cleanDomain.endsWith('.myshopify.com')) {
@@ -90,22 +75,14 @@ function ConnectShopifyContent() {
       setIsRedirecting(false);
       return;
     }
-
     window.location.href = `/api/shopify/install?shop=${cleanDomain}`;
   };
 
-  // ── Loading — while auth or admin check is in flight ──
   if (isAuthLoading || isAdminChecking) {
-    return (
-      <Flex justify="center" align="center" height="100vh">
-        <Spinner size="3" />
-      </Flex>
-    );
+    return <Flex justify="center" align="center" height="100vh"><Spinner size="3" /></Flex>;
   }
 
-  // ── Connected state ──
-  // Show this when Shopify is already fully connected and the user hasn't
-  // explicitly asked to reconnect (?reconnect=1 bypasses this).
+  // ── CONNECTED STATE ────────────────────────────────────────────────────────
   if (fullyConnectedToShopify && !searchParams.get('reconnect')) {
     return (
       <BrandPageShell adminPermission={adminPermission} location={location} contentMaxWidth="600px">
@@ -118,33 +95,105 @@ function ConnectShopifyContent() {
               Reward codes earned by players will automatically sync to your Shopify discounts.
             </Text>
           </Flex>
-          <Flex gap="3" mt="2">
+
+          <Flex gap="3" mt="2" direction="column" align="center">
             <Button onClick={() => router.push('/admin/brand')}>
               Go to Dashboard
             </Button>
-            <Button
-              variant="ghost"
-              color="gray"
-              onClick={() => router.push('/admin/brand/connect-shopify?reconnect=1')}
-            >
-              Reconnect / Change Store
-            </Button>
+
+            {hasConfiguredRewards ? (
+              // Domain locked — rewards exist, can't change stores
+              <Flex
+                align="center"
+                gap="2"
+                px="3"
+                py="2"
+                style={{
+                  backgroundColor: 'var(--gray-2)',
+                  border: '1px solid var(--gray-5)',
+                  borderRadius: 8,
+                  maxWidth: 420,
+                }}
+              >
+                <LockClosedIcon color="var(--gray-9)" style={{ flexShrink: 0 }} />
+                <Text size="2" color="gray" align="center">
+                  Your connected store is locked because you have active rewards configured.
+                  To change stores, contact support.
+                </Text>
+              </Flex>
+            ) : (
+              // No rewards — allow change but warn first
+              <Button
+                variant="ghost"
+                color="gray"
+                onClick={() => setChangeWarningOpen(true)}
+              >
+                Reconnect / Change Store
+              </Button>
+            )}
           </Flex>
         </Flex>
+
+        {/* Warning dialog — shown before store change when no rewards */}
+        <Dialog.Root open={changeWarningOpen} onOpenChange={setChangeWarningOpen}>
+          <Dialog.Content maxWidth="460px">
+            <Flex align="center" gap="2" mb="3">
+              <ExclamationTriangleIcon color="var(--amber-9)" width={20} height={20} />
+              <Dialog.Title>Change connected store?</Dialog.Title>
+            </Flex>
+            <Dialog.Description size="2" color="gray" mb="4">
+              You're about to disconnect <Text weight="bold">{connectedShop}</Text> and
+              connect a different Shopify store. Your current Shopify credentials will be
+              replaced. If you have promo codes or discount codes configured on your current
+              store, they will no longer work.
+            </Dialog.Description>
+            <Text size="2" color="gray" mb="5" style={{ display: 'block' }}>
+              Only proceed if you're intentionally switching to a different store.
+            </Text>
+            <Flex gap="3" justify="end">
+              <Button variant="soft" color="gray" onClick={() => setChangeWarningOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                color="amber"
+                onClick={() => {
+                  setChangeWarningOpen(false);
+                  router.push('/admin/brand/connect-shopify?reconnect=1');
+                }}
+              >
+                Continue and change store
+              </Button>
+            </Flex>
+          </Dialog.Content>
+        </Dialog.Root>
+
       </BrandPageShell>
     );
   }
 
-  // ── Main connect form ──
+  // ── CONNECT / RECONNECT FORM ───────────────────────────────────────────────
+  const isReconnecting = !!searchParams.get('reconnect');
+
   return (
     <BrandPageShell adminPermission={adminPermission} location={location} contentMaxWidth="600px">
       <Box pt="6">
         <Flex direction="column" gap="2" mb="6">
-          <Heading size="6">Connect Shopify</Heading>
+          <Heading size="6">{isReconnecting ? 'Change Shopify Store' : 'Connect Shopify'}</Heading>
           <Text color="gray" size="3">
-            Enter your Shopify store domain to enable automated reward discounts for players.
+            {isReconnecting
+              ? 'Enter the domain of the new store you want to connect. Your existing store credentials will be replaced.'
+              : 'Enter your Shopify store domain to enable automated reward discounts for players.'}
           </Text>
         </Flex>
+
+        {isReconnecting && (
+          <Callout.Root color="amber" mb="4">
+            <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
+            <Callout.Text>
+              You are replacing an existing Shopify connection. Make sure you want to proceed.
+            </Callout.Text>
+          </Callout.Root>
+        )}
 
         <Card size="3">
           <Flex direction="column" gap="5">
@@ -173,10 +222,15 @@ function ConnectShopifyContent() {
 
             <Button
               size="3"
+              color={isReconnecting ? 'amber' : undefined}
               onClick={handleInstall}
               disabled={isRedirecting || !shopDomain.trim()}
             >
-              {isRedirecting ? <><Spinner /> Redirecting to Shopify…</> : 'Install App'}
+              {isRedirecting
+                ? <><Spinner /> Redirecting to Shopify…</>
+                : isReconnecting
+                ? 'Connect New Store'
+                : 'Install App'}
             </Button>
 
             <Text size="1" align="center" color="gray">
@@ -188,8 +242,6 @@ function ConnectShopifyContent() {
     </BrandPageShell>
   );
 }
-
-// ── Page export ────────────────────────────────────────────────────────────────
 
 export default function ShopifyOnboardingPage() {
   return (
