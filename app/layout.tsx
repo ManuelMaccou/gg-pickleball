@@ -25,10 +25,10 @@ export default async function RootLayout({
   return (
    <html lang="en">
       <body>
-        <Theme appearance="light">
+        <Theme appearance="inherit">
           <UserProvider initialUser={resolvedUser}>
             <CookieWarning />
-            <div style={{ backgroundColor: "#FFFFFF", minHeight: "100vh" }}>
+            <div style={{ backgroundColor: '#ffffff', minHeight: '100vh' }}>
               {children}
             </div>
           </UserProvider>
