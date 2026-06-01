@@ -29,6 +29,7 @@ const LIME_DIM = 'rgba(163,230,53,0.1)';
 const LIME_BORDER = 'rgba(163,230,53,0.2)';
 const TEXT_MUTED = 'rgba(255,255,255,0.4)';
 const TEXT_DIM = 'rgba(255,255,255,0.6)';
+const TEXT = 'rgba(255,255,255)';
 const BORDER = 'rgba(255,255,255,0.08)';
 
 export default function Play() {
@@ -323,8 +324,8 @@ export default function Play() {
             <Flex align="center" gap="3">
               {authenticationStatus === 'anonymous' && (
                 <Button
-                  size="2" radius="full" variant="outline"
-                  style={{ borderColor: BORDER, color: TEXT_DIM, cursor: 'pointer' }}
+                  size="3" 
+                  style={{ backgroundColor: 'transparent', borderStyle: "solid", borderColor: '#ffffff', borderWidth: "1px", borderRadius: '20px' , color: TEXT, cursor: 'pointer' }}
                   onClick={() => router.push('/auth/login?returnTo=/play')}
                 >
                   Log in

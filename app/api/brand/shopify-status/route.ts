@@ -105,6 +105,26 @@ export async function GET(req: NextRequest) {
       if (refreshResult.success && refreshResult.accessToken) {
         accessToken = refreshResult.accessToken;
       } else {
+        console.log('[ShopifyStatus] Proactive refresh failed — clearing accessToken, checking Partner API before returning');
+        await Client.findByIdAndUpdate(user.adminLocationId, {
+          $unset: { 'shopify.accessToken': '' },
+        });
+        const shopIdAfterProactive = await getShopId(user.adminLocationId);
+        console.log(`[ShopifyStatus] shopId for Partner API check after proactive failure: ${shopIdAfterProactive ?? 'NOT FOUND'}`);
+        if (shopIdAfterProactive) {
+          const partnerResult = await checkPartnerSubscription(shopIdAfterProactive);
+          console.log(`[ShopifyStatus] Partner API result after proactive failure: ${partnerResult}`);
+          const newHasActivePlan = partnerResult ?? dbHasActivePlan;
+          await Client.findByIdAndUpdate(user.adminLocationId, {
+            $set: { 'shopify.hasActivePlan': newHasActivePlan },
+          });
+          console.log(`[ShopifyStatus] After proactive failure — hasActivePlan set to: ${newHasActivePlan}`);
+        } else {
+          await Client.findByIdAndUpdate(user.adminLocationId, {
+            $set: { 'shopify.hasActivePlan': false },
+          });
+          console.log('[ShopifyStatus] No shopId — setting hasActivePlan: false after proactive failure');
+        }
         return NextResponse.json({ connected: false, reason: 'uninstalled' });
       }
     }
@@ -122,6 +142,26 @@ export async function GET(req: NextRequest) {
       const refreshResult = await refreshShopifyToken(user.adminLocationId);
 
       if (!refreshResult.success || !refreshResult.accessToken) {
+        console.log('[ShopifyStatus] Token refresh failed — clearing accessToken, checking Partner API before returning');
+        await Client.findByIdAndUpdate(user.adminLocationId, {
+          $unset: { 'shopify.accessToken': '' },
+        });
+        const shopIdAfterReactive = await getShopId(user.adminLocationId);
+        console.log(`[ShopifyStatus] shopId for Partner API check after reactive failure: ${shopIdAfterReactive ?? 'NOT FOUND'}`);
+        if (shopIdAfterReactive) {
+          const partnerResult = await checkPartnerSubscription(shopIdAfterReactive);
+          console.log(`[ShopifyStatus] Partner API result after reactive failure: ${partnerResult}`);
+          const newHasActivePlan = partnerResult ?? dbHasActivePlan;
+          await Client.findByIdAndUpdate(user.adminLocationId, {
+            $set: { 'shopify.hasActivePlan': newHasActivePlan },
+          });
+          console.log(`[ShopifyStatus] After reactive failure — hasActivePlan set to: ${newHasActivePlan}`);
+        } else {
+          await Client.findByIdAndUpdate(user.adminLocationId, {
+            $set: { 'shopify.hasActivePlan': false },
+          });
+          console.log('[ShopifyStatus] No shopId — setting hasActivePlan: false after reactive failure');
+        }
         return NextResponse.json({ connected: false, reason: 'uninstalled' });
       }
 
@@ -214,6 +254,8 @@ export async function GET(req: NextRequest) {
             $set: { 'shopify.hasActivePlan': partnerResult },
           });
           console.log(`[ShopifyStatus] Synced hasActivePlan: ${dbHasActivePlan} → ${partnerResult}`);
+        } else {
+          console.log(`[ShopifyStatus] hasActivePlan unchanged: ${partnerResult} (DB already correct)`);
         }
       }
     } else {

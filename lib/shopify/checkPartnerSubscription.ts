@@ -21,6 +21,7 @@ const ACTIVE_SUBSCRIPTION_QUERY = `
   query ActiveSubscription($appId: ID!, $shopId: ID!) {
     activeSubscription(appId: $appId, shopId: $shopId) {
       billingPeriod
+      cancelAtEndOfCycle
       currentBillingCycle {
         startTime
         endTime
@@ -100,10 +101,12 @@ export async function checkPartnerSubscription(shopId: string): Promise<boolean 
     }
 
     const hasSubscription = json.data.activeSubscription !== null;
+    const cancelAtEndOfCycle = json.data.activeSubscription?.cancelAtEndOfCycle ?? null;
 
     console.log(
       `[PartnerAPI] activeSubscription for shop ${shopId}:`,
-      hasSubscription ? 'ACTIVE' : 'NULL (no active plan)'
+      hasSubscription ? 'ACTIVE' : 'NULL (no active plan)',
+      cancelAtEndOfCycle !== null ? `| cancelAtEndOfCycle: ${cancelAtEndOfCycle}` : ''
     );
 
     return hasSubscription;

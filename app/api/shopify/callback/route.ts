@@ -64,11 +64,14 @@ export async function GET(req: NextRequest) {
   const savedNonce = cookieStore.get('shopify_nonce')?.value;
 
   if (!savedNonce || savedNonce !== state) {
-    console.error(`Nonce mismatch! Cookie: ${savedNonce}, State: ${state}`);
-    return NextResponse.json(
-      { error: 'Request origin could not be verified (Nonce mismatch)' },
-      { status: 403 }
+    console.warn(
+      `[ShopifyCallback] Nonce mismatch — cookie: ${savedNonce ?? 'missing'}, state: ${state}. ` +
+      `Restarting OAuth.`
     );
+    
+    const installUrl = new URL(`${process.env.NEXT_PUBLIC_BASE_URL}/api/shopify/install`);
+    installUrl.searchParams.set('shop', shop);
+    return NextResponse.redirect(installUrl);
   }
 
   if (!hmac || !verifyShopifyHmac(searchParams)) {

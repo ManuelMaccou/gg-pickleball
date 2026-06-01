@@ -100,9 +100,9 @@ const PlayerScreen = () => (
       {/* reward cards row */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
         {([
-          { brand: 'Selkirk', name: '15% off paddles', wins: '10 wins', bg: 'linear-gradient(135deg,#1e3a1e,#2d5a27)', locked: false },
-          { brand: 'Hydrant', name: 'Free starter pack', wins: '10 wins', bg: 'linear-gradient(135deg,#1a2a3a,#0e3a5a)', locked: false },
-          { brand: 'Franklin', name: '20% off balls', wins: '25 wins', bg: 'linear-gradient(135deg,#2a1a2a,#3d1f3d)', locked: true },
+          { brand: 'Acme Paddles', name: '15% off paddles', wins: '10 wins', bg: 'linear-gradient(135deg,#1e3a1e,#2d5a27)', locked: false },
+          { brand: 'Hydro', name: 'Free starter pack', wins: '10 wins', bg: 'linear-gradient(135deg,#1a2a3a,#0e3a5a)', locked: false },
+          { brand: 'Pulse', name: '20% off balls', wins: '25 wins', bg: 'linear-gradient(135deg,#2a1a2a,#3d1f3d)', locked: true },
         ]).map(({ brand, name, wins, bg, locked }) => (
           <div key={brand} style={{
             borderRadius: 10, overflow: 'hidden', flexShrink: 0, width: 110,
@@ -274,7 +274,6 @@ const BrandScreen = () => (
         <span style={{ fontSize: 12, fontWeight: 500, color: '#0f172a' }}>Dashboard</span>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <div style={{ background: 'rgba(34,197,94,0.1)', border: '0.5px solid rgba(34,197,94,0.2)', borderRadius: 999, padding: '2px 8px', fontSize: 10, color: '#16a34a', fontWeight: 500 }}>✓ Shopify Active</div>
-          <div style={{ background: '#f1f5f9', borderRadius: 4, padding: '2px 8px', fontSize: 10, color: '#64748b' }}>Selkirk Sport</div>
         </div>
       </div>
       <div style={{ padding: 14 }}>
@@ -517,11 +516,11 @@ export default function HomePage() {
   const faqs = [
     {
       question: 'Is GG Pickleball really free?',
-      answer: "Yes — completely. No subscriptions, no credit card, no hidden fees. Brands sponsor the rewards because they want to reach active players. You play, we sync your matches, they get exposure to a passionate community. Everyone wins.",
+      answer: "Yes. No subscriptions, no credit card, no hidden fees. Brands sponsor the rewards because they want to reach active players. You play, we sync your matches, they get exposure to a passionate community. Everyone wins.",
     },
     {
       question: 'How does the DUPR sync work?',
-      answer: 'Connect your DUPR account once and GG Pickleball pulls in your match history. You never have to manually log a game, upload a screenshot, or report a score. New matches show up, rewards update — all in the background.',
+      answer: 'Connect your DUPR account once and GG Pickleball pulls in your match history. You never have to manually log a game, upload a screenshot, or report a score. New matches show up and rewards update.',
     },
     {
       question: 'What kind of rewards can I actually earn?',
@@ -529,7 +528,7 @@ export default function HomePage() {
     },
     {
       question: 'Do I need to play at a specific club?',
-      answer: "No. As long as your matches are recorded in DUPR, they count — whether you're at a tournament or a league night.",
+      answer: "No. As long as your matches are recorded in DUPR, they count.",
     },
     {
       question: 'What happens to my data?',
@@ -644,12 +643,11 @@ export default function HomePage() {
             tag="For players"
             eyebrow="Your wins. Your rewards."
             titleLine1="Every match you play"
-            titleAccent="earns you something."
+            titleAccent="gets you closer to earning."
             body="Connect your DUPR account once and GG automatically turns your wins into exclusive discounts and free gear from top pickleball brands. No manual entry, no screenshots. Just play."
             checks={[
               'Syncs automatically with your DUPR match history',
               'Rewards unlock the moment you hit a milestone',
-              'Unlocked codes are yours to keep — no expiry',
               'Free forever, no credit card required',
             ]}
             screen={<PlayerScreen />}
@@ -667,12 +665,11 @@ export default function HomePage() {
             eyebrow="Run leagues. Run tournaments."
             titleLine1="Your events fuel"
             titleAccent="your players' rewards."
-            body="Club admins upload match results directly to DUPR from GG. When players sync, those wins count toward their milestones automatically — turning every league night into a rewards moment for your whole community."
+            body="Club admins upload match results directly to DUPR from GG. When players sync, those wins count toward their milestones automatically, turning every league night into a rewards moment for your whole community."
             checks={[
-              'Bulk upload singles and doubles match results',
+              'Bulk upload doubles match results',
               'See per-player DUPR sync status in real time',
               'Works for leagues, round robins, and tournaments',
-              'Players without DUPR are flagged so you can invite them',
             ]}
             screen={<ClubScreen />}
             dark
@@ -688,10 +685,10 @@ export default function HomePage() {
             eyebrow="Performance-based reach."
             titleLine1="Reach players who are"
             titleAccent="actively competing."
-            body="GG connects your Shopify store to a DUPR-verified player base. You set the discount, we surface it the moment a player earns it. You only pay a 5% commission on actual sales — no ad spend, no guesswork."
+            body="GG connects your Shopify store to a verified player base. You set the discount, we surface it the moment a player earns it. You only pay a 5% commission on actual sales. No ad spend, no guesswork."
             checks={[
-              'Audience verified by DUPR match data, not self-reported',
-              '5% commission on net sales — waived on returns',
+              'Audience verified by official match data, not self-reported',
+              '5% commission on net sales. Waived on returns',
               'Connect your existing Shopify store in minutes',
               'See who earned, who redeemed, and what converted',
             ]}
@@ -739,9 +736,6 @@ export default function HomePage() {
             <Heading size="9" align="center" mb="4" style={{ maxWidth: 720, letterSpacing: '-0.02em', lineHeight: 1.05, color: '#fff' }}>
               Three steps. Zero effort.
             </Heading>
-            <Text size="5" align="center" style={{ color: 'rgba(255,255,255,0.55)', maxWidth: 560 }}>
-              You sweat on the court. Every win is verified by DUPR — not self-reported. Everything else happens automatically.
-            </Text>
           </Flex>
 
           <Grid columns={{ initial: '1', md: '3' }} gap="0" style={{ borderRadius: 16, overflow: 'hidden', border: '0.5px solid rgba(255,255,255,0.08)' }}>
@@ -756,13 +750,13 @@ export default function HomePage() {
                 icon: <Zap size={22} strokeWidth={2} />,
                 eyebrow: 'Step 02',
                 title: 'Play your matches',
-                description: 'Keep playing the way you already do. Leagues, tournaments, club nights — every DUPR-recorded match counts toward your rewards.',
+                description: 'Keep playing the way you already do. Every DUPR-recorded match counts toward your rewards.',
               },
               {
                 icon: <Sparkles size={22} strokeWidth={2} />,
                 eyebrow: 'Step 03',
                 title: 'Unlock rewards',
-                description: 'Earn perks from your favorite brands and discover new ones. Discounts, free gear, exclusive offers — all unlocked just by playing.',
+                description: 'Earn perks from your favorite brands and discover new ones. Discounts, free gear, exclusive offers are all unlocked just by playing.',
               },
             ].map(({ icon, eyebrow, title, description }, i) => (
               <Box key={title} p="6" style={{
@@ -830,7 +824,7 @@ export default function HomePage() {
               Your next match is worth <span className={styles.heroTextGradient}>more</span>.
             </Heading>
             <Text size="5" align="center" style={{ color: 'rgba(255,255,255,0.72)', maxWidth: 520 }}>
-              Sign up free, sync your DUPR, and start unlocking rewards from the brands you love.
+              Sign up for free and start unlocking rewards from the brands you love.
             </Text>
             {/* Preserved: /auth/login?returnTo=/play */}
             <Button asChild size="4" radius="full" color="lime" mt="2">
