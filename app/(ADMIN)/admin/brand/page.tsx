@@ -103,9 +103,12 @@ export default function BrandAdminDashboard() {
   const [isLoadingRewards, setIsLoadingRewards] = useState(true);
   // True while we're confirming a plan_handle param — blocks render until resolved
   // so the checklist never flashes the wrong state on first load after plan selection.
-  const [isConfirmingPlan, setIsConfirmingPlan] = useState(
-    () => !!new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('plan_handle')
-  );
+  const [isConfirmingPlan, setIsConfirmingPlan] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    const hasPlanHandle = !!new URLSearchParams(window.location.search).get('plan_handle');
+    console.log('[BrandDashboard] isConfirmingPlan init — plan_handle present:', hasPlanHandle, 'URL:', window.location.search);
+    return hasPlanHandle;
+  });
 
   const [statsError, setStatsError] = useState<string | null>(null);
   const [rewardsError, setRewardsError] = useState<string | null>(null);
@@ -267,6 +270,8 @@ export default function BrandAdminDashboard() {
     const confirmPlan = async () => {
       try {
         console.log('[BrandDashboard] plan_handle detected:', planHandle, '— confirming plan');
+        console.log('[BrandDashboard] Current URL:', window.location.href);
+        console.log('[BrandDashboard] location._id:', location?._id, 'hasActivePlan in state:', (location as any)?.shopify?.hasActivePlan);
         const res = await fetch('/api/brand/confirm-plan', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -296,7 +301,9 @@ export default function BrandAdminDashboard() {
 
   // If no plan_handle in URL, the confirming gate isn't needed — release it.
   useEffect(() => {
-    if (!searchParams.get('plan_handle')) setIsConfirmingPlan(false);
+    const planHandle = searchParams.get('plan_handle');
+    console.log('[BrandDashboard] searchParams effect — plan_handle:', planHandle ?? 'none');
+    if (!planHandle) setIsConfirmingPlan(false);
   }, [searchParams]);
 
   const isShopifyConnected = !!(
