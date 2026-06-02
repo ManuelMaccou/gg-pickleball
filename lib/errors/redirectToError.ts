@@ -1,12 +1,11 @@
-// lib/errors/redirectToError.ts
-
-import { NextResponse } from "next/server";
+import { NextResponse } from 'next/server';
 
 export type ErrorReason =
   | 'no_admin_permissions'
   | 'session_expired'
   | 'client_not_found'
   | 'token_exchange_failed'
+  | 'store_change_blocked'
   | 'unknown';
 
 export function redirectToError(reason: ErrorReason): NextResponse {

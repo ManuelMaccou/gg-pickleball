@@ -52,6 +52,15 @@ const ERROR_CONFIGS: Record<ErrorReason, ErrorConfig> = {
     secondaryLabel: 'Contact support',
     secondaryHref: 'mailto:play@ggpickleball.co',
   },
+  store_change_blocked: {
+    headline: 'This account already has a store connected.',
+    subheadline: 'Store conflict',
+    body: "Your GG Pickleball account is already connected to a different Shopify store with active rewards configured. To connect a new store, please contact support and we'll help you switch.",
+    ctaLabel: 'Go to dashboard',
+    ctaHref: '/admin/brand',
+    secondaryLabel: 'Contact support',
+    secondaryHref: 'mailto:play@ggpickleball.co',
+  },
   unknown: {
     headline: 'Something went\nwrong.',
     subheadline: 'Unexpected error',
@@ -68,6 +77,7 @@ const VALID_REASONS: ErrorReason[] = [
   'session_expired',
   'client_not_found',
   'token_exchange_failed',
+  'store_change_blocked',
   'unknown',
 ];
 
@@ -305,6 +315,12 @@ function ErrorContent() {
               color: 'rgba(255,255,255,0.8)',
               textDecoration: 'none',
               transition: 'color 0.15s ease',
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(255,255,255,0.5)';
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(255,255,255,0.25)';
             }}
           >
             Go home

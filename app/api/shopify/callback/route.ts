@@ -178,7 +178,7 @@ export async function GET(req: NextRequest) {
           `[ShopifyCallback] Blocked domain change for client ${clientId}: ` +
           `has rewards configured. Existing: ${existingDomain}, Attempted: ${shop}`
         );
-        return redirectToError('unknown');
+        return redirectToError('store_change_blocked');
       }
     }
 
