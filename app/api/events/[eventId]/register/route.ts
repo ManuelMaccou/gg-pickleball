@@ -12,6 +12,7 @@ import User from '@/app/models/User';
 import { verifyDuprEntitlement } from '@/lib/services/dupr/duprEntitlement';
 import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser';
 import connectToDatabase from '@/lib/mongodb';
+import { logError } from '@/lib/sentry/logger';
 
 // ── POST /api/events/[eventId]/register ───────────────────────────────────────
 
@@ -152,13 +153,18 @@ export async function POST(
     } catch (err: any) {
       // Re-throw errors that have an explicit HTTP status (e.g. 409 duplicate).
       if (err?.status) {
-        return NextResponse.json({ error: err.message }, { status: err.status });
+        const errorId = logError(err, { endpoint: 'UNKNOWN /api/events/[eventId]/register' });
+        return NextResponse.json({ errorId, error: err.message }, { status: err.status });
       }
       // Unique index violation — race condition where two requests slipped
       // past the duplicate check simultaneously.
       if (err?.code === 11000) {
+        const errorId = logError(err, {
+          endpoint: 'POST /api/events/[eventId]/register',
+          task: 'Duplicate event registration',
+        });
         return NextResponse.json(
-          { error: 'You are already registered for this event.' },
+          { errorId, error: 'You are already registered for this event.' },
           { status: 409 }
         );
       }
@@ -168,7 +174,8 @@ export async function POST(
     }
   } catch (err) {
     console.error('[POST /api/events/[eventId]/register]', err);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    const errorId = logError(err, { endpoint: 'UNKNOWN /api/events/[eventId]/register' });
+    return NextResponse.json({ errorId, error: 'Internal error' }, { status: 500 });
   }
 }
 
@@ -215,6 +222,7 @@ export async function GET(
     });
   } catch (err) {
     console.error('[GET /api/events/[eventId]/registrations]', err);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    const errorId = logError(err, { endpoint: 'UNKNOWN /api/events/[eventId]/register' });
+    return NextResponse.json({ errorId, error: 'Internal error' }, { status: 500 });
   }
 }

@@ -20,7 +20,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ achievements });
 
   } catch (error) {
-    logError(error, { message: 'Failed to fetch all achievements for GGP Admin' });
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    const errorId = logError(error, { 
+      message: 'Failed to fetch all achievements for GGP Admin',
+      endpoint: 'GET /api/achievement/all'
+    });
+    
+    return NextResponse.json({ errorId, error: 'Internal Server Error' }, { status: 500 });
   }
 }

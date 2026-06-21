@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { logError } from "@/lib/sentry/logger";
 import { getAuthorizedUser } from "@/lib/auth/getAuthorizeduser";
 import SourceRewardConfig from "@/app/models/SourceRewardConfig";
+import { BrandApplication } from "@/app/models/BrandApplication";
 
 export async function GET(request: NextRequest) {
   const user = await getAuthorizedUser(request);
@@ -15,9 +16,6 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get("userId");
 
-  // Superadmins can query any user's admin record (needed for management tools).
-  // Everyone else can only query their own record — prevents any authenticated
-  // user from enumerating other users' admin status by guessing MongoDB IDs.
   if (!user.superAdmin && userId !== user.id) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
@@ -44,6 +42,30 @@ export async function GET(request: NextRequest) {
     const admin = await Admin.findOne({ user: userId }).populate("location").lean() as any;
 
     if (!admin) {
+      // No Admin record — before falling back to "not a brand partner," check
+      // whether this user has an approved BrandApplication. If so, their
+      // Client/Admin setup failed after approval — surface that distinctly
+      // so the frontend doesn't send them back to /apply in a loop.
+      const approvedApplication = await BrandApplication.findOne({
+        userId,
+        status: 'approved',
+      })
+        .select('brandName email legalCompanyName _id')
+        .lean() as any;
+
+      if (approvedApplication) {
+        return NextResponse.json({
+          admin: null,
+          setupIncomplete: true,
+          application: {
+            id: approvedApplication._id.toString(),
+            brandName: approvedApplication.brandName,
+            email: approvedApplication.email,
+            legalCompanyName: approvedApplication.legalCompanyName,
+          },
+        }, { status: 200 });
+      }
+
       return new Response(null, { status: 204 });
     }
 
@@ -63,11 +85,12 @@ export async function GET(request: NextRequest) {
       }
     });
   } catch (error) {
-    logError(error, {
+    const errorId = logError(error, {
       userId: userId,
       message: 'Failed to fetch admin data based on UserId',
+      endpoint: 'GET /api/admin'
     });
-    return NextResponse.json({ error: "There was an unexpected error. Please try again." }, { status: 500 });
+    return NextResponse.json({ errorId, error: "There was an unexpected error. Please try again." }, { status: 500 });
   }
 }
 
@@ -108,7 +131,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ admin }, { status: 201 });
   } catch (error) {
-    logError(error, { message: 'Error creating admin.' });
-    return NextResponse.json({ error: "There was an unexpected error. Please try again." }, { status: 500 });
+    const errorId = logError(error, { 
+      message: 'Error creating admin.',
+      endpoint: 'POST /api/admin'
+     });
+    return NextResponse.json({ errorId, error: "There was an unexpected error. Please try again." }, { status: 500 });
   }
 }

@@ -72,7 +72,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       try {
         client = await createBrandClient({ name: application.brandName! });
       } catch (err: any) {
-        return NextResponse.json({ error: err.message }, { status: 409 });
+        const errorId = logError(err, { endpoint: 'UNKNOWN /api/admin/brand-applications/[id]' });
+        return NextResponse.json({ errorId, error: err.message }, { status: 409 });
       }
 
       // 2. Invite the admin (creates admin link, sends password-set email if needed)
@@ -83,13 +84,12 @@ export async function PATCH(req: NextRequest, { params }: Params) {
           name: applicant.name,
         });
       } catch (err: any) {
-        logError(err, {
+        const errorId = logError(err, {
           endpoint: `PATCH /api/admin/brand-applications/${id}`,
           task: 'inviteAdminToClient on approval',
         });
-        // The Client was created but the invite failed — surface a partial error
         return NextResponse.json(
-          {
+          { errorId, 
             error: 'Client created but inviting the admin failed. Please retry the invite manually.',
             clientId: client._id,
           },
@@ -141,9 +141,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
     return NextResponse.json({ success: true, application });
   } catch (err: any) {
-    logError(err, { endpoint: `PATCH /api/admin/brand-applications/[id]` });
+    const errorId = logError(err, { endpoint: `PATCH /api/admin/brand-applications/[id]` });
     return NextResponse.json(
-      { error: 'Something went wrong. Please try again.' },
+      { errorId, error: 'Something went wrong. Please try again.' },
       { status: 500 }
     );
   }

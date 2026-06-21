@@ -66,8 +66,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ matches: filteredMatches });
 
   } catch (error: unknown) {
-    logError(error, { message: 'Error fetching DUPR match history.' });
     const errorMessage = error instanceof Error ? error.message : "An unknown server error occurred.";
-    return NextResponse.json({ error: 'Internal Server Error', details: errorMessage }, { status: 500 });
+    const errorId = logError(error, { 
+      message: 'Error fetching DUPR match history.',
+      endpoint: 'POST /api/dupr/club/match-history'
+    });
+    return NextResponse.json({ errorId, error: 'Internal Server Error', details: errorMessage }, { status: 500 });
   }
 }

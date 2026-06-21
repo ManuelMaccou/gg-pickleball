@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import connectToDatabase from "@/lib/mongodb";
 import User from "@/app/models/User";
-import { logError } from "@/lib/sentry/logger";
+import { logError } from '@/lib/sentry/logger';
 
 export async function POST(req: Request) {
   try {
@@ -21,12 +21,12 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ users });
   } catch (error) {
-    logError(error, {
+    const errorId = logError(error, {
       endpoint: 'POST /api/user/get-dupr-status',
       message: 'Failed to check dupr status',
     });
 
-    return NextResponse.json({ error: "Failed to check dupr status" }, { status: 500 });
+    return NextResponse.json({ errorId, error: "Failed to check dupr status" }, { status: 500 });
   }
 }
 

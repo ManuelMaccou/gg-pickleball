@@ -61,6 +61,7 @@ const DuprSchema = new Schema({
 const UserSchema = new Schema<IUser>(
   {
     accountClaimed: { type: Boolean, default: false }, 
+    brandOptin: { type: Boolean, default: false },
     name: { type: String, required: true},
     email: { type: String },
     auth0Id: { type: String },

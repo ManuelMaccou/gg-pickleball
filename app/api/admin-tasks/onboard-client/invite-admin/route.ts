@@ -46,9 +46,9 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     console.error('Error inviting admin:', error);
-    logError(error, { endpoint: 'POST /api/admin-tasks/onboard-client/invite-admin' });
+    const errorId = logError(error, { endpoint: 'POST /api/admin-tasks/onboard-client/invite-admin' });
     return NextResponse.json(
-      { error: error.message || 'An internal server error occurred.' },
+      { errorId, error: error.message || 'An internal server error occurred.' },
       { status: 500 }
     );
   }

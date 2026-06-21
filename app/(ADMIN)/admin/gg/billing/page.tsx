@@ -13,10 +13,9 @@ import Image from 'next/image';
 import { DateTime } from 'luxon';
 import darkGgLogo from '../../../../../public/logos/gg_logo_black_transparent.png';
 import { AdminSidebar } from '../../components/AdminSidebar';
+import { CommissionStatus } from '@/app/types/databaseTypes';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-
-type CommissionStatus = 'pending' | 'held' | 'charged' | 'waived' | 'review';
 
 type HoldReason =
   | 'unfulfilled'
@@ -66,9 +65,10 @@ const formatDate = (s: string) =>
 const formatCurrency = (n: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
 
-const STATUS_COLOR: Record<CommissionStatus, 'gray' | 'amber' | 'green' | 'red' | 'orange'> = {
+const STATUS_COLOR: Record<CommissionStatus, 'gray' | 'amber' | 'blue' | 'green' | 'red' | 'orange'> = {
   pending: 'gray',
   held: 'amber',
+  processing: 'blue',
   charged: 'green',
   waived: 'red',
   review: 'orange',
@@ -79,6 +79,7 @@ const WAIVABLE_STATUSES: CommissionStatus[] = ['pending', 'held', 'review'];
 const STATUS_DESCRIPTION: Record<CommissionStatus, string> = {
   pending: 'Charge scheduled 30 days after the order date. No issues detected yet.',
   held: 'Charge paused. See hold reason for details.',
+  processing: 'Invoice sent to Stripe. Awaiting payment confirmation.',
   charged: 'Commission event sent to Shopify for billing.',
   waived: 'Commission was waived and will not be collected.',
   review: 'Requires manual review. Auto-processing has stopped.',

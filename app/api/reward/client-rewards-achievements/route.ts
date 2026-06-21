@@ -75,11 +75,12 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ rewards: result })
   } catch (error) {
-    logError(error, {
+    const errorId = logError(error, {
       message: `Error fetching client's configured rewards`,
       clientId: clientId,
+      endpoint: 'GET /api/reward/client-rewards-achievements'
     });
     
-    return NextResponse.json({ error: 'An unexpected error happened. Please try again.' }, { status: 500 })
+    return NextResponse.json({ errorId, error: 'An unexpected error happened. Please try again.' }, { status: 500 })
   }
 }

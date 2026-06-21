@@ -579,7 +579,7 @@ export default function HomePage() {
             </Badge>
             {/* Preserved: /auth/login?returnTo=/play */}
             <Button asChild variant="solid" size="3" radius="full" color="lime">
-              <Link href="/auth/login?returnTo=/play">Access your account</Link>
+              <Link href="/auth/login?returnTo=/api/auth/redirect">Access your account</Link>
             </Button>
           </Flex>
 

@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ url: imageUrl });
   } catch (err) {
-    logError(err, { endpoint: 'POST /api/upload-image' });
-    return NextResponse.json({ error: 'Upload failed. Please try again.' }, { status: 500 });
+    const errorId = logError(err, { endpoint: 'POST /api/upload-image' });
+    return NextResponse.json({ errorId, error: 'Upload failed. Please try again.' }, { status: 500 });
   }
 }

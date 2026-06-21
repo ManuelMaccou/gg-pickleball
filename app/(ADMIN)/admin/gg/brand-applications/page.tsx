@@ -14,6 +14,8 @@ import { DateTime } from 'luxon';
 import darkGgLogo from '../../../../../public/logos/gg_logo_black_transparent.png';
 import { AdminSidebar } from '../../components/AdminSidebar';
 
+const CUSTOM_MODE = process.env.NEXT_PUBLIC_SHOPIFY_APP_MODE === 'custom';
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type ApplicationStatus = 'draft' | 'pending' | 'approved' | 'rejected';
@@ -78,7 +80,7 @@ export default function GGAdminBrandApplicationsPage() {
   // Detail dialog
   const [detailTarget, setDetailTarget] = useState<ApplicationRow | null>(null);
 
-  // Approve dialog
+  // Approve dialog (public mode only)
   const [approveTarget, setApproveTarget] = useState<ApplicationRow | null>(null);
   const [approving, setApproving] = useState(false);
   const [approveError, setApproveError] = useState<string | null>(null);
@@ -122,6 +124,15 @@ export default function GGAdminBrandApplicationsPage() {
     if (user?.superAdmin) fetchRecords();
   }, [user, fetchRecords]);
 
+  // Custom mode: go straight to onboard flow with brand name pre-filled
+  const handleApproveCustom = (r: ApplicationRow) => {
+    const params = new URLSearchParams();
+    if (r.brandName) params.set('name', r.brandName);
+    params.set('applicationId', r._id);
+    router.push(`/admin/gg/onboard?${params.toString()}`);
+  };
+
+  // Public mode: call approve API
   const handleApprove = async () => {
     if (!approveTarget) return;
     setApproving(true);
@@ -218,7 +229,6 @@ export default function GGAdminBrandApplicationsPage() {
             </Callout.Root>
           )}
 
-          {/* Summary cards */}
           {summary && (
             <Flex gap="3" mb="6" wrap="wrap">
               {[
@@ -237,7 +247,6 @@ export default function GGAdminBrandApplicationsPage() {
             </Flex>
           )}
 
-          {/* Filter */}
           <Flex justify="between" align="center" mb="3">
             <Select.Root
               value={statusFilter}
@@ -254,7 +263,6 @@ export default function GGAdminBrandApplicationsPage() {
             </Select.Root>
           </Flex>
 
-          {/* Table */}
           <Card size="2" style={{ padding: 0, overflow: 'hidden' }}>
             <Table.Root variant="surface">
               <Table.Header>
@@ -319,12 +327,7 @@ export default function GGAdminBrandApplicationsPage() {
                       </Table.Cell>
                       <Table.Cell>
                         <Flex gap="2">
-                          <Button
-                            size="1"
-                            variant="soft"
-                            color="gray"
-                            onClick={() => setDetailTarget(r)}
-                          >
+                          <Button size="1" variant="soft" color="gray" onClick={() => setDetailTarget(r)}>
                             View
                           </Button>
                           {r.status === 'pending' && (
@@ -333,9 +336,16 @@ export default function GGAdminBrandApplicationsPage() {
                                 size="1"
                                 variant="soft"
                                 color="green"
-                                onClick={() => { setApproveTarget(r); setApproveError(null); }}
+                                onClick={() => {
+                                  if (CUSTOM_MODE) {
+                                    handleApproveCustom(r);
+                                  } else {
+                                    setApproveTarget(r);
+                                    setApproveError(null);
+                                  }
+                                }}
                               >
-                                Approve
+                                {CUSTOM_MODE ? 'Onboard' : 'Approve'}
                               </Button>
                               <Button
                                 size="1"
@@ -360,7 +370,6 @@ export default function GGAdminBrandApplicationsPage() {
               </Table.Body>
             </Table.Root>
 
-            {/* Pagination */}
             <Flex
               justify="between"
               align="center"
@@ -369,20 +378,10 @@ export default function GGAdminBrandApplicationsPage() {
             >
               <Text size="1" color="gray">Page {page} of {totalPages}</Text>
               <Flex gap="2">
-                <Button
-                  variant="soft"
-                  color="gray"
-                  disabled={page === 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                >
+                <Button variant="soft" color="gray" disabled={page === 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
                   <ChevronLeftIcon /> Prev
                 </Button>
-                <Button
-                  variant="soft"
-                  color="gray"
-                  disabled={page === totalPages}
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                >
+                <Button variant="soft" color="gray" disabled={page === totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
                   Next <ChevronRightIcon />
                 </Button>
               </Flex>
@@ -391,29 +390,23 @@ export default function GGAdminBrandApplicationsPage() {
         </Flex>
       </Flex>
 
-      {/* ── Detail dialog ──────────────────────────────────────────────── */}
+      {/* ── Detail dialog ── */}
       <Dialog.Root open={!!detailTarget} onOpenChange={(open) => !open && setDetailTarget(null)}>
         <Dialog.Content maxWidth="560px">
           <Dialog.Title>{detailTarget?.brandName || 'Application'}</Dialog.Title>
           <Dialog.Description size="2" color="gray" mb="4">
             Applied {formatDate(detailTarget?.submittedAt ?? detailTarget?.createdAt)}
           </Dialog.Description>
-
           {detailTarget && (
             <Flex direction="column" gap="3">
               <Box>
-                <Text size="1" weight="bold" color="gray" style={{ letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                  Applicant
-                </Text>
+                <Text size="1" weight="bold" color="gray" style={{ letterSpacing: '0.08em', textTransform: 'uppercase' }}>Applicant</Text>
                 <Text size="2" style={{ display: 'block' }}>{detailTarget.userName}</Text>
                 <Text size="2" color="gray">{detailTarget.userEmail}</Text>
               </Box>
-
               {detailTarget.website && (
                 <Box>
-                  <Text size="1" weight="bold" color="gray" style={{ letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                    Website {" "}
-                  </Text>
+                  <Text size="1" weight="bold" color="gray" style={{ letterSpacing: '0.08em', textTransform: 'uppercase' }}>Website </Text>
                   <a
                     href={detailTarget.website.startsWith('http') ? detailTarget.website : `https://${detailTarget.website}`}
                     target="_blank"
@@ -425,90 +418,68 @@ export default function GGAdminBrandApplicationsPage() {
                   </a>
                 </Box>
               )}
-
               {detailTarget.description && (
                 <Box>
-                  <Text size="1" weight="bold" color="gray" style={{ letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                    Description
-                  </Text>
-                  <Text size="2" style={{ lineHeight: 1.6, display: 'block', marginTop: 4 }}>
-                    {detailTarget.description}
-                  </Text>
+                  <Text size="1" weight="bold" color="gray" style={{ letterSpacing: '0.08em', textTransform: 'uppercase' }}>Description</Text>
+                  <Text size="2" style={{ lineHeight: 1.6, display: 'block', marginTop: 4 }}>{detailTarget.description}</Text>
                 </Box>
               )}
-
               <Box>
-                <Text size="1" weight="bold" color="gray" style={{ letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                  Shopify confirmed
-                </Text>
-                <Text size="2" style={{ display: 'block' }}>
-                  {detailTarget.shopifyConfirmed ? 'Yes' : 'No'}
-                </Text>
+                <Text size="1" weight="bold" color="gray" style={{ letterSpacing: '0.08em', textTransform: 'uppercase' }}>Shopify confirmed</Text>
+                <Text size="2" style={{ display: 'block' }}>{detailTarget.shopifyConfirmed ? 'Yes' : 'No'}</Text>
               </Box>
-
               {detailTarget.reviewNote && (
                 <Box>
-                  <Text size="1" weight="bold" color="gray" style={{ letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                    Review note
-                  </Text>
-                  <Text size="2" style={{ lineHeight: 1.6, display: 'block', marginTop: 4 }}>
-                    {detailTarget.reviewNote}
-                  </Text>
+                  <Text size="1" weight="bold" color="gray" style={{ letterSpacing: '0.08em', textTransform: 'uppercase' }}>Review note</Text>
+                  <Text size="2" style={{ lineHeight: 1.6, display: 'block', marginTop: 4 }}>{detailTarget.reviewNote}</Text>
                 </Box>
               )}
             </Flex>
           )}
-
           <Flex gap="3" justify="end" mt="5">
-            <Dialog.Close>
-              <Button variant="soft" color="gray">Close</Button>
-            </Dialog.Close>
+            <Dialog.Close><Button variant="soft" color="gray">Close</Button></Dialog.Close>
           </Flex>
         </Dialog.Content>
       </Dialog.Root>
 
-      {/* ── Approve dialog ─────────────────────────────────────────────── */}
-      <Dialog.Root open={!!approveTarget} onOpenChange={(open) => !open && setApproveTarget(null)}>
-        <Dialog.Content maxWidth="440px">
-          <Dialog.Title>Approve application</Dialog.Title>
-          <Dialog.Description size="2" color="gray" mb="4">
-            This will create the <Text weight="bold">{approveTarget?.brandName}</Text> brand
-            and send <Text weight="bold">{approveTarget?.userEmail}</Text> a setup link to
-            access their admin dashboard.
-          </Dialog.Description>
+      {/* ── Approve dialog (public mode only) ── */}
+      {!CUSTOM_MODE && (
+        <Dialog.Root open={!!approveTarget} onOpenChange={(open) => !open && setApproveTarget(null)}>
+          <Dialog.Content maxWidth="440px">
+            <Dialog.Title>Approve application</Dialog.Title>
+            <Dialog.Description size="2" color="gray" mb="4">
+              This will create the <Text weight="bold">{approveTarget?.brandName}</Text> brand
+              and send <Text weight="bold">{approveTarget?.userEmail}</Text> a setup link to
+              access their admin dashboard.
+            </Dialog.Description>
+            {approveError && (
+              <Callout.Root color="red" mb="3" size="1">
+                <Callout.Text>{approveError}</Callout.Text>
+              </Callout.Root>
+            )}
+            <Flex gap="3" justify="end">
+              <Dialog.Close><Button variant="soft" color="gray">Cancel</Button></Dialog.Close>
+              <Button color="green" onClick={handleApprove} disabled={approving}>
+                {approving ? <Spinner size="1" /> : null}
+                {approving ? 'Approving…' : 'Confirm approve'}
+              </Button>
+            </Flex>
+          </Dialog.Content>
+        </Dialog.Root>
+      )}
 
-          {approveError && (
-            <Callout.Root color="red" mb="3" size="1">
-              <Callout.Text>{approveError}</Callout.Text>
-            </Callout.Root>
-          )}
-
-          <Flex gap="3" justify="end">
-            <Dialog.Close>
-              <Button variant="soft" color="gray">Cancel</Button>
-            </Dialog.Close>
-            <Button color="green" onClick={handleApprove} disabled={approving}>
-              {approving ? <Spinner size="1" /> : null}
-              {approving ? 'Approving…' : 'Confirm approve'}
-            </Button>
-          </Flex>
-        </Dialog.Content>
-      </Dialog.Root>
-
-      {/* ── Reject dialog ──────────────────────────────────────────────── */}
+      {/* ── Reject dialog ── */}
       <Dialog.Root open={!!rejectTarget} onOpenChange={(open) => !open && setRejectTarget(null)}>
         <Dialog.Content maxWidth="440px">
           <Dialog.Title>Reject application</Dialog.Title>
           <Dialog.Description size="2" color="gray" mb="4">
             You're rejecting <Text weight="bold">{rejectTarget?.brandName}</Text>.
           </Dialog.Description>
-
           {rejectError && (
             <Callout.Root color="red" mb="3" size="1">
               <Callout.Text>{rejectError}</Callout.Text>
             </Callout.Root>
           )}
-
           <Box mb="4">
             <Text size="2" weight="medium" mb="1">Reason (optional, included in email if sent)</Text>
             <TextArea
@@ -518,25 +489,17 @@ export default function GGAdminBrandApplicationsPage() {
               rows={3}
             />
           </Box>
-
           <Box mb="4">
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-              <Checkbox
-                size="2"
-                checked={rejectSendEmail}
-                onCheckedChange={(c) => setRejectSendEmail(!!c)}
-              />
+              <Checkbox size="2" checked={rejectSendEmail} onCheckedChange={(c) => setRejectSendEmail(!!c)} />
               <Text size="2">Send rejection email via template</Text>
             </label>
             <Text size="1" color="gray" style={{ display: 'block', marginTop: 4, marginLeft: 28 }}>
               Uncheck if you'll email them personally.
             </Text>
           </Box>
-
           <Flex gap="3" justify="end">
-            <Dialog.Close>
-              <Button variant="soft" color="gray">Cancel</Button>
-            </Dialog.Close>
+            <Dialog.Close><Button variant="soft" color="gray">Cancel</Button></Dialog.Close>
             <Button color="red" onClick={handleReject} disabled={rejecting}>
               {rejecting ? <Spinner size="1" /> : null}
               {rejecting ? 'Rejecting…' : 'Confirm reject'}

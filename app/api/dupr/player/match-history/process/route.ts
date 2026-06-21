@@ -9,6 +9,7 @@ import { updateUserAndAchievements } from '@/utils/achievementFunctions/updateUs
 import { createMatch } from '@/lib/services/matchBulkUpload/matchService';
 import { transformPersonalDuprMatches } from '@/lib/services/matchBulkUpload/duprTransformationService';
 import { authenticatedDuprFetch } from '@/lib/services/dupr/duprAuth';
+import { LogContext } from '@/lib/rewards/rewardProcessingLogger';
 
 async function fetchDuprMatchDetails(matchId: number) {
   const DUPR_API_BASE_URL = process.env.DUPR_API_BASE_URL;
@@ -45,6 +46,8 @@ export async function POST(req: NextRequest) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
       };
 
+      let hadProcessingError = false;
+
       try {
         await connectToDatabase();
 
@@ -55,7 +58,7 @@ export async function POST(req: NextRequest) {
         if (!duprId || !dataSource) {
           sendEvent({
             type: 'ERROR',
-            message: 'Configuration Error: Missing DUPR ID or Data Source',
+            message: 'processing_incomplete',
           });
           controller.close();
           return;
@@ -185,6 +188,11 @@ export async function POST(req: NextRequest) {
                 const validT2 = t2Ids.map(id => id || 'UNKNOWN');
                 const validWinners = matchWinnerIds.map(id => id || 'UNKNOWN');
 
+                const logContext: LogContext = {
+                  userId: authorizedUser.id,
+                  matchId: currentMatchId,
+                };
+
                 const matchResult = await updateUserAndAchievements({
                   team1Ids: validT1,
                   team2Ids: validT2,
@@ -200,7 +208,7 @@ export async function POST(req: NextRequest) {
                   dataSourceId: dataSourceId,
                   targetUserIds: [authorizedUser.id],
                   countAsWin: game.isLastGame,
-                }, { session });
+                }, { session, logContext });
 
                 if ((matchResult as any)?.hadRewardCodeError) {
                   rewardCodeError = true;
@@ -215,16 +223,17 @@ export async function POST(req: NextRequest) {
 
             // Per-match errors are LOGs not ERRORs — the loop continues.
             sendEvent({ type: 'LOG', message: `Error saving match ${matchId}: ${err.message}` });
+            hadProcessingError = true;
           } finally {
             session.endSession();
           }
         }
 
-        if (rewardCodeError) {
+        if (rewardCodeError || hadProcessingError) {
           // Achievements were saved but reward codes couldn't be created.
           // Send ERROR so the frontend shows the "achievements saved" dialog
           // rather than the success banner.
-          sendEvent({ type: 'ERROR', message: 'reward_code_creation_failed' });
+          sendEvent({ type: 'ERROR', message: 'processing_incomplete' });
         } else {
           sendEvent({ type: 'COMPLETE', processed: processedCount });
         }
@@ -236,7 +245,7 @@ export async function POST(req: NextRequest) {
         console.error('[SyncProcess] SSE Error:', error);
         sendEvent({
           type: 'ERROR',
-          message: error.message,
+          message: 'processing_incomplete',
         });
         controller.close();
       }

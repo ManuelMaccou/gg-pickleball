@@ -3,6 +3,7 @@ import connectToDatabase from '@/lib/mongodb';
 import User from '@/app/models/User';
 import Admin from '@/app/models/Admin';
 import { IUser } from '@/app/types/databaseTypes'; // <--- IMPORT YOUR TYPE
+import { logError } from '@/lib/sentry/logger';
 
 export async function GET(req: NextRequest) {
   try {
@@ -35,6 +36,7 @@ export async function GET(req: NextRequest) {
 
   } catch (error) {
     console.error("Role check error:", error);
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+    const errorId = logError(error, { endpoint: 'GET /api/user/role' });
+    return NextResponse.json({ errorId, error: 'Server error' }, { status: 500 });
   }
 }

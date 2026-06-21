@@ -5,6 +5,7 @@ import Reward from '@/app/models/Reward';
 import Achievement from '@/app/models/Achievement';
 import Client from '@/app/models/Client'; // <--- IMPORT CLIENT MODEL
 import { Types } from 'mongoose';
+import { logError } from '@/lib/sentry/logger';
 
 type Sponsorship = {
   sponsoringClientId: Types.ObjectId;
@@ -72,6 +73,7 @@ export async function GET() {
 
   } catch (error) {
     console.error('Error fetching global configured rewards:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    const errorId = logError(error, { endpoint: 'GET /api/reward/global-configured' });
+    return NextResponse.json({ errorId, error: 'Internal Server Error' }, { status: 500 });
   }
 }

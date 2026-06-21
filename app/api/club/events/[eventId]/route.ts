@@ -6,6 +6,7 @@ import { ClubUploadedMatch } from '@/app/models/ClubUploadedMatch';
 import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser';
 import connectToDatabase from '@/lib/mongodb';
 import { EventRegistration } from '@/app/models/EventRegistration';
+import { logError } from '@/lib/sentry/logger';
 
 async function loadAndAuthorize(eventId: string, userId: string) {
   if (!mongoose.isValidObjectId(eventId)) return { error: 'Invalid eventId', status: 400 as const };
@@ -47,7 +48,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ even
     return NextResponse.json({ event, matches, registrations });
   } catch (err) {
     console.error('[GET /api/club/events/[eventId]]', err);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    const errorId = logError(err, { endpoint: 'UNKNOWN /api/club/events/[eventId]' });
+    return NextResponse.json({ errorId, error: 'Internal error' }, { status: 500 });
   }
 }
 
@@ -77,7 +79,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ev
     return NextResponse.json({ event });
   } catch (err) {
     console.error('[PATCH /api/club/events/[eventId]]', err);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    const errorId = logError(err, { endpoint: 'UNKNOWN /api/club/events/[eventId]' });
+    return NextResponse.json({ errorId, error: 'Internal error' }, { status: 500 });
   }
 }
 
@@ -104,6 +107,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ e
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error('[DELETE /api/club/events/[eventId]]', err);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    const errorId = logError(err, { endpoint: 'UNKNOWN /api/club/events/[eventId]' });
+    return NextResponse.json({ errorId, error: 'Internal error' }, { status: 500 });
   }
 }

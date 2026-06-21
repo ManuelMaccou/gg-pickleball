@@ -4,18 +4,24 @@ import { IClient } from "../types/databaseTypes";
 const ShopifySubSchema = new Schema({
   shopDomain: { type: String },
   shopId: { type: String },
+  installUrl: { type: String },
   accessToken: { type: String },
   secret: { type: String },
   refreshToken: { type: String },
   tokenExpiresAt: { type: Date },
   refreshTokenExpiresAt: { type: Date },
-  // Tracks whether the merchant has an active Shopify app subscription.
+  // Per-client env var key for credential lookup in custom app mode.
+  // e.g. "PADELHAUS" resolves to SHOPIFY_API_KEY_PADELHAUS / SHOPIFY_API_SECRET_PADELHAUS.
+  // Set by us on the Client record before the merchant logs in.
+  // Ignored in public app mode (shared credentials used instead).
+  envKey: { type: String },
+  // Tracks whether the merchant has an active billing relationship.
+  // Custom mode: true when StripeCustomer.stripePaymentMethodId is set.
+  // Public mode: true when an active Shopify App Pricing subscription exists.
   // Set by the OAuth callback and kept in sync by the shopify-status route.
-  // A merchant can have valid credentials but no plan if they closed the
-  // pricing page before selecting one — in that state the integration won't
-  // work and the onboarding checklist should prompt them to select a plan.
   hasActivePlan: { type: Boolean, default: false },
   planHandle: { type: String },
+  uninstalledAt: { type: Date },
 }, { _id: false });
 
 const PodplaySubSchema = new Schema({

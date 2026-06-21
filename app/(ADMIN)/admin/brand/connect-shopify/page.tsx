@@ -1,16 +1,36 @@
 'use client';
 
+// app/(ADMIN)/admin/brand/connect-shopify/page.tsx
+//
+// Three UI states, identical to the original:
+//   1. Fully connected + active billing  → success screen, lock/change dialog
+//   2. Connected, no plan (public mode)  → "Almost there" + plan selection CTA
+//   3. Not connected                     → install CTA
+//
+// The only mode-specific change is the install CTA in state 3:
+//   Custom mode → "Connect Shopify" links to client.shopify.installUrl stored in DB.
+//                 This is Shopify's generated signed install link — works on real stores.
+//   Public mode → "Connect Shopify ↗" links to the App Store listing.
+//                 Shopify appends shop+hmac and hits /api/shopify/install.
+//
+// State 2 ("connected, no plan") only appears in public mode — in custom mode,
+// billing is handled via Stripe setup after OAuth, so hasActivePlan is set
+// by the time the merchant returns to this page.
+
 import { useEffect, useState, Suspense } from 'react';
 import {
-  Flex, Heading, Text, TextField, Button, Callout,
-  Spinner, Box, Card, Dialog,
+  Flex, Heading, Text, Button, Spinner, Dialog, Callout,
 } from '@radix-ui/themes';
-import { InfoCircledIcon, CheckCircledIcon, LockClosedIcon, ExclamationTriangleIcon } from '@radix-ui/react-icons';
+import { CheckCircledIcon, LockClosedIcon, ExclamationTriangleIcon } from '@radix-ui/react-icons';
 import { useUserContext } from '@/app/contexts/UserContext';
 import { useUser as useAuth0User } from '@auth0/nextjs-auth0';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AdminPermissionType, IClient } from '@/app/types/databaseTypes';
 import { BrandPageShell } from '../../components/BrandPageShell';
+import { buildShopifyPricingUrl } from '@/lib/shopify/urls';
+
+const SHOPIFY_APP_STORE_URL = 'https://apps.shopify.com/697313e4bf2304b130ef336d8b97b04e/preview/en';
+const CUSTOM_MODE = process.env.NEXT_PUBLIC_SHOPIFY_APP_MODE === 'custom';
 
 function ConnectShopifyContent() {
   const { user } = useUserContext();
@@ -18,16 +38,13 @@ function ConnectShopifyContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [shopDomain, setShopDomain] = useState('');
-  const [installError, setInstallError] = useState<string | null>(null);
-  const [isRedirecting, setIsRedirecting] = useState(false);
-
   const [isAdminChecking, setIsAdminChecking] = useState(true);
   const [adminPermission, setAdminPermission] = useState<AdminPermissionType>(null);
   const [location, setLocation] = useState<IClient | null>(null);
   const [connectedShop, setConnectedShop] = useState<string | null>(null);
-  const [fullyConnectedToShopify, setFullyConnectedToShopify] = useState(false);
+  const [hasActivePlan, setHasActivePlan] = useState(false);
   const [hasConfiguredRewards, setHasConfiguredRewards] = useState(false);
+  const [installUrl, setInstallUrl] = useState<string | null>(null);
   const [changeWarningOpen, setChangeWarningOpen] = useState(false);
 
   useEffect(() => {
@@ -48,12 +65,11 @@ function ConnectShopifyContent() {
         setLocation(data.location ?? null);
         setHasConfiguredRewards(!!data.location?.hasConfiguredRewards);
         const shopDomainFromDB = data.location?.shopify?.shopDomain;
-        const accessTokenFromDB = data.location?.shopify?.accessToken;
-        if (shopDomainFromDB) {
-          setConnectedShop(shopDomainFromDB);
-          setShopDomain(shopDomainFromDB);
-        }
-        if (shopDomainFromDB && accessTokenFromDB) setFullyConnectedToShopify(true);
+        const hasActivePlanFromDB = !!data.location?.shopify?.hasActivePlan;
+        const installUrlFromDB = data.location?.shopify?.installUrl ?? null;
+        setHasActivePlan(hasActivePlanFromDB);
+        setInstallUrl(installUrlFromDB);
+        if (shopDomainFromDB) setConnectedShop(shopDomainFromDB);
       } catch (e) {
         console.error('[ConnectShopify] Failed to check admin permissions:', e);
         router.replace('/error?reason=unknown');
@@ -64,26 +80,15 @@ function ConnectShopifyContent() {
     checkAdmin();
   }, [user, isAuthLoading, router]);
 
-  const handleInstall = () => {
-    setInstallError(null);
-    setIsRedirecting(true);
-    let cleanDomain = shopDomain.trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
-    if (!cleanDomain.includes('.')) {
-      cleanDomain = `${cleanDomain}.myshopify.com`;
-    } else if (!cleanDomain.endsWith('.myshopify.com')) {
-      setInstallError('Please enter your .myshopify.com domain (e.g. my-store.myshopify.com)');
-      setIsRedirecting(false);
-      return;
-    }
-    window.location.href = `/api/shopify/install?shop=${cleanDomain}`;
-  };
-
   if (isAuthLoading || isAdminChecking) {
     return <Flex justify="center" align="center" height="100vh"><Spinner size="3" /></Flex>;
   }
 
-  // ── CONNECTED STATE ────────────────────────────────────────────────────────
-  if (fullyConnectedToShopify && !searchParams.get('reconnect')) {
+  const isReconnecting = !!searchParams.get('reconnect');
+  const isFullyConnected = !!connectedShop && hasActivePlan;
+
+  // ── STATE 1: CONNECTED + ACTIVE BILLING ───────────────────────────────────
+  if (isFullyConnected && !isReconnecting) {
     return (
       <BrandPageShell adminPermission={adminPermission} location={location} contentMaxWidth="600px">
         <Flex direction="column" align="center" gap="5" pt="9">
@@ -102,7 +107,6 @@ function ConnectShopifyContent() {
             </Button>
 
             {hasConfiguredRewards ? (
-              // Domain locked — rewards exist, can't change stores
               <Flex
                 align="center"
                 gap="2"
@@ -122,7 +126,6 @@ function ConnectShopifyContent() {
                 </Text>
               </Flex>
             ) : (
-              // No rewards — allow change but warn first
               <Button
                 variant="ghost"
                 color="gray"
@@ -134,7 +137,7 @@ function ConnectShopifyContent() {
           </Flex>
         </Flex>
 
-        {/* Warning dialog — shown before store change when no rewards */}
+        {/* Warning dialog — shown before store change when no rewards configured */}
         <Dialog.Root open={changeWarningOpen} onOpenChange={setChangeWarningOpen}>
           <Dialog.Content maxWidth="460px">
             <Flex align="center" gap="2" mb="3">
@@ -148,97 +151,114 @@ function ConnectShopifyContent() {
               store, they will no longer work.
             </Dialog.Description>
             <Text size="2" color="gray" mb="5" style={{ display: 'block' }}>
-              Only proceed if you're intentionally switching to a different store.
+              Note: your account can only ever have one Shopify store connected. If you
+              continue, you'll be taken to install the app on a new store — but our
+              system currently blocks connecting a different store once one is set.
+              Contact support first if you need to switch stores.
             </Text>
             <Flex gap="3" justify="end">
               <Button variant="soft" color="gray" onClick={() => setChangeWarningOpen(false)}>
                 Cancel
               </Button>
-              <Button
-                color="amber"
-                onClick={() => {
-                  setChangeWarningOpen(false);
-                  router.push('/admin/brand/connect-shopify?reconnect=1');
-                }}
-              >
-                Continue and change store
+              <Button asChild color="amber">
+                <a href="mailto:play@ggpickleball.co?subject=Switch%20Shopify%20Store">
+                  Contact Support
+                </a>
               </Button>
             </Flex>
           </Dialog.Content>
         </Dialog.Root>
-
       </BrandPageShell>
     );
   }
 
-  // ── CONNECT / RECONNECT FORM ───────────────────────────────────────────────
-  const isReconnecting = !!searchParams.get('reconnect');
+  // ── STATE 2: CONNECTED, NO PLAN (public mode only) ────────────────────────
+  // In custom mode this state is skipped — Stripe billing setup happens
+  // immediately after OAuth via /admin/brand/billing/payment-method.
+  if (connectedShop && !hasActivePlan && !isReconnecting && !CUSTOM_MODE) {
+    const pricingUrl = buildShopifyPricingUrl(connectedShop);
 
-  return (
-    <BrandPageShell adminPermission={adminPermission} location={location} contentMaxWidth="600px">
-      <Box pt="6">
-        <Flex direction="column" gap="2" mb="6">
-          <Heading size="6">{isReconnecting ? 'Change Shopify Store' : 'Connect Shopify'}</Heading>
-          <Text color="gray" size="3">
-            {isReconnecting
-              ? 'Enter the domain of the new store you want to connect. Your existing store credentials will be replaced.'
-              : 'Enter your Shopify store domain to enable automated reward discounts for players.'}
-          </Text>
-        </Flex>
-
-        {isReconnecting && (
-          <Callout.Root color="amber" mb="4">
-            <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
-            <Callout.Text>
-              You are replacing an existing Shopify connection. Make sure you want to proceed.
-            </Callout.Text>
-          </Callout.Root>
-        )}
-
-        <Card size="3">
-          <Flex direction="column" gap="5">
-            {installError && (
-              <Callout.Root color="red">
-                <Callout.Icon><InfoCircledIcon /></Callout.Icon>
-                <Callout.Text>{installError}</Callout.Text>
-              </Callout.Root>
-            )}
-
-            <Flex direction="column" gap="2">
-              <Text size="2" weight="bold">Shop Domain</Text>
-              <TextField.Root
-                placeholder="my-store.myshopify.com"
-                size="3"
-                value={shopDomain}
-                onChange={(e) => setShopDomain(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && !isRedirecting && shopDomain && handleInstall()}
-              >
-                <TextField.Slot>https://</TextField.Slot>
-              </TextField.Root>
-              <Text size="1" color="gray">
-                Only .myshopify.com domains are supported. Custom domains are not yet supported.
-              </Text>
-            </Flex>
-
-            <Button
-              size="3"
-              color={isReconnecting ? 'amber' : undefined}
-              onClick={handleInstall}
-              disabled={isRedirecting || !shopDomain.trim()}
-            >
-              {isRedirecting
-                ? <><Spinner /> Redirecting to Shopify…</>
-                : isReconnecting
-                ? 'Connect New Store'
-                : 'Install App'}
-            </Button>
-
-            <Text size="1" align="center" color="gray">
-              You'll be redirected to Shopify to approve permissions. You'll be brought back here once complete.
+    return (
+      <BrandPageShell adminPermission={adminPermission} location={location} contentMaxWidth="600px">
+        <Flex direction="column" align="center" gap="5" pt="9">
+          <ExclamationTriangleIcon width={52} height={52} color="var(--amber-9)" />
+          <Flex direction="column" align="center" gap="2">
+            <Heading size="6" align="center">Almost there</Heading>
+            <Text align="center" color="gray" size="3">
+              <Text weight="bold">{connectedShop}</Text> is connected, but you haven't
+              selected a plan yet. Select a plan to start issuing rewards to players.
             </Text>
           </Flex>
-        </Card>
-      </Box>
+
+          <Flex gap="3" mt="2">
+            <Button asChild color="amber">
+              <a href={pricingUrl} target="_blank" rel="noopener noreferrer">
+                Select a Plan ↗
+              </a>
+            </Button>
+            <Button variant="soft" color="gray" onClick={() => router.push('/admin/brand')}>
+              Go to Dashboard
+            </Button>
+          </Flex>
+        </Flex>
+      </BrandPageShell>
+    );
+  }
+
+  // ── STATE 3: NOT CONNECTED (or reconnecting) ──────────────────────────────
+  return (
+    <BrandPageShell adminPermission={adminPermission} location={location} contentMaxWidth="600px">
+      <Flex direction="column" align="center" gap="5" pt="9">
+        <Heading size="6" align="center">Connect Shopify</Heading>
+        <Text align="center" color="gray" size="3">
+          Connect your Shopify store to GG Pickleball to start issuing rewards to players.
+          Once complete, you'll be brought back here automatically.
+        </Text>
+
+        <Flex gap="3" mt="2" align="center">
+          {CUSTOM_MODE ? (
+            // Use Shopify's generated signed install link stored in DB.
+            // Falls back to custom-install route if no URL is stored yet.
+            installUrl ? (
+              <Button size="2" asChild>
+                <a href={installUrl}>
+                  Connect Shopify
+                </a>
+              </Button>
+            ) : (
+              <>
+                <Button size="2" asChild>
+                  <a href="/api/shopify/custom-install">
+                    Connect Shopify
+                  </a>
+                </Button>
+                <Callout.Root color="amber" size="1">
+                  <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
+                  <Callout.Text>
+                    No install URL configured for this account. Contact support.
+                  </Callout.Text>
+                </Callout.Root>
+              </>
+            )
+          ) : (
+            // Public mode — App Store listing. Shopify appends shop+hmac and
+            // hits /api/shopify/install when the merchant clicks Install.
+            <Button size="2" asChild>
+              <a href={SHOPIFY_APP_STORE_URL} target="_blank" rel="noopener noreferrer">
+                Connect Shopify ↗
+              </a>
+            </Button>
+          )}
+          <Button variant="soft" color="gray" onClick={() => router.push('/admin/brand')}>
+            Go to Dashboard
+          </Button>
+        </Flex>
+
+        <Text size="1" color="gray" align="center" style={{ maxWidth: 420 }}>
+          Make sure you're logged in here before clicking — you'll need an active
+          session to finish connecting after approving on Shopify.
+        </Text>
+      </Flex>
     </BrandPageShell>
   );
 }

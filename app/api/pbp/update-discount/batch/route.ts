@@ -162,13 +162,13 @@ export async function POST(request: Request) {
     const err = error as Error;
     await page.screenshot({ path: `error-screenshot-${Date.now()}.png`, fullPage: true });
 
-    logError(new Error("Coupon creation failed."), {
+    const errorId = logError(new Error("Coupon creation failed."), {
       endpoint: 'POST /api/pbp/update-discount/batch',
       task: 'Updating pbp discounts in batch.'
     });
 
     return NextResponse.json(
-      { message: 'Coupon creation failed.', details: err.message },
+      { errorId, message: 'Coupon creation failed.', details: err.message },
       { status: 500 }
     );
   } finally {

@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    logError(err, { endpoint: 'POST /api/brand/confirm-plan' });
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    const errorId = logError(err, { endpoint: 'POST /api/brand/confirm-plan' });
+    return NextResponse.json({ errorId, error: 'Internal error' }, { status: 500 });
   }
 }

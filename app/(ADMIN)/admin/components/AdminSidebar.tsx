@@ -1,89 +1,94 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation'; // The key hook for getting the URL
-import { Flex } from '@radix-ui/themes'; // Assuming you are using Radix
+import { usePathname } from 'next/navigation';
+import { Flex, Text } from '@radix-ui/themes';
+import {
+  RefreshCw, Settings, CreditCard, Gift, FileText,
+  Upload, Shield, Users, ScrollText,
+} from 'lucide-react';
 
-// Define the shape of our links for TypeScript
 interface NavLink {
   href: string;
   text: string;
+  icon: React.ReactNode;
+  // Optional: treat this href as active when another path is active too
+  alsoActiveFor?: string[];
 }
 
-// Define the link sets for each context
-const superAdminLinks: NavLink[] = [
-  { href: '/admin', text: 'Dashboard' },
-  { href: '/admin/achievements', text: 'Set Achievements' },
-  { href: '/admin/rewards', text: 'Configure Rewards' },
-  { href: '/admin/upload-matches', text: 'Upload Matches' },
-  { href: '/admin/gg/brand-applications', text: 'Brand Applications' },
-];
-
 const ggAdminLinks: NavLink[] = [
-  { href: '/admin/gg/sync', text: 'Sync' },
-  { href: '/admin/gg/config', text: 'Configure clients' },
-  { href: '/admin/gg/rewards', text: 'Configure global rewards' },
-  { href: '/admin/gg/upload-matches', text: 'Upload Matches' },
+  { href: '/admin/gg/sync',               text: 'Sync',                    icon: <RefreshCw size={16} /> },
+  { href: '/admin/gg/config',             text: 'Configure clients',        icon: <Settings size={16} />, alsoActiveFor: ['/admin/gg/onboard'] },
+  { href: '/admin/gg/billing',            text: 'Billing',                  icon: <CreditCard size={16} /> },
+  { href: '/admin/gg/rewards',            text: 'Global rewards',           icon: <Gift size={16} /> },
+  { href: '/admin/gg/rewards-log',        text: 'Rewards log',              icon: <ScrollText size={16} /> },
+  { href: '/admin/gg/upload-matches',     text: 'Upload matches',           icon: <Upload size={16} /> },
+  { href: '/admin/gg/compliance',         text: 'Compliance',               icon: <Shield size={16} /> },
+  { href: '/admin/gg/brand-applications', text: 'Brand applications',       icon: <Users size={16} /> },
 ];
 
 interface AdminSidebarProps {
-  adminPermission: 'admin' | 'associate' | null; // Pass the permission level as a prop
+  adminPermission: 'admin' | 'associate' | null;
 }
 
 export const AdminSidebar = ({ adminPermission }: AdminSidebarProps) => {
-  // usePathname() gives us the current URL, e.g., "/admin/rewards"
   const pathname = usePathname();
 
-  if (adminPermission !== 'admin') {
-    return null; // Don't render anything if the user is not an admin
-  }
+  if (adminPermission !== 'admin') return null;
 
-  // Determine which set of links to show based on the current URL
-  let linksToShow: NavLink[] = [];
-  if (pathname.startsWith('/admin/gg')) {
-    linksToShow = ggAdminLinks;
-  } else if (pathname.startsWith('/admin')) {
-    linksToShow = superAdminLinks;
-  }
-
-  // If no links are determined (e.g., a non-admin page), don't render
-  if (linksToShow.length === 0) {
-    return null;
-  }
+  const linksToShow = pathname.startsWith('/admin/gg') ? ggAdminLinks : [];
+  if (linksToShow.length === 0) return null;
 
   return (
     <Flex
-      direction={'column'}
-      width={'200px'}
-      py={'4'}
-      px={'2'}
-      style={{ backgroundColor: '#F1F1F1', borderRight: '1px solid #d3d3d3' }}
+      direction="column"
+      width="220px"
+      py="4"
+      px="3"
+      gap="1"
+      style={{
+        backgroundColor: 'white',
+        borderRight: '1px solid var(--gray-4)',
+        flexShrink: 0,
+      }}
     >
-      <Flex direction={'column'} gap={'3'} px={'2'}>
-        {linksToShow.map((link) => {
-          // Check if the current link is the active one
-          const isActive = pathname === link.href;
+      {linksToShow.map((link) => {
+        const isActive =
+          pathname === link.href ||
+          pathname.startsWith(link.href + '/') ||
+          (link.alsoActiveFor?.some(p => pathname.startsWith(p)) ?? false);
 
-          return (
+        return (
+          <Link key={link.href} href={link.href} style={{ textDecoration: 'none' }}>
             <Flex
-              asChild
-              key={link.href}
-              direction={'column'}
-              width={'100%'}
-              pl={'3'}
-              py={'1'}
-              // Apply the active style dynamically
-              style={
-                isActive
-                  ? { backgroundColor: 'white', borderRadius: '10px' }
-                  : {}
-              }
+              align="center"
+              gap="3"
+              px="3"
+              py="2"
+              style={{
+                borderRadius: 6,
+                backgroundColor: isActive ? 'var(--accent-3)' : 'transparent',
+                color: isActive ? 'var(--accent-11)' : 'var(--gray-12)',
+                borderLeft: isActive ? '3px solid var(--accent-9)' : '3px solid transparent',
+                paddingLeft: isActive ? 9 : 12,
+                fontWeight: isActive ? 600 : 400,
+                cursor: 'pointer',
+                transition: 'background-color 120ms ease',
+              }}
+              className="gg-sidebar-item"
             >
-              <Link href={link.href}>{link.text}</Link>
+              {link.icon}
+              <Text size="2">{link.text}</Text>
             </Flex>
-          );
-        })}
-      </Flex>
+          </Link>
+        );
+      })}
+
+      <style jsx>{`
+        :global(.gg-sidebar-item:hover) {
+          background-color: var(--gray-3) !important;
+        }
+      `}</style>
     </Flex>
   );
 };

@@ -6,6 +6,7 @@ import Match from '@/app/models/Match';
 import { DateTime } from 'luxon';
 import { Types } from 'mongoose';
 import { authenticatedDuprFetch } from '@/lib/services/dupr/duprAuth';
+import { logError } from '@/lib/sentry/logger';
 
 async function fetchDuprMatchList(
   duprId: string, 
@@ -128,6 +129,7 @@ export async function GET(req: NextRequest) {
 
   } catch (error: any) {
     console.error("Preview Sync Error:", error);
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+    const errorId = logError(error, { endpoint: 'GET /api/dupr/player/match-history/preview' });
+    return NextResponse.json({ errorId, error: error.message || 'Internal Server Error' }, { status: 500 });
   }
 }

@@ -4,6 +4,7 @@ import { ClubEvent } from '@/app/models/ClubEvent';
 import { Club } from '@/app/models/Club';
 import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser';
 import connectToDatabase from '@/lib/mongodb';
+import { logError } from '@/lib/sentry/logger';
 
 // GET /api/club/events?clubId=...&page=1&limit=20
 export async function GET(req: NextRequest) {
@@ -44,7 +45,8 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error('[GET /api/club/events]', err);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    const errorId = logError(err, { endpoint: 'GET /api/club/events' });
+    return NextResponse.json({ errorId, error: 'Internal error' }, { status: 500 });
   }
 }
 
@@ -122,6 +124,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ event }, { status: 201 });
   } catch (err) {
     console.error('[POST /api/club/events]', err);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    const errorId = logError(err, { endpoint: 'POST /api/club/events' });
+    return NextResponse.json({ errorId, error: 'Internal error' }, { status: 500 });
   }
 }

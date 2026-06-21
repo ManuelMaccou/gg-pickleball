@@ -29,89 +29,99 @@ const REFRESH_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
 const REFRESH_TOKEN_WARNING_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 export async function POST(req: NextRequest) {
-  const secret = req.headers.get('x-cron-secret');
-  if (!secret || secret !== process.env.CRON_SECRET) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  try {
+    const secret = req.headers.get('x-cron-secret');
+    if (!secret || secret !== process.env.CRON_SECRET) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-  await connectToDatabase();
+    await connectToDatabase();
 
-  const now = new Date();
-  const refreshBefore = new Date(now.getTime() + REFRESH_WINDOW_MS);
+    const now = new Date();
+    const refreshBefore = new Date(now.getTime() + REFRESH_WINDOW_MS);
 
-  // Find all clients with Shopify connected
-  const clients = await Client.find({
-    'shopify.accessToken': { $exists: true, $ne: null },
-    'shopify.shopDomain': { $exists: true, $ne: null },
-  })
-    .select('_id name shopify.shopDomain shopify.tokenExpiresAt shopify.refreshTokenExpiresAt')
-    .lean() as unknown as Array<{
-      _id: any;
-      name: string;
-      shopify: {
-        shopDomain?: string;
-        tokenExpiresAt?: Date;
-        refreshTokenExpiresAt?: Date;
-      };
-    }>;
+    // Find all clients with Shopify connected
+    const clients = await Client.find({
+      'shopify.accessToken': { $exists: true, $ne: null },
+      'shopify.shopDomain': { $exists: true, $ne: null },
+    })
+      .select('_id name shopify.shopDomain shopify.tokenExpiresAt shopify.refreshTokenExpiresAt')
+      .lean() as unknown as Array<{
+        _id: any;
+        name: string;
+        shopify: {
+          shopDomain?: string;
+          tokenExpiresAt?: Date;
+          refreshTokenExpiresAt?: Date;
+        };
+      }>;
 
-  console.log(`[TokenRefreshCron] Found ${clients.length} connected client(s)`);
+    console.log(`[TokenRefreshCron] Found ${clients.length} connected client(s)`);
 
-  const results = {
-    checked: clients.length,
-    refreshed: 0,
-    skipped: 0,
-    failed: 0,
-    warnings: 0,
-  };
+    const results = {
+      checked: clients.length,
+      refreshed: 0,
+      skipped: 0,
+      failed: 0,
+      warnings: 0,
+    };
 
-  for (const client of clients) {
-    const clientId = client._id.toString();
-    const { tokenExpiresAt, refreshTokenExpiresAt } = client.shopify;
+    for (const client of clients) {
+      try {
+        const clientId = client._id.toString();
+        const { tokenExpiresAt, refreshTokenExpiresAt } = client.shopify;
 
-    // ── Warn if refresh token is near expiry ───────────────────────────────
-    if (refreshTokenExpiresAt) {
-      const msUntilRefreshExpiry = refreshTokenExpiresAt.getTime() - now.getTime();
-      if (msUntilRefreshExpiry < REFRESH_TOKEN_WARNING_MS) {
-        const daysLeft = Math.floor(msUntilRefreshExpiry / (1000 * 60 * 60 * 24));
-        console.warn(
-          `[TokenRefreshCron] ⚠️ Client "${client.name}" (${clientId}) refresh token ` +
-          `expires in ${daysLeft} day(s). Merchant should reconnect Shopify soon.`
+        // ── Warn if refresh token is near expiry ───────────────────────────────
+        if (refreshTokenExpiresAt) {
+          const msUntilRefreshExpiry = refreshTokenExpiresAt.getTime() - now.getTime();
+          if (msUntilRefreshExpiry < REFRESH_TOKEN_WARNING_MS) {
+            const daysLeft = Math.floor(msUntilRefreshExpiry / (1000 * 60 * 60 * 24));
+            console.warn(
+              `[TokenRefreshCron] ⚠️ Client "${client.name}" (${clientId}) refresh token ` +
+              `expires in ${daysLeft} day(s). Merchant should reconnect Shopify soon.`
+            );
+            results.warnings++;
+          }
+        }
+
+        // ── Skip if access token is still healthy ─────────────────────────────
+        if (tokenExpiresAt && tokenExpiresAt.getTime() > refreshBefore.getTime()) {
+          results.skipped++;
+          continue;
+        }
+
+        // ── Refresh the token ─────────────────────────────────────────────────
+        console.log(
+          `[TokenRefreshCron] Refreshing token for client "${client.name}" (${clientId})` +
+          (tokenExpiresAt ? ` — expires ${tokenExpiresAt.toISOString()}` : ' — no expiry recorded')
         );
-        results.warnings++;
+
+        const refreshResult = await refreshShopifyToken(clientId);
+
+        if (refreshResult.success) {
+          console.log(`[TokenRefreshCron] ✅ Refreshed token for client "${client.name}"`);
+          results.refreshed++;
+        } else {
+          console.error(
+            `[TokenRefreshCron] ❌ Failed to refresh token for client "${client.name}" ` +
+            `(${clientId}): ${refreshResult.error}`
+          );
+          logError(new Error(refreshResult.error ?? 'Token refresh failed'), {
+            context: `TokenRefreshCron client ${clientId} (${client.name})`,
+          });
+          results.failed++;
+        }
+      } catch (err) {
+        console.error('[TokenRefreshCron] Error processing client:', client._id, err);
+        results.failed++;
       }
     }
 
-    // ── Skip if access token is still healthy ─────────────────────────────
-    if (tokenExpiresAt && tokenExpiresAt.getTime() > refreshBefore.getTime()) {
-      results.skipped++;
-      continue;
-    }
+    console.log('[TokenRefreshCron] Complete:', results);
 
-    // ── Refresh the token ─────────────────────────────────────────────────
-    console.log(
-      `[TokenRefreshCron] Refreshing token for client "${client.name}" (${clientId})` +
-      (tokenExpiresAt ? ` — expires ${tokenExpiresAt.toISOString()}` : ' — no expiry recorded')
-    );
-
-    const refreshResult = await refreshShopifyToken(clientId);
-
-    if (refreshResult.success) {
-      console.log(`[TokenRefreshCron] ✅ Refreshed token for client "${client.name}"`);
-      results.refreshed++;
-    } else {
-      console.error(
-        `[TokenRefreshCron] ❌ Failed to refresh token for client "${client.name}" ` +
-        `(${clientId}): ${refreshResult.error}`
-      );
-      logError(new Error(refreshResult.error ?? 'Token refresh failed'), {
-        context: `TokenRefreshCron client ${clientId} (${client.name})`,
-      });
-      results.failed++;
-    }
+    return NextResponse.json({ results });
+  } catch (err) {
+    const errorId = logError(err, { endpoint: 'POST /api/shopify/cron/refresh-shopify-tokens' });
+    return NextResponse.json({ error: 'Internal server error', errorId }, { status: 500 });
   }
-
-  console.log('[TokenRefreshCron] Complete:', results);
-
-  return NextResponse.json({ results });
 }

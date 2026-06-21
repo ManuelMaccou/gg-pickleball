@@ -5,6 +5,7 @@ import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser';
 import { verifyDuprEntitlement } from '@/lib/services/dupr/duprEntitlement';
 import { fetchUserDuprClubs } from '@/lib/services/dupr/duprClubs';
 import connectToDatabase from '@/lib/mongodb';
+import { logError } from '@/lib/sentry/logger';
 
 // GET /api/club?adminId=...
 // Returns clubs the user already has in our system
@@ -33,7 +34,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ clubs });
   } catch (err) {
     console.error('[GET /api/club]', err);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    const errorId = logError(err, { endpoint: 'GET /api/club' });
+    return NextResponse.json({ errorId, error: 'Internal error' }, { status: 500 });
   }
 }
 
@@ -78,8 +80,9 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({ clubs: clubsWithStatus });
       } catch (err) {
+        const errorId = logError(err, { endpoint: 'POST /api/club' });
         return NextResponse.json(
-          { error: err instanceof Error ? err.message : 'Failed to fetch DUPR clubs' },
+          { errorId, error: err instanceof Error ? err.message : 'Failed to fetch DUPR clubs' },
           { status: 502 }
         );
       }
@@ -128,6 +131,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   } catch (err) {
     console.error('[POST /api/club]', err);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    const errorId = logError(err, { endpoint: 'UNKNOWN /api/club' });
+    return NextResponse.json({ errorId, error: 'Internal error' }, { status: 500 });
   }
 }

@@ -13,8 +13,11 @@ export async function GET() {
 
     return NextResponse.json({ dataSources });
   } catch (error) {
-    logError(error, { message: 'Failed to fetch DataSources' });
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    const errorId = logError(error, { 
+      message: 'Failed to fetch DataSources' ,
+      endpoint: 'GET /api/data-source'
+    });
+    return NextResponse.json({ errorId, error: 'Internal Server Error' }, { status: 500 });
   }
 }
 
@@ -58,11 +61,17 @@ export async function POST(req: NextRequest) {
       'code' in error &&
       (error as { code: unknown }).code === 11000
     ) {
-      logError(error, { message: `Attempted to create a duplicate DataSource.` });
-      return NextResponse.json({ error: 'A data source with that name or type already exists.' }, { status: 409 });
+      const errorId = logError(error, { 
+        message: `Attempted to create a duplicate DataSource.`,
+        endpoint: 'POST /api/data-source'
+      });
+      return NextResponse.json({ errorId, error: 'A data source with that name or type already exists.' }, { status: 409 });
     }
 
-    logError(error, { message: 'Failed to create DataSource' });
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    const errorId = logError(error, { 
+      message: 'Failed to create DataSource',
+      endpoint: 'POST /api/data-source'
+    });
+    return NextResponse.json({ errorId, error: 'Internal Server Error' }, { status: 500 });
   }
 }

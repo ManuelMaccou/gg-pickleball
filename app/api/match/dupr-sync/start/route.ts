@@ -326,7 +326,10 @@ batchEmailContext.forEach((context, email) => {
     return NextResponse.json({ jobId, totalRows: totalGamesToProcess });
 
   } catch (error) {
-    logError(error, { message: 'Failed to start DUPR upload job.' });
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    const errorId = logError(error, { 
+      message: 'Failed to start DUPR upload job.',
+      endpoint: 'POST /api/match/dupr-sync/start'
+    });
+    return NextResponse.json({ errorId, error: 'Internal Server Error' }, { status: 500 });
   }
 }

@@ -43,13 +43,19 @@ export async function POST(req: NextRequest) {
       'code' in error &&
       (error as { code: number }).code === 11000
     ) {
-      logError(error, { message: 'Attempted to create a client with a duplicate name.' });
+      const errorId = logError(error, { 
+        endpoint: 'POST /api/client',
+        message: 'Attempted to create a client with a duplicate name.'
+      });
 
-      return NextResponse.json({ error: 'A client with this name already exists.' }, { status: 409 });
+      return NextResponse.json({ errorId, error: 'A client with this name already exists.' }, { status: 409 });
     }
 
-    logError(error, { message: 'Error creating Client.' });
-    return NextResponse.json({ error: 'There was an unexpected error. Please try again.' }, { status: 500 });
+    const errorId = logError(error, { 
+      endpoint: 'POST /api/client',
+      message: 'Error creating client',
+     });
+    return NextResponse.json({ errorId, error: 'There was an unexpected error. Please try again.' }, { status: 500 });
   }
 }
 
@@ -98,11 +104,12 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ clients });
   } catch (error) {
-    logError(error, {
+    const errorId = logError(error, {
       message: clientId ? `Failed to fetch client with clientId: ${clientId}` : 'Failed to fetch all clients',
-      clientId: clientId ?? 'null'
+      clientId: clientId ?? 'null',
+      endpoint: 'GET /api/client'
     });
-    return NextResponse.json({ error: 'There was an unexpected error. Please try again.' }, { status: 500 });
+    return NextResponse.json({ errorId, error: 'There was an unexpected error. Please try again.' }, { status: 500 });
   }
 }
 
@@ -218,10 +225,11 @@ export async function PATCH(req: NextRequest) {
       removedRewardIds,
     });
   } catch (error) {
-    logError(error, {
-      message: `Failed to update client achievements for clientId: ${clientId}`,
-    });
     
-    return NextResponse.json({ error: 'There was an unexpected error. Please try again.' }, { status: 500 });
+    const errorId = logError(error, { 
+      message: `Failed to update client achievements for clientId: ${clientId}`,
+      endpoint: 'PATCH /api/client'
+    });
+    return NextResponse.json({ errorId, error: 'There was an unexpected error. Please try again.' }, { status: 500 });
   }
 }

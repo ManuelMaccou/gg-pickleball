@@ -14,6 +14,8 @@ const CommissionRecordSchema = new Schema<ICommissionRecord>(
     commissionRate: { type: Number, required: true, default: 0.05 },
     commissionAmount: { type: Number, required: true },
     shopifyEventKey: { type: String },
+    stripeInvoiceId: { type: String },
+    stripePaymentIntentId: { type: String },
 
     orderCreatedAt: { type: Date, required: true },
     chargeAfter: { type: Date, required: true },
@@ -22,12 +24,11 @@ const CommissionRecordSchema = new Schema<ICommissionRecord>(
 
     status: {
       type: String,
-      enum: ['pending', 'held', 'charged', 'waived', 'review'],
+      enum: ['pending', 'held', 'charged', 'waived', 'review', 'processing'],
       required: true,
       default: 'pending',
     },
 
-    // Populated whenever status === 'held'. Cleared to null on any transition out of held.
     holdReason: {
       type: String,
       enum: ['unfulfilled', 'return_in_progress', 'dispute_active', 'partial_refund_open', null],
@@ -39,14 +40,12 @@ const CommissionRecordSchema = new Schema<ICommissionRecord>(
   { timestamps: true }
 );
 
-// Cron queries this index on every run — must be fast.
 CommissionRecordSchema.index({ status: 1, nextCheckAt: 1 });
-// Prevent duplicate commission records for the same order.
 CommissionRecordSchema.index({ shopifyOrderId: 1, discountCode: 1 }, { unique: true });
-// Look up commissions by client for the admin billing UI.
 CommissionRecordSchema.index({ clientId: 1, status: 1 });
-// Sub-filter held records by hold reason.
 CommissionRecordSchema.index({ status: 1, holdReason: 1 });
+// Look up by Stripe invoice ID for webhook handler
+CommissionRecordSchema.index({ stripeInvoiceId: 1 });
 
 export const CommissionRecord: Model<ICommissionRecord> =
   mongoose.models.CommissionRecord ||

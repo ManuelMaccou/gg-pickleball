@@ -58,7 +58,7 @@ export async function GET(_req: NextRequest) {
     return NextResponse.json({ application: draft.toObject(), wasRejected: false });
   } catch (err: any) {
     console.error('[BrandApplyDraft] Error:', err);
-    logError(err, { endpoint: 'GET /api/brand/apply/draft' });
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 });
+    const errorId = logError(err, { endpoint: 'GET /api/brand/apply/draft' });
+    return NextResponse.json({ errorId, error: 'Something went wrong.' }, { status: 500 });
   }
 }

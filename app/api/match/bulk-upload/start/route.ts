@@ -217,6 +217,10 @@ export async function POST(req: NextRequest) {
   
   } catch (error) {
     logError(error, { message: 'Failed to start bulk upload job.' });
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    const errorId = logError(error, { 
+      message: 'Failed to start bulk upload job.',
+      endpoint: 'POST /api/match/bulk-upload/start'
+    });
+    return NextResponse.json({ errorId, error: 'Internal Server Error' }, { status: 500 });
   }
 }

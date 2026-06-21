@@ -52,9 +52,10 @@ export async function GET(req: NextRequest) {
     });
 
   } catch (error) {
-    logError(error, {
+    const errorId = logError(error, {
       message: `Error fetching client achievements & rewards for ClientId: ${clientId}`,
+      endpoint: 'GET /api/client/achievements'
     });
-    return NextResponse.json({ error: 'There was an unexpected error. Please try again.' }, { status: 500 });
+    return NextResponse.json({ errorId, error: 'There was an unexpected error. Please try again.' }, { status: 500 });
   }
 }

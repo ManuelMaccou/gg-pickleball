@@ -78,7 +78,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (err: any) {
-    logError(err, { endpoint: 'GET /api/admin/brand-applications' });
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    const errorId = logError(err, { endpoint: 'GET /api/admin/brand-applications' });
+    return NextResponse.json({ errorId, error: 'Internal error' }, { status: 500 });
   }
 }

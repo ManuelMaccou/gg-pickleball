@@ -43,11 +43,11 @@ export async function POST(req: NextRequest) {
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     
-    logError(new Error(errorMessage), { 
+    const errorId = logError(new Error(errorMessage), { 
         endpoint: 'POST /api/webhooks/auth0/password-change',
         task: 'Marking account as claimed via webhook'
     });
 
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ errorId, error: 'Internal Server Error' }, { status: 500 });
   }
 }

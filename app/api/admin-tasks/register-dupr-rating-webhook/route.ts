@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser';
 import { registerDuprWebhook } from '@/lib/services/dupr/registerRatingWebhook';
+import { logError } from '@/lib/sentry/logger';
 
 
 // POST /api/admin-tasks/register-dupr-webhook
@@ -20,8 +21,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, message: 'Webhook registered with DUPR.' });
   } catch (error) {
     console.error('[Register Webhook] Error:', error);
+    const errorId = logError(error, { endpoint: 'POST /api/admin-tasks/register-dupr-rating-webhook' });
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to register webhook' },
+      { errorId, error: error instanceof Error ? error.message : 'Failed to register webhook' },
       { status: 500 }
     );
   }

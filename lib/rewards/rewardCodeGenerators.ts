@@ -4,10 +4,12 @@ import { RewardCodeTask } from '@/app/types/rewardTypes';
 import { generateAndSavePodPlayDiscountCodes } from './generateAndSavePodplayDiscountCodes';
 import { generateAndSavePlayByPointDiscountCodes } from './generateAndSavePlayByPointDiscountCodes';
 import { generateAndSaveCustomDiscountCodes } from './generateAndSaveCustomDiscountCodes';
+import { LogContext } from './rewardProcessingLogger';
 
 interface GeneratorOptions {
   session: ClientSession;
   errors?: Set<string>;
+  logContext?: LogContext;
 }
 
 export type RewardCodeGenerator = (

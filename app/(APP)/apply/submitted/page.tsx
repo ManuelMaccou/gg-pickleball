@@ -122,6 +122,7 @@ export default function ApplySubmittedPage() {
             }}>
               We sent you a confirmation email. Our team will review your
               application and get back to you within a few business days.
+              In the meantime, feel free to explore the GG Pickleball app and get familiar with our features!
             </Text>
           </Box>
 

@@ -6,6 +6,7 @@ import { ClubUploadedMatch } from '@/app/models/ClubUploadedMatch';
 import Match from '@/app/models/Match';
 import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser';
 import connectToDatabase from '@/lib/mongodb';
+import { logError } from '@/lib/sentry/logger';
 
 // GET /api/club/events/[eventId]/sync-status
 //
@@ -136,6 +137,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ even
     });
   } catch (err) {
     console.error('[GET /api/club/events/[eventId]/sync-status]', err);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    const errorId = logError(err, { endpoint: 'UNKNOWN /api/club/events/[eventId]/sync-status' });
+    return NextResponse.json({ errorId, error: 'Internal error' }, { status: 500 });
   }
 }

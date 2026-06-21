@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { Club } from '@/app/models/Club';
 import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser';
 import connectToDatabase from '@/lib/mongodb';
+import { logError } from '@/lib/sentry/logger';
 
 // GET /api/club/[clubId] — returns club info if the logged-in user is one of its admins
 export async function GET(req: NextRequest, { params }: { params: Promise<{ clubId: string }> }) {
@@ -28,6 +29,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ club
     return NextResponse.json({ club });
   } catch (err) {
     console.error('[GET /api/club/[clubId]]', err);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    const errorId = logError(err, { endpoint: 'UNKNOWN /api/club/[clubId]' });
+    return NextResponse.json({ errorId, error: 'Internal error' }, { status: 500 });
   }
 }

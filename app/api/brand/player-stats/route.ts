@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
-import { logError } from "@/lib/sentry/logger";
+import { logError } from '@/lib/sentry/logger';
 import connectToDatabase from "@/lib/mongodb";
 import User from "@/app/models/User";
 import { requiresBrandAdmin } from "@/lib/auth/requiresBrandAdmin";
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ uniquePlayerCount, topPlayers });
 
   } catch (error) {
-    logError(error, { endpoint: 'GET /api/brand/player-stats', clientId: verifiedClientId });
-    return NextResponse.json({ error: 'Failed to fetch stats.' }, { status: 500 });
+    const errorId = logError(error, { endpoint: 'GET /api/brand/player-stats', clientId: verifiedClientId });
+    return NextResponse.json({ errorId, error: 'Failed to fetch stats.' }, { status: 500 });
   }
 }

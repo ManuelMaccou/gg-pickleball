@@ -246,7 +246,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, count: processedCount });
 
   } catch (error: any) {
-    logError(error, { message: 'Failed to sync player matches' });
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+    const errorId = logError(error, { 
+        message: 'Failed to sync player matches',
+        endpoint: 'POST /api/dupr/player/match-history'
+    });
+    return NextResponse.json({ errorId, error: error.message || 'Internal Server Error' }, { status: 500 });
   }
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
 import User from '@/app/models/User';
+import { logError } from '@/lib/sentry/logger';
 
 // POST /api/dupr/webhook
 // Receives webhook events from DUPR (RATING and RATING_SEED events).
@@ -23,7 +24,8 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('[DUPR Webhook] Error processing event:', error);
     // Still return 200 so DUPR doesn't retry
-    return NextResponse.json({ ok: true }, { status: 200 });
+    const errorId = logError(error, { endpoint: 'POST /api/dupr/webhook/rating' });
+    return NextResponse.json({ errorId, ok: true }, { status: 200 });
   }
 }
 

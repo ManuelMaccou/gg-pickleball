@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { logError } from '@/lib/sentry/logger';
 
 export async function POST(request: Request) {
   try {
@@ -34,6 +35,7 @@ export async function POST(request: Request) {
 
   } catch (error) {
     console.error("Error saving tokens:", error);
-    return NextResponse.json({ message: 'Internal server error' }, { status: 500 });
+    const errorId = logError(error, { endpoint: 'POST /api/auth/dupr/login' });
+    return NextResponse.json({ errorId, message: 'Internal server error' }, { status: 500 });
   }
 }

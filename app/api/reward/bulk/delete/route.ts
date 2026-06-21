@@ -26,7 +26,10 @@ export async function POST(req: NextRequest) {
       deleted: result.deletedCount,
     });
   } catch (error) {
-    logError(error, { message: 'Error deleting rewards in batch' });
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    const errorId = logError(error, { 
+      message: 'Error deleting rewards in batch',
+      endpoint: 'POST /api/reward/bulk/delete'
+    });
+    return NextResponse.json({ errorId, error: 'Internal server error' }, { status: 500 });
   }
 }

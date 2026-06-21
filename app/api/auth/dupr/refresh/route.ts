@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { logError } from '@/lib/sentry/logger';
 
 // This function can be moved to a shared lib file if you have one
 function getDuprEnvironment() {
@@ -81,6 +82,7 @@ export async function POST() {
 
   } catch (error) {
     console.error("Error in refresh token route:", error);
-    return NextResponse.json({ message: 'Internal server error during token refresh' }, { status: 500 });
+    const errorId = logError(error, { endpoint: 'POST /api/auth/dupr/refresh' });
+    return NextResponse.json({ errorId, message: 'Internal server error during token refresh' }, { status: 500 });
   }
 }

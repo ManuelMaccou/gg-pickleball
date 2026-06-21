@@ -50,11 +50,12 @@ function CardPreview({
         {logo && (
           <Box style={{
             position: 'absolute', top: 10, left: 10,
-            backgroundColor: 'rgba(255,255,255,0.9)',
-            padding: 4, borderRadius: 8,
           }}>
-            <Box height={'28'} width={'28'}/>
-            <Text size={'1'} weight={'bold'}>ACME</Text>
+            <img
+              src={logo}
+              alt="Logo"
+              style={{ height: 28, width: 28, objectFit: 'contain' }}
+            />
           </Box>
         )}
         <Flex direction="column" style={{

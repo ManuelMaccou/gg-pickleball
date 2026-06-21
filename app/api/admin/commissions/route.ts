@@ -90,8 +90,8 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (err) {
-    logError(err, { endpoint: 'GET /api/admin/commissions' });
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    const errorId = logError(err, { endpoint: 'GET /api/admin/commissions' });
+    return NextResponse.json({ errorId, error: 'Internal error' }, { status: 500 });
   }
 }
 
@@ -149,7 +149,7 @@ export async function PATCH(req: NextRequest) {
 
     return NextResponse.json({ record: updated });
   } catch (err) {
-    logError(err, { endpoint: 'PATCH /api/admin/commissions' });
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    const errorId = logError(err, { endpoint: 'PATCH /api/admin/commissions' });
+    return NextResponse.json({ errorId, error: 'Internal error' }, { status: 500 });
   }
 }

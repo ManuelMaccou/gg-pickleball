@@ -4,6 +4,7 @@ import Match from '@/app/models/Match';
 import Client from '@/app/models/Client';
 import { FilterQuery, Types } from 'mongoose';
 import { IMatch } from '@/app/types/databaseTypes';
+import { logError } from '@/lib/sentry/logger';
 
 export async function GET(req: NextRequest) {
   try {
@@ -78,6 +79,7 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     console.error('Error fetching brand-wide user matches:', error);
     // Remember to add your Sentry logging here if needed
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    const errorId = logError(error, { endpoint: 'GET /api/match/brand' });
+    return NextResponse.json({ errorId, error: 'Internal Server Error' }, { status: 500 });
   }
 }

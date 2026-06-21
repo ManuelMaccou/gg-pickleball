@@ -1,5 +1,16 @@
 'use client';
 
+// app/(ADMIN)/admin/brand/billing/page.tsx
+//
+// Brand admin billing page — commission history + billing status.
+//
+// Custom mode: shows commission history only. The "Managed by Shopify" card
+//   is hidden. A link to /admin/brand/billing/payment-method is shown instead
+//   if no Stripe payment method is on file.
+//
+// Public mode: unchanged — shows Shopify plan status and "Managed by Shopify"
+//   messaging as before.
+
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -11,8 +22,9 @@ import {
   CheckCircledIcon, ChevronLeftIcon, ChevronRightIcon,
   InfoCircledIcon, ExclamationTriangleIcon,
 } from '@radix-ui/react-icons';
-import { AdminPermissionType, IClient } from '@/app/types/databaseTypes';
+import { AdminPermissionType, CommissionStatus, IClient } from '@/app/types/databaseTypes';
 import { BrandPageShell } from '../../components/BrandPageShell';
+import { buildShopifyPricingUrl } from '@/lib/shopify/urls';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -24,21 +36,13 @@ const formatDate = (s: string) =>
     month: 'short', day: 'numeric', year: 'numeric',
   }) : '—';
 
-type CommissionStatus = 'pending' | 'held' | 'charged' | 'waived' | 'review';
-
-const STATUS_COLOR: Record<CommissionStatus, 'gray' | 'amber' | 'green' | 'red' | 'orange'> = {
-  pending: 'gray', held: 'amber', charged: 'green', waived: 'red', review: 'orange',
+const STATUS_COLOR: Record<CommissionStatus, 'gray' | 'amber' | 'blue' | 'green' | 'red' | 'orange'> = {
+  pending: 'gray', held: 'amber', processing: 'blue', charged: 'green', waived: 'red', review: 'orange',
 };
 
 const STATUS_LABEL: Record<CommissionStatus, string> = {
-  pending: 'Upcoming', held: 'On hold', charged: 'Charged', waived: 'Waived', review: 'Under review',
+  pending: 'Upcoming', held: 'On hold', processing: 'Processing', charged: 'Charged', waived: 'Waived', review: 'Under review',
 };
-
-function buildPricingUrl(shopDomain: string): string {
-  const storeHandle = shopDomain.replace('.myshopify.com', '');
-  const appHandle = process.env.NEXT_PUBLIC_SHOPIFY_APP_HANDLE ?? 'gg-pickleball-3';
-  return `https://admin.shopify.com/store/${storeHandle}/charges/${appHandle}/pricing_plans`;
-}
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -58,6 +62,12 @@ export default function BrandBillingPage() {
   const [commissionsLoading, setCommissionsLoading] = useState(true);
   const [commissionPage, setCommissionPage] = useState(1);
   const [commissionTotalPages, setCommissionTotalPages] = useState(1);
+
+  // Custom mode: Stripe billing status
+  const [stripeBillingConfigured, setStripeBillingConfigured] = useState<boolean | null>(null);
+
+  // Resolved from env on the client — Next.js exposes NEXT_PUBLIC_ vars at build time
+  const customMode = process.env.NEXT_PUBLIC_SHOPIFY_APP_MODE === 'custom';
 
   // ── Auth + admin fetch ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -95,6 +105,15 @@ export default function BrandBillingPage() {
     fetchAdmin();
   }, [user, router]);
 
+  // ── Custom mode: fetch Stripe billing status ───────────────────────────────
+  useEffect(() => {
+    if (!customMode || !user) return;
+    fetch('/api/billing/setup')
+      .then((r) => r.json())
+      .then((data) => setStripeBillingConfigured(!!data.configured))
+      .catch(() => setStripeBillingConfigured(false));
+  }, [customMode, user]);
+
   // ── Commission fetch ───────────────────────────────────────────────────────
   const fetchCommissions = useCallback(async () => {
     setCommissionsLoading(true);
@@ -126,22 +145,19 @@ export default function BrandBillingPage() {
     );
   }
 
-  // ── Derived Shopify state ──────────────────────────────────────────────────
+  // ── Derived Shopify state (public mode only) ───────────────────────────────
   const hasCredentials = !!(location?.shopify?.accessToken && location?.shopify?.shopDomain);
   const hasActivePlan = !!location?.shopify?.hasActivePlan;
   const isFullyConnected = hasCredentials && hasActivePlan;
 
   const shopDomain = location?.shopify?.shopDomain;
-  const pricingUrl = shopDomain ? buildPricingUrl(shopDomain) : null;
-  const managePlanUrl = shopDomain
-    ? `https://admin.shopify.com/store/${shopDomain.replace('.myshopify.com', '')}/charges/${process.env.NEXT_PUBLIC_SHOPIFY_APP_HANDLE ?? 'gg-pickleball-3'}/pricing_plans`
-    : null;
+  const pricingUrl = shopDomain ? buildShopifyPricingUrl(shopDomain) : null;
 
   return (
     <BrandPageShell adminPermission={adminPermission} location={location}>
       <Heading size="6">Billing</Heading>
 
-      {/* Summary cards — only shown when there's something to show */}
+      {/* Summary cards — shown in both modes when there's data */}
       {commissionSummary && (commissionSummary.countCharged > 0 || commissionSummary.countPending > 0) && (
         <Flex gap="4">
           <Card size="2" style={{ flex: 1 }}>
@@ -165,104 +181,151 @@ export default function BrandBillingPage() {
         </Flex>
       )}
 
-      {/* Billing card — state reflects actual Shopify connection */}
-      <Card size="3">
-        <Flex direction="column" gap="3">
-          <Flex justify="between" align="center">
-            <Heading size="4">Billing</Heading>
-            {isFullyConnected ? (
-              <Badge color="green" variant="soft">
-                <CheckCircledIcon /> Managed by Shopify
-              </Badge>
-            ) : hasCredentials && !hasActivePlan ? (
-              <Badge color="amber" variant="soft">
-                No plan selected
-              </Badge>
-            ) : (
-              <Badge color="gray" variant="soft">
-                Shopify not connected
-              </Badge>
-            )}
-          </Flex>
+      {/* ── Custom mode: Stripe payment method status card ── */}
+      {customMode && (
+        <Card size="3">
+          <Flex direction="column" gap="3">
+            <Flex justify="between" align="center">
+              <Heading size="4">Billing</Heading>
+              {stripeBillingConfigured === true && (
+                <Badge color="green" variant="soft">
+                  <CheckCircledIcon /> Payment method on file
+                </Badge>
+              )}
+              {stripeBillingConfigured === false && (
+                <Badge color="amber" variant="soft">
+                  No payment method
+                </Badge>
+              )}
+            </Flex>
 
-          {/* No plan selected warning */}
-          {hasCredentials && !hasActivePlan && (
-            <Callout.Root color="amber" size="1">
-              <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
-              <Callout.Text>
-                Your Shopify store is connected but you haven't selected a plan yet.
-                Commissions won't be collected and rewards won't generate until a plan is active.
-              </Callout.Text>
-            </Callout.Root>
-          )}
-
-          {/* Not connected warning */}
-          {!hasCredentials && (
-            <Callout.Root color="gray" size="1">
-              <Callout.Icon><InfoCircledIcon /></Callout.Icon>
-              <Callout.Text>
-                Connect your Shopify store to enable commission billing and reward code generation.
-              </Callout.Text>
-            </Callout.Root>
-          )}
-
-          {/* Connected and active — normal billing info */}
-          {isFullyConnected && (
-            <>
-              <Callout.Root color="blue" size="1">
-                <Callout.Icon><InfoCircledIcon /></Callout.Icon>
+            {stripeBillingConfigured === false && (
+              <Callout.Root color="amber" size="1">
+                <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
                 <Callout.Text>
-                  Commissions are billed automatically through your Shopify subscription.
-                  You can view all billing activity and charges in your Shopify Dashboard.
+                  No payment method on file. Commissions won't be collected and rewards
+                  won't generate until billing is set up.
                 </Callout.Text>
               </Callout.Root>
-              <Text size="2" color="gray" style={{ lineHeight: 1.6 }}>
-                A 5% commission on each redeemed sale is reported to Shopify 30 days after
-                the order date. Shopify collects this as part of your app subscription billing.
-                No payment method is required here.
-              </Text>
-              <Text size="2" color="gray" style={{ lineHeight: 1.6 }}>
-                If a return or dispute is initiated within 30 days of a sale, that order's
-                commission is adjusted or waived accordingly before being reported.
-              </Text>
-            </>
-          )}
+            )}
 
-          {/* CTAs — vary by state */}
-          <Flex gap="3" align="center" style={{ flexWrap: 'wrap' }}>
-            {hasCredentials && !hasActivePlan && pricingUrl && (
+            {stripeBillingConfigured === true && (
+              <>
+                <Text size="2" color="gray" style={{ lineHeight: 1.6 }}>
+                  A 5% commission on each redeemed sale is collected automatically 30 days
+                  after the order date. You'll receive an itemized invoice by email before each charge.
+                </Text>
+                <Text size="2" color="gray" style={{ lineHeight: 1.6 }}>
+                  If a return or dispute is initiated within 30 days of a sale, that order's
+                  commission is adjusted or waived accordingly.
+                </Text>
+              </>
+            )}
+
+            <Flex gap="3" align="center">
               <Button
                 size="2"
-                variant="solid"
-                color="amber"
+                variant={stripeBillingConfigured ? 'outline' : 'solid'}
+                color={stripeBillingConfigured ? 'gray' : undefined}
+                onClick={() => router.push('/admin/brand/billing/payment-method')}
                 style={{ cursor: 'pointer' }}
-                onClick={() => window.open(pricingUrl, '_blank')}
               >
-                Select a plan ↗
+                {stripeBillingConfigured ? 'Update payment method' : 'Set up billing'}
               </Button>
-            )}
-            {!hasCredentials && (
-              <Button
-                size="2"
-                variant="soft"
-                style={{ cursor: 'pointer' }}
-                onClick={() => router.push('/admin/brand/connect-shopify')}
-              >
-                Connect Shopify
-              </Button>
-            )}
-            {isFullyConnected && managePlanUrl && (
-              <Button asChild size="2" variant="outline" style={{ alignSelf: 'flex-start' }}>
-                <a href={managePlanUrl} target="_blank" rel="noopener noreferrer">
-                  Manage plan ↗
-                </a>
-              </Button>
-            )}
+            </Flex>
           </Flex>
-        </Flex>
-      </Card>
+        </Card>
+      )}
 
-      {/* Commission history */}
+      {/* ── Public mode: Shopify billing status card (unchanged) ── */}
+      {!customMode && (
+        <Card size="3">
+          <Flex direction="column" gap="3">
+            <Flex justify="between" align="center">
+              <Heading size="4">Billing</Heading>
+              {isFullyConnected ? (
+                <Badge color="green" variant="soft">
+                  <CheckCircledIcon /> Managed by Shopify
+                </Badge>
+              ) : hasCredentials && !hasActivePlan ? (
+                <Badge color="amber" variant="soft">No plan selected</Badge>
+              ) : (
+                <Badge color="gray" variant="soft">Shopify not connected</Badge>
+              )}
+            </Flex>
+
+            {hasCredentials && !hasActivePlan && (
+              <Callout.Root color="amber" size="1">
+                <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
+                <Callout.Text>
+                  Your Shopify store is connected but you haven't selected a plan yet.
+                  Commissions won't be collected and rewards won't generate until a plan is active.
+                </Callout.Text>
+              </Callout.Root>
+            )}
+
+            {!hasCredentials && (
+              <Callout.Root color="gray" size="1">
+                <Callout.Icon><InfoCircledIcon /></Callout.Icon>
+                <Callout.Text>
+                  Connect your Shopify store to enable commission billing and reward code generation.
+                </Callout.Text>
+              </Callout.Root>
+            )}
+
+            {isFullyConnected && (
+              <>
+                <Callout.Root color="blue" size="1">
+                  <Callout.Icon><InfoCircledIcon /></Callout.Icon>
+                  <Callout.Text>
+                    Commissions are billed automatically through your Shopify subscription.
+                    You can view all billing activity and charges in your Shopify Dashboard.
+                  </Callout.Text>
+                </Callout.Root>
+                <Text size="2" color="gray" style={{ lineHeight: 1.6 }}>
+                  A 5% commission on each redeemed sale is reported to Shopify 30 days after
+                  the order date. Shopify collects this as part of your app subscription billing.
+                  No payment method is required here.
+                </Text>
+                <Text size="2" color="gray" style={{ lineHeight: 1.6 }}>
+                  If a return or dispute is initiated within 30 days of a sale, that order's
+                  commission is adjusted or waived accordingly before being reported.
+                </Text>
+              </>
+            )}
+
+            <Flex gap="3" align="center" style={{ flexWrap: 'wrap' }}>
+              {hasCredentials && !hasActivePlan && pricingUrl && (
+                <Button
+                  size="2" variant="solid" color="amber"
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => window.open(pricingUrl, '_blank')}
+                >
+                  Select a plan ↗
+                </Button>
+              )}
+              {!hasCredentials && (
+                <Button
+                  size="2" variant="soft"
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => router.push('/admin/brand/connect-shopify')}
+                >
+                  Connect Shopify
+                </Button>
+              )}
+              {isFullyConnected && pricingUrl && (
+                <Button asChild size="2" variant="outline" style={{ alignSelf: 'flex-start' }}>
+                  <a href={pricingUrl} target="_blank" rel="noopener noreferrer">
+                    Manage plan ↗
+                  </a>
+                </Button>
+              )}
+            </Flex>
+          </Flex>
+        </Card>
+      )}
+
+      {/* Commission history — identical in both modes */}
       <Card size="3" style={{ padding: 0, overflow: 'hidden' }}>
         <Box px="4" py="3" style={{ borderBottom: '1px solid var(--gray-4)' }}>
           <Heading size="4">Commission History</Heading>

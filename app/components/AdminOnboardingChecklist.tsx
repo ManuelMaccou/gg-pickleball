@@ -1,12 +1,32 @@
 'use client';
 
+// app/(ADMIN)/admin/brand/AdminOnboardingChecklist.tsx
+//
+// Mode-aware onboarding checklist for brand admins.
+//
+// Public mode steps (4 total):
+//   1. Activate account
+//   2. Connect Shopify + select plan
+//   3. Create rewards
+//   4. Customize reward card
+//
+// Custom mode steps (5 total):
+//   1. Activate account
+//   2. Connect Shopify (OAuth only — no plan selection)
+//   3. Set up billing (Stripe payment method)
+//   4. Create rewards
+//   5. Customize reward card
+
 import { Card, Flex, Heading, Text, Box, Button, Progress, Badge, Callout } from '@radix-ui/themes';
 import { CheckCircle2, Circle, ArrowRight, AlertCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { IClient } from '../types/databaseTypes';
-import { ClientUser } from '../contexts/UserContext';
-import { useState } from 'react';
-import { RewardCardCustomizer } from '../(ADMIN)/admin/components/RewardCardCustomizer';
+import { useEffect, useState } from 'react';
+import { IClient } from '@/app/types/databaseTypes';
+import { ClientUser } from '@/app/contexts/UserContext';
+import { RewardCardCustomizer } from '@/app/(ADMIN)/admin/components/RewardCardCustomizer';
+import { buildShopifyPricingUrl } from '@/lib/shopify/urls';
+
+const CUSTOM_MODE = process.env.NEXT_PUBLIC_SHOPIFY_APP_MODE === 'custom';
 
 interface OnboardingChecklistProps {
   user: ClientUser;
@@ -20,12 +40,6 @@ interface OnboardingChecklistProps {
   }) => void;
 }
 
-function buildPricingUrl(shopDomain: string): string {
-  const storeHandle = shopDomain.replace('.myshopify.com', '');
-  const appHandle = process.env.NEXT_PUBLIC_SHOPIFY_APP_HANDLE ?? 'gg-pickleball-3';
-  return `https://admin.shopify.com/store/${storeHandle}/charges/${appHandle}/pricing_plans`;
-}
-
 export function AdminOnboardingChecklist({
   user,
   client,
@@ -36,35 +50,48 @@ export function AdminOnboardingChecklist({
   const router = useRouter();
   const [cardCustomizerOpen, setCardCustomizerOpen] = useState(false);
 
-  // ── Step completion logic ──────────────────────────────────────────────────
-  const isAccountClaimed   = !!user?.accountClaimed;
-  const hasCredentials     = !!client.shopify?.accessToken;
-  const hasActivePlan      = !!client.shopify?.hasActivePlan;
-  const isShopifyConnected = hasCredentials && hasActivePlan;
-  const isRewardsCreated   = hasRewards;
-  const isCardCustomized   = !!(client.cardBackgroundImage || client.cardTextColor !== '#ffffff');
+  // Custom mode: fetch Stripe billing status from /api/billing/setup
+  const [isBillingConfigured, setIsBillingConfigured] = useState(false);
+  const [billingLoading, setBillingLoading] = useState(CUSTOM_MODE);
 
-  const completedSteps = [
-    isAccountClaimed,
-    isShopifyConnected,
-    isRewardsCreated,
-    isCardCustomized,
-  ].filter(Boolean).length;
+  useEffect(() => {
+    if (!CUSTOM_MODE) return;
+    fetch('/api/billing/setup')
+      .then(r => r.json())
+      .then(data => setIsBillingConfigured(!!data.configured))
+      .catch(() => setIsBillingConfigured(false))
+      .finally(() => setBillingLoading(false));
+  }, []);
 
-  const progressPercent = Math.round((completedSteps / 4) * 100);
+  // ── Step completion ────────────────────────────────────────────────────────
+  const isAccountClaimed = !!user?.accountClaimed;
+  const hasCredentials   = !!client.shopify?.accessToken;
+  const hasActivePlan    = !!client.shopify?.hasActivePlan;
 
-  // ── All done + rewards issued — hide ──────────────────────────────────────
-  if (completedSteps === 4 && totalRewardsIssued > 0) return null;
+  // Custom mode: "Shopify connected" means OAuth complete (credentials exist).
+  // Public mode: "Shopify connected" means credentials + active plan.
+  const isShopifyConnected = CUSTOM_MODE ? hasCredentials : (hasCredentials && hasActivePlan);
 
-  // ── All done, no rewards yet — success state ──────────────────────────────
-  if (completedSteps === 4) {
+  const isRewardsCreated  = hasRewards;
+  const isCardCustomized  = !!(client.cardBackgroundImage || client.cardTextColor !== '#ffffff');
+
+  const totalSteps = CUSTOM_MODE ? 5 : 4;
+
+  const completedSteps = CUSTOM_MODE
+    ? [isAccountClaimed, isShopifyConnected, isBillingConfigured, isRewardsCreated, isCardCustomized].filter(Boolean).length
+    : [isAccountClaimed, isShopifyConnected, isRewardsCreated, isCardCustomized].filter(Boolean).length;
+
+  const progressPercent = Math.round((completedSteps / totalSteps) * 100);
+
+  // Hide when fully complete and rewards are flowing
+  if (completedSteps === totalSteps && totalRewardsIssued > 0) return null;
+
+  // All done, no rewards yet — success state
+  if (completedSteps === totalSteps) {
     return (
       <Card size="3" mb="6" style={{ backgroundColor: 'var(--green-2)', border: '1px solid var(--green-5)' }}>
         <Flex align="center" gap="4" p="2">
-          <Flex align="center" justify="center" style={{
-            width: 48, height: 48, borderRadius: '50%', flexShrink: 0,
-            backgroundColor: 'var(--green-3)',
-          }}>
+          <Flex align="center" justify="center" style={{ width: 48, height: 48, borderRadius: '50%', flexShrink: 0, backgroundColor: 'var(--green-3)' }}>
             <CheckCircle2 size={24} color="var(--green-10)" />
           </Flex>
           <Box>
@@ -110,9 +137,7 @@ export function AdminOnboardingChecklist({
             ? <CheckCircle2 size={20} color="var(--green-10)" style={{ flexShrink: 0 }} />
             : <Circle size={20} color="var(--gray-7)" style={{ flexShrink: 0 }} />}
           <Box>
-            <Text as="div" weight="bold" size="3" color={done ? 'gray' : undefined}>
-              {title}
-            </Text>
+            <Text as="div" weight="bold" size="3" color={done ? 'gray' : undefined}>{title}</Text>
             <Text as="div" size="2" color="gray">{description}</Text>
           </Box>
         </Flex>
@@ -121,6 +146,11 @@ export function AdminOnboardingChecklist({
       {warning}
     </Flex>
   );
+
+  // ── Step numbering — shifts in custom mode ─────────────────────────────────
+  const stepNum = (publicStep: number) => CUSTOM_MODE
+    ? (publicStep >= 3 ? publicStep + 1 : publicStep) // billing inserted at 3, pushes rewards to 4 and card to 5
+    : publicStep;
 
   return (
     <Card size="4" mb="6" style={{ backgroundColor: 'white', border: '1px solid var(--gray-4)' }}>
@@ -131,12 +161,10 @@ export function AdminOnboardingChecklist({
           <Flex justify="between" align="end" mb="2">
             <Box>
               <Heading size="5" mb="1">Welcome to GG Pickleball!</Heading>
-              <Text size="2" color="gray">
-                Complete these steps to launch your rewards program.
-              </Text>
+              <Text size="2" color="gray">Complete these steps to launch your rewards program.</Text>
             </Box>
             <Text size="2" weight="bold" color="lime" style={{ flexShrink: 0 }}>
-              {completedSteps} of 4 complete
+              {completedSteps} of {totalSteps} complete
             </Text>
           </Flex>
           <Progress value={progressPercent} color="lime" style={{ height: 6 }} />
@@ -144,7 +172,7 @@ export function AdminOnboardingChecklist({
 
         <Flex direction="column" gap="2" mt="1">
 
-          {/* Step 1: Activate account */}
+          {/* Step 1: Activate account — identical in both modes */}
           <StepRow
             done={isAccountClaimed}
             title="1. Activate your account"
@@ -156,7 +184,7 @@ export function AdminOnboardingChecklist({
             }
           />
 
-          {/* Step 2: Connect Shopify — three sub-states */}
+          {/* Step 2: Connect Shopify — mode-aware */}
           <StepRow
             done={isShopifyConnected}
             title="2. Connect Shopify"
@@ -164,14 +192,15 @@ export function AdminOnboardingChecklist({
             action={
               isShopifyConnected ? (
                 <Badge color="green" variant="soft">Connected</Badge>
-              ) : hasCredentials && !hasActivePlan ? (
+              ) : !CUSTOM_MODE && hasCredentials && !hasActivePlan ? (
+                // Public mode only: connected but no plan selected
                 <Button
                   size="2"
                   color="amber"
                   style={{ flexShrink: 0, cursor: 'pointer' }}
                   onClick={() => {
                     const shopDomain = client.shopify?.shopDomain;
-                    if (shopDomain) window.open(buildPricingUrl(shopDomain), '_blank');
+                    if (shopDomain) window.open(buildShopifyPricingUrl(shopDomain), '_blank');
                   }}
                 >
                   Select plan <ArrowRight size={14} />
@@ -188,7 +217,8 @@ export function AdminOnboardingChecklist({
               )
             }
             warning={
-              hasCredentials && !hasActivePlan ? (
+              // Public mode only: warn about missing plan
+              !CUSTOM_MODE && hasCredentials && !hasActivePlan ? (
                 <Callout.Root color="amber" size="1">
                   <Callout.Icon><AlertCircle size={14} /></Callout.Icon>
                   <Callout.Text>
@@ -200,10 +230,44 @@ export function AdminOnboardingChecklist({
             }
           />
 
-          {/* Step 3: Create rewards */}
+          {/* Step 3: Set up billing — custom mode only */}
+          {CUSTOM_MODE && (
+            <StepRow
+              done={isBillingConfigured}
+              title="3. Set up billing"
+              description="Add a payment method so commissions can be collected automatically."
+              action={
+                billingLoading ? (
+                  <Badge color="gray" variant="soft">Checking…</Badge>
+                ) : isBillingConfigured ? (
+                  <Badge color="green" variant="soft">Configured</Badge>
+                ) : (
+                  <Button
+                    size="2"
+                    variant="soft"
+                    disabled={!isShopifyConnected}
+                    style={{ flexShrink: 0, cursor: isShopifyConnected ? 'pointer' : 'not-allowed' }}
+                    onClick={() => router.push('/admin/brand/billing/payment-method')}
+                  >
+                    Set up billing <ArrowRight size={14} />
+                  </Button>
+                )
+              }
+              warning={
+                !isBillingConfigured && !isShopifyConnected ? (
+                  <Callout.Root color="gray" size="1">
+                    <Callout.Icon><AlertCircle size={14} /></Callout.Icon>
+                    <Callout.Text>Connect Shopify first, then set up billing.</Callout.Text>
+                  </Callout.Root>
+                ) : undefined
+              }
+            />
+          )}
+
+          {/* Step 3 (public) / Step 4 (custom): Create rewards */}
           <StepRow
             done={isRewardsCreated}
-            title="3. Create rewards"
+            title={`${stepNum(3)}. Create rewards`}
             description="Set up the discounts and perks you want to offer players."
             action={
               isRewardsCreated ? (
@@ -212,10 +276,10 @@ export function AdminOnboardingChecklist({
                 <Button
                   size="2"
                   variant="soft"
-                  disabled={!isShopifyConnected}
+                  disabled={CUSTOM_MODE ? !isBillingConfigured : !isShopifyConnected}
                   style={{
                     flexShrink: 0,
-                    cursor: isShopifyConnected ? 'pointer' : 'not-allowed',
+                    cursor: (CUSTOM_MODE ? isBillingConfigured : isShopifyConnected) ? 'pointer' : 'not-allowed',
                   }}
                   onClick={() => router.push('/admin/brand/rewards')}
                 >
@@ -225,7 +289,7 @@ export function AdminOnboardingChecklist({
             }
           />
 
-          {/* Step 4: Customize reward card */}
+          {/* Step 4 (public) / Step 5 (custom): Customize reward card */}
           <Flex
             direction="column"
             p="3"
@@ -244,7 +308,7 @@ export function AdminOnboardingChecklist({
                   : <Circle size={20} color="var(--gray-7)" style={{ flexShrink: 0 }} />}
                 <Box>
                   <Text as="div" weight="bold" size="3" color={isCardCustomized ? 'gray' : undefined}>
-                    4. Customize your reward card
+                    {stepNum(4)}. Customize your reward card
                   </Text>
                   <Text as="div" size="2" color="gray">
                     Upload a background image and logo for your reward cards.
@@ -256,7 +320,7 @@ export function AdminOnboardingChecklist({
                 variant="soft"
                 color={isCardCustomized ? 'gray' : 'blue'}
                 style={{ flexShrink: 0, cursor: 'pointer' }}
-                onClick={() => setCardCustomizerOpen((v) => !v)}
+                onClick={() => setCardCustomizerOpen(v => !v)}
               >
                 {cardCustomizerOpen ? 'Close' : isCardCustomized ? 'Edit' : 'Customize'}
                 {!cardCustomizerOpen && <ArrowRight size={14} />}

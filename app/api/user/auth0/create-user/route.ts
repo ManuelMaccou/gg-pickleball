@@ -1,59 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
-import User from '@/app/models/User'; // Assuming User model is correctly defined
+import User from '@/app/models/User';
 import { logError } from '@/lib/sentry/logger';
 
-// Define a type for the incoming request body for type safety
 interface Auth0WebhookPayload {
   sub: string;
   email: string;
-  name: string; // As per the problem, this is initially the email
+  name: string;
   guest_username?: string;
+  email_verified?: boolean;
+  brand_optin?: boolean;
 }
 
-/**
- * Escapes special characters in a string for use in a regular expression.
- * @param input The string to escape.
- * @returns The escaped string.
- */
 function escapeRegex(input: string): string {
-  // Escape characters with special meaning in regex.
   return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-/**
- * Generates a unique username based on a base name.
- * It checks the database for conflicts and appends a random 3-digit suffix if needed.
- * This process repeats until a unique name is found or max attempts are reached.
- * @param baseName The initial name to start with.
- * @returns A promise that resolves to a unique username.
- * @throws An error if a unique name cannot be generated after several attempts.
- */
 async function generateUniqueUsername(baseName: string): Promise<string> {
   let potentialName = baseName;
   let isUnique = false;
   let attempts = 0;
-  const maxAttempts = 10; // A safeguard against an unlikely infinite loop
+  const maxAttempts = 10;
 
   while (!isUnique && attempts < maxAttempts) {
     const safeName = escapeRegex(potentialName);
     const query = { name: { $regex: `^${safeName}$`, $options: 'i' } };
-
-    // Check if a user with this name already exists (case-insensitive)
     const existingUser = await User.findOne(query).lean();
 
     if (!existingUser) {
-      isUnique = true; // The name is unique, exit the loop
+      isUnique = true;
     } else {
-      // Name exists, generate a new one with a random suffix
-      const randomSuffix = Math.floor(100 + Math.random() * 900); // Generates a number between 100 and 999
+      const randomSuffix = Math.floor(100 + Math.random() * 900);
       potentialName = `${baseName}${randomSuffix}`;
       attempts++;
     }
   }
 
   if (!isUnique) {
-    // This is a fail-safe. It's extremely unlikely to be hit.
     throw new Error('Could not generate a unique username after multiple attempts.');
   }
 
@@ -62,9 +45,7 @@ async function generateUniqueUsername(baseName: string): Promise<string> {
 
 // Called by an Auth0 Post-Login Action after a user signs in or signs up.
 // Creates a User record in the database if one doesn't exist.
-//
-// SECURITY: requires `email_verified: true` to ensure the user has completed
-// OTP verification (or any other Auth0 email verification flow).
+// Also syncs accountClaimed and brandOptin on subsequent logins.
 
 export async function POST(req: NextRequest) {
   try {
@@ -74,65 +55,57 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // 2. Validate the request body
-    const body = (await req.json()) as any;
-    const { sub, email, email_verified, guest_username } = body;
+    // 2. Parse body
+    const body = (await req.json()) as Auth0WebhookPayload;
+    const { sub, email, email_verified, guest_username, brand_optin } = body;
 
     if (!sub || !email) {
-      logError(new Error(`Missing required fields: sub and email`), {
+      logError(new Error('Missing required fields: sub and email'), {
         endpoint: 'POST /api/user/auth0/create-user',
-        task: 'Creating an auth0 user user.',
       });
-
       return NextResponse.json(
         { error: 'There was an error creating a user. Please try again.' },
         { status: 400 }
       );
     }
 
-    // 3. Require email verification — this proves OTP was completed (or any
-    //    other Auth0 verification flow). Without this, a malicious actor could
-    //    sign up with someone else's email and get a User record before they
-    //    verify ownership.
-
-    /*
-    if (!email_verified) {
-      logError(new Error(`Unverified email attempted user creation: ${email}`), {
-        endpoint: 'POST /api/user/auth0/create-user',
-        task: 'Email verification check',
-      });
-      return NextResponse.json(
-        { error: 'Email not verified.' },
-        { status: 403 }
-      );
-    }
-    */
-
     await connectToDatabase();
 
-    // If there is a guest username, they should be promoted to a full user
+    // 3. Guest promotion — if guest_username present, promote to full user
     if (guest_username) {
       const promotedUser = await User.findOneAndUpdate(
         { name: guest_username, auth0Id: { $exists: false } },
-        { $set: { auth0Id: sub, email: email } },
+        { $set: { auth0Id: sub, email } },
         { new: true }
       );
-
       if (promotedUser) {
-        return NextResponse.json(
-          { success: true, message: 'User promoted' },
-          { status: 200 }
-        );
+        return NextResponse.json({ success: true, message: 'User promoted' }, { status: 200 });
       }
     }
 
-    // Check if the user already exists by their unique Auth0 ID
-    const existingUserByAuth0Id = await User.findOne({ auth0Id: sub }).lean();
-    if (existingUserByAuth0Id) {
+    // 4. Returning user — sync accountClaimed and brandOptin if needed
+    const existingUser = await User.findOne({ auth0Id: sub }).lean() as any;
+    if (existingUser) {
+      const updates: Record<string, unknown> = {};
+
+      // Mark account as claimed on first verified login
+      if (!existingUser.accountClaimed && email_verified) {
+        updates.accountClaimed = true;
+      }
+
+      // Sync brand opt-in from Auth0 app_metadata
+      if (typeof brand_optin === 'boolean' && existingUser.brandOptin !== brand_optin) {
+        updates.brandOptin = brand_optin;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await User.findByIdAndUpdate(existingUser._id, { $set: updates });
+      }
+
       return NextResponse.json({ message: 'User already exists' }, { status: 200 });
     }
 
-    // 5. Generate a unique username
+    // 5. New user — generate unique username and create record
     const baseName = email.split('@')[0].trim();
     if (!baseName) {
       return NextResponse.json({ error: 'Invalid email format.' }, { status: 400 });
@@ -140,12 +113,12 @@ export async function POST(req: NextRequest) {
 
     const uniqueName = await generateUniqueUsername(baseName);
 
-    // 6. Create and save the new user
     const newUser = new User({
       auth0Id: sub,
       email,
       name: uniqueName,
       isGuest: false,
+      brandOptin: typeof brand_optin === 'boolean' ? brand_optin : false,
       createdAt: new Date(),
     });
 
@@ -156,17 +129,13 @@ export async function POST(req: NextRequest) {
       { status: 201 }
     );
   } catch (err: unknown) {
-    const errorMessage =
-      err instanceof Error ? err.message : 'An unexpected error occurred';
-
-    logError(new Error(`Missing required fields: sub and email`), {
+    const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
+    const errorId = logError(new Error(errorMessage), {
       endpoint: 'POST /api/user/auth0/create-user',
-      task: 'Creating an auth0 user user.',
-      error: errorMessage,
+      task: 'Creating auth0 user',
     });
-
     return NextResponse.json(
-      { error: 'An unexpected error occurred. Please try again.' },
+      { errorId, error: 'An unexpected error occurred. Please try again.' },
       { status: 500 }
     );
   }

@@ -2,6 +2,7 @@
 
 import { verifyAndReadWebhook } from '@/lib/shopify/verifyWebhookHmac';
 import { redeemDiscountCode } from '@/lib/rewards/redeemDiscountCodes';
+import { logError } from '@/lib/sentry/logger';
 
 export async function POST(req: Request): Promise<Response> {
   const shopDomain = req.headers.get('x-shopify-shop-domain');
@@ -44,6 +45,7 @@ export async function POST(req: Request): Promise<Response> {
     return new Response('OK', { status: 200 });
   } catch (err) {
     console.error('❌ Error processing order webhook:', err);
-    return new Response('Error', { status: 200 });
+    const errorId = logError(err, { endpoint: 'POST /api/webhooks/shopify/order' });
+    return new Response(JSON.stringify({ errorId, error: 'Error' }), { status: 200, headers: { 'content-type': 'application/json' } });
   }
 }

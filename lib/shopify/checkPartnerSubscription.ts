@@ -17,6 +17,8 @@
 
 const PARTNER_API_VERSION = '2026-07';
 
+let credentialsLogged = false;
+
 const ACTIVE_SUBSCRIPTION_QUERY = `
   query ActiveSubscription($appId: ID!, $shopId: ID!) {
     activeSubscription(appId: $appId, shopId: $shopId) {
@@ -34,6 +36,17 @@ export async function checkPartnerSubscription(shopId: string): Promise<boolean 
   const partnerApiToken = process.env.SHOPIFY_PARTNER_API_TOKEN;
   const partnerOrgId = process.env.SHOPIFY_PARTNER_ORG_ID;
   const appId = process.env.SHOPIFY_GGP_APP_ID;
+
+  if (!credentialsLogged) {
+    credentialsLogged = true;
+    console.log('[PartnerAPI] Credentials check:', {
+      hasToken: !!partnerApiToken,
+      hasOrgId: !!partnerOrgId,
+      orgIdValue: partnerOrgId ? `${partnerOrgId.slice(0, 4)}...` : 'MISSING',
+      hasAppId: !!appId,
+      appIdValue: appId ?? 'MISSING',
+    });
+  }
 
   // Log env var presence on first call to help diagnose misconfiguration.
   // Logs once per process start, not on every request.

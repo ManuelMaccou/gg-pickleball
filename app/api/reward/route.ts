@@ -64,8 +64,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: 'Reward created', reward: newReward }, { status: 201 });
 
   } catch (error) {
-    logError(error, { message: 'Error creating new reward' });
-    return NextResponse.json({ error: 'There was an unexpected error. We are on it.' }, { status: 500 });
+    const errorId = logError(error, { 
+      message: 'Error creating new reward',
+      endpoint: 'POST /api/reward'
+    });
+    return NextResponse.json({ errorId, error: 'There was an unexpected error. We are on it.' }, { status: 500 });
   }
 }
 
@@ -129,8 +132,11 @@ export async function PATCH(req: NextRequest) {
 
     return NextResponse.json({ message: 'Reward updated', reward: updatedReward });
   } catch (error) {
-    logError(error, { message: `Error updating reward` });
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    const errorId = logError(error, { 
+      message: `Error updating reward`,
+      endpoint: 'PATCH /api/reward'
+    });
+    return NextResponse.json({ errorId, error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -165,10 +171,12 @@ export async function DELETE(req: NextRequest) {
 
     return NextResponse.json({ message: 'Reward deleted successfully' });
   } catch (error) {
-    logError(error, {
-      message: 'Error deleting reward',
-    });
-    return NextResponse.json({ error: 'There as an error deleting the reward. Please try again.' }, { status: 500 });
+
+    const errorId = logError(error, { 
+       message: 'Error deleting reward',
+       endpoint: 'DELETE /api/reward'
+      });
+    return NextResponse.json({ errorId, error: 'There as an error deleting the reward. Please try again.' }, { status: 500 });
   }
 }
 
@@ -191,10 +199,12 @@ export async function GET(req: NextRequest) {
     const rewards = await Reward.find();
     return NextResponse.json({ rewards });
   } catch (error) {
-    logError(error, {
-      message: `Error fetching reward(s)`,
-    });
-    return NextResponse.json({ error: 'There was an error fetching reward details. Please try again.' }, { status: 500 });
+
+    const errorId = logError(error, { 
+       message: `Error fetching reward(s)`,
+       endpoint: 'UNKNOWN /api/reward'
+      });
+    return NextResponse.json({ errorId, error: 'There was an error fetching reward details. Please try again.' }, { status: 500 });
   }
 }
 

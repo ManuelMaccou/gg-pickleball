@@ -8,6 +8,7 @@ import { forceRefreshDuprEntitlements } from '@/lib/services/dupr/duprEntitlemen
 import User from '@/app/models/User';
 import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser';
 import connectToDatabase from '@/lib/mongodb';
+import { logError } from '@/lib/sentry/logger';
 
 export async function POST(req: NextRequest) {
   try {
@@ -27,6 +28,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(updatedUser);
   } catch (err) {
     console.error('[POST /api/dupr/refresh-entitlements]', err);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    const errorId = logError(err, { endpoint: 'POST /api/dupr/refresh-entitlements' });
+    return NextResponse.json({ errorId, error: 'Internal error' }, { status: 500 });
   }
 }

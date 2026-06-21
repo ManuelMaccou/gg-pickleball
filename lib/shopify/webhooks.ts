@@ -1,6 +1,17 @@
-export async function registerOrderPaidWebhook(shopDomain: string, accessToken: string) {
+import { shopifyGraphQLWithRefresh } from '@/lib/shopify/shopifyGraphQl';
+
+interface WebhookRegistrationResult {
+  success: boolean;
+  reason?: string;
+}
+
+export async function registerOrderPaidWebhook(
+  clientId: string,
+  shopDomain: string,
+  accessToken: string,
+  tokenExpiresAt?: Date
+): Promise<WebhookRegistrationResult> {
   const callbackUrl = `${process.env.NEXT_PUBLIC_SHOPIFY_WEBHOOK_BASE_URL}/api/webhooks/shopify/order`;
-  const SHOPIFY_API_VERSION = "2025-10";
 
   const query = `
     mutation webhookSubscriptionCreate($topic: WebhookSubscriptionTopic!, $webhookSubscription: WebhookSubscriptionInput!) {
@@ -28,27 +39,36 @@ export async function registerOrderPaidWebhook(shopDomain: string, accessToken: 
     }
   };
 
-  const response = await fetch(`https://${shopDomain}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Shopify-Access-Token': accessToken,
-    },
-    body: JSON.stringify({ query, variables }),
-  });
+  const result = await shopifyGraphQLWithRefresh(
+    clientId,
+    shopDomain,
+    accessToken,
+    tokenExpiresAt,
+    query,
+    variables
+  );
 
-  if (!response.ok) {
-    const body = await response.text();
-    console.error(`[Webhook] GraphQL call failed (${response.status}):`, body);
-    return;
+  if (result.refreshFailed) {
+    console.error(`[Webhook] Token refresh failed for client ${clientId}: ${result.refreshFailed}`);
+    return { success: false, reason: `Token refresh failed: ${result.refreshFailed}` };
   }
 
-  const json = await response.json();
-  
-  if (json.data?.webhookSubscriptionCreate?.userErrors?.length > 0) {
-    console.error("Webhook Registration Failed:", json.data.webhookSubscriptionCreate.userErrors);
-    // Don't throw, just log. The app install shouldn't fail if webhook reg fails (we can retry later).
-  } else {
-    console.log("✅ Webhook ORDERS_PAID registered successfully", json.data.webhookSubscriptionCreate.webhookSubscription);
+  if (!result.ok) {
+    console.error(`[Webhook] GraphQL call failed (${result.status}):`, result.json);
+    return { success: false, reason: `HTTP ${result.status}` };
   }
+
+  if (result.json?.errors) {
+    console.error('[Webhook] GraphQL errors:', result.json.errors);
+    return { success: false, reason: result.json.errors[0]?.message ?? 'GraphQL error' };
+  }
+
+  const userErrors = result.json?.data?.webhookSubscriptionCreate?.userErrors;
+  if (userErrors?.length > 0) {
+    console.error("[Webhook] Registration failed:", userErrors);
+    return { success: false, reason: userErrors[0]?.message ?? 'Registration failed' };
+  }
+
+  console.log("✅ Webhook ORDERS_PAID registered successfully", result.json.data.webhookSubscriptionCreate.webhookSubscription);
+  return { success: true };
 }

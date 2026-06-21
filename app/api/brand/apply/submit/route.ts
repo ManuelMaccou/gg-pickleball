@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
 
     if (cleanDescription.length < 30 || cleanDescription.length > 500) {
       return NextResponse.json(
-        { error: 'Description must be between 50 and 500 characters.' },
+        { error: 'Description must be between 30 and 500 characters.' },
         { status: 400 }
       );
     }
@@ -216,9 +216,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (err: any) {
     console.error('[BrandApplySubmit] Error:', err);
-    logError(err, { endpoint: 'POST /api/brand/apply/submit' });
+    const errorId = logError(err, { endpoint: 'POST /api/brand/apply/submit' });
     return NextResponse.json(
-      { error: 'Something went wrong. Please try again.' },
+      { errorId, error: 'Something went wrong. Please try again.' },
       { status: 500 }
     );
   }

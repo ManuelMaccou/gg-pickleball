@@ -5,13 +5,17 @@ import { Types, ClientSession } from 'mongoose';
 import { createShopifyDiscountCode } from '../shopify/createShopifyDiscountCode';
 import { RewardCodeTask } from '@/app/types/rewardTypes';
 import { IRewardCode } from '@/app/types/databaseTypes';
+import { logRewardEvent, LogContext } from './rewardProcessingLogger';
 
-interface GeneratorOptions {
+export interface GeneratorOptions {
   session: ClientSession;
   // Optional side-channel for surfacing non-throwing errors back to the caller.
   // Generators add string flags here (e.g. 'auth_error') when a known failure
   // occurs that should be communicated upstream without aborting the whole flow.
   errors?: Set<string>;
+  // When present, structured log events are written to RewardProcessingLog.
+  // Populated by the process route with the triggering player's userId and matchId.
+  logContext?: LogContext;
 }
 
 type RewardCodeCreationPayload = Omit<IRewardCode, '_id' | 'createdAt' | 'updatedAt' | 'redemptionDate'>;
@@ -22,7 +26,7 @@ export async function generateAndSaveShopifyDiscountCodes(
   clientId: Types.ObjectId,
   options: GeneratorOptions
 ): Promise<Map<string, Types.ObjectId>> {
-  const { session, errors } = options;
+  const { session, errors, logContext } = options;
   const result = new Map<string, Types.ObjectId>();
 
   const rewardCodeDocsToCreate: RewardCodeCreationPayload[] = [];
@@ -46,9 +50,21 @@ export async function generateAndSaveShopifyDiscountCodes(
         });
         tasksToProcess.push(task);
       } else {
-        console.warn(
-          `Failed to generate a Shopify code for reward ${task.reward._id.toString()}, skipping.`
-        );
+        const msg =
+          `Failed to generate Shopify code for reward ${task.reward._id.toString()} — ` +
+          `createShopifyDiscountCode returned null. Skipping.`;
+        console.warn(`[RewardCode] ${msg}`);
+
+        if (logContext) {
+          await logRewardEvent({
+            context: logContext,
+            level: 'warn',
+            category: 'reward_code',
+            message: msg,
+            clientId: clientId.toString(),
+            rewardId: task.reward._id.toString(),
+          });
+        }
       }
     } catch (err: any) {
       // Auth errors mean the merchant's Shopify connection is broken.
@@ -61,19 +77,40 @@ export async function generateAndSaveShopifyDiscountCodes(
         err.message?.includes('merchant must reconnect');
 
       if (isAuthError) {
-        console.error(
-          `[RewardCode] ⚠️ AUTH FAILURE for client ${clientId} — Shopify token is invalid ` +
-          `and could not be refreshed. Reward ${task.reward._id} skipped. ` +
-          `Match processing continues. Merchant must reconnect Shopify.`
-        );
-        // Signal the auth failure upstream via the errors Set so the process
-        // route can send ERROR instead of COMPLETE to the frontend.
+        const msg =
+          `AUTH FAILURE for client ${clientId} — Shopify token is invalid and could not be ` +
+          `refreshed. Reward ${task.reward._id} skipped. Merchant must reconnect Shopify.`;
+
+        console.error(`[RewardCode] ⚠️ ${msg}`);
         errors?.add('auth_error');
+
+        if (logContext) {
+          await logRewardEvent({
+            context: logContext,
+            level: 'error',
+            category: 'auth_error',
+            message: msg,
+            clientId: clientId.toString(),
+            rewardId: task.reward._id.toString(),
+            metadata: { errorMessage: err.message },
+          });
+        }
       } else {
-        console.error(
-          `Failed to create Shopify discount for reward ${task.reward._id}:`,
-          err
-        );
+        const msg =
+          `Unexpected error creating Shopify discount for reward ${task.reward._id}: ${err.message}`;
+        console.error(`[RewardCode] ${msg}`);
+
+        if (logContext) {
+          await logRewardEvent({
+            context: logContext,
+            level: 'error',
+            category: 'reward_code',
+            message: msg,
+            clientId: clientId.toString(),
+            rewardId: task.reward._id.toString(),
+            metadata: { errorMessage: err.message },
+          });
+        }
       }
     }
   }
@@ -88,8 +125,20 @@ export async function generateAndSaveShopifyDiscountCodes(
         const newDoc = createdDocs[i];
         result.set(originalTask.reward._id.toString(), newDoc._id);
       }
-    } catch (err) {
-      console.error('Failed to save Shopify reward codes to the database:', err);
+    } catch (err: any) {
+      const msg = `Failed to save Shopify reward codes to DB: ${err.message}`;
+      console.error(`[RewardCode] ${msg}`);
+
+      if (logContext) {
+        await logRewardEvent({
+          context: logContext,
+          level: 'error',
+          category: 'reward_code',
+          message: msg,
+          clientId: clientId.toString(),
+          metadata: { errorMessage: err.message },
+        });
+      }
     }
   }
 

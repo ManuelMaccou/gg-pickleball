@@ -40,12 +40,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: 'Achievement categories created', createdCategories }, { status: 201 });
 
   } catch (error) {
-    logError(error, {
+    const errorId = logError(error, {
       endpoint: 'POST /api/achievement-category',
       message: 'Failed to create achievement categories',
     });
 
-    return NextResponse.json({ error: 'There was an unexpected error. Please try again.' }, { status: 500 });
+    return NextResponse.json({ errorId, error: 'There was an unexpected error. Please try again.' }, { status: 500 });
   }
 }
 
@@ -75,12 +75,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ achievementCategories });
 
   } catch (error) {
-    logError(error, {
+    const errorId = logError(error, {
       endpoint: 'GET /api/achievement-category',
       message: 'Failed to fetch achievement categories',
       query_scope: request.nextUrl.searchParams.get('scope') || 'all',
     });
     
-    return NextResponse.json({ error: 'An unexpected error occurred. Please try again.' }, { status: 500 });
+    return NextResponse.json({ errorId, error: 'An unexpected error occurred. Please try again.' }, { status: 500 });
   }
 }

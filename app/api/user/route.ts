@@ -65,13 +65,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: 'User created successfully', user: newUser }, { status: 201 });
 
   } catch (error) {
-    logError(error, {
+    const errorId = logError(error, {
       message: `Failed to save user.`,
       name: name ?? 'Undefined',
       auth0Id: auth0Id ?? 'Undefined',
+      endpoint: 'POST /api/user'
     });
 
-    return NextResponse.json({ error: 'There was an unexpected error. Please try again.' }, { status: 500 });
+    return NextResponse.json({ errorId, error: 'There was an unexpected error. Please try again.' }, { status: 500 });
   }
 }
 
@@ -108,12 +109,13 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ user });
   } catch (error) {
-    logError(error, {
+    const errorId = logError(error, {
       message: `Failed to fetch user.`,
       name: name ?? 'Undefined',
       auth0Id: auth0Id ?? 'Undefined',
+      endpoint: 'GET /api/user'
     });
-    return NextResponse.json({ error: "Failed to retrieve user." }, { status: 500 });
+    return NextResponse.json({ errorId, error: "Failed to retrieve user." }, { status: 500 });
   }
 }
 
@@ -307,13 +309,13 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json(updatedUser, { status: 200 });
 
   } catch (error) {
-    logError(error, {
+    const errorId = logError(error, {
       message: `Error while updating user.`,
       endpoint: "PATCH /api/user",
       task: "Update user record",
     });
 
-    return NextResponse.json({ error: "An unexpected error occured. Please try again." }, { status: 500 });
+    return NextResponse.json({ errorId, error: "An unexpected error occured. Please try again." }, { status: 500 });
   }
 }
 
