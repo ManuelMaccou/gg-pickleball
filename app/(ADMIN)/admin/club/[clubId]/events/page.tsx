@@ -193,6 +193,10 @@ export default function ClubEventsPage({ params }: { params: Promise<{ clubId: s
 
   return (
     <Flex direction="column" style={{ backgroundColor: '#0a0a0a', minHeight: '100vh' }}>
+      <Flex direction={'column'} align={'center'} justify={'center'} height={'50px'}
+        style={{backgroundColor: "#5b1010"}}>
+          <Text style={{color: 'white'}}>This feature is in beta. Please contact us with any feature requests.</Text>
+      </Flex>
       <Flex justify="between" align="center" px="6" style={{
         height: 64, backgroundColor: 'rgba(10,10,10,0.85)',
         backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
@@ -405,7 +409,7 @@ export default function ClubEventsPage({ params }: { params: Promise<{ clubId: s
           <Dialog.Title style={{ color: '#fff' }}>Ready to publish?</Dialog.Title>
           <Dialog.Description size="2" mb="4" style={{ color: 'rgba(255,255,255,0.8)' }}>
             Once published, this event will be visible to players immediately.
-            Events cannot be edited after publishing — make sure the details are correct.
+            Events cannot be edited after publishing. Make sure the details are correct.
           </Dialog.Description>
 
           {/* Summary card */}

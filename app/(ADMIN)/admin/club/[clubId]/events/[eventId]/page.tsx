@@ -257,6 +257,10 @@ export default function EventDetailPage({ params }: { params: Promise<{ clubId: 
 
   return (
     <Flex direction="column" style={{ backgroundColor: '#0a0a0a', minHeight: '100vh' }}>
+      <Flex direction={'column'} align={'center'} justify={'center'} height={'50px'}
+        style={{backgroundColor: "#5b1010"}}>
+          <Text style={{color: 'white'}}>This feature is in beta. Please contact us with any feature requests.</Text>
+      </Flex>
       <Flex justify="between" align="center" px="6" style={{
         height: 64, backgroundColor: 'rgba(10,10,10,0.85)',
         backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',

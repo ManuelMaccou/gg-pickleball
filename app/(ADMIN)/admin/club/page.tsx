@@ -168,6 +168,10 @@ export default function ClubEntryPage() {
 
   return (
     <Flex direction="column" style={{ backgroundColor: '#0a0a0a', minHeight: '100vh' }}>
+      <Flex direction={'column'} align={'center'} justify={'center'} height={'50px'}
+        style={{backgroundColor: "#5b1010"}}>
+          <Text style={{color: 'white'}}>This feature is in beta. Please contact us with any feature requests.</Text>
+      </Flex>
 
       {/* Header */}
       <Flex

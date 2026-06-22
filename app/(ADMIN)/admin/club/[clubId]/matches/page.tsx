@@ -146,7 +146,7 @@ export default function ClubMatchesPage({ params }: { params: Promise<{ clubId: 
   if (!club) {
     return (
       <Flex justify="center" align="center" height="100vh" style={{ backgroundColor: '#0a0a0a' }}>
-        <Spinner size="3" />
+        <Spinner  size="3" style={{color: '#a3e635'}}/>
       </Flex>
     );
   }
@@ -155,6 +155,10 @@ export default function ClubMatchesPage({ params }: { params: Promise<{ clubId: 
 
   return (
     <Flex direction="column" style={{ backgroundColor: '#0a0a0a', minHeight: '100vh' }}>
+      <Flex direction={'column'} align={'center'} justify={'center'} height={'50px'}
+        style={{backgroundColor: "#5b1010"}}>
+          <Text style={{color: 'white'}}>This feature is in beta. Please contact us with any feature requests.</Text>
+      </Flex>
 
       {/* Header */}
       <Flex justify="between" align="center" px="6" style={{
@@ -235,7 +239,7 @@ export default function ClubMatchesPage({ params }: { params: Promise<{ clubId: 
               </Table.Header>
               <Table.Body>
                 {loading ? (
-                  <Table.Row><Table.Cell colSpan={6}><Flex justify="center" p="5"><Spinner /></Flex></Table.Cell></Table.Row>
+                  <Table.Row><Table.Cell colSpan={6}><Flex justify="center" p="5"><Spinner style={{color: '#a3e635'}}/></Flex></Table.Cell></Table.Row>
                 ) : rows.length === 0 ? (
                   <Table.Row><Table.Cell colSpan={6}>
                     <Text style={{ color: 'rgba(255,255,255,0.7)' }} align="center" my="4" size="2">
