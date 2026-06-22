@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
                 earnedItems: []
               });
 
-              userIdToEmailMap.set(result.user._id, player.email);
+              userIdToEmailMap.set(result.user._id.toString(), player.email);
               userResults.push(result);
             }
 
@@ -263,10 +263,13 @@ export async function POST(req: NextRequest) {
         
         // Inside your app/api/admin/dupr-process/start/route.ts ...
 
-batchEmailContext.forEach((context, email) => {
+  batchEmailContext.forEach((context, email) => {
     const hasResetLink = !!context.passwordResetLink;
     const rewardList = Array.from(context.earnedItems);
     const hasRewards = rewardList.length > 0;
+
+    console.log(`[EmailBatch] ${email} — hasResetLink: ${hasResetLink}, hasRewards: ${hasRewards}, items: ${rewardList.join(', ')}`);
+
 
     if (hasResetLink || hasRewards) {
         
@@ -291,7 +294,7 @@ batchEmailContext.forEach((context, email) => {
             headline = "New Reward Unlocked!";
             bodyText = `Great job, ${context.name}! Your recent match activity has unlocked new rewards.`;
             buttonText = "View Rewards";
-            actionUrl = `https://www.${process.env.NEXT_PUBLIC_BASE_URL}.com/play`;
+            actionUrl = `${process.env.NEXT_PUBLIC_BASE_URL}.com/play`;
         }
 
         // --- THIS IS WHERE WE PASS THE REWARD LIST ---

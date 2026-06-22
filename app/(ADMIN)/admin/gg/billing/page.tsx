@@ -76,11 +76,15 @@ const STATUS_COLOR: Record<CommissionStatus, 'gray' | 'amber' | 'blue' | 'green'
 
 const WAIVABLE_STATUSES: CommissionStatus[] = ['pending', 'held', 'review'];
 
+const CUSTOM_MODE = process.env.NEXT_PUBLIC_SHOPIFY_APP_MODE === 'custom';
+
 const STATUS_DESCRIPTION: Record<CommissionStatus, string> = {
   pending: 'Charge scheduled 30 days after the order date. No issues detected yet.',
   held: 'Charge paused. See hold reason for details.',
   processing: 'Invoice sent to Stripe. Awaiting payment confirmation.',
-  charged: 'Commission event sent to Shopify for billing.',
+  charged: CUSTOM_MODE
+  ? 'Stripe invoice paid. Commission successfully collected.'
+  : 'Commission event sent to Shopify for billing.',
   waived: 'Commission was waived and will not be collected.',
   review: 'Requires manual review. Auto-processing has stopped.',
 };

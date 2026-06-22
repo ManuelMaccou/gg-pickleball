@@ -286,7 +286,7 @@ export default function GgpickleballAdminClients() {
         {!auth0IsLoading && <Text size="3" weight="bold">{userName ? (auth0User ? `Welcome ${String(userName).split('@')[0]}` : `${String(userName).split('@')[0]} (guest)`) : ''}</Text>}
       </Flex>
 
-      <Flex direction="column" width="100vw">
+      <Flex direction="column" width="100vw" height={'100%'}>
         <Flex direction="row" height="100%">
           {!isMobile && <AdminSidebar adminPermission={adminPermission} />}
           <Flex direction="column" py="4" px={{ initial: '2', md: '6' }} width="100%" overflow="auto">

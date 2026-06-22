@@ -200,7 +200,7 @@ export async function POST(req: NextRequest) {
         template: 'gg_brand_application_received',
         subject: `We received your application for ${cleanBrandName}`,
         variables: {
-          headline: `Thanks for applying, ${dbUser.name}!`,
+          headline: `Thanks for applying!`,
           brand_name: cleanBrandName,
           body_text: `We received your application for ${cleanBrandName} and our team will review it shortly. We'll get back to you within a few business days.`,
         },
