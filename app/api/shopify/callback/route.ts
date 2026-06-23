@@ -6,9 +6,12 @@ import Client from '@/app/models/Client';
 import connectToDatabase from '@/lib/mongodb';
 import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser';
 import { validateShopDomain, verifyShopifyHmac } from '@/lib/shopify/authCodeGrant';
-import { registerOrderPaidWebhook } from '@/lib/shopify/webhooks';
+import { registerWebhooksViaGraphQL } from '@/lib/shopify/registerWebhooksGraphQL';
 import { redirectToError } from '@/lib/errors/redirectToError';
-import SourceRewardConfig from '@/app/models/SourceRewardConfig';
+import { logError } from '@/lib/sentry/logger';
+import { buildShopifyPricingUrl } from '@/lib/shopify/urls';
+import { isCustomAppMode } from '@/lib/shopify/appMode';
+import { getShopifyCredentials } from '@/lib/shopify/getShopifyCredentials';
 
 const SHOPIFY_API_VERSION = '2025-10';
 
@@ -43,8 +46,6 @@ async function fetchShopId(
   }
 }
 
-
-
 // ── Route ─────────────────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
@@ -53,9 +54,8 @@ export async function GET(req: NextRequest) {
   const code = searchParams.get('code');
   const state = searchParams.get('state');
   const hmac = searchParams.get('hmac');
+
   // --- SECURITY CHECKS ---
-  // These are low-level security failures that real users won't hit in normal
-  // flow — keep them as JSON responses (not branded error pages).
   if (!shop || !validateShopDomain(shop)) {
     return NextResponse.json({ error: 'Invalid shop parameter' }, { status: 400 });
   }
@@ -68,31 +68,82 @@ export async function GET(req: NextRequest) {
       `[ShopifyCallback] Nonce mismatch — cookie: ${savedNonce ?? 'missing'}, state: ${state}. ` +
       `Restarting OAuth.`
     );
-    
     const installUrl = new URL(`${process.env.NEXT_PUBLIC_BASE_URL}/api/shopify/install`);
     installUrl.searchParams.set('shop', shop);
     return NextResponse.redirect(installUrl);
-  }
-
-  if (!hmac || !verifyShopifyHmac(searchParams)) {
-    console.error('HMAC validation failed');
-    return NextResponse.json({ error: 'HMAC validation failed' }, { status: 401 });
   }
 
   if (!code) {
     return NextResponse.json({ error: 'Missing authorization code' }, { status: 400 });
   }
 
-  // --- GET ACCESS TOKEN ---
-  const accessTokenUrl = `https://${shop}/admin/oauth/access_token`;
-  const payload = {
-    client_id: process.env.SHOPIFY_API_KEY,
-    client_secret: process.env.SHOPIFY_API_SECRET,
-    code,
-    expiring: 1,
-  };
-
   try {
+    // --- IDENTIFY CLIENT ---
+    // Must happen before HMAC verification in custom mode — the HMAC is signed
+    // with the client-specific app secret, so we need envKey from the DB to
+    // resolve the correct secret before we can verify.
+    await connectToDatabase();
+
+    const user = await getAuthorizedUser(req);
+
+    if (!user) {
+      console.warn('[ShopifyCallback] No authenticated user found — session likely expired or different browser.');
+      return redirectToError('session_expired');
+    }
+
+    if (!user.adminLocationId) {
+      console.warn(`[ShopifyCallback] User ${user.id} has no adminLocationId — not a brand admin.`);
+      return redirectToError('no_admin_permissions');
+    }
+
+    const clientId = user.adminLocationId;
+
+    const existingClient = await Client.findById(clientId)
+      .select('shopify.shopDomain shopify.envKey')
+      .lean() as { shopify?: { shopDomain?: string; envKey?: string } } | null;
+
+    // ── Resolve credentials and verify HMAC ───────────────────────────────
+    // In custom mode, each client has their own app secret keyed by envKey.
+    // In public mode, falls back to the shared SHOPIFY_API_SECRET.
+    const envKey = existingClient?.shopify?.envKey;
+    const credentials = getShopifyCredentials(envKey);
+
+    if (!credentials) {
+      console.error(
+        `[ShopifyCallback] No credentials for client ${clientId} (envKey: ${envKey ?? 'not set'})`
+      );
+      return redirectToError('token_exchange_failed');
+    }
+
+    if (!hmac || !verifyShopifyHmac(searchParams, credentials.apiSecret)) {
+      console.error(
+        `[ShopifyCallback] HMAC validation failed for client ${clientId} ` +
+        `(envKey: ${envKey ?? 'not set'})`
+      );
+      return NextResponse.json({ error: 'HMAC validation failed' }, { status: 401 });
+    }
+
+    // ── Guard: one store per client ───────────────────────────────────────
+    const existingDomain = existingClient?.shopify?.shopDomain;
+    const isDomainChange = !!existingDomain && existingDomain !== shop;
+
+    if (isDomainChange) {
+      console.warn(
+        `[ShopifyCallback] Blocked domain change for client ${clientId}: ` +
+        `Existing: ${existingDomain}, Attempted: ${shop}`
+      );
+      return redirectToError('store_change_blocked');
+    }
+
+    // --- GET ACCESS TOKEN ---
+    const accessTokenUrl = `https://${shop}/admin/oauth/access_token`;
+    const payload = {
+      client_id: credentials.apiKey,
+      client_secret: credentials.apiSecret,
+      code,
+      expiring: 1,
+    };
+
     const tokenResponse = await fetch(accessTokenUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -114,20 +165,12 @@ export async function GET(req: NextRequest) {
       refresh_token_expires_in,
     } = tokenData;
 
-    // Calculate expiry timestamps
     const now = Date.now();
-    const tokenExpiresAt = expires_in
-      ? new Date(now + expires_in * 1000)
-      : null;
+    const tokenExpiresAt = expires_in ? new Date(now + expires_in * 1000) : null;
     const refreshTokenExpiresAt = refresh_token_expires_in
       ? new Date(now + refresh_token_expires_in * 1000)
       : null;
 
-    // --- FETCH SHOP ID ---
-    // The callback only fires on fresh OAuth install — plan selection redirects
-    // directly to /admin/brand, never back through here. So hasActivePlan is
-    // always false at this point; the dashboard's confirm-plan endpoint handles
-    // setting it true after the merchant selects a plan.
     const shopId = await fetchShopId(shop, access_token);
     const hasActiveSubscription = false;
     console.log(`[ShopifyCallback] Fresh install for ${shop}. shopId: ${shopId ?? 'not fetched'}`);
@@ -140,50 +183,6 @@ export async function GET(req: NextRequest) {
     }
 
     // --- SAVE TO DATABASE ---
-    await connectToDatabase();
-
-    const user = await getAuthorizedUser(req);
-
-    if (!user) {
-      console.warn('[ShopifyCallback] No authenticated user found — session likely expired.');
-      return redirectToError('session_expired');
-    }
-
-    if (!user.adminLocationId) {
-      console.warn(
-        `[ShopifyCallback] User ${user.id} has no adminLocationId — not a brand admin.`
-      );
-      return redirectToError('no_admin_permissions');
-    }
-
-    const clientId = user.adminLocationId;
-
-    // ── Guard against connecting a different store when rewards exist ─────
-    // Someone could manually hit /api/shopify/install?shop=otherstore even
-    // if the UI blocked them. If this client already has a different shop
-    // connected AND has rewards configured, block the change at the API level.
-    const existingClient = await Client.findById(clientId)
-      .select('shopify.shopDomain')
-      .lean() as { shopify?: { shopDomain?: string } } | null;
-
-    const existingDomain = existingClient?.shopify?.shopDomain;
-    const isDomainChange = existingDomain && existingDomain !== shop;
-
-    if (isDomainChange) {
-      const hasRewards = await SourceRewardConfig.exists({
-        'sponsorships.sponsoringClientId': clientId,
-      });
-      if (hasRewards) {
-        console.warn(
-          `[ShopifyCallback] Blocked domain change for client ${clientId}: ` +
-          `has rewards configured. Existing: ${existingDomain}, Attempted: ${shop}`
-        );
-        return redirectToError('unknown');
-      }
-    }
-
-    // Dot-notation $set — each field updated independently so a second
-    // OAuth pass (e.g. after plan selection) never wipes shopId.
     const updateFields: Record<string, unknown> = {
       retailSoftware: 'shopify',
       'shopify.shopDomain': shop,
@@ -196,9 +195,8 @@ export async function GET(req: NextRequest) {
     if (refresh_token) updateFields['shopify.refreshToken'] = refresh_token;
     if (tokenExpiresAt) updateFields['shopify.tokenExpiresAt'] = tokenExpiresAt;
     if (refreshTokenExpiresAt) updateFields['shopify.refreshTokenExpiresAt'] = refreshTokenExpiresAt;
-    // Always write hasActivePlan — covers both fresh installs and reinstalls
     updateFields['shopify.hasActivePlan'] = hasActiveSubscription;
-    console.log(`[ShopifyCallback] Writing to DB — hasActivePlan: false (plan selected later via /admin/brand)`);
+    console.log(`[ShopifyCallback] Writing to DB — hasActivePlan: false`);
 
     const updatedClient = await Client.findByIdAndUpdate(
       clientId,
@@ -210,29 +208,47 @@ export async function GET(req: NextRequest) {
       console.error(`[ShopifyCallback] Client not found for id: ${clientId}`);
       return redirectToError('client_not_found');
     }
-    console.log(`[ShopifyCallback] DB write complete — shopify.hasActivePlan: ${updatedClient.shopify?.hasActivePlan}, redirecting to: ${hasActiveSubscription ? '/admin/brand' : 'pricing page'}`);
 
-    await registerOrderPaidWebhook(shop, access_token);
+    // ── Webhook registration ───────────────────────────────────────────────
+    // Custom mode: registers ORDERS_PAID (with GG filter) + compliance webhooks.
+    // Public mode: registers ORDERS_PAID only — compliance handled by toml.
+    const webhookResult = await registerWebhooksViaGraphQL(
+      shop,
+      access_token,
+      clientId,
+      tokenExpiresAt ?? undefined
+    );
+    if (!webhookResult.allSucceeded) {
+      const failures = webhookResult.results
+        .filter((r) => !r.success)
+        .map((r) => `${r.topic}: ${r.reason}`)
+        .join('; ');
+      logError(new Error(`Webhook registration partial failure: ${failures}`), {
+        endpoint: 'GET /api/shopify/callback',
+        task: 'registerWebhooksViaGraphQL',
+        shop,
+      });
+    }
 
-    // Redirect to pricing plans if no active subscription, otherwise dashboard
-    const redirectUrl = hasActiveSubscription
-      ? new URL(`${process.env.NEXT_PUBLIC_BASE_URL}/admin/brand`)
-      : buildPricingUrl(shop);
+    // ── Post-OAuth redirect — branched by app mode ─────────────────────────
+    let redirectUrl: string | URL;
+
+    if (isCustomAppMode()) {
+      redirectUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/admin/brand/billing/payment-method`;
+      console.log(`[ShopifyCallback] Custom mode — redirecting to Stripe billing setup`);
+    } else {
+      redirectUrl = hasActiveSubscription
+        ? new URL(`${process.env.NEXT_PUBLIC_BASE_URL}/admin/brand`)
+        : buildShopifyPricingUrl(shop);
+      console.log(`[ShopifyCallback] Public mode — redirecting to: ${redirectUrl}`);
+    }
 
     const response = NextResponse.redirect(redirectUrl);
     response.cookies.delete('shopify_nonce');
     return response;
 
   } catch (error) {
-    console.error('[ShopifyCallback] Unexpected error:', error);
-    return redirectToError('token_exchange_failed');
+    const errorId = logError(error, { endpoint: 'GET /api/shopify/callback' });
+    return redirectToError('token_exchange_failed', errorId);
   }
-}
-
-// ── Pricing plan URL builder ───────────────────────────────────────────────────
-
-function buildPricingUrl(shopDomain: string): string {
-  const storeHandle = shopDomain.replace('.myshopify.com', '');
-  const appHandle = process.env.SHOPIFY_APP_HANDLE ?? 'gg-pickleball-3';
-  return `https://admin.shopify.com/store/${storeHandle}/charges/${appHandle}/pricing_plans`;
 }

@@ -25,10 +25,19 @@ const ERROR_CONFIGS: Record<ErrorReason, ErrorConfig> = {
     secondaryLabel: 'Go to player dashboard',
     secondaryHref: '/play',
   },
+  approved_setup_incomplete: {
+    headline: 'Almost there —\nwe hit a snag.',
+    subheadline: 'Setup incomplete',
+    body: "Your brand application was approved, but we ran into an issue setting up your dashboard. This is on us. Contact us and we'll get this sorted out quickly.",
+    ctaLabel: 'Contact support',
+    ctaHref: 'mailto:play@ggpickleball.co',
+    secondaryLabel: 'Go home',
+    secondaryHref: '/',
+  },
   session_expired: {
     headline: 'Your session\nexpired.',
     subheadline: 'Authentication timeout',
-    body: "The connection setup took too long and your login session expired. This is usually a one-time issue — head back to connect Shopify and try again.",
+    body: "We couldn't verify your login when you returned from Shopify. This can happen if you opened the install link in a different browser or window, or if too much time passed on Shopify's page. Log in, then click 'Connect Shopify' again from your dashboard.",
     ctaLabel: 'Try again',
     ctaHref: '/admin/brand/connect-shopify',
     secondaryLabel: 'Go to dashboard',
@@ -40,8 +49,8 @@ const ERROR_CONFIGS: Record<ErrorReason, ErrorConfig> = {
     body: "Your user exists but we couldn't locate your brand account. This can happen if the account was recently created or if something went wrong during setup. Contact support and we'll sort it out.",
     ctaLabel: 'Contact support',
     ctaHref: 'mailto:play@ggpickleball.co',
-    secondaryLabel: 'Go home',
-    secondaryHref: '/',
+    secondaryLabel: 'Go to dashboard',
+    secondaryHref: '/admin/brand',
   },
   token_exchange_failed: {
     headline: 'Shopify connection\nfailed.',
@@ -52,12 +61,30 @@ const ERROR_CONFIGS: Record<ErrorReason, ErrorConfig> = {
     secondaryLabel: 'Contact support',
     secondaryHref: 'mailto:play@ggpickleball.co',
   },
+  store_change_blocked: {
+    headline: 'This account already has a store connected.',
+    subheadline: 'Store conflict',
+    body: "Your GG Pickleball account is already connected to a different Shopify store with active rewards configured. To connect a new store, please contact support and we'll help you switch.",
+    ctaLabel: 'Go to dashboard',
+    ctaHref: '/admin/brand',
+    secondaryLabel: 'Contact support',
+    secondaryHref: 'mailto:play@ggpickleball.co',
+  },
+  no_shop_domain: {
+    headline: "Your store hasn't\nbeen configured.",
+    subheadline: 'Setup required',
+    body: "Your Shopify store domain hasn't been set up on your account yet. This is something we configure on our end before you connect. Contact support and we'll get it sorted out quickly.",
+    ctaLabel: 'Contact support',
+    ctaHref: 'mailto:play@ggpickleball.co',
+    secondaryLabel: 'Go to dashboard',
+    secondaryHref: '/admin/brand',
+  },
   unknown: {
     headline: 'Something went\nwrong.',
     subheadline: 'Unexpected error',
     body: "We ran into an unexpected problem. Try refreshing or going back. If it keeps happening, contact support and we'll take a look.",
-    ctaLabel: 'Go home',
-    ctaHref: '/',
+    ctaLabel: 'Go to dashboard',
+    ctaHref: '/admin/brand',
     secondaryLabel: 'Contact support',
     secondaryHref: 'mailto:play@ggpickleball.co',
   },
@@ -65,9 +92,12 @@ const ERROR_CONFIGS: Record<ErrorReason, ErrorConfig> = {
 
 const VALID_REASONS: ErrorReason[] = [
   'no_admin_permissions',
+  'approved_setup_incomplete',
   'session_expired',
   'client_not_found',
   'token_exchange_failed',
+  'store_change_blocked',
+  'no_shop_domain',
   'unknown',
 ];
 
@@ -75,13 +105,21 @@ function isValidReason(value: string | null): value is ErrorReason {
   return VALID_REASONS.includes(value as ErrorReason);
 }
 
-// ── Inner component (uses useSearchParams — must be inside Suspense) ───────────
-
 function ErrorContent() {
   const searchParams = useSearchParams();
   const rawReason = searchParams.get('reason');
   const reason: ErrorReason = isValidReason(rawReason) ? rawReason : 'unknown';
   const config = ERROR_CONFIGS[reason];
+  const errorId = searchParams.get('errorId');
+
+  let ctaHref = config.ctaHref;
+  if (reason === 'approved_setup_incomplete') {
+    const subject = searchParams.get('mailtoSubject');
+    const body = searchParams.get('mailtoBody');
+    if (subject && body) {
+      ctaHref = `mailto:play@ggpickleball.co?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    }
+  }
 
   return (
     <main
@@ -112,7 +150,7 @@ function ErrorContent() {
         }}
       />
 
-      {/* Lime glow accent behind content */}
+      {/* Lime glow accent */}
       <div
         aria-hidden
         style={{
@@ -140,103 +178,44 @@ function ErrorContent() {
         }}
       >
         {/* Eyebrow tag */}
-        <div
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 8,
-            marginBottom: 28,
-          }}
-        >
-          <div
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: '50%',
-              backgroundColor: '#b2ff00',
-              flexShrink: 0,
-            }}
-          />
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              letterSpacing: '0.14em',
-              textTransform: 'uppercase',
-              color: 'rgba(255,255,255,0.45)',
-            }}
-          >
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 28 }}>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#b2ff00', flexShrink: 0 }} />
+          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)' }}>
             {config.subheadline}
           </span>
         </div>
 
-        {/* Main headline */}
-        <h1
-          style={{
-            fontSize: 'clamp(40px, 8vw, 68px)',
-            fontWeight: 800,
-            lineHeight: 1.0,
-            letterSpacing: '-0.03em',
-            color: '#ffffff',
-            margin: '0 0 28px',
-            whiteSpace: 'pre-line',
-          }}
-        >
+        {/* Headline */}
+        <h1 style={{ fontSize: 'clamp(40px, 8vw, 68px)', fontWeight: 800, lineHeight: 1.0, letterSpacing: '-0.03em', color: '#ffffff', margin: '0 0 28px', whiteSpace: 'pre-line' }}>
           {config.headline}
         </h1>
 
         {/* Divider */}
-        <div
-          style={{
-            width: 40,
-            height: 3,
-            backgroundColor: '#b2ff00',
-            marginBottom: 28,
-            flexShrink: 0,
-          }}
-        />
+        <div style={{ width: 40, height: 3, backgroundColor: '#b2ff00', marginBottom: 28, flexShrink: 0 }} />
 
-        {/* Body copy */}
-        <p
-          style={{
-            fontSize: 17,
-            lineHeight: 1.65,
-            color: 'rgba(255,255,255,0.6)',
-            margin: '0 0 44px',
-            fontWeight: 400,
-          }}
-        >
+        {/* Body */}
+        <p style={{ fontSize: 17, lineHeight: 1.65, color: 'rgba(255,255,255,0.6)', margin: '0 0 44px', fontWeight: 400 }}>
           {config.body}
         </p>
 
+        {/* Error ID */}
+        {errorId && (
+          <div style={{ marginBottom: 20, padding: '10px 12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: 6, color: 'rgba(255,255,255,0.7)', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ overflowWrap: 'anywhere' }}>Error ID: {errorId}</div>
+            <button
+              onClick={() => { navigator.clipboard?.writeText(errorId); }}
+              style={{ marginLeft: 16, background: 'transparent', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.06)', padding: '6px 10px', borderRadius: 6, cursor: 'pointer' }}
+            >Copy</button>
+          </div>
+        )}
+
         {/* CTAs */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {/* Primary CTA */}
           <Link
-            href={config.ctaHref}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 10,
-              backgroundColor: '#b2ff00',
-              color: '#0a0a0a',
-              fontSize: 15,
-              fontWeight: 700,
-              letterSpacing: '-0.01em',
-              padding: '15px 28px',
-              borderRadius: 6,
-              textDecoration: 'none',
-              transition: 'background-color 0.15s ease, transform 0.1s ease',
-            }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLAnchorElement).style.backgroundColor = '#c5ff26';
-              (e.currentTarget as HTMLAnchorElement).style.transform = 'translateY(-1px)';
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLAnchorElement).style.backgroundColor = '#b2ff00';
-              (e.currentTarget as HTMLAnchorElement).style.transform = 'translateY(0)';
-            }}
+            href={ctaHref}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: '#b2ff00', color: '#0a0a0a', fontSize: 15, fontWeight: 700, letterSpacing: '-0.01em', padding: '15px 28px', borderRadius: 6, textDecoration: 'none', transition: 'background-color 0.15s ease, transform 0.1s ease' }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.backgroundColor = '#c5ff26'; (e.currentTarget as HTMLAnchorElement).style.transform = 'translateY(-1px)'; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.backgroundColor = '#b2ff00'; (e.currentTarget as HTMLAnchorElement).style.transform = 'translateY(0)'; }}
           >
             {config.ctaLabel}
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
@@ -244,68 +223,27 @@ function ErrorContent() {
             </svg>
           </Link>
 
-          {/* Secondary CTA */}
           {config.secondaryLabel && config.secondaryHref && (
             <Link
               href={config.secondaryHref}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: 'transparent',
-                color: 'rgba(255,255,255,0.5)',
-                fontSize: 14,
-                fontWeight: 500,
-                padding: '14px 28px',
-                borderRadius: 6,
-                border: '1px solid rgba(255,255,255,0.1)',
-                textDecoration: 'none',
-                transition: 'color 0.15s ease, border-color 0.15s ease',
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(255,255,255,0.8)';
-                (e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(255,255,255,0.2)';
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(255,255,255,0.5)';
-                (e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(255,255,255,0.1)';
-              }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent', color: 'rgba(255,255,255,0.5)', fontSize: 14, fontWeight: 500, padding: '14px 28px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', textDecoration: 'none', transition: 'color 0.15s ease, border-color 0.15s ease' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(255,255,255,0.8)'; (e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(255,255,255,0.2)'; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(255,255,255,0.5)'; (e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(255,255,255,0.1)'; }}
             >
               {config.secondaryLabel}
             </Link>
           )}
         </div>
 
-        {/* Footer wordmark */}
-        <div
-          style={{
-            marginTop: 64,
-            paddingTop: 28,
-            borderTop: '1px solid rgba(255,255,255,0.07)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-          }}
-        >
-          <span
-            style={{
-              fontSize: 13,
-              fontWeight: 700,
-              letterSpacing: '-0.01em',
-              color: 'rgba(255,255,255,0.6)',
-            }}
-          >
-            GG Pickleball
-          </span>
+        {/* Footer */}
+        <div style={{ marginTop: 64, paddingTop: 28, borderTop: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '-0.01em', color: 'rgba(255,255,255,0.6)' }}>GG Pickleball</span>
           <span style={{ color: 'rgba(255,255,255,0.15)', fontSize: 13 }}>·</span>
           <Link
             href="/"
-            style={{
-              fontSize: 13,
-              color: 'rgba(255,255,255,0.8)',
-              textDecoration: 'none',
-              transition: 'color 0.15s ease',
-            }}
+            style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', textDecoration: 'none', transition: 'color 0.15s ease' }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(255,255,255,0.5)'; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(255,255,255,0.25)'; }}
           >
             Go home
           </Link>
@@ -314,9 +252,6 @@ function ErrorContent() {
     </main>
   );
 }
-
-// ── Page export ────────────────────────────────────────────────────────────────
-// useSearchParams() must be wrapped in Suspense in Next.js 13+ app router
 
 export default function ErrorPage() {
   return (

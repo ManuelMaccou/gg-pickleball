@@ -57,7 +57,10 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ message: 'Client updated successfully', client: updatedClient });
 
   } catch (error) {
-    logError(error, { message: 'Error updating Client.' });
-    return NextResponse.json({ error: 'There was an unexpected error. Please try again.' }, { status: 500 });
+    const errorId = logError(error, { 
+      message: 'Error updating Client.',
+      endpoint: 'PATCH /api/client/update'
+    });
+    return NextResponse.json({ errorId, error: 'There was an unexpected error. Please try again.' }, { status: 500 });
   }
 }

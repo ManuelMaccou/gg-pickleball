@@ -95,7 +95,6 @@ export async function createShopifyDiscountCode(
       startsAt: new Date().toISOString(),
       customerSelection: { all: true },
       customerGets: {
-        appliesOnSubscription: false,
         items: { all: true },
         value:
           discountType === 'percent'

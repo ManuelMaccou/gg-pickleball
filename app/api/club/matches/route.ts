@@ -9,6 +9,7 @@ import { Club } from '@/app/models/Club';
 import { ClubUploadedMatch } from '@/app/models/ClubUploadedMatch';
 import { DuprSubmissionStatus } from '@/app/types/databaseTypes';
 import { verifyDuprEntitlement } from '@/lib/services/dupr/duprEntitlement';
+import { logError } from '@/lib/sentry/logger';
 
 // GET /api/club/matches?clubId=...&view=uploaded|synced&page=1&limit=20
 export async function GET(req: NextRequest) {
@@ -52,7 +53,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ rows: [], pagination: { page, limit, total: 0, totalPages: 0 } });
   } catch (err) {
     console.error('[GET /api/club/matches]', err);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    const errorId = logError(err, { endpoint: 'GET /api/club/matches' });
+    return NextResponse.json({ errorId, error: 'Internal error' }, { status: 500 });
   }
 }
 
@@ -194,6 +196,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ results });
   } catch (err) {
     console.error('[POST /api/club/matches]', err);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    const errorId = logError(err, { endpoint: 'POST /api/club/matches' });
+    return NextResponse.json({ errorId, error: 'Internal error' }, { status: 500 });
   }
 }

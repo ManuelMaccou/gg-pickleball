@@ -16,6 +16,7 @@ import { EventRegistration } from '@/app/models/EventRegistration';
 import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser';
 import connectToDatabase from '@/lib/mongodb';
 import mongoose from 'mongoose';
+import { logError } from '@/lib/sentry/logger';
 
 export async function GET(req: NextRequest) {
   try {
@@ -169,6 +170,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error('[GET /api/events/upcoming]', err);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    const errorId = logError(err, { endpoint: 'GET /api/events/upcoming' });
+    return NextResponse.json({ errorId, error: 'Internal error' }, { status: 500 });
   }
 }

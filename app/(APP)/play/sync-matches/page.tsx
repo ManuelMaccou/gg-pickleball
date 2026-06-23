@@ -106,7 +106,7 @@ export default function SyncPage() {
             } else if (data.type === 'ERROR') {
               // Only log to terminal for unexpected errors — the reward code
               // failure has its own dialog and doesn't need a terminal line.
-              if (data.message !== 'reward_code_creation_failed') {
+              if (data.message !== 'processing_incomplete') {
                 setLogs(prev => [...prev, `ERROR: ${data.message}`]);
               }
               setStreamError(true);

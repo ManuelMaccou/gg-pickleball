@@ -93,12 +93,7 @@ export function ModernRewardCard({ reward, index, onClick, dataSource }: ModernR
         {/* Brand logo */}
         <Flex position="absolute" top="0" left="0" right="0" justify="between" p="3" style={{ zIndex: 10 }}>
           {reward.sponsoringClient?.logo && (
-            <Box style={{
-              backgroundColor: 'rgba(255,255,255,0.9)',
-              padding: '4px',
-              borderRadius: '8px',
-              backdropFilter: 'blur(4px)',
-            }}>
+            <Box>
               <Image
                 src={reward.sponsoringClient.logo}
                 alt={`${brandName} logo`}

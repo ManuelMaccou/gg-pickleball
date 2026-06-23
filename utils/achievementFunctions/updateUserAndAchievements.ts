@@ -42,7 +42,8 @@ type CheckFunction = (
   options: { session: ClientSession }
 ) => Promise<AchievementEarned[] | VisitResult> | AchievementEarned[] | VisitResult;
 
-type RequiredDbOptions = { session: ClientSession };
+import { LogContext, logRewardEvent } from '@/lib/rewards/rewardProcessingLogger';
+type RequiredDbOptions = { session: ClientSession; logContext?: LogContext };
 
 function ensureClientStats(user: IUser, clientId: string): ClientStats {
   if (!user.stats || !(user.stats instanceof Map)) {
@@ -787,7 +788,21 @@ async function processGlobalMatch(
 
          if (Array.isArray(result) && result.length > 0) {
             console.log(`[DEBUG] Check function '${checkFn.name}' returned achievements:`, result);
-        }
+
+            if (dbOptions.logContext) {
+              // fire-and-forget — don't await, don't block match processing
+              logRewardEvent({
+                context: dbOptions.logContext,
+                level: 'info',
+                category: 'achievement',
+                message: `Check function '${checkFn.name}' returned ${result.length} achievement(s)`,
+                metadata: {
+                  checkFunction: checkFn.name,
+                  achievements: (result as any[]).map(a => ({ key: a.key, repeatable: a.repeatable })),
+                },
+              }).catch(() => {}); // swallow — never interrupt match processing
+            }
+          }
 
         allAchievements.push(...result as AchievementEarned[]);
       }
@@ -956,8 +971,20 @@ async function processGlobalMatch(
           const generator = getRewardCodeGenerator(category, software);
 
           if (generator) {
-            const map = await generator(tasks, client._id, { session, errors: generatorErrors });
-            console.log('[ProcessGlobalMatch] After generator — generatorErrors:', [...generatorErrors]);
+            const map = await generator(tasks, client._id, {
+              session,
+              errors: generatorErrors,
+              logContext: dbOptions.logContext,
+            });
+            if (generatorErrors.size > 0 && dbOptions.logContext) {
+              logRewardEvent({
+                context: dbOptions.logContext,
+                level: 'warn',
+                category: 'generator',
+                message: `Generator completed with errors: ${[...generatorErrors].join(', ')}`,
+                metadata: { errors: [...generatorErrors], clientId: client._id.toString() },
+              }).catch(() => {});
+            }
               
             for (const [rewardId, codeId] of map.entries()) {
               rewardCodeIdMap.set(rewardId, codeId);

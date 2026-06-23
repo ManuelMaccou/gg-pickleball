@@ -4,6 +4,7 @@ import { updateMatchOnDupr, deleteMatchOnDupr } from '@/lib/services/dupr/duprMa
 import { ClubUploadedMatch } from '@/app/models/ClubUploadedMatch';
 import { Club } from '@/app/models/Club';
 import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser';
+import { logError } from '@/lib/sentry/logger';
 
 async function loadAndAuthorize(matchId: string, userId: string) {
   if (!mongoose.isValidObjectId(matchId)) return { error: 'Invalid id', status: 400 as const };
@@ -61,8 +62,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ma
     try {
       await updateMatchOnDupr(match.duprMatchId, match._id.toString(), updatedMatch);
     } catch (duprErr) {
+      const errorId = logError(duprErr, { endpoint: 'UNKNOWN /api/club/matches/[matchId]' });
       return NextResponse.json(
-        { error: duprErr instanceof Error ? duprErr.message : 'DUPR update failed' },
+        { errorId, error: duprErr instanceof Error ? duprErr.message : 'DUPR update failed' },
         { status: 502 }
       );
     }
@@ -78,7 +80,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ma
     return NextResponse.json({ match });
   } catch (err) {
     console.error('[PATCH /api/club/matches/[matchId]]', err);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    const errorId = logError(err, { endpoint: 'UNKNOWN /api/club/matches/[matchId]' });
+    return NextResponse.json({ errorId, error: 'Internal error' }, { status: 500 });
   }
 }
 
@@ -99,8 +102,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ m
       try {
         await deleteMatchOnDupr(match.duprMatchId, match._id.toString());
       } catch (duprErr) {
+        const errorId = logError(duprErr, { endpoint: 'UNKNOWN /api/club/matches/[matchId]' });
         return NextResponse.json(
-          { error: duprErr instanceof Error ? duprErr.message : 'DUPR delete failed' },
+          { errorId, error: duprErr instanceof Error ? duprErr.message : 'DUPR delete failed' },
           { status: 502 }
         );
       }
@@ -111,6 +115,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ m
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error('[DELETE /api/club/matches/[matchId]]', err);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    const errorId = logError(err, { endpoint: 'UNKNOWN /api/club/matches/[matchId]' });
+    return NextResponse.json({ errorId, error: 'Internal error' }, { status: 500 });
   }
 }

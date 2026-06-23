@@ -43,9 +43,10 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ message: 'Bulk achievements created', inserted }, { status: 201 });
   } catch (error) {
-      logError(error, {
+      const errorId = logError(error, {
         message: 'Failed to add achievements in bulk',
+        endpoint: 'POST /api/achievement/bulk'
       });
-    return NextResponse.json({ error: 'Ther was an unexpected error. Please try again.' }, { status: 500 });
+    return NextResponse.json({ errorId, error: 'Ther was an unexpected error. Please try again.' }, { status: 500 });
   }
 }

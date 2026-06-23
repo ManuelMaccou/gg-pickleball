@@ -1,7 +1,7 @@
 import Achievement from "@/app/models/Achievement";
 import { getAuthorizedUser } from "@/lib/auth/getAuthorizeduser";
 import connectToDatabase from "@/lib/mongodb";
-import { logError } from "@/lib/sentry/logger";
+import { logError } from '@/lib/sentry/logger';
 import { NextRequest, NextResponse } from "next/server";
 import { PipelineStage } from "mongoose"; // <-- 1. IMPORT THE TYPE
 
@@ -59,12 +59,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ achievements });
 
   } catch (error) {
-    logError(error, {
+    const errorId = logError(error, {
       endpoint: 'GET /api/achievement/category/scope',
       message: 'Failed to fetch achievements by scope',
       query_scope: request.nextUrl.searchParams.get('scope') || 'all',
     });
     
-    return NextResponse.json({ error: 'An unexpected error occurred. Please try again.' }, { status: 500 });
+    return NextResponse.json({ errorId, error: 'An unexpected error occurred. Please try again.' }, { status: 500 });
   }
 }

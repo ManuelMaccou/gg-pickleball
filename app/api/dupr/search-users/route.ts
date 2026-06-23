@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser';
 import { authenticatedDuprFetch } from '@/lib/services/dupr/duprAuth';
+import { logError } from '@/lib/sentry/logger';
 
 export async function GET(req: NextRequest) {
   try {
@@ -54,7 +55,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ hits });
   } catch (err) {
     console.error('[GET /api/dupr/search-users]', err);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    const errorId = logError(err, { endpoint: 'GET /api/dupr/search-users' });
+    return NextResponse.json({ errorId, error: 'Internal error' }, { status: 500 });
   }
 }
 

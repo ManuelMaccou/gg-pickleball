@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
 import connectToDatabase from "@/lib/mongodb";
 import Match from "@/app/models/Match";
-import { logError } from "@/lib/sentry/logger";
+import { logError } from '@/lib/sentry/logger';
 import { getAuthorizedUser } from "@/lib/auth/getAuthorizeduser";
 
 export async function GET(request: NextRequest) {
@@ -82,10 +82,11 @@ export async function GET(request: NextRequest) {
       hasNextPage,
     });
   } catch (error) {
-    logError(error, {
+    const errorId = logError(error, {
       message: `Error fetching match history for userId: ${userId}`,
-      locationId: locationId
+      locationId: locationId,
+      endpoint: 'GET /api/match/user-and-location'
     });
-    return NextResponse.json({ error: "There was an unexpected error. Please try again." }, { status: 500 });
+    return NextResponse.json({ errorId, error: "There was an unexpected error. Please try again." }, { status: 500 });
   }
 }

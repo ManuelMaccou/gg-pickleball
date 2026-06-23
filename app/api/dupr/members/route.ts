@@ -79,11 +79,11 @@ export async function POST(req: NextRequest) {
     // --- COMPLETE ERROR HANDLING ---
     const errorMessage = error instanceof Error ? error.message : "An unknown server error occurred.";
     
-    logError(error, { 
+    const errorId = logError(error, { 
       message: 'Error fetching DUPR member list.',
       endpoint: '/api/dupr/members'
     });
 
-    return NextResponse.json({ error: 'Internal Server Error', details: errorMessage }, { status: 500 });
+    return NextResponse.json({ errorId, error: 'Internal Server Error', details: errorMessage }, { status: 500 });
   }
 }

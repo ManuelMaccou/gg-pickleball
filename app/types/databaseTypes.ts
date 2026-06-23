@@ -11,11 +11,12 @@ export type AdminPermissionType = typeof ADMIN_PERMISSION_TYPES[number];
 
 
 export type CommissionStatus =
-  | 'pending'   // Waiting for day 30 check
-  | 'held'      // Day 30 check found unresolved activity — re-check in 5 days
-  | 'charged'   // Commission event sent to Shopify App Events API for billing
-  | 'waived'    // Dispute lost or full refund — no commission taken
-  | 'review';   // Still unresolved at day 60 — flagged for manual review
+  | 'pending'     // Waiting for day 30 check
+  | 'held'        // Day 30 check found unresolved activity — re-check in 5 days
+  | 'processing'  // Invoice sent to Stripe — awaiting webhook confirmation
+  | 'charged'     // Payment confirmed via Stripe webhook (custom) or App Events (public)
+  | 'waived'      // Dispute lost or full refund — no commission taken
+  | 'review';     // Still unresolved at day 60, or payment failed — manual review
  
 export type HoldReason =
   | 'unfulfilled'          // Order paid but not yet fulfilled by the merchant
@@ -42,6 +43,7 @@ export interface ICommissionRecord extends Document {
   commissionRate: number;        // 0.05 (stored explicitly in case rate changes later)
   commissionAmount: number;      // Calculated: (orderTotal - refundedAmount) * commissionRate
   shopifyEventKey?: string;
+  stripeInvoiceId?: string;
  
   // Scheduling
   orderCreatedAt: Date;          // When Shopify order was placed
@@ -51,6 +53,7 @@ export interface ICommissionRecord extends Document {
  
   // Status
   status: CommissionStatus;
+  stripePaymentIntentId?: string; 
   holdReason: HoldReason;         // Populated when status === 'held', null otherwise
   reviewNote?: string;            // Set when status → 'review' or 'waived'
  
@@ -150,6 +153,7 @@ export interface IDupr {
 export interface IUser extends Document {
   _id: Types.ObjectId;
   accountClaimed: boolean;
+  brandOptin: boolean;
   name: string;
   auth0Id?: string;
   superAdmin?: string;
@@ -331,14 +335,59 @@ export interface IReward extends Document {
 
 export interface ShopifyData {
   shopDomain: string;
+  installUrl?: string;
   accessToken: string;
   secret: string;
   shopId?: string;   // Shopify GID e.g. "gid://shopify/Shop/12345678"
   refreshToken?: string;
   tokenExpiresAt?: Date;
   refreshTokenExpiresAt?: Date;
+  envKey?: string;
   hasActivePlan?: boolean;
   planHandle?: string
+}
+
+export interface IComplianceRequest extends Document {
+  topic: 'customers/data_request' | 'customers/redact' | 'shop/redact';
+  shopDomain: string;
+  customerId?: number;
+  customerEmail?: string;
+  ordersReferenced?: number[];
+  status: 'pending' | 'completed';
+  receivedAt: Date;
+  dueAt: Date;
+  completedAt?: Date;
+  notes?: string;
+}
+
+export interface IRewardProcessingLog extends Document {
+  _id: Types.ObjectId;
+  userId: Types.ObjectId;          // Player whose sync triggered this
+  matchId: string;                 // Match being processed
+  clientId?: Types.ObjectId;       // Brand client involved (reward/auth events)
+  rewardId?: Types.ObjectId;       // Reward involved
+  level: 'info' | 'warn' | 'error';
+  category: 'achievement' | 'reward_code' | 'auth_error' | 'generator' | 'general';
+  message: string;
+  metadata?: Record<string, unknown>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IStripeCustomer extends Document {
+  _id: Types.ObjectId;
+  clientId: Types.ObjectId;          // Ref to Client
+  stripeCustomerId: string;          // e.g. "cus_ABC123"
+  stripePaymentMethodId?: string;    // e.g. "pm_ABC123" — set after card is saved
+  billingEmail: string;              // Where Stripe invoices are sent
+  cardLast4?: string;                // For display in the UI
+  cardBrand?: string;                // e.g. "visa", "mastercard"
+  cardExpMonth?: number;
+  cardExpYear?: number;
+  bankLast4?: string;
+  bankName?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface PodplayData {

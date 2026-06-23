@@ -61,11 +61,11 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (error) {
-    logError(error, {
+    const errorId = logError(error, {
       message: 'Failed to save match from real-time service',
       endpoint: 'POST /api/match',
     });
 
-    return NextResponse.json({ success: false, error: 'There was an error saving the match.' }, { status: 500 });
+    return NextResponse.json({ errorId, success: false, error: 'There was an error saving the match.' }, { status: 500 });
   }
 }

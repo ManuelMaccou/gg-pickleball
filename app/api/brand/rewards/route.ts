@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
 import connectToDatabase from "@/lib/mongodb";
 import User from "@/app/models/User";
-import { logError } from "@/lib/sentry/logger";
+import { logError } from '@/lib/sentry/logger';
 import { requiresBrandAdmin } from "@/lib/auth/requiresBrandAdmin";
 
 export async function GET(request: NextRequest) {
@@ -119,7 +119,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    logError(error, { endpoint: 'GET /api/brand/rewards', clientId: verifiedClientId });
-    return NextResponse.json({ error: 'Failed to fetch rewards.' }, { status: 500 });
+    const errorId = logError(error, { endpoint: 'GET /api/brand/rewards', clientId: verifiedClientId });
+    return NextResponse.json({ errorId, error: 'Failed to fetch rewards.' }, { status: 500 });
   }
 }

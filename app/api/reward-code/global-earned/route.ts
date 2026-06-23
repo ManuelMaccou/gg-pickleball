@@ -3,6 +3,7 @@ import connectToDatabase from '@/lib/mongodb';
 import RewardCode from '@/app/models/RewardCode';
 import { IRewardCode } from '@/app/types/databaseTypes';
 import { Types } from 'mongoose';
+import { logError } from '@/lib/sentry/logger';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -41,6 +42,7 @@ export async function GET(req: NextRequest) {
 
   } catch (error) {
     console.error('Error fetching source-specific earned rewards:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    const errorId = logError(error, { endpoint: 'GET /api/reward-code/global-earned' });
+    return NextResponse.json({ errorId, error: 'Internal Server Error' }, { status: 500 });
   }
 }

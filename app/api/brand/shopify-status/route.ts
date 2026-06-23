@@ -1,4 +1,19 @@
 // app/api/brand/shopify-status/route.ts
+//
+// Called on every brand dashboard load to sync hasActivePlan to the DB
+// and return the current billing/connection status to the client.
+//
+// Custom mode (SHOPIFY_APP_MODE=custom):
+//   Early-returns after checking StripeCustomer.stripePaymentMethodId.
+//   No Shopify Admin API or Partner API calls are made.
+//   The rest of this file (token refresh, GraphQL query, Partner API check)
+//   is not executed in custom mode.
+//
+// Public mode (SHOPIFY_APP_MODE=public, default):
+//   Identical to the pre-refactor behaviour — untouched below the early-return.
+//
+// TO REVERT: set SHOPIFY_APP_MODE=public (or remove the env var).
+//   The isCustomAppMode() block is skipped and the full public path runs.
 
 import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
@@ -7,6 +22,8 @@ import Client from '@/app/models/Client';
 import { refreshShopifyToken, tokenNeedsRefresh } from '@/lib/shopify/refreshShopifyToken';
 import { logError } from '@/lib/sentry/logger';
 import { checkPartnerSubscription } from '@/lib/shopify/checkPartnerSubscription';
+import { isCustomAppMode } from '@/lib/shopify/appMode';
+import { checkBillingActive } from '@/lib/billing/checkBillingActive';
 
 const SHOPIFY_API_VERSION = '2025-10';
 
@@ -76,6 +93,38 @@ export async function GET(req: NextRequest) {
 
     await connectToDatabase();
 
+    // ── Custom mode: check Stripe payment method and return early ─────────────
+    // No Shopify API calls, no token refresh, no Partner API check.
+    // hasActivePlan is true iff a Stripe payment method is saved for this client.
+    if (isCustomAppMode()) {
+      const clientForStripe = await Client.findById(user.adminLocationId)
+        .select('shopify.shopDomain shopify.accessToken shopify.hasActivePlan')
+        .lean() as { shopify?: { shopDomain?: string; accessToken?: string; hasActivePlan?: boolean } } | null;
+
+      const { hasActiveBilling } = await checkBillingActive(user.adminLocationId);
+
+      if (hasActiveBilling !== clientForStripe?.shopify?.hasActivePlan) {
+        await Client.findByIdAndUpdate(user.adminLocationId, {
+          $set: { 'shopify.hasActivePlan': hasActiveBilling },
+        });
+        console.log(
+          `[ShopifyStatus] Custom mode — synced hasActivePlan: ${hasActiveBilling} for client ${user.adminLocationId}`
+        );
+      }
+
+      const hasStoredCredentials = !!(
+        clientForStripe?.shopify?.accessToken && clientForStripe?.shopify?.shopDomain
+      );
+
+      return NextResponse.json({
+        connected: hasStoredCredentials,
+        hasActivePlan: hasActiveBilling,
+      });
+    }
+
+    // ── Public mode: full token refresh + Admin API + Partner API path ────────
+    // Everything below is identical to the pre-refactor implementation.
+
     const client = await Client.findById(user.adminLocationId)
       .select('shopify.shopDomain shopify.accessToken shopify.tokenExpiresAt shopify.refreshToken shopify.hasActivePlan')
       .lean() as {
@@ -133,8 +182,8 @@ export async function GET(req: NextRequest) {
     try {
       result = await queryShopifyInstallation(shopDomain, accessToken);
     } catch (fetchErr) {
-      logError(fetchErr, { endpoint: 'GET /api/brand/shopify-status', task: 'GraphQL fetch' });
-      return NextResponse.json({ connected: false, reason: 'query_failed' });
+      const errorId = logError(fetchErr, { endpoint: 'GET /api/brand/shopify-status', task: 'GraphQL fetch' });
+      return NextResponse.json({ errorId, connected: false, reason: 'query_failed' });
     }
 
     if (result.status === 401) {
@@ -168,8 +217,8 @@ export async function GET(req: NextRequest) {
       try {
         result = await queryShopifyInstallation(shopDomain, refreshResult.accessToken);
       } catch (fetchErr) {
-        logError(fetchErr, { endpoint: 'GET /api/brand/shopify-status', task: 'GraphQL retry' });
-        return NextResponse.json({ connected: false, reason: 'query_failed' });
+        const errorId = logError(fetchErr, { endpoint: 'GET /api/brand/shopify-status', task: 'GraphQL retry' });
+        return NextResponse.json({ errorId, connected: false, reason: 'query_failed' });
       }
 
       if (result.status === 401 || result.status === 403) {
@@ -284,7 +333,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ connected: true, hasActivePlan: true });
 
   } catch (err) {
-    logError(err, { endpoint: 'GET /api/brand/shopify-status' });
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    const errorId = logError(err, { endpoint: 'GET /api/brand/shopify-status' });
+    return NextResponse.json({ errorId, error: 'Internal error' }, { status: 500 });
   }
 }

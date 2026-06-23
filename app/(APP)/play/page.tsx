@@ -480,7 +480,7 @@ export default function Play() {
                   const totalWins = statValues.reduce((sum, s) => sum + (s.wins ?? 0), 0);
                   const totalLosses = statValues.reduce((sum, s) => sum + (s.losses ?? 0), 0);
                   const totalMatches = totalWins + totalLosses;
-                  const duprRating = dbUser.dupr?.doublesRating ?? dbUser.dupr?.singlesRating;
+                  const duprRating = dbUser.dupr?.doublesRating ?? dbUser.dupr?.rating ?? null;
 
                   return (
                     <Flex gap="3">

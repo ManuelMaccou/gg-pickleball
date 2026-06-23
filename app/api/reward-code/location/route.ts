@@ -25,12 +25,11 @@ export async function GET(req: NextRequest) {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'An unknown error occurred';
     console.error('Error fetching reward codes by location:', message);
-
-    logError(new Error(`Internal server error: ${message}.`), {
-      endpoint: 'GET /api/reward-code/location',
-      task: 'Getting a reward code by location.',
-    });
     
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    const errorId = logError(error, { 
+      endpoint: 'GET /api/reward-code/location',
+      task: 'Getting a reward code by location.'
+    });
+    return NextResponse.json({ errorId, error: 'Internal Server Error' }, { status: 500 });
   }
 }

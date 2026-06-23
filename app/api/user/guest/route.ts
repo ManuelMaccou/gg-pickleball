@@ -67,11 +67,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: 'Guest user created', user: newUser }, { status: 201 })
   } catch (err) {
 
-    logError(new Error(`Failed to create guest token or set cookie: ${err}`), {
+    const errorId = logError(new Error(`Failed to create guest token or set cookie: ${err}`), {
       endpoint: 'POST /api/user/guest',
       task: 'Creating a guest token or set cookie.'
     });
 
-    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 })
+    return NextResponse.json({ errorId, error: 'Something went wrong. Please try again.' }, { status: 500 })
   }
 }

@@ -43,9 +43,10 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ message: 'Bulk rewards created', inserted }, { status: 201 });
   } catch (error) {
-    logError(error, {
+    const errorId = logError(error, {
       message: `Error creating rewards in bulk`,
+      endpoint: 'POST /api/reward/bulk'
     });
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ errorId, error: 'Internal server error' }, { status: 500 });
   }
 }

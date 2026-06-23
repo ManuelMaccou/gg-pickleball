@@ -142,7 +142,7 @@ export default function ApplyLandingPage() {
             <Button asChild size="4" radius="full" style={{ backgroundColor: '#b2ff00', color: '#0a0a0a' }}>
               <Link href="/auth/login?screen_hint=signup&returnTo=/apply/details">
                 <Flex align="center" gap="2">
-                  Verify my email
+                  Continue
                   <ArrowRight size={18} strokeWidth={2.5} />
                 </Flex>
               </Link>

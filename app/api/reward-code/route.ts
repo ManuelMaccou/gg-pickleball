@@ -47,13 +47,14 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ codes })
   } catch (error) {
-    logError(error, {
+    const errorId = logError(error, {
       message: `Error fetching reward codes`,
       userId: userId,
       clientId: clientId,
+      endpoint: 'GET /api/reward-code' 
     });
 
-    return NextResponse.json({ error: 'There was an unexpected error. Please try again.' }, { status: 500 })
+    return NextResponse.json({ errorId, error: 'There was an unexpected error. Please try again.' }, { status: 500 })
   }
 }
 
@@ -79,18 +80,18 @@ export async function POST(req: NextRequest) {
   } catch (error: unknown) {
     await session.abortTransaction();
 
-    logError(error, {
-      endpoint: 'POST /api/reward-code',
-      task: 'Creating a reward code.',
-    });
-
     // FIX: Safely check if the error is an Error object and inspect its message
     if (error instanceof Error && error.message.includes('Missing required fields')) {
-       return NextResponse.json({ error: 'Missing required fields for reward code.' }, { status: 400 });
+       const errorId = logError(error, { endpoint: 'POST /api/reward-code' });
+       return NextResponse.json({ errorId, error: 'Missing required fields for reward code.' }, { status: 400 });
     }
 
+    const errorId = logError(error, { 
+      endpoint: 'POST /api/reward-code',
+      task: 'Creating a reward code.'
+    });
     return NextResponse.json(
-      { error: 'An unexpected error happened. Please try again.' },
+      { errorId, error: 'An unexpected error happened. Please try again.' },
       { status: 500 }
     );
   } finally {

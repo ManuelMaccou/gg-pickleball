@@ -168,14 +168,13 @@ export async function POST(request: Request) {
     
     // Log the true root cause of the crash
     console.error('[PLAYWRIGHT_CRASH] An error occurred during the batch update process:', err);
-    logError(new Error(`Playwright batch update failed: ${err.message}`), {
+    const errorId = logError(new Error(`Playwright batch update failed: ${err.message}`), {
       endpoint: 'POST /api/pbp/create-discount/batch',
       stack: err.stack,
     });
 
-    // Return a proper JSON error so the client can parse it
     return NextResponse.json(
-      { error: 'Internal Server Error', details: 'A failure occurred during the automation process.' },
+      { errorId, error: 'Internal Server Error', details: 'A failure occurred during the automation process.' },
       { status: 500 }
     );
   } finally {

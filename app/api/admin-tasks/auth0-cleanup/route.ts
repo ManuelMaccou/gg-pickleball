@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser';
+import { logError } from '@/lib/sentry/logger';
 
 // Helper to get the Management API Token (Same as in your userService)
 async function getManagementApiToken(): Promise<string> {
@@ -103,6 +104,7 @@ export async function POST(req: NextRequest) {
 
   } catch (error: any) {
     console.error('Auth0 Cleanup Error:', error);
-    return NextResponse.json({ error: error.message || 'Failed to clean Auth0' }, { status: 500 });
+    const errorId = logError(error, { endpoint: 'POST /api/admin-tasks/auth0-cleanup' });
+    return NextResponse.json({ errorId, error: error.message || 'Failed to clean Auth0' }, { status: 500 });
   }
 }

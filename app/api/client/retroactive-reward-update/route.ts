@@ -10,6 +10,7 @@ import { createRewardCodeInDB } from "@/lib/rewards/createRewardCodeInDB";
 import { generateUniqueRewardCode } from "@/lib/rewards/generateUniqueRewardCode";
 import { createShopifyDiscountCode } from "@/lib/shopify/createShopifyDiscountCode"; 
 import { IAchievement, IReward, ISourceRewardConfig } from "@/app/types/databaseTypes";
+import { logError } from '@/lib/sentry/logger';
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
@@ -214,7 +215,8 @@ export async function POST(request: Request) {
 
           } catch (err: any) {
              await session.abortTransaction();
-             controller.enqueue(encoder.encode(JSON.stringify({ 
+             const errorId = logError(err, { endpoint: 'POST /api/client/retroactive-reward-update' });
+             controller.enqueue(encoder.encode(JSON.stringify({ errorId, 
                 type: 'UPDATE', 
                 status: 'error',
                 userName: user.name,
@@ -240,6 +242,7 @@ export async function POST(request: Request) {
 
   } catch (error: any) {
     console.error(error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const errorId = logError(error, { endpoint: 'POST /api/client/retroactive-reward-update' });
+    return NextResponse.json({ errorId, error: error.message }, { status: 500 });
   }
 }

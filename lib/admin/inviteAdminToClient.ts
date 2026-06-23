@@ -166,7 +166,7 @@ export async function inviteAdminToClient({
     template: 'gg_admin_invite',
     subject: `You've been invited to manage ${client.name}`,
     variables: {
-      headline: `Welcome, ${localUser.name}!`,
+      headline: `Welcome!`,
       body_text: bodyText,
       button_text: buttonText,
       action_url: actionUrl,

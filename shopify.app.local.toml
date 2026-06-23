@@ -1,0 +1,40 @@
+# deploy: shopify app deploy --config local
+
+client_id = "697313e4bf2304b130ef336d8b97b04e"
+name = "GG Pickleball (Local)"
+application_url = "https://5a42-2603-8000-b93d-6f72-2823-43f8-6293-82bd.ngrok-free.app/api/shopify/install"
+embedded = false
+
+[webhooks]
+api_version = "2026-04"
+
+# Compliance webhooks
+[[webhooks.subscriptions]]
+compliance_topics = ["customers/data_request"]
+uri = "/api/webhooks/shopify/compliance"
+
+[[webhooks.subscriptions]]
+compliance_topics = ["customers/redact"]
+uri = "/api/webhooks/shopify/compliance"
+
+[[webhooks.subscriptions]]
+compliance_topics = ["shop/redact"]
+uri = "/api/webhooks/shopify/compliance"
+
+# Orders webhook with filter
+[[webhooks.subscriptions]]
+topics = ["orders/paid"]
+uri = "/api/webhooks/shopify/order"
+filter = "discount_codes.code:GG*"
+
+[access_scopes]
+scopes = "read_discounts,write_discounts,read_orders"
+optional_scopes = []
+
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = ["https://5a42-2603-8000-b93d-6f72-2823-43f8-6293-82bd.ngrok-free.app/api/shopify/callback"]
+
+[build]
+automatically_update_urls_on_dev = false

@@ -16,6 +16,7 @@ import { useIsMobile } from '@/app/hooks/useIsMobile';
 import { AdminOnboardingChecklist } from '@/app/components/AdminOnboardingChecklist';
 import { RewardCardCustomizer } from '../components/RewardCardCustomizer';
 import { BrandPageShell } from '../components/BrandPageShell';
+import { MarketingExportCard } from '../components/MarketingExportCard';
 
 interface BrandDashboardStats {
   uniquePlayerCount: number;
@@ -110,6 +111,8 @@ export default function BrandAdminDashboard() {
     return hasPlanHandle;
   });
 
+  const [confirmPlanError, setConfirmPlanError] = useState(false);
+
   const [statsError, setStatsError] = useState<string | null>(null);
   const [rewardsError, setRewardsError] = useState<string | null>(null);
 
@@ -145,6 +148,33 @@ export default function BrandAdminDashboard() {
           return;
         }
         const data = await response.json();
+
+        // Approved application exists but Admin/Client setup never completed.
+        if (data.setupIncomplete) {
+          const { brandName, email, legalCompanyName, id } = data.application;
+          const subject = `Brand dashboard setup issue — ${brandName}`;
+          const body = [
+            `Hi GG Pickleball team,`,
+            ``,
+            `My brand application was approved, but I can't access my dashboard.`,
+            ``,
+            `Brand: ${brandName}`,
+            `Legal company name: ${legalCompanyName}`,
+            `Email: ${email}`,
+            `Application ID: ${id}`,
+            ``,
+            `Please investigate. Thanks!`,
+          ].join('\n');
+
+          setIsRedirecting(true);
+          router.replace(
+            `/error?reason=approved_setup_incomplete` +
+            `&mailtoSubject=${encodeURIComponent(subject)}` +
+            `&mailtoBody=${encodeURIComponent(body)}`
+          );
+          return;
+        }
+
         if (data.admin.permission) setAdminPermission(data.admin.permission);
         setLocation(data.location);
       } catch (error) {
@@ -286,9 +316,11 @@ export default function BrandAdminDashboard() {
           );
         } else {
           console.error('[BrandDashboard] confirm-plan failed:', await res.json());
+          setConfirmPlanError(true);
         }
       } catch (err) {
         console.error('[BrandDashboard] confirm-plan error:', err);
+        setConfirmPlanError(true);
       } finally {
         // Always release the gate — even if confirm-plan failed, don't leave
         // the page stuck in a loading state.
@@ -346,27 +378,63 @@ export default function BrandAdminDashboard() {
 
       {shopifyStatus === 'disconnected' &&
         shopifyStatusReason === 'uninstalled' &&
-        !shopifyStatusDismissed && (
+          !shopifyStatusDismissed && (
+            <Callout.Root color="amber" size="2">
+              <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
+              <Flex justify="between" align="center" gap="4" wrap="wrap" style={{ flex: 1 }}>
+                <Callout.Text>
+                  Your Shopify connection has been lost. This can happen if the app was
+                  uninstalled or access was revoked. Reconnect to restore full functionality.
+                </Callout.Text>
+                <Flex gap="3" align="center" style={{ flexShrink: 0 }}>
+                  <Button size="2" color="amber" variant="solid"
+                    onClick={() => router.push('/admin/brand/connect-shopify')}>
+                    Reconnect Shopify
+                  </Button>
+                  <Button size="2" variant="ghost" color="gray"
+                    onClick={() => setShopifyStatusDismissed(true)}>
+                    Dismiss
+                  </Button>
+                </Flex>
+              </Flex>
+            </Callout.Root>
+          )}
+
+      {shopifyStatus === 'disconnected' &&
+        shopifyStatusReason === 'no_plan' && (
           <Callout.Root color="amber" size="2">
             <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
             <Flex justify="between" align="center" gap="4" wrap="wrap" style={{ flex: 1 }}>
               <Callout.Text>
-                Your Shopify connection has been lost. This can happen if the app was
-                uninstalled or access was revoked. Reconnect to restore full functionality.
+                Your Shopify store is connected but no active plan is selected.
+                Choose a plan to start issuing rewards.
               </Callout.Text>
-              <Flex gap="3" align="center" style={{ flexShrink: 0 }}>
-                <Button size="2" color="amber" variant="solid"
-                  onClick={() => router.push('/admin/brand/connect-shopify')}>
-                  Reconnect Shopify
-                </Button>
-                <Button size="2" variant="ghost" color="gray"
-                  onClick={() => setShopifyStatusDismissed(true)}>
-                  Dismiss
-                </Button>
-              </Flex>
+              <Button size="2" color="amber" variant="solid"
+                onClick={() => router.push('/admin/brand/connect-shopify')}>
+                Select a Plan
+              </Button>
             </Flex>
           </Callout.Root>
         )}
+
+      {shopifyStatus === 'check_failed' && (
+        <Callout.Root color="red" size="2">
+          <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
+          <Callout.Text>
+            We couldn't verify your Shopify connection. Please refresh the page.
+            If this continues, try reconnecting your store.
+          </Callout.Text>
+        </Callout.Root>
+      )}
+
+      {confirmPlanError && (
+        <Callout.Root color="amber" size="2">
+          <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
+          <Callout.Text>
+            Your plan was selected but we couldn't confirm it. Please refresh the page.
+          </Callout.Text>
+        </Callout.Root>
+      )}
 
       {user && location && (
         <AdminOnboardingChecklist
@@ -494,6 +562,8 @@ export default function BrandAdminDashboard() {
           </Card>
         </Flex>
       </Grid>
+
+      <MarketingExportCard />
 
       <Box>
         <Flex align="center" gap="4" mb="1">

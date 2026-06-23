@@ -86,8 +86,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ rewards: finalRewards });
 
   } catch (error) {
-    logError(error, { message: 'Failed to fetch source reward configurations' });
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    const errorId = logError(error, { 
+      message: 'Failed to fetch source reward configurations',
+      endpoint: 'GET /api/source-reward-config'
+    });
+    return NextResponse.json({ errorId, error: 'Internal Server Error' }, { status: 500 });
   }
 }
 
@@ -145,8 +148,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ sourceRewardConfig: updatedConfig }, { status: 200 });
 
    } catch (error: unknown) {
-    logError(error, { message: 'Failed to create or update SourceRewardConfig' });
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    const errorId = logError(error, { 
+      message: 'Failed to create or update SourceRewardConfig',
+      endpoint: 'POST /api/source-reward-config'
+    });
+    return NextResponse.json({ errorId, error: 'Internal Server Error' }, { status: 500 });
   }
 }
 
@@ -196,7 +202,10 @@ export async function DELETE(req: NextRequest) {
     }, { status: 200 });
 
   } catch (error: unknown) {
-    logError(error, { message: 'Failed to remove source reward sponsorship' });
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    const errorId = logError(error, { 
+      message: 'Failed to remove source reward sponsorship' ,
+      endpoint: 'DELETE /api/source-reward-config'
+    });
+    return NextResponse.json({ errorId, error: 'Internal Server Error' }, { status: 500 });
   }
 }

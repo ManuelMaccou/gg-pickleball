@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
 
     if (cleanDescription.length < 30 || cleanDescription.length > 500) {
       return NextResponse.json(
-        { error: 'Description must be between 50 and 500 characters.' },
+        { error: 'Description must be between 30 and 500 characters.' },
         { status: 400 }
       );
     }
@@ -200,7 +200,7 @@ export async function POST(req: NextRequest) {
         template: 'gg_brand_application_received',
         subject: `We received your application for ${cleanBrandName}`,
         variables: {
-          headline: `Thanks for applying, ${dbUser.name}!`,
+          headline: `Thanks for applying!`,
           brand_name: cleanBrandName,
           body_text: `We received your application for ${cleanBrandName} and our team will review it shortly. We'll get back to you within a few business days.`,
         },
@@ -216,9 +216,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (err: any) {
     console.error('[BrandApplySubmit] Error:', err);
-    logError(err, { endpoint: 'POST /api/brand/apply/submit' });
+    const errorId = logError(err, { endpoint: 'POST /api/brand/apply/submit' });
     return NextResponse.json(
-      { error: 'Something went wrong. Please try again.' },
+      { errorId, error: 'Something went wrong. Please try again.' },
       { status: 500 }
     );
   }

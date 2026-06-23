@@ -33,12 +33,12 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ message: 'Achievement created', achievement: newAchievement }, { status: 201 });
   } catch (error) {
-     logError(error, {
+     const errorId = logError(error, {
       endpoint: 'POST /api/achievements',
       message: 'Failed to create new achievement object',
     });
 
-    return NextResponse.json({ error: 'There was an unexpected error. We are looking into it.' }, { status: 500 });
+    return NextResponse.json({ errorId, error: 'There was an unexpected error. We are looking into it.' }, { status: 500 });
   }
 }
 
@@ -66,11 +66,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ achievements });
 
   } catch (error) {
-    logError(error, {
+    const errorId = logError(error, {
       endpoint: 'GET /api/achievements',
       message: name ? `Failed to fetch achievement with name: ${name}` : 'Failed to fetch all achievements',
     });
     
-    return NextResponse.json({ error: 'There was an unexpected error. We are looking into it.' }, { status: 500 });
+    return NextResponse.json({ errorId, error: 'There was an unexpected error. We are looking into it.' }, { status: 500 });
   }
 }

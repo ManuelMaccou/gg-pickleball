@@ -3,7 +3,7 @@ import { FilterQuery, Types } from "mongoose";
 import connectToDatabase from "@/lib/mongodb";
 import Match from "@/app/models/Match";
 import { IMatch } from "@/app/types/databaseTypes";
-import { logError } from "@/lib/sentry/logger";
+import { logError } from '@/lib/sentry/logger';
 import { getAuthorizedUser } from "@/lib/auth/getAuthorizeduser";
 
 export async function GET(request: NextRequest) {
@@ -75,10 +75,11 @@ export async function GET(request: NextRequest) {
       hasNextPage: matches.length === limit,
     });
   } catch (error) {
-    logError(error, {
-      message: `Error fetching match history for userId: ${userId}`
-    });
     
-    return NextResponse.json({ error: "An unexpected error happened. Please try again." }, { status: 500 });
+    const errorId = logError(error, {
+      message: `Error fetching match history for userId: ${userId}`,
+      endpoint: 'GET /api/match/user' 
+    });
+    return NextResponse.json({ errorId, error: "An unexpected error happened. Please try again." }, { status: 500 });
   }
 }

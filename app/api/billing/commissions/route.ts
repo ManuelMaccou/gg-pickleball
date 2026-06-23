@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (err) {
-    logError(err, { endpoint: 'GET /api/billing/commissions' });
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    const errorId = logError(err, { endpoint: 'GET /api/billing/commissions' });
+    return NextResponse.json({ errorId, error: 'Internal error' }, { status: 500 });
   }
 }

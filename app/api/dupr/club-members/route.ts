@@ -10,6 +10,7 @@ import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser';
 import { authenticatedDuprFetch } from '@/lib/services/dupr/duprAuth';
 import connectToDatabase from '@/lib/mongodb';
 import { Club } from '@/app/models/Club';
+import { logError } from '@/lib/sentry/logger';
 
 function parseDuprRating(val: unknown): number | null {
   if (val == null || val === 'NR') return null;
@@ -83,6 +84,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ members });
   } catch (err) {
     console.error('[GET /api/dupr/club-members]', err);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    const errorId = logError(err, { endpoint: 'GET /api/dupr/club-members' });
+    return NextResponse.json({ errorId, error: 'Internal error' }, { status: 500 });
   }
 }

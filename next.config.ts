@@ -2,7 +2,7 @@ import {withSentryConfig} from "@sentry/nextjs";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  allowedDevOrigins: ['https://gg-pickleball.sentry.io'],
+  allowedDevOrigins: ['https://gg-pickleball.sentry.io', 'https://5a42-2603-8000-b93d-6f72-2823-43f8-6293-82bd.ngrok-free.app'],
   images: {
     remotePatterns: [
       {

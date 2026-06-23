@@ -9,9 +9,15 @@
 //
 // If the refresh token itself has expired (90 days), the merchant must
 // reconnect Shopify — nothing we can do programmatically.
+//
+// Custom mode: credentials (apiKey/apiSecret) are resolved per-client
+//   from env vars via getShopifyCredentials(client.shopify.envKey).
+// Public mode: shared SHOPIFY_API_KEY / SHOPIFY_API_SECRET are used.
+//   Behaviour is identical to pre-refactor.
 
 import Client from '@/app/models/Client';
 import { logError } from '@/lib/sentry/logger';
+import { getShopifyCredentials } from '@/lib/shopify/getShopifyCredentials';
 
 const REFRESH_BUFFER_MS = 5 * 60 * 1000; // 5 minutes before expiry
 
@@ -24,12 +30,13 @@ interface RefreshResult {
 export async function refreshShopifyToken(clientId: string): Promise<RefreshResult> {
   try {
     const client = await Client.findById(clientId)
-      .select('shopify.shopDomain shopify.refreshToken shopify.tokenExpiresAt')
+      .select('shopify.shopDomain shopify.refreshToken shopify.tokenExpiresAt shopify.envKey')
       .lean() as {
         shopify?: {
           shopDomain?: string;
           refreshToken?: string;
           tokenExpiresAt?: Date;
+          envKey?: string;
         };
       } | null;
 
@@ -37,7 +44,17 @@ export async function refreshShopifyToken(clientId: string): Promise<RefreshResu
       return { success: false, error: 'Missing shopDomain or refreshToken' };
     }
 
-    const { shopDomain, refreshToken } = client.shopify;
+    const { shopDomain, refreshToken, envKey } = client.shopify;
+
+    // Resolve credentials for this client — per-client in custom mode,
+    // shared in public mode.
+    const credentials = getShopifyCredentials(envKey);
+    if (!credentials) {
+      return {
+        success: false,
+        error: `Missing Shopify credentials for client ${clientId} (envKey: ${envKey ?? 'not set'})`,
+      };
+    }
 
     const res = await fetch(
       `https://${shopDomain}/admin/oauth/access_token`,
@@ -48,8 +65,8 @@ export async function refreshShopifyToken(clientId: string): Promise<RefreshResu
           Accept: 'application/json',
         },
         body: new URLSearchParams({
-          client_id: process.env.SHOPIFY_API_KEY!,
-          client_secret: process.env.SHOPIFY_API_SECRET!,
+          client_id: credentials.apiKey,
+          client_secret: credentials.apiSecret,
           grant_type: 'refresh_token',
           refresh_token: refreshToken,
         }),
@@ -58,10 +75,9 @@ export async function refreshShopifyToken(clientId: string): Promise<RefreshResu
 
     if (!res.ok) {
       const body = await res.text();
-      // 400/401 on the refresh endpoint means the refresh token expired
-      // The merchant needs to reconnect
+      // 400/401 on the refresh endpoint means the refresh token expired.
+      // The merchant needs to reconnect.
       if (res.status === 400 || res.status === 401) {
-        // Clear tokens so the dashboard shows the reconnect callout
         await Client.findByIdAndUpdate(clientId, {
           $unset: {
             'shopify.accessToken': '',
