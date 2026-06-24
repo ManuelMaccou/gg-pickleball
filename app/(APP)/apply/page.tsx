@@ -82,7 +82,7 @@ export default function ApplyLandingPage() {
               color: 'rgba(255,255,255,0.72)', lineHeight: 1.55,
               maxWidth: 560, display: 'block', margin: '0 auto',
             }}>
-              First, we'll verify your business email. Then we'll ask a few quick
+              First, we'll verify your email. Then we'll ask a few quick
               questions about your brand. The whole thing takes about two minutes.
             </Text>
           </Box>
@@ -103,8 +103,8 @@ export default function ApplyLandingPage() {
               {[
                 {
                   icon: <Mail size={16} strokeWidth={2.5} color="#b2ff00" />,
-                  label: 'A business email address',
-                  note: "Personal emails like gmail aren't accepted.",
+                  label: 'A verified email address',
+                  note: "Prove ownership of your email.",
                 },
                 {
                   icon: <Briefcase size={16} strokeWidth={2.5} color="#b2ff00" />,

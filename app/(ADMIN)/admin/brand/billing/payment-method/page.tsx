@@ -102,7 +102,7 @@ function PaymentSetupForm({
       )}
 
       <Box>
-        <Text size="2" weight="medium" mb="1">Payment details</Text>
+        <Text size="2" weight="medium" mb="1">Payment details </Text>
         <Text size="1" color="gray" mb="2">
           Your payment method will be charged automatically when commissions are due.
         </Text>

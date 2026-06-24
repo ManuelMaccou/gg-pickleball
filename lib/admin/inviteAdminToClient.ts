@@ -159,7 +159,7 @@ export async function inviteAdminToClient({
   const buttonText = resetLink ? 'Set Your Password' : 'Go to Dashboard';
   const bodyText = resetLink
     ? `You have been added as an admin to ${client.name} on GG Pickleball. Please set your password to access your new partner dashboard.`
-    : `You have been added as an admin to ${client.name} on GG Pickleball. You can now access this location's settings from your partner dashboard.`;
+    : `You have been added as an admin to ${client.name} on GG Pickleball. You can now access your brand's settings from your partner dashboard.`;
 
   await sendNotificationEmail({
     email: normalizedEmail,
