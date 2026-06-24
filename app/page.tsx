@@ -318,7 +318,6 @@ const BrandScreen = () => (
         padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
         <span style={{ fontSize: 12, fontWeight: 500, color: '#0f172a' }}>Billing</span>
-        <div style={{ background: 'rgba(34,197,94,0.1)', border: '0.5px solid rgba(34,197,94,0.2)', borderRadius: 999, padding: '2px 8px', fontSize: 10, color: '#16a34a', fontWeight: 500 }}>Managed by Shopify</div>
       </div>
       <div style={{ padding: 14 }}>
         <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
@@ -400,7 +399,7 @@ const AudienceSection = ({
         size="1"
         weight="bold"
         mb="2"
-        style={{ color: 'var(--lime-11)', letterSpacing: '0.12em', textTransform: 'uppercase' }}
+        style={{ color: 'var(--lime-10)', letterSpacing: '0.12em', textTransform: 'uppercase' }}
       >
         {eyebrow}
       </Text>
@@ -423,7 +422,7 @@ const AudienceSection = ({
       <Text
         size="3"
         mb="5"
-        style={{ color: dark ? 'rgba(255,255,255,0.6)' : 'var(--slate-11)', lineHeight: 1.7, maxWidth: 480 }}
+        style={{ color: dark ? '#FFFFFF' : 'var(--slate-11)', lineHeight: 1.7, maxWidth: 480 }}
       >
         {body}
       </Text>
@@ -432,7 +431,7 @@ const AudienceSection = ({
         {checks.map((c) => (
           <Flex key={c} align="center" gap="2">
             <Check size={15} strokeWidth={3} color="#84cc16" style={{ flexShrink: 0 }} />
-            <Text size="2" style={{ color: dark ? 'rgba(255,255,255,0.6)' : 'var(--slate-11)' }}>{c}</Text>
+            <Text size="2" style={{ color: dark ? 'rgba(255,255,255,0.8)' : 'var(--slate-11)' }}>{c}</Text>
           </Flex>
         ))}
       </Flex>
@@ -495,12 +494,92 @@ const FaqItem = ({
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Billing extra content — switches on NEXT_PUBLIC_SHOPIFY_APP_MODE
+// ─────────────────────────────────────────────────────────────────────────────
+
+const isCustomApp = process.env.NEXT_PUBLIC_SHOPIFY_APP_MODE === 'custom';
+
+const BrandBillingCard = isCustomApp ? (
+  // ── Custom app mode: performance-based billing via Stripe ──
+  <Card style={{ background: 'var(--slate-1)', border: '1px solid var(--slate-4)', padding: 20, marginTop: 8 }}>
+    <Flex justify="between" align="center" mb="3">
+      <Text size="2" weight="bold" style={{ color: 'var(--slate-12)' }}>No upfront cost</Text>
+      <Badge color="green" variant="soft" radius="full">✓ Pay on performance</Badge>
+    </Flex>
+    <Text size="2" style={{ color: 'var(--slate-11)', lineHeight: 1.65, display: 'block', marginBottom: 12 }}>
+      You only pay a 5% commission when a GG Pickleball referral turns into a real sale.
+      No monthly fee, no ad spend, no risk. Returns within 30 days are automatically
+      factored in. You're never charged on money you didn't keep.
+    </Text>
+    <Grid columns="2" gap="2">
+      {[
+        'No monthly fee or setup cost',
+        '5% commission on net sales only',
+        'Full returns within 30 days waive the fee',
+        'Partial refunds reduce the commission proportionally',
+      ].map((label) => (
+        <Flex key={label} align="center" gap="2" style={{
+          background: 'var(--slate-2)', borderRadius: 8, padding: '8px 10px',
+          border: '1px solid var(--slate-3)',
+        }}>
+          <Check size={13} strokeWidth={3} color="#84cc16" style={{ flexShrink: 0 }} />
+          <Text size="1" style={{ color: 'var(--slate-11)' }}>{label}</Text>
+        </Flex>
+      ))}
+    </Grid>
+  </Card>
+) : (
+  // ── Public app mode: billing managed by Shopify ──
+  <Card style={{ background: 'var(--slate-1)', border: '1px solid var(--slate-4)', padding: 20, marginTop: 8 }}>
+    <Flex justify="between" align="center" mb="3">
+      <Text size="2" weight="bold" style={{ color: 'var(--slate-12)' }}>Billing via Shopify</Text>
+      <Badge color="green" variant="soft" radius="full">✓ Managed by Shopify</Badge>
+    </Flex>
+    <Text size="2" style={{ color: 'var(--slate-11)', lineHeight: 1.65, display: 'block', marginBottom: 12 }}>
+      Commissions bill automatically through your Shopify subscription — 30 days after each order.
+      Returns and disputes are evaluated before any charge is made. No separate payment method needed.
+    </Text>
+    <Grid columns="2" gap="2">
+      {[
+        'One invoice per billing cycle',
+        'Returns auto-adjust the fee',
+        'Disputes waive the charge',
+        'No separate payment setup',
+      ].map((label) => (
+        <Flex key={label} align="center" gap="2" style={{
+          background: 'var(--slate-2)', borderRadius: 8, padding: '8px 10px',
+          border: '1px solid var(--slate-3)',
+        }}>
+          <Check size={13} strokeWidth={3} color="#84cc16" style={{ flexShrink: 0 }} />
+          <Text size="1" style={{ color: 'var(--slate-11)' }}>{label}</Text>
+        </Flex>
+      ))}
+    </Grid>
+  </Card>
+);
+
+// Checklist items also vary by mode
+const brandChecks = isCustomApp
+  ? [
+      'Audience verified by official match data, not self-reported',
+      '5% commission on net sales only — zero upfront cost',
+      'Connect your existing Shopify store in minutes',
+      'See who earned, who redeemed, and what converted',
+    ]
+  : [
+      'Audience verified by official match data, not self-reported',
+      '5% commission on net sales. Waived on returns',
+      'Connect your existing Shopify store in minutes',
+      'See who earned, who redeemed, and what converted',
+    ];
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Page
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
   const router = useRouter();
-  const { isLoading: auth0IsLoading } = useAuth0User();
+  const { isLoading: auth0IsLoading, user } = useAuth0User();
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
   // Preserved exactly from original
@@ -564,7 +643,7 @@ export default function HomePage() {
         }} />
 
         <Container size="4" px="5" style={{ position: 'relative', zIndex: 10 }}>
-          <Flex justify="between" align="center" pt="9" mb="6">
+          <Flex justify={{initial: 'center', md: 'between'}} align="center" pt="9" mb="6">
             <Badge color="lime" variant="soft" size="2" radius="full" className={styles.fadeIn} style={{
               border: '1px solid var(--lime-a6)',
               backgroundColor: 'rgba(178, 255, 0, 0.08)',
@@ -578,9 +657,12 @@ export default function HomePage() {
               </Flex>
             </Badge>
             {/* Preserved: /auth/login?returnTo=/play */}
-            <Button asChild variant="solid" size="3" radius="full" color="lime">
-              <Link href="/auth/login?returnTo=/api/auth/redirect">Access your account</Link>
-            </Button>
+            <Flex display={{initial: 'none', md: 'flex'}}>
+              <Button  asChild variant="solid" size="3" radius="full" color="lime">
+                <Link  href="/auth/login?returnTo=/api/auth/redirect">Access your account</Link>
+              </Button>
+            </Flex>
+            
           </Flex>
 
           <Flex align="center" style={{ minHeight: '80vh' }} pb="9">
@@ -610,7 +692,7 @@ export default function HomePage() {
                 <Button asChild size="4" radius="full" color="lime">
                   <Link href="/auth/login?screen_hint=signup&returnTo=/play">
                     <Flex align="center" gap="2">
-                      Sign up free
+                      {!auth0IsLoading && !user ? "Sign up free" : "Access your account"}
                       <ArrowRight size={18} strokeWidth={2.5} />
                     </Flex>
                   </Link>
@@ -637,7 +719,7 @@ export default function HomePage() {
       </Box>
 
       {/* ============ PLAYERS SECTION ============ */}
-      <Box py="9" style={{ backgroundColor: '#0d0d0d', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+      <Box py="9" style={{ backgroundColor: '#353535', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
         <Container size="4" px="5">
           <AudienceSection
             tag="For players"
@@ -658,7 +740,7 @@ export default function HomePage() {
       </Box>
 
       {/* ============ CLUBS SECTION ============ */}
-      <Box py="9" style={{ backgroundColor: '#0a0a0a', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+      <Box py="9" style={{ backgroundColor: '#353535', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
         <Container size="4" px="5">
           <AudienceSection
             tag="For clubs & organizers"
@@ -686,42 +768,10 @@ export default function HomePage() {
             titleLine1="Reach players who are"
             titleAccent="actively competing."
             body="GG connects your Shopify store to a verified player base. You set the discount, we surface it the moment a player earns it. You only pay a 5% commission on actual sales. No ad spend, no guesswork."
-            checks={[
-              'Audience verified by official match data, not self-reported',
-              '5% commission on net sales. Waived on returns',
-              'Connect your existing Shopify store in minutes',
-              'See who earned, who redeemed, and what converted',
-            ]}
+            checks={brandChecks}
             screen={<BrandScreen />}
             screenRight
-            extraContent={
-              <Card style={{ background: 'var(--slate-1)', border: '1px solid var(--slate-4)', padding: 20, marginTop: 8 }}>
-                <Flex justify="between" align="center" mb="3">
-                  <Text size="2" weight="bold" style={{ color: 'var(--slate-12)' }}>Billing via Shopify</Text>
-                  <Badge color="green" variant="soft" radius="full">✓ Managed by Shopify</Badge>
-                </Flex>
-                <Text size="2" style={{ color: 'var(--slate-11)', lineHeight: 1.65, display: 'block', marginBottom: 12 }}>
-                  Commissions bill automatically through your Shopify subscription — 30 days after each order.
-                  Returns and disputes are evaluated before any charge is made. No separate payment method needed.
-                </Text>
-                <Grid columns="2" gap="2">
-                  {[
-                    'One invoice per billing cycle',
-                    'Returns auto-adjust the fee',
-                    'Disputes waive the charge',
-                    'No separate payment setup',
-                  ].map((label) => (
-                    <Flex key={label} align="center" gap="2" style={{
-                      background: 'var(--slate-2)', borderRadius: 8, padding: '8px 10px',
-                      border: '1px solid var(--slate-3)',
-                    }}>
-                      <Check size={13} strokeWidth={3} color="#84cc16" style={{ flexShrink: 0 }} />
-                      <Text size="1" style={{ color: 'var(--slate-11)' }}>{label}</Text>
-                    </Flex>
-                  ))}
-                </Grid>
-              </Card>
-            }
+            extraContent={BrandBillingCard}
           />
         </Container>
       </Box>
