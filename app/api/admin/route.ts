@@ -39,7 +39,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "There was an error completing this request." }, { status: 400 });
     }
 
-    const admin = await Admin.findOne({ user: userId }).populate("location").lean() as any;
+    const admin = await Admin.findOne({ user: userId })
+      .populate('location', '-shopify.accessToken -shopify.refreshToken -shopify.secret')
+      .lean() as any;
 
     if (!admin) {
       // No Admin record — before falling back to "not a brand partner," check

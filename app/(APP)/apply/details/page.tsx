@@ -405,7 +405,7 @@ export default function ApplyDetailsPage() {
                           <Link href="/legal/partnership-agreement" target="_blank" style={{ color: '#b2ff00', textDecoration: 'underline' }}>
                             GG Pickleball Brand Partner Agreement
                           </Link>
-                          , including the 5% commission on redeemed sales. This constitutes a legally binding electronic signature under the E-SIGN Act.
+                          , including the 5% commission on redeemed sales.
                         </Text>
                       </Box>
                     </label>

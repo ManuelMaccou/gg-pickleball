@@ -191,12 +191,17 @@ export default function BrandAdminDashboard() {
   // ── Effect 2: Shopify status check ──
   useEffect(() => {
     if (!location) return;
+
+    // accessToken is stripped from /api/admin for security — check shopDomain
+    // only to determine if Shopify was ever connected. The live status check
+    // confirms whether the connection is still valid.
     const isShopifyConnectedInDB = !!(
       location.retailSoftware === 'shopify' &&
-      location.shopify?.shopDomain &&
-      location.shopify?.accessToken
+      location.shopify?.shopDomain
     );
+
     if (!isShopifyConnectedInDB) { setShopifyStatus('disconnected'); return; }
+
     const checkConnection = async () => {
       try {
         const res = await fetch('/api/brand/shopify-status');
@@ -204,12 +209,19 @@ export default function BrandAdminDashboard() {
         if (!res.ok) { setShopifyStatus('check_failed'); return; }
         if (data.connected) {
           setShopifyStatus('connected');
-          // Sync hasActivePlan from the live check back into local state
-          if (data.hasActivePlan !== undefined) {
-            setLocation((prev) =>
-              prev ? ({ ...prev, shopify: { ...prev.shopify, hasActivePlan: data.hasActivePlan } } as unknown as IClient) : null
-            );
-          }
+          setLocation((prev) =>
+            prev ? ({
+              ...prev,
+              shopify: {
+                ...prev.shopify,
+                hasActivePlan: data.hasActivePlan ?? prev.shopify?.hasActivePlan,
+                // accessToken is stripped from /api/admin for security. Use a
+                // sentinel value so the checklist knows Shopify is connected
+                // without the real token ever reaching the client.
+                accessToken: prev.shopify?.accessToken || 'connected',
+              }
+            } as unknown as IClient) : null
+          );
         } else {
           setShopifyStatus('disconnected');
           setShopifyStatusReason(data.reason ?? null);
