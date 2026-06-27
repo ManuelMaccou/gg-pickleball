@@ -12,6 +12,8 @@ import {
 const AGREEMENT_VERSION = '1.0';
 const EFFECTIVE_DATE = 'May 18, 2026';
 
+const isCustomApp = process.env.NEXT_PUBLIC_SHOPIFY_APP_MODE === 'custom';
+
 export default function PartnershipAgreementPage() {
   return (
     <Box style={{ backgroundColor: '#ffffff', minHeight: '100vh' }}>
@@ -94,7 +96,9 @@ export default function PartnershipAgreementPage() {
               <BulletList items={[
                 'Connect their Shopify storefront to the Platform in accordance with GG Pickleball\'s onboarding instructions;',
                 'Configure at least one active Promo Code within the Platform; and',
-                'Maintain an active subscription to the GG Pickleball app through Shopify, which governs billing for platform commissions.',
+                isCustomApp
+                  ? 'Complete billing setup through GG Pickleball\'s onboarding flow, which governs commission collection for platform activity.'
+                  : 'Maintain an active subscription to the GG Pickleball app through Shopify, which governs billing for platform commissions.',
               ]} />
               <Para>The Brand Partner's account will not go live until all of the above requirements are satisfied.</Para>
             </SubSection>
@@ -128,7 +132,11 @@ export default function PartnershipAgreementPage() {
               <Para>GG Pickleball charges a Commission equal to five percent (5%) of the Net Order Value of each Order placed using a Promo Code. The Commission rate applicable to each Order is stored at the time the Order is recorded and governs that Order regardless of any subsequent rate changes.</Para>
             </SubSection>
             <SubSection title="4.2 Billing Cycle">
-              <Para>Commissions are collected thirty (30) days after the Order date via Shopify's app billing infrastructure. Each Order generates a separate billing event submitted to Shopify thirty (30) days after the Order date, identifying the Order and the applicable commission amount. Shopify collects the Commission as part of the Brand Partner's app subscription billing cycle.</Para>
+              {isCustomApp ? (
+                <Para>Commissions are collected thirty (30) days after the Order date. Each Order generates a separate billing event thirty (30) days after the Order date, identifying the Order and the applicable commission amount. Commissions are collected automatically through GG Pickleball's billing system as part of the Brand Partner's account activity.</Para>
+              ) : (
+                <Para>Commissions are collected thirty (30) days after the Order date. Each Order generates a separate billing event submitted to Shopify thirty (30) days after the Order date, identifying the Order and the applicable commission amount. Shopify collects the Commission as part of the Brand Partner's app subscription billing cycle.</Para>
+              )}
             </SubSection>
             <SubSection title="4.3 Returns, Refunds, and Disputes">
               <Para>The Commission owed on any Order is subject to adjustment based on the following rules, which are evaluated on day 30 after the Order date and, for held orders, every five (5) days thereafter until day 60:</Para>
@@ -142,13 +150,21 @@ export default function PartnershipAgreementPage() {
               ]} />
             </SubSection>
             <SubSection title="4.4 Subscription Requirement">
-              <Para>The Brand Partner must maintain an active Shopify app subscription at all times while the account is active. If the subscription lapses, is cancelled, or is frozen due to a billing issue, GG Pickleball may suspend the Brand Partner's account until the subscription is restored. Shopify will notify the Brand Partner of billing issues through its standard merchant communications.</Para>
+              {isCustomApp ? (
+                <Para>The Brand Partner must maintain an active billing relationship with GG Pickleball at all times while the account is active. If the billing relationship lapses or is suspended due to a payment issue, GG Pickleball may suspend the Brand Partner's account until the issue is resolved. GG Pickleball will notify the Brand Partner of billing issues through the Brand Partner's registered account email.</Para>
+              ) : (
+                <Para>The Brand Partner must maintain an active Shopify app subscription at all times while the account is active. If the subscription lapses, is cancelled, or is frozen due to a billing issue, GG Pickleball may suspend the Brand Partner's account until the subscription is restored. Shopify will notify the Brand Partner of billing issues through its standard merchant communications.</Para>
+              )}
             </SubSection>
             <SubSection title="4.5 Commission Rate Changes">
               <Para>GG Pickleball may update the Commission rate applicable to future Orders upon sixty (60) days' prior written notice to the Brand Partner. If the Brand Partner does not accept the new rate, the Brand Partner may terminate this Agreement without penalty by providing written notice of termination before the new rate takes effect. Continued participation in the Platform after the new rate takes effect constitutes acceptance of the updated rate.</Para>
             </SubSection>
             <SubSection title="4.6 Billing Records">
-              <Para>GG Pickleball maintains records of all billing events submitted to Shopify. The Brand Partner may request a summary of billing events by contacting GG Pickleball. GG Pickleball's billing records constitute the authoritative source for Commission calculations, absent manifest error. Shopify's billing statements serve as the authoritative record of charges actually collected.</Para>
+              {isCustomApp ? (
+                <Para>GG Pickleball maintains records of all billing events and Commission calculations. The Brand Partner may request a summary of billing activity by contacting GG Pickleball. GG Pickleball's billing records constitute the authoritative source for Commission calculations, absent manifest error.</Para>
+              ) : (
+                <Para>GG Pickleball maintains records of all billing events submitted to Shopify. The Brand Partner may request a summary of billing events by contacting GG Pickleball. GG Pickleball's billing records constitute the authoritative source for Commission calculations, absent manifest error. Shopify's billing statements serve as the authoritative record of charges actually collected.</Para>
+              )}
             </SubSection>
           </Section>
 
@@ -158,7 +174,9 @@ export default function PartnershipAgreementPage() {
             <BulletList items={[
               'Maintain a functional, publicly accessible Shopify storefront throughout the term of this Agreement;',
               'Keep their Shopify integration with the Platform connected and in good standing;',
-              'Maintain an active GG Pickleball app subscription through Shopify;',
+              isCustomApp
+                ? 'Maintain an active billing relationship with GG Pickleball and keep payment information current;'
+                : 'Maintain an active GG Pickleball app subscription through Shopify;',
               'Ensure that product listings, pricing, and Promo Code terms displayed on the Platform accurately reflect what is available at checkout;',
               'Notify GG Pickleball in writing within five (5) business days if the Brand Partner\'s Shopify store undergoes any material change, including but not limited to a domain change, store suspension, change of ownership, or discontinuation of operations; and',
               'Comply with all applicable laws and regulations in connection with the Brand Partner\'s products, services, and promotional activities.',
@@ -255,7 +273,9 @@ export default function PartnershipAgreementPage() {
             <SubSection title="10.4 Termination for Cause">
               <Para>GG Pickleball may terminate this Agreement immediately upon written notice to the Brand Partner in the event of:</Para>
               <BulletList items={[
-                'Lapse or cancellation of the Brand Partner\'s Shopify app subscription that remains unresolved for more than ten (10) days;',
+                isCustomApp
+                  ? 'Lapse or cancellation of the Brand Partner\'s billing relationship with GG Pickleball that remains unresolved for more than ten (10) days;'
+                  : 'Lapse or cancellation of the Brand Partner\'s Shopify app subscription that remains unresolved for more than ten (10) days;',
                 'Material breach of this Agreement by the Brand Partner that remains uncured for ten (10) days after written notice of such breach;',
                 'The Brand Partner\'s Shopify store becoming permanently inactive or suspended;',
                 'Violation of the prohibited brand or content policies set forth in Section 2.2; or',

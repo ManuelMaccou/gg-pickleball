@@ -75,6 +75,9 @@ export async function GET(req: NextRequest) {
 
     const data = await response.json();
 
+    console.log('DUPR Club memebers response:', data);
+    console.log('DUPR Club memebers ratings:', data.results?.map((m: any) => m.ratings));
+
     const members = (data?.results ?? []).map((m: any) => ({
       duprId: m.id,
       fullName: m.fullName ?? 'Unknown',
