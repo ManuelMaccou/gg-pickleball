@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useUser as useAuth0User } from '@auth0/nextjs-auth0';
 import {
   Container,
@@ -11,7 +10,6 @@ import {
   Box,
   Heading,
   Text,
-  Card,
   Badge,
   Button,
   Spinner,
@@ -24,6 +22,7 @@ import {
   Check,
   Plus,
   Minus,
+  ExternalLink,
 } from 'lucide-react';
 import styles from './(APP)/HomePage.module.css';
 
@@ -164,194 +163,50 @@ const PlayerScreen = () => (
   </div>
 );
 
-const ClubScreen = () => (
-  <div style={{
-    background: '#111',
-    borderRadius: 16,
-    border: '0.5px solid rgba(255,255,255,0.1)',
-    overflow: 'hidden',
-    boxShadow: '0 32px 64px rgba(0,0,0,0.5)',
-  }}>
+// ─────────────────────────────────────────────────────────────────────────────
+// Tournament showcase card (new — public, no DUPR references, Section 5.2/6)
+// Each card is a placeholder for a real, GG-partnered tournament and should
+// link out to that tournament's own external registration page once wired
+// to real data.
+// ─────────────────────────────────────────────────────────────────────────────
+
+type Tournament = {
+  name: string;
+  location: string;
+  dateLabel: string;
+  blurb: string;
+  gradient: string;
+  href: string;
+};
+
+// Sample data — swap for a real tournaments feed/API when available.
+const tournaments: Tournament[] = [
+  { name: 'Westside Fall Slam', location: 'Los Angeles, CA', dateLabel: 'Oct 4–5', blurb: 'Rewards from Acme Paddles & Hydro', gradient: 'linear-gradient(135deg,#76D775,#2d5a27)', href: '#' },
+  { name: 'Coastal Doubles Classic', location: 'San Diego, CA', dateLabel: 'Oct 18', blurb: 'Rewards from Pulse & Hydro', gradient: 'linear-gradient(135deg,#609FDD,#0e3a5a)', href: '#' },
+  { name: 'Rocky Mountain Open', location: 'Denver, CO', dateLabel: 'Nov 1–2', blurb: 'Rewards from Acme Paddles', gradient: 'linear-gradient(135deg,#E76EE7,#3d1f3d)', href: '#' },
+  { name: 'Sunbelt Showdown', location: 'Austin, TX', dateLabel: 'Nov 15', blurb: 'Rewards from Pulse & Acme Paddles', gradient: 'linear-gradient(135deg,#E29E5B,#5a3a0e)', href: '#' },
+];
+
+const TournamentCard = ({ name, location, dateLabel, blurb, gradient, href }: Tournament) => (
+  <a href={href} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
     <div style={{
-      background: 'rgba(255,255,255,0.05)',
-      borderBottom: '0.5px solid rgba(255,255,255,0.08)',
-      padding: '10px 16px',
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      background: '#111', borderRadius: 14, overflow: 'hidden', height: '100%',
+      border: '0.5px solid rgba(255,255,255,0.08)',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>
-        <span>Clubs</span>
-        <span style={{ opacity: 0.4 }}>›</span>
-        <span style={{ color: 'rgba(255,255,255,0.75)' }}>Tuesday Round Robin</span>
-      </div>
-      <div style={{
-        background: '#a3e635', color: '#0f0f0f', fontSize: 10, fontWeight: 500,
-        padding: '4px 10px', borderRadius: 999, display: 'flex', alignItems: 'center', gap: 4,
-      }}>
-        ↑ Submit to DUPR
-      </div>
-    </div>
-
-    <div style={{ padding: 14 }}>
-      <div style={{ marginBottom: 10 }}>
-        <div style={{ fontSize: 13, fontWeight: 500, color: '#fff' }}>Tuesday Round Robin</div>
-        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>May 20, 2026 · 12 players · Westside PB Club</div>
-      </div>
-
-      {/* match card */}
-      <div style={{ background: '#1a1a1a', borderRadius: 10, padding: 12, marginBottom: 10 }}>
-        <div style={{ fontSize: 9, fontWeight: 500, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
-          Match 1 · Doubles
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 14px 1fr', gap: 6, alignItems: 'center', marginBottom: 10 }}>
-          <div>
-            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)', marginBottom: 4 }}>Team A</div>
-            {[['AK', 'Alex K.', '#a3e635'], ['JM', 'Jordan M.', '#a3e635']].map(([init, name, col]) => (
-              <div key={init} style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3 }}>
-                <div style={{ width: 18, height: 18, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 500, color: col, flexShrink: 0 }}>{init}</div>
-                <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.8)' }}>{name}</span>
-              </div>
-            ))}
-          </div>
-          <div style={{ textAlign: 'center', fontSize: 10, color: 'rgba(255,255,255,0.2)' }}>vs</div>
-          <div>
-            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)', marginBottom: 4 }}>Team B</div>
-            {[['RL', 'Ryan L.', 'rgba(255,255,255,0.4)'], ['SP', 'Sam P.', 'rgba(255,255,255,0.4)']].map(([init, name, col]) => (
-              <div key={init} style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3 }}>
-                <div style={{ width: 18, height: 18, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 500, color: col, flexShrink: 0 }}>{init}</div>
-                <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.8)' }}>{name}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
-          <div style={{ background: 'rgba(132,204,22,0.12)', border: '0.5px solid rgba(132,204,22,0.25)', borderRadius: 5, padding: '3px 10px', fontSize: 12, fontWeight: 500, color: '#a3e635' }}>11</div>
-          <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)' }}>—</div>
-          <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 5, padding: '3px 10px', fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>7</div>
-          <div style={{ marginLeft: 'auto', background: 'rgba(132,204,22,0.1)', border: '0.5px solid rgba(132,204,22,0.2)', borderRadius: 5, padding: '2px 7px' }}>
-            <span style={{ fontSize: 9, color: '#a3e635' }}>✓ Submitted</span>
-          </div>
-        </div>
-      </div>
-
-      {/* sync status */}
-      <div style={{ background: '#1a1a1a', borderRadius: 10, padding: 12 }}>
-        <div style={{ fontSize: 9, fontWeight: 500, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Player sync status</div>
-        {([
-          ['AK', 'Alex K.', 'synced'],
-          ['JM', 'Jordan M.', 'synced'],
-          ['RL', 'Ryan L.', 'pending'],
-          ['SP', 'Sam P.', 'nodupr'],
-        ] as [string, string, string][]).map(([init, name, status]) => (
-          <div key={init} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '0.5px solid rgba(255,255,255,0.06)', fontSize: 11, color: 'rgba(255,255,255,0.65)' }}>
-            <div style={{ width: 18, height: 18, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: status === 'synced' ? '#a3e635' : 'rgba(255,255,255,0.4)' }}>{init}</div>
-            <span style={{ flex: 1 }}>{name}</span>
-            <span style={{
-              fontSize: 9, fontWeight: 500, padding: '1px 6px', borderRadius: 4,
-              background: status === 'synced' ? 'rgba(132,204,22,0.1)' : status === 'nodupr' ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.05)',
-              color: status === 'synced' ? '#84cc16' : status === 'nodupr' ? '#f59e0b' : 'rgba(255,255,255,0.35)',
-            }}>
-              {status === 'synced' ? '✓ Synced' : status === 'nodupr' ? '⚠ No DUPR' : '⏱ Pending'}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  </div>
-);
-
-const BrandScreen = () => (
-  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-    {/* dashboard panel */}
-    <div style={{
-      background: '#f8fafc', borderRadius: 16,
-      border: '0.5px solid rgba(0,0,0,0.08)', overflow: 'hidden',
-      boxShadow: '0 16px 40px rgba(0,0,0,0.1)',
-    }}>
-      <div style={{
-        background: 'rgba(255,255,255,0.85)', borderBottom: '0.5px solid rgba(0,0,0,0.07)',
-        padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      }}>
-        <span style={{ fontSize: 12, fontWeight: 500, color: '#0f172a' }}>Dashboard</span>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <div style={{ background: 'rgba(34,197,94,0.1)', border: '0.5px solid rgba(34,197,94,0.2)', borderRadius: 999, padding: '2px 8px', fontSize: 10, color: '#16a34a', fontWeight: 500 }}>✓ Shopify Active</div>
-        </div>
+      <div style={{ height: 92, background: gradient, position: 'relative', padding: 12, display: 'flex', alignItems: 'flex-end' }}>
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 30%, rgba(0,0,0,0.75))' }} />
+        <div style={{ position: 'relative', zIndex: 1, fontSize: 11, color: 'rgba(255,255,255,0.7)' }}>{dateLabel}</div>
       </div>
       <div style={{ padding: 14 }}>
-        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-          {[['Players engaged', '284'], ['Rewards issued', '61']].map(([lbl, val]) => (
-            <div key={lbl} style={{ flex: 1, background: '#fff', borderRadius: 8, padding: '10px 12px', border: '0.5px solid rgba(0,0,0,0.07)' }}>
-              <div style={{ fontSize: 10, color: '#64748b', marginBottom: 2 }}>{lbl}</div>
-              <div style={{ fontSize: 20, fontWeight: 500, color: '#0f172a' }}>{val}</div>
-            </div>
-          ))}
-        </div>
-        <div style={{ fontSize: 11, fontWeight: 500, color: '#64748b', marginBottom: 7 }}>Reward log</div>
-        <div style={{ background: '#fff', borderRadius: 8, padding: '8px 10px', border: '0.5px solid rgba(0,0,0,0.06)' }}>
-          {([
-            ['MR', 'Maya R.', 'GG-WIN10', true],
-            ['TK', 'Tom K.', 'GG-WIN10', false],
-            ['SL', 'Sara L.', 'GG-WIN25', true],
-          ] as [string, string, string, boolean][]).map(([init, name, code, redeemed]) => (
-            <div key={init} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 0', borderBottom: '0.5px solid rgba(0,0,0,0.05)', fontSize: 11 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5, flex: 1 }}>
-                <div style={{ width: 18, height: 18, borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 500, color: '#475569' }}>{init}</div>
-                <span style={{ color: '#0f172a' }}>{name}</span>
-              </div>
-              <span style={{ color: '#94a3b8', fontFamily: 'monospace', fontSize: 10, flex: 1 }}>{code}</span>
-              <span style={{ fontSize: 9, fontWeight: 500, padding: '2px 6px', borderRadius: 4, background: redeemed ? 'rgba(34,197,94,0.1)' : 'rgba(245,158,11,0.1)', color: redeemed ? '#16a34a' : '#d97706' }}>
-                {redeemed ? 'Redeemed' : 'Active'}
-              </span>
-            </div>
-          ))}
+        <div style={{ fontSize: 14, fontWeight: 500, color: '#fff', marginBottom: 3 }}>{name}</div>
+        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 8 }}>{location}</div>
+        <div style={{ fontSize: 11, color: 'rgb(168 255 26)', marginBottom: 10 }}>{blurb}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>
+          View tournament <ExternalLink size={11} />
         </div>
       </div>
     </div>
-
-    {/* billing panel */}
-    <div style={{
-      background: '#f8fafc', borderRadius: 16,
-      border: '0.5px solid rgba(0,0,0,0.08)', overflow: 'hidden',
-      boxShadow: '0 16px 40px rgba(0,0,0,0.1)',
-    }}>
-      <div style={{
-        background: 'rgba(255,255,255,0.85)', borderBottom: '0.5px solid rgba(0,0,0,0.07)',
-        padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      }}>
-        <span style={{ fontSize: 12, fontWeight: 500, color: '#0f172a' }}>Billing</span>
-      </div>
-      <div style={{ padding: 14 }}>
-        <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-          {[['Total charged', '$92.10', '#16a34a'], ['Upcoming', '$18.50', '#0f172a']].map(([lbl, val, col]) => (
-            <div key={lbl} style={{ flex: 1, background: '#fff', borderRadius: 8, padding: '10px 12px', border: '0.5px solid rgba(0,0,0,0.07)' }}>
-              <div style={{ fontSize: 10, color: '#64748b', marginBottom: 2 }}>{lbl}</div>
-              <div style={{ fontSize: 18, fontWeight: 500, color: col }}>{val}</div>
-            </div>
-          ))}
-        </div>
-        <div style={{ background: '#fff', borderRadius: 8, padding: '8px 10px', border: '0.5px solid rgba(0,0,0,0.06)' }}>
-          {([
-            ['#4821', 'GG-WIN10', '$74.00', '$3.70', 'charged'],
-            ['#4820', 'GG-WIN25', '$120.00', '$6.00', 'pending'],
-            ['#4819', 'GG-WIN10', '$55.00', '$2.75', 'held'],
-          ] as [string, string, string, string, string][]).map(([order, code, sale, comm, status]) => (
-            <div key={order} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 0', borderBottom: '0.5px solid rgba(0,0,0,0.05)', fontSize: 11 }}>
-              <span style={{ color: '#0f172a', fontFamily: 'monospace' }}>{order}</span>
-              <span style={{ color: '#94a3b8', fontFamily: 'monospace', fontSize: 10 }}>{code}</span>
-              <span style={{ color: '#0f172a' }}>{sale}</span>
-              <span style={{ color: '#64748b' }}>→ {comm}</span>
-              <span style={{
-                fontSize: 9, fontWeight: 500, padding: '2px 6px', borderRadius: 4,
-                background: status === 'charged' ? 'rgba(34,197,94,0.1)' : status === 'held' ? 'rgba(245,158,11,0.1)' : 'rgba(107,114,128,0.1)',
-                color: status === 'charged' ? '#16a34a' : status === 'held' ? '#d97706' : '#6b7280',
-              }}>
-                {status === 'charged' ? 'Charged' : status === 'held' ? 'On hold' : 'Upcoming'}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  </div>
+  </a>
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -494,92 +349,11 @@ const FaqItem = ({
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Billing extra content — switches on NEXT_PUBLIC_SHOPIFY_APP_MODE
-// ─────────────────────────────────────────────────────────────────────────────
-
-const isCustomApp = process.env.NEXT_PUBLIC_SHOPIFY_APP_MODE === 'custom';
-
-const BrandBillingCard = isCustomApp ? (
-  // ── Custom app mode: performance-based billing via Stripe ──
-  <Card style={{ background: 'var(--slate-1)', border: '1px solid var(--slate-4)', padding: 20, marginTop: 8 }}>
-    <Flex justify="between" align="center" mb="3">
-      <Text size="2" weight="bold" style={{ color: 'var(--slate-12)' }}>No upfront cost</Text>
-      <Badge color="green" variant="soft" radius="full">✓ Pay on performance</Badge>
-    </Flex>
-    <Text size="2" style={{ color: 'var(--slate-11)', lineHeight: 1.65, display: 'block', marginBottom: 12 }}>
-      You only pay a 5% commission when a GG Pickleball referral turns into a real sale.
-      No monthly fee, no ad spend, no risk. Returns within 30 days are automatically
-      factored in. You're never charged on money you didn't keep.
-    </Text>
-    <Grid columns="2" gap="2">
-      {[
-        'No monthly fee or setup cost',
-        '5% commission on net sales only',
-        'Full returns within 30 days waive the fee',
-        'Partial refunds reduce the commission proportionally',
-      ].map((label) => (
-        <Flex key={label} align="center" gap="2" style={{
-          background: 'var(--slate-2)', borderRadius: 8, padding: '8px 10px',
-          border: '1px solid var(--slate-3)',
-        }}>
-          <Check size={13} strokeWidth={3} color="#84cc16" style={{ flexShrink: 0 }} />
-          <Text size="1" style={{ color: 'var(--slate-11)' }}>{label}</Text>
-        </Flex>
-      ))}
-    </Grid>
-  </Card>
-) : (
-  // ── Public app mode: billing managed by Shopify ──
-  <Card style={{ background: 'var(--slate-1)', border: '1px solid var(--slate-4)', padding: 20, marginTop: 8 }}>
-    <Flex justify="between" align="center" mb="3">
-      <Text size="2" weight="bold" style={{ color: 'var(--slate-12)' }}>Billing via Shopify</Text>
-      <Badge color="green" variant="soft" radius="full">✓ Managed by Shopify</Badge>
-    </Flex>
-    <Text size="2" style={{ color: 'var(--slate-11)', lineHeight: 1.65, display: 'block', marginBottom: 12 }}>
-      Commissions bill automatically through your Shopify subscription — 30 days after each order.
-      Returns and disputes are evaluated before any charge is made. No separate payment method needed.
-    </Text>
-    <Grid columns="2" gap="2">
-      {[
-        'One invoice per billing cycle',
-        'Returns auto-adjust the fee',
-        'Disputes waive the charge',
-        'No separate payment setup',
-      ].map((label) => (
-        <Flex key={label} align="center" gap="2" style={{
-          background: 'var(--slate-2)', borderRadius: 8, padding: '8px 10px',
-          border: '1px solid var(--slate-3)',
-        }}>
-          <Check size={13} strokeWidth={3} color="#84cc16" style={{ flexShrink: 0 }} />
-          <Text size="1" style={{ color: 'var(--slate-11)' }}>{label}</Text>
-        </Flex>
-      ))}
-    </Grid>
-  </Card>
-);
-
-// Checklist items also vary by mode
-const brandChecks = isCustomApp
-  ? [
-      'Audience verified by official match data, not self-reported',
-      '5% commission on net sales only — zero upfront cost',
-      'Connect your existing Shopify store in minutes',
-      'See who earned, who redeemed, and what converted',
-    ]
-  : [
-      'Audience verified by official match data, not self-reported',
-      '5% commission on net sales. Waived on returns',
-      'Connect your existing Shopify store in minutes',
-      'See who earned, who redeemed, and what converted',
-    ];
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Page
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
-  const router = useRouter();
-  const { isLoading: auth0IsLoading, user } = useAuth0User();
+  const { isLoading: auth0IsLoading } = useAuth0User();
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
   // Preserved exactly from original
@@ -591,35 +365,28 @@ export default function HomePage() {
     );
   }
 
-  // Preserved exactly from original
+  // Rewritten for the tournament pivot — no public DUPR mentions (Section 6),
+  // no references to self-signup (Section 9 item 1 — signup is disabled)
   const faqs = [
     {
       question: 'Is GG Pickleball really free?',
-      answer: "Yes. No subscriptions, no credit card, no hidden fees. Brands sponsor the rewards because they want to reach active players. You play, we sync your matches, they get exposure to a passionate community. Everyone wins.",
+      answer: 'Yes. No subscriptions, no credit card, no hidden fees. Brands sponsor the rewards because they want to reach active players. You play in tournaments we partner with, we track the results, and you unlock perks along the way. Everyone wins.',
     },
     {
-      question: 'How does the DUPR sync work?',
-      answer: 'Connect your DUPR account once and GG Pickleball pulls in your match history. You never have to manually log a game, upload a screenshot, or report a score. New matches show up and rewards update.',
+      question: 'How do my matches get counted?',
+      answer: "GG partners directly with tournament organizers. After an event wraps, official results are uploaded and matched to your account. If you've played in a partnered tournament, your account is already waiting. Just log in to see what you've earned.",
     },
     {
       question: 'What kind of rewards can I actually earn?',
       answer: 'Discounts on paddles and gear, free merch, and exclusive offers from brands you already love. The more you play, the more you unlock.',
-    },
-    {
-      question: 'Do I need to play at a specific club?',
-      answer: "No. As long as your matches are recorded in DUPR, they count.",
-    },
-    {
-      question: 'What happens to my data?',
-      answer: 'We only read your DUPR match history to power your rewards. We never sell your data, and you can disconnect or delete your account at any time.',
-    },
+    }
   ];
 
   return (
     <Box style={{ backgroundColor: '#ffffff' }}>
 
       {/* ============ HERO ============ */}
-      {/* Preserved exactly from original — all styles, orbs, grid texture, classes, links */}
+      {/* Structure/orbs/grid texture preserved from original — copy and primary CTA updated */}
       <Box style={{ position: 'relative', overflow: 'hidden', backgroundColor: '#0a0a0a', minHeight: '92vh' }}>
         <div style={{
           position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1,
@@ -656,7 +423,7 @@ export default function HomePage() {
                 </Text>
               </Flex>
             </Badge>
-            {/* Preserved: /auth/login?returnTo=/play */}
+            {/* Preserved: /auth/login?returnTo=/play — still the correct entry point for existing/claimed accounts */}
             <Flex display={{initial: 'none', md: 'flex'}}>
               <Button  asChild variant="solid" size="3" radius="full" color="lime">
                 <Link  href="/auth/login?returnTo=/api/auth/redirect">Access your account</Link>
@@ -683,16 +450,16 @@ export default function HomePage() {
               <Text as="p" size="5" mb="7" align={{ initial: 'center', md: 'left' }} className={styles.slideUp}
                 style={{ color: 'rgba(255,255,255,0.72)', animationDelay: '0.2s', lineHeight: 1.55, maxWidth: 620 }}
               >
-                GG Pickleball syncs with your DUPR account to automatically turn every match
-                you play into exclusive rewards from the brands shaping the sport.
+                GG Pickleball partners with tournaments across the country to turn every
+                match you play into exclusive rewards from the brands shaping the sport.
               </Text>
 
               <Flex gap="3" direction={{ initial: 'column', xs: 'row' }} className={styles.slideUp} style={{ animationDelay: '0.4s' }}>
-                {/* Preserved: /auth/login?screen_hint=signup&returnTo=/play */}
+                {/* Updated: no self-signup exists (Section 9 item 1) — primary action is discovery, not signup */}
                 <Button asChild size="4" radius="full" color="lime">
-                  <Link href="/auth/login?screen_hint=signup&returnTo=/play">
+                  <Link href="#tournaments">
                     <Flex align="center" gap="2">
-                      {!auth0IsLoading && !user ? "Sign up free" : "Access your account"}
+                      See participating tournaments
                       <ArrowRight size={18} strokeWidth={2.5} />
                     </Flex>
                   </Link>
@@ -706,7 +473,7 @@ export default function HomePage() {
               </Flex>
 
               <Flex gap="5" mt="7" wrap="wrap" justify={{ initial: 'center', md: 'start' }} className={styles.slideUp} style={{ animationDelay: '0.6s' }}>
-                {['Free forever', 'No credit card', 'Syncs with DUPR'].map((label) => (
+                {['Free forever', 'No credit card', 'Verified tournament results'].map((label) => (
                   <Flex key={label} align="center" gap="2">
                     <Check size={16} strokeWidth={3} color="#b2ff00" />
                     <Text size="2" style={{ color: 'rgba(255,255,255,0.7)' }}>{label}</Text>
@@ -718,60 +485,71 @@ export default function HomePage() {
         </Container>
       </Box>
 
+      {/* ============ TOURNAMENTS SECTION (new) ============ */}
+      {/* Public-facing tournament showcase — Section 5.2 pattern, no DUPR mentions (Section 6). */}
+      {/* Sample data below; wire up to a real tournaments feed when available. */}
+      <Box id="tournaments" py="9" style={{ backgroundColor: '#0a0a0a', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+        <Container size="4" px="5">
+          <Flex direction="column" align="center" mb="8">
+            <Text size="2" weight="bold" mb="3" style={{ color: '#84cc16', letterSpacing: '0.15em', textTransform: 'uppercase' }}>
+              Now playing
+            </Text>
+            <Heading size="9" align="center" mb="4" style={{ maxWidth: 720, letterSpacing: '-0.02em', lineHeight: 1.05, color: '#fff' }}>
+              Play here. Get rewarded.
+            </Heading>
+            <Text size="4" align="center" style={{ color: 'rgba(255,255,255,0.6)', maxWidth: 560, lineHeight: 1.6 }}>
+              GG Pickleball partners with tournaments across the country. Play in one of these
+              events and any rewards you've earned will be waiting when you log in.
+            </Text>
+          </Flex>
+
+          <Grid columns={{ initial: '1', xs: '2', md: '4' }} gap="4" mb="7">
+            {tournaments.map((t) => <TournamentCard key={t.name} {...t} />)}
+          </Grid>
+
+          {/* Lightweight organizer callout — replaces the old full "Clubs & Organizers" section */}
+          <Flex
+            justify="between" align="center" gap="4" wrap="wrap"
+            p="5"
+            style={{ background: 'rgba(163,230,53,0.05)', border: '0.5px solid rgba(163,230,53,0.2)', borderRadius: 14 }}
+          >
+            <Box>
+              <Text size="4" weight="bold" style={{ color: '#fff', display: 'block', marginBottom: 4 }}>
+                Running a tournament?
+              </Text>
+              <Text size="2" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                Partner with GG Pickleball and increase the available prize pool for your players at no additional cost.
+              </Text>
+            </Box>
+            <Button asChild size="3" radius="full" color="lime">
+              <Link href="/programs/apply">
+                <Flex align="center" gap="2">
+                  Partner with us
+                  <ArrowRight size={16} strokeWidth={2.5} />
+                </Flex>
+              </Link>
+            </Button>
+          </Flex>
+        </Container>
+      </Box>
+
       {/* ============ PLAYERS SECTION ============ */}
-      <Box py="9" style={{ backgroundColor: '#353535', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+      <Box py="9" style={{ backgroundColor: '#292929', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
         <Container size="4" px="5">
           <AudienceSection
             tag="For players"
             eyebrow="Your wins. Your rewards."
             titleLine1="Every match you play"
             titleAccent="gets you closer to earning."
-            body="Connect your DUPR account once and GG automatically turns your wins into exclusive discounts and free gear from top pickleball brands. No manual entry, no screenshots. Just play."
+            body="Play in a GG-partnered tournament and we'll take care of the rest. Once results are in, your wins automatically count toward rewards from the brands you already love."
             checks={[
-              'Syncs automatically with your DUPR match history',
+              'Results come straight from tournament organizers',
               'Rewards unlock the moment you hit a milestone',
               'Free forever, no credit card required',
             ]}
             screen={<PlayerScreen />}
             screenRight
             dark
-          />
-        </Container>
-      </Box>
-
-      {/* ============ CLUBS SECTION ============ */}
-      <Box py="9" style={{ backgroundColor: '#353535', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-        <Container size="4" px="5">
-          <AudienceSection
-            tag="For clubs & organizers"
-            eyebrow="Run leagues. Run tournaments."
-            titleLine1="Your events fuel"
-            titleAccent="your players' rewards."
-            body="Club admins upload match results directly to DUPR from GG. When players sync, those wins count toward their milestones automatically, turning every league night into a rewards moment for your whole community."
-            checks={[
-              'Bulk upload doubles match results',
-              'See per-player DUPR sync status in real time',
-              'Works for leagues, round robins, and tournaments',
-            ]}
-            screen={<ClubScreen />}
-            dark
-          />
-        </Container>
-      </Box>
-
-      {/* ============ BRANDS SECTION ============ */}
-      <Box py="9" style={{ backgroundColor: '#ffffff', borderTop: '1px solid var(--slate-4)' }}>
-        <Container size="4" px="5">
-          <AudienceSection
-            tag="For brands"
-            eyebrow="Performance-based reach."
-            titleLine1="Reach players who are"
-            titleAccent="actively competing."
-            body="GG connects your Shopify store to a verified player base. You set the discount, we surface it the moment a player earns it. You only pay a 5% commission on actual sales. No ad spend, no guesswork."
-            checks={brandChecks}
-            screen={<BrandScreen />}
-            screenRight
-            extraContent={BrandBillingCard}
           />
         </Container>
       </Box>
@@ -791,22 +569,22 @@ export default function HomePage() {
           <Grid columns={{ initial: '1', md: '3' }} gap="0" style={{ borderRadius: 16, overflow: 'hidden', border: '0.5px solid rgba(255,255,255,0.08)' }}>
             {[
               {
-                icon: <RefreshCw size={22} strokeWidth={2} />,
+                icon: <Zap size={22} strokeWidth={2} />,
                 eyebrow: 'Step 01',
-                title: 'Connect your DUPR',
-                description: 'Link your DUPR account and pull in your match history automatically — no manual reporting, no screenshots, no spreadsheets.',
+                title: 'Play in a partnered tournament',
+                description: 'Register through the tournament organizer and play like you always do. Nothing extra to set up.',
               },
               {
-                icon: <Zap size={22} strokeWidth={2} />,
+                icon: <RefreshCw size={22} strokeWidth={2} />,
                 eyebrow: 'Step 02',
-                title: 'Play your matches',
-                description: 'Keep playing the way you already do. Every DUPR-recorded match counts toward your rewards.',
+                title: 'We upload your results',
+                description: 'After the event, official match results are uploaded and matched to your account automatically.',
               },
               {
                 icon: <Sparkles size={22} strokeWidth={2} />,
                 eyebrow: 'Step 03',
                 title: 'Unlock rewards',
-                description: 'Earn perks from your favorite brands and discover new ones. Discounts, free gear, exclusive offers are all unlocked just by playing.',
+                description: "Log in to see what you've unlocked: discounts, free gear, and exclusive offers from the brands you already love.",
               },
             ].map(({ icon, eyebrow, title, description }, i) => (
               <Box key={title} p="6" style={{
@@ -859,7 +637,6 @@ export default function HomePage() {
       </Box>
 
       {/* ============ FINAL CTA ============ */}
-      {/* Preserved exactly from original */}
       <Box py="9" style={{ backgroundColor: '#0a0a0a', position: 'relative', overflow: 'hidden' }}>
         <div style={{
           position: 'absolute', inset: 0, pointerEvents: 'none',
@@ -874,13 +651,12 @@ export default function HomePage() {
               Your next match is worth <span className={styles.heroTextGradient}>more</span>.
             </Heading>
             <Text size="5" align="center" style={{ color: 'rgba(255,255,255,0.72)', maxWidth: 520 }}>
-              Sign up for free and start unlocking rewards from the brands you love.
+              Find a partnered tournament and start unlocking rewards from the brands you love.
             </Text>
-            {/* Preserved: /auth/login?returnTo=/play */}
             <Button asChild size="4" radius="full" color="lime" mt="2">
-              <Link href="/auth/login?returnTo=/play">
+              <Link href="#tournaments">
                 <Flex align="center" gap="2">
-                  Sign up free
+                  See participating tournaments
                   <ArrowRight size={18} strokeWidth={2.5} />
                 </Flex>
               </Link>
@@ -890,7 +666,7 @@ export default function HomePage() {
       </Box>
 
       {/* ============ FOOTER ============ */}
-      {/* Preserved exactly from original — copyright year, /apply, mailto links */}
+      {/* Preserved structure — added an organizer contact link alongside the existing ones */}
       <Box py="6" style={{ backgroundColor: '#0a0a0a', borderTop: '1px solid var(--slate-12)' }}>
         <Container size="4" px="5">
           <Flex justify="between" align="center" direction={{ initial: 'column', sm: 'row' }} gap="4">
@@ -900,6 +676,9 @@ export default function HomePage() {
             <Flex gap="5">
               <Link href="/apply" style={{ textDecoration: 'none' }}>
                 <Text size="2" style={{ color: 'rgba(255,255,255,0.5)' }}>Feature your brand</Text>
+              </Link>
+              <Link href="/programs/apply">
+                <Text size="2" style={{ color: 'rgba(255,255,255,0.5)' }}>Partner your program or tournament</Text>
               </Link>
               <Link href="mailto:play@ggpickleball.co" style={{ textDecoration: 'none' }}>
                 <Text size="2" style={{ color: 'rgba(255,255,255,0.5)' }}>Contact</Text>

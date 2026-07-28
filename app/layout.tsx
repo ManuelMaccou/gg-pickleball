@@ -5,7 +5,6 @@ import "@radix-ui/themes/styles.css";
 import { Theme } from "@radix-ui/themes";
 import { getResolvedUser } from '@/lib/getResolvedUser'
 import { UserProvider } from "./contexts/UserContext";
-import { CookieWarning } from "./components/CookieWarning";
 
 export const metadata: Metadata = {
   title: "GG Pickleball: Pickleball Rewarded.",
@@ -27,7 +26,6 @@ export default async function RootLayout({
       <body>
         <Theme appearance="inherit">
           <UserProvider initialUser={resolvedUser}>
-            <CookieWarning />
             <div style={{ backgroundColor: '#ffffff', minHeight: '100vh' }}>
               {children}
             </div>
