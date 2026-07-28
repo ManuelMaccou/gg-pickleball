@@ -1,8 +1,19 @@
-import { NextRequest, NextResponse } from 'next/server';
-import connectToDatabase from '@/lib/mongodb';
 import { ProgramApplication } from '@/app/models/ProgramApplication';
+import connectToDatabase from '@/lib/mongodb';
+import { NextRequest, NextResponse } from 'next/server';
 
 function getClientIp(request: NextRequest): string {
+  // TEMP DEBUG — remove once you've confirmed which header actually carries
+  // the real client IP on your Railway setup. Compare these against
+  // whatismyipaddress.com for a real test submission.
+  console.log('[ProgramApplication] IP-related headers:', {
+    'x-forwarded-for': request.headers.get('x-forwarded-for'),
+    'x-real-ip': request.headers.get('x-real-ip'),
+    'cf-connecting-ip': request.headers.get('cf-connecting-ip'),
+    'true-client-ip': request.headers.get('true-client-ip'),
+    'fastly-client-ip': request.headers.get('fastly-client-ip'),
+  });
+
   const forwarded = request.headers.get('x-forwarded-for');
   if (forwarded) return forwarded.split(',')[0].trim();
   const realIp = request.headers.get('x-real-ip');
@@ -47,7 +58,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error('[TournamentApplication] submission failed', err);
+    console.error('[ProgramApplication] submission failed', err);
     return NextResponse.json(
       { success: false, error: 'Something went wrong on our end. Please try again.' },
       { status: 500 },
