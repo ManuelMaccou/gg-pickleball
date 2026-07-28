@@ -3,18 +3,15 @@ import connectToDatabase from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 
 function getClientIp(request: NextRequest): string {
-  console.log('[ProgramApplication] IP-related headers:', {
-    'x-forwarded-for': request.headers.get('x-forwarded-for'),
-    'x-real-ip': request.headers.get('x-real-ip'),
-    'cf-connecting-ip': request.headers.get('cf-connecting-ip'),
-    'true-client-ip': request.headers.get('true-client-ip'),
-    'fastly-client-ip': request.headers.get('fastly-client-ip'),
-  });
+  const cfConnectingIp = request.headers.get('cf-connecting-ip');
+  if (cfConnectingIp) return cfConnectingIp;
+
+  const realIp = request.headers.get('x-real-ip');
+  if (realIp) return realIp;
 
   const forwarded = request.headers.get('x-forwarded-for');
   if (forwarded) return forwarded.split(',')[0].trim();
-  const realIp = request.headers.get('x-real-ip');
-  if (realIp) return realIp;
+
   return 'unknown';
 }
 
