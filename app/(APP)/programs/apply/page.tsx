@@ -161,8 +161,8 @@ export default function ProgramApplicationPage() {
             Bring rewards to your program or tournament
           </Heading>
           <Text size="3" style={{ color: 'rgba(255,255,255,0.6)', maxWidth: 480, lineHeight: 1.6 }}>
-            Give us permission to use your match results and we'll turn them into rewards for your
-            players. We will contact you regarding next steps.
+            Turn match results into rewards for your
+            players. Fill out the form and we will contact you regarding next steps.
           </Text>
         </Flex>
       </Container>
