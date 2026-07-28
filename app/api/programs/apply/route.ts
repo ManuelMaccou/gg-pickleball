@@ -3,9 +3,6 @@ import connectToDatabase from '@/lib/mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 
 function getClientIp(request: NextRequest): string {
-  // TEMP DEBUG — remove once you've confirmed which header actually carries
-  // the real client IP on your Railway setup. Compare these against
-  // whatismyipaddress.com for a real test submission.
   console.log('[ProgramApplication] IP-related headers:', {
     'x-forwarded-for': request.headers.get('x-forwarded-for'),
     'x-real-ip': request.headers.get('x-real-ip'),
