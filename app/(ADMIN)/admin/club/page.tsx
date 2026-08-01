@@ -382,14 +382,6 @@ export default function ClubEntryPage() {
             </Flex>
           )}
 
-          {noClubsFound && !connectError && (
-            <Flex align={'center'} justify={'center'}>
-             <Dialog.Close>
-                <Button mt={'5'} mb={'-5'} variant='soft'>Close</Button>
-              </Dialog.Close>
-              </Flex>
-          )}
-
           {fetchingDupr ? (
             <Flex justify="center" p="6"><Spinner size="2" style={{color: '#a3e635'}}/></Flex>
           ) : (
