@@ -19,10 +19,17 @@ const AGREEMENT_VERSION = '1.0';
 const URL_REGEX = /^(https?:\/\/)?([\w-]+(\.[\w-]+)+)([/?#].*)?$/i;
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
-function getClientIp(req: NextRequest): string {
-  const forwarded = req.headers.get('x-forwarded-for');
+function getClientIp(request: NextRequest): string {
+  const cfConnectingIp = request.headers.get('cf-connecting-ip');
+  if (cfConnectingIp) return cfConnectingIp;
+
+  const realIp = request.headers.get('x-real-ip');
+  if (realIp) return realIp;
+
+  const forwarded = request.headers.get('x-forwarded-for');
   if (forwarded) return forwarded.split(',')[0].trim();
-  return req.headers.get('x-real-ip') || 'unknown';
+
+  return 'unknown';
 }
 
 export async function POST(req: NextRequest) {
