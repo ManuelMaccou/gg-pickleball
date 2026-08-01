@@ -12,7 +12,7 @@ import {
 import { ArrowRight, InfoIcon, AlertCircle, RefreshCcw } from 'lucide-react';
 import darkGgLogo from '../../../../public/logos/gg_logo_black_transparent.png';
 
-const DESCRIPTION_MIN = 30;
+const DESCRIPTION_MIN = 0;
 const DESCRIPTION_MAX = 500;
 
 const inputStyle: React.CSSProperties = {
