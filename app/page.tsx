@@ -680,6 +680,9 @@ export default function HomePage() {
               <Link href="/programs/apply">
                 <Text size="2" style={{ color: 'rgba(255,255,255,0.5)' }}>Partner your program or tournament</Text>
               </Link>
+               <Link href="/legal/privacy">
+                <Text size="2" style={{ color: 'rgba(255,255,255,0.5)' }}>Privacy Policy</Text>
+              </Link>
               <Link href="mailto:play@ggpickleball.co" style={{ textDecoration: 'none' }}>
                 <Text size="2" style={{ color: 'rgba(255,255,255,0.5)' }}>Contact</Text>
               </Link>
