@@ -100,8 +100,8 @@ const PlayerScreen = () => (
       {/* reward cards row */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
         {([
-          { brand: 'Acme Paddles', name: '15% off paddles', wins: '10 wins', bg: 'linear-gradient(135deg,#1e3a1e,#2d5a27)', locked: false },
-          { brand: 'Hydro', name: 'Free starter pack', wins: '10 wins', bg: 'linear-gradient(135deg,#1a2a3a,#0e3a5a)', locked: false },
+          { brand: 'CRBN', name: '10% off site wide', wins: '5 wins', bg: 'linear-gradient(135deg,#1e3a1e,#2d5a27)', locked: false },
+          { brand: 'Diadem', name: '20% off bags', wins: '10 wins', bg: 'linear-gradient(135deg,#1a2a3a,#0e3a5a)', locked: false },
           { brand: 'Pulse', name: '20% off balls', wins: '25 wins', bg: 'linear-gradient(135deg,#2a1a2a,#3d1f3d)', locked: true },
         ]).map(({ brand, name, wins, bg, locked }) => (
           <div key={brand} style={{
