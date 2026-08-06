@@ -181,7 +181,7 @@ type Tournament = {
 
 // Sample data — swap for a real tournaments feed/API when available.
 const tournaments: Tournament[] = [
-  { name: '4x4 Summer Smash', location: 'Fountain Valley, CA', venue: 'AGAPE Tennis Academy', dateLabel: 'August 22nd', gradient: 'linear-gradient(135deg,#609FDD,#0e3a5a)', href: 'https://www.tpaevents.com/booking-tourney' },
+  { name: '4x4 Summer Smash', location: 'Fountain Valley, CA', venue: 'Fountain Valley Tennis and Pickleball Center', dateLabel: 'August 22nd', gradient: 'linear-gradient(135deg,#609FDD,#0e3a5a)', href: 'https://www.tpaevents.com/booking-tourney' },
 ];
 
 {/*}
