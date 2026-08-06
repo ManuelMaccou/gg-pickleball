@@ -99,8 +99,8 @@ const PlayerScreen = () => (
       {/* reward cards row */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
         {([
-          { brand: 'Acme Paddles', name: '15% off paddles', wins: '10 wins', bg: 'linear-gradient(135deg,#1e3a1e,#2d5a27)', locked: false },
-          { brand: 'Hydro', name: 'Free starter pack', wins: '10 wins', bg: 'linear-gradient(135deg,#1a2a3a,#0e3a5a)', locked: false },
+          { brand: 'CRBN', name: '10% off site wide', wins: '5 wins', bg: 'linear-gradient(135deg,#1e3a1e,#2d5a27)', locked: false },
+          { brand: 'Diadem', name: '20% off bags', wins: '10 wins', bg: 'linear-gradient(135deg,#1a2a3a,#0e3a5a)', locked: false },
           { brand: 'Pulse', name: '20% off balls', wins: '25 wins', bg: 'linear-gradient(135deg,#2a1a2a,#3d1f3d)', locked: true },
         ]).map(({ brand, name, wins, bg, locked }) => (
           <div key={brand} style={{
@@ -173,21 +173,27 @@ const PlayerScreen = () => (
 type Tournament = {
   name: string;
   location: string;
+  venue: string;
   dateLabel: string;
-  blurb: string;
   gradient: string;
   href: string;
 };
 
 // Sample data — swap for a real tournaments feed/API when available.
 const tournaments: Tournament[] = [
-  { name: 'Westside Fall Slam', location: 'Los Angeles, CA', dateLabel: 'Oct 4–5', blurb: 'Rewards from Acme Paddles & Hydro', gradient: 'linear-gradient(135deg,#76D775,#2d5a27)', href: '#' },
-  { name: 'Coastal Doubles Classic', location: 'San Diego, CA', dateLabel: 'Oct 18', blurb: 'Rewards from Pulse & Hydro', gradient: 'linear-gradient(135deg,#609FDD,#0e3a5a)', href: '#' },
-  { name: 'Rocky Mountain Open', location: 'Denver, CO', dateLabel: 'Nov 1–2', blurb: 'Rewards from Acme Paddles', gradient: 'linear-gradient(135deg,#E76EE7,#3d1f3d)', href: '#' },
-  { name: 'Sunbelt Showdown', location: 'Austin, TX', dateLabel: 'Nov 15', blurb: 'Rewards from Pulse & Acme Paddles', gradient: 'linear-gradient(135deg,#E29E5B,#5a3a0e)', href: '#' },
+  { name: '4x4 Summer Smash', location: 'Fountain Valley, CA', venue: 'AGAPE Tennis Academy', dateLabel: 'August 22nd', gradient: 'linear-gradient(135deg,#609FDD,#0e3a5a)', href: 'https://www.tpaevents.com/booking-tourney' },
 ];
 
-const TournamentCard = ({ name, location, dateLabel, blurb, gradient, href }: Tournament) => (
+{/*}
+const tournaments: Tournament[] = [
+  { name: 'Westside Fall Slam', location: 'Los Angeles, CA', venue: 'Rewards from Pulse & Hydro', dateLabel: 'Oct 4–5', gradient: 'linear-gradient(135deg,#76D775,#2d5a27)', href: '#' },
+  { name: 'Coastal Doubles Classic', location: 'San Diego, CA', venue: 'Rewards from Pulse & Hydro', dateLabel: 'Oct 18', gradient: 'linear-gradient(135deg,#609FDD,#0e3a5a)', href: '#' },
+  { name: 'Rocky Mountain Open', location: 'Denver, CO', venue: 'Rewards from Pulse & Hydro',dateLabel: 'Nov 1–2', gradient: 'linear-gradient(135deg,#E76EE7,#3d1f3d)', href: '#' },
+  { name: 'Sunbelt Showdown', location: 'Austin, TX', venue: 'Rewards from Pulse & Hydro',dateLabel: 'Nov 15', gradient: 'linear-gradient(135deg,#E29E5B,#5a3a0e)', href: '#' },
+];
+*/}
+
+const TournamentCard = ({ name, location, venue, dateLabel, gradient, href }: Tournament) => (
   <a href={href} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
     <div style={{
       background: '#111', borderRadius: 14, overflow: 'hidden', height: '100%',
@@ -195,13 +201,13 @@ const TournamentCard = ({ name, location, dateLabel, blurb, gradient, href }: To
     }}>
       <div style={{ height: 92, background: gradient, position: 'relative', padding: 12, display: 'flex', alignItems: 'flex-end' }}>
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 30%, rgba(0,0,0,0.75))' }} />
-        <div style={{ position: 'relative', zIndex: 1, fontSize: 11, color: 'rgba(255,255,255,0.7)' }}>{dateLabel}</div>
+        <div style={{ position: 'relative', zIndex: 1, fontSize: 14, color: 'rgba(255,255,255,0.7)' }}>{dateLabel}</div>
       </div>
       <div style={{ padding: 14 }}>
-        <div style={{ fontSize: 14, fontWeight: 500, color: '#fff', marginBottom: 3 }}>{name}</div>
-        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 8 }}>{location}</div>
-        <div style={{ fontSize: 11, color: 'rgb(168 255 26)', marginBottom: 10 }}>{blurb}</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>
+        <div style={{ fontSize: 18, fontWeight: 500, color: '#fff', marginBottom: 3 }}>{name}</div>
+        <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)', marginBottom: 8 }}>{location}</div>
+        <div style={{ fontSize: 14, color: 'rgb(168 255 26)', marginBottom: 10 }}>{venue}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 14, color: 'rgba(255,255,255,0.5)' }}>
           View tournament <ExternalLink size={11} />
         </div>
       </div>
@@ -679,6 +685,9 @@ export default function HomePage() {
               </Link>
               <Link href="/programs/apply">
                 <Text size="2" style={{ color: 'rgba(255,255,255,0.5)' }}>Partner your program or tournament</Text>
+              </Link>
+               <Link href="/legal/privacy">
+                <Text size="2" style={{ color: 'rgba(255,255,255,0.5)' }}>Privacy Policy</Text>
               </Link>
               <Link href="mailto:play@ggpickleball.co" style={{ textDecoration: 'none' }}>
                 <Text size="2" style={{ color: 'rgba(255,255,255,0.5)' }}>Contact</Text>
