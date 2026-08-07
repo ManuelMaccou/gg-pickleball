@@ -80,6 +80,7 @@ const PlayerScreen = () => (
             </div>
           ))}
         </div>
+        {/*}
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <div style={{
             background: '#fff', color: '#111', fontSize: 10, fontWeight: 500,
@@ -88,6 +89,7 @@ const PlayerScreen = () => (
             <RefreshCw size={10} /> Refresh rewards
           </div>
         </div>
+        */}
       </div>
 
       {/* rewards catalog label */}
