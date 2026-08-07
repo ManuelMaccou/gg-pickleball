@@ -255,7 +255,7 @@ function ConnectShopifyContent() {
         </Flex>
 
         <Text size="1" color="gray" align="center" style={{ maxWidth: 420 }}>
-          Make sure you're logged in here before clicking — you'll need an active
+          Make sure you're logged in here before clicking. You'll need an active
           session to finish connecting after approving on Shopify.
         </Text>
       </Flex>

@@ -304,6 +304,9 @@ export default function Play() {
           borderBottom: `0.5px solid ${BORDER}`,
         }}
       >
+        <Flex style={{backgroundColor: 'red'}} align="center" justify="center" py="4">
+          <Text size={'4'} weight={'bold'} style={{ color: '#fff' }}>We are launching soon!</Text>
+        </Flex>
         <Flex
           justify="between" align="center"
           px={{ initial: '4', md: '6' }} py="3"
@@ -445,7 +448,8 @@ export default function Play() {
                     )}
                   </Box>
 
-                  <Box style={{ flexShrink: 0 }}>
+                  
+                  <Box style={{ flexShrink: 0 }} display="none">
                     {dbUser && dbUser.dupr?.id ? (
                       <Button
                         size="3" radius="full" onClick={handleSync}
