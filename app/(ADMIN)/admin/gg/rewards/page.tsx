@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import darkGgLogo from '../../../../../public/logos/gg_logo_black_transparent.png';
-import { useUser as useAuth0User } from '@auth0/nextjs-auth0';
 import { 
   Flex, Heading, Select, Button, Spinner, Text, Badge, TextField, SegmentedControl, AlertDialog, 
   Card, Separator, Box, ScrollArea, Avatar, Callout, IconButton 
@@ -12,31 +11,26 @@ import {
   CheckCircledIcon, InfoCircledIcon, MagnifyingGlassIcon, MagicWandIcon, TrashIcon, Pencil1Icon, Cross2Icon 
 } from "@radix-ui/react-icons";
 import { 
-  AdminPermissionType, IAchievement, IClient, IDataSource, IReward, ISourceRewardSponsorship, RewardProductName 
+  AdminPermissionType, IAchievement, IClient, IReward, ISourceRewardSponsorship, RewardProductName 
 } from '@/app/types/databaseTypes';
-import { toTitleCase } from '@/utils/formatters';
 import { useUserContext } from '@/app/contexts/UserContext';
 import { useIsMobile } from '@/app/hooks/useIsMobile';
 import { AdminSidebar } from '../../components/AdminSidebar';
 import { Types } from 'mongoose';
 
 type ClientSideSourceConfig = {
-  dataSourceId: string;
   achievementName: string;
   sponsorships: ISourceRewardSponsorship[];
 };
 
 export default function GGRewardsAdminPage() {
 
-  const { user: auth0User, isLoading: auth0IsLoading } = useAuth0User();
   const { user } = useUserContext();
   const isMobile = useIsMobile();
 
   // Data State
   const [allAchievements, setAllAchievements] = useState<IAchievement[]>([]);
   const [allClients, setAllClients] = useState<IClient[]>([]);
-  const [allDataSources, setAllDataSources] = useState<IDataSource[]>([]);
-  const [selectedDataSource, setSelectedDataSource] = useState<IDataSource | null>(null);
   const [sourceConfigs, setSourceConfigs] = useState<ClientSideSourceConfig[]>([]);
   const [allRewards, setAllRewards] = useState<IReward[]>([]);
 
@@ -86,30 +80,23 @@ export default function GGRewardsAdminPage() {
       setIsLoading(true);
       setError(null);
       try {
-        const [achRes, clientRes, dataSourceRes, rewardRes] = await Promise.all([
+        const [achRes, clientRes, rewardRes] = await Promise.all([
           fetch('/api/achievement/category/scope?scope=global'),
           fetch('/api/client'),
-          fetch('/api/data-source'),
           fetch('/api/reward')
         ]);
 
-        if (!achRes.ok || !clientRes.ok || !dataSourceRes.ok || !rewardRes.ok) {
+        if (!achRes.ok || !clientRes.ok || !rewardRes.ok) {
           throw new Error('Failed to fetch required initial data.');
         }
 
         const achievementsData = await achRes.json();
         const clientsData = await clientRes.json();
-        const dataSourcesData = await dataSourceRes.json();
         const rewardsData = await rewardRes.json();
         
         setAllAchievements(achievementsData.achievements || []);
         setAllClients(clientsData.clients || []);
-        setAllDataSources(dataSourcesData.dataSources || []);
         setAllRewards(rewardsData.rewards || []);
-
-        if (dataSourcesData.dataSources && dataSourcesData.dataSources.length > 0) {
-          setSelectedDataSource(dataSourcesData.dataSources[0]);
-        }
 
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An unknown error occurred.');
@@ -122,13 +109,12 @@ export default function GGRewardsAdminPage() {
 
   // --- 3. FETCH CONFIGS ---
   useEffect(() => {
-    if (!selectedDataSource) return;
 
     const fetchSourceConfigs = async () => {
       // Don't set loading true here to avoid flickering on every change, 
       // rely on optimistic updates for speed.
       try {
-        const res = await fetch(`/api/source-reward-config?dataSourceId=${selectedDataSource._id}`);
+        const res = await fetch('/api/source-reward-config');
         if (!res.ok) {
           if (res.status === 404) return; // No configs yet is fine
           throw new Error('Failed to fetch reward configurations.');
@@ -141,7 +127,6 @@ export default function GGRewardsAdminPage() {
           const achName = reward.achievement.name;
           if (!groupedConfigs[achName]) {
             groupedConfigs[achName] = {
-              dataSourceId: selectedDataSource._id.toString(),
               achievementName: achName,
               sponsorships: []
             };
@@ -159,7 +144,7 @@ export default function GGRewardsAdminPage() {
     };
 
     fetchSourceConfigs();
-  }, [selectedDataSource]);
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -191,7 +176,7 @@ export default function GGRewardsAdminPage() {
   
   // --- 5. SAVE HANDLER (Create OR Update) ---
   const handleSaveGlobalReward = async () => {
-    if (!selectedAchievement || !selectedClient || !selectedDataSource || !discountAmount) return;
+    if (!selectedAchievement || !selectedClient || !discountAmount) return;
     setIsSaving(true);
     setError(null);
     setSuccessMsg(null);
@@ -250,7 +235,6 @@ export default function GGRewardsAdminPage() {
 
         // Link new reward
         const configPayload = {
-            dataSourceId: selectedDataSource._id,
             achievementName: selectedAchievement.name,
             sponsorship: {
                 sponsoringClientId: selectedClient,
@@ -288,7 +272,6 @@ export default function GGRewardsAdminPage() {
                 return next;
             } else {
                 return [...prevConfigs, {
-                    dataSourceId: selectedDataSource._id.toString(),
                     achievementName: selectedAchievement.name,
                     sponsorships: [newSponsorship]
                 }];
@@ -322,7 +305,6 @@ export default function GGRewardsAdminPage() {
 
   // --- 6. REMOVE HANDLER ---
   const handleRemoveSponsorship = async (achievementName: string, rewardId: string) => {
-    if (!selectedDataSource) return;
 
     setIsRemoving(rewardId);
     setError(null);
@@ -332,7 +314,6 @@ export default function GGRewardsAdminPage() {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-            dataSourceId: selectedDataSource._id, 
             achievementName, 
             rewardId 
         }),
@@ -416,28 +397,6 @@ export default function GGRewardsAdminPage() {
           <Image src={darkGgLogo} alt="Logo" height={32} width={60} style={{ objectFit: 'contain' }} />
           <Separator orientation="vertical" style={{ height: '20px' }} />
           <Text weight="bold" size="3">Global Rewards Admin</Text>
-        </Flex>
-        
-        <Flex align="center" gap="3">
-          {!isMobile && (
-            <Flex align="center" gap="2">
-                <Text size="2" weight="bold">Data Source:</Text>
-                <Select.Root 
-                    value={selectedDataSource?._id.toString() || ''} 
-                    onValueChange={(id) => setSelectedDataSource(allDataSources.find(ds => ds._id.toString() === id) || null)}
-                >
-                    <Select.Trigger placeholder="Select..." variant="surface" />
-                    <Select.Content>
-                    {allDataSources.map(ds => (
-                        <Select.Item key={ds._id.toString()} value={ds._id.toString()}>
-                        {ds.name}
-                        </Select.Item>
-                    ))}
-                    </Select.Content>
-                </Select.Root>
-            </Flex>
-          )}
-          <Avatar fallback={userName?.charAt(0).toUpperCase() || 'A'} radius="full" size="2" />
         </Flex>
       </Flex>
       

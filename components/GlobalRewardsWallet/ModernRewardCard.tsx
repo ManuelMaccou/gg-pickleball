@@ -4,19 +4,17 @@ import { LockKeyhole, Gift, ChevronRight } from "lucide-react";
 import Image from 'next/image';
 import { useState } from "react";
 import { RewardWithContext } from '@/app/types/rewardTypes';
-import { IDataSource } from '@/app/types/databaseTypes';
 import { formatCurrency } from "@/lib/utils";
 
 interface ModernRewardCardProps {
   reward: RewardWithContext;
   index: number;
   onClick: () => void;
-  dataSource: IDataSource | null;
 }
 
 const DEFAULT_CARD_BACKGROUND_IMAGE = '/rewardCardBackgrounds/defaultCardBackground.jpg';
 
-export function ModernRewardCard({ reward, index, onClick, dataSource }: ModernRewardCardProps) {
+export function ModernRewardCard({ reward, index, onClick }: ModernRewardCardProps) {
   const [lockedTapped, setLockedTapped] = useState(false);
 
   // ── State ──────────────────────────────────────────────────────────────────

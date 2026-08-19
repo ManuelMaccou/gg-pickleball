@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser';
-import { logError } from '@/lib/sentry/logger';
 import connectToDatabase from '@/lib/mongodb';
 import User from '@/app/models/User';
 import Match from '@/app/models/Match';
-import DataSource from '@/app/models/DataSource';
-import { startSession } from 'mongoose';
+import { startSession, Types } from 'mongoose';
 import { updateUserAndAchievements } from '@/utils/achievementFunctions/updateUserAndAchievements';
 import { createMatch } from '@/lib/services/matchBulkUpload/matchService';
 import { DuprMatch } from '@/app/types/duprTypes';
 import { DateTime } from 'luxon';
 import { transformPersonalDuprMatches } from '@/lib/services/matchBulkUpload/duprTransformationService';
+import { logError } from '@/lib/sentry/logger';
 
 // Updated helper to accept date range
 async function fetchDuprMatches(
@@ -34,7 +33,6 @@ async function fetchDuprMatches(
           limit: 10,
           eventFormat: ["DOUBLES"],
           duprId,
-          // FIX: Use the variables passed in (Seconds), not hardcoded values
           startDate: startDateSeconds, 
           endDate: endDateSeconds      
       })
@@ -65,15 +63,10 @@ export async function POST(req: NextRequest) {
     const DUPR_TOKEN = process.env.DUPR_API_BEARER_TOKEN;
     if (!DUPR_TOKEN) throw new Error("DUPR API token is not configured.");
 
-    const dataSource = await DataSource.findOne({ type: 'dupr' });
-    if (!dataSource) throw new Error("DUPR Data Source not found");
-    const dataSourceId = dataSource._id.toString();
-
     // 2. Setup Date Range
     const now = DateTime.now();
     const startWindow = now.minus({ months: 6 });
     
-    // FIX: Convert to Seconds (10 digits) using Math.floor
     const endDateSeconds = Math.floor(now.toSeconds());
     const startDateSeconds = Math.floor(startWindow.toSeconds());
     
@@ -91,7 +84,6 @@ export async function POST(req: NextRequest) {
         
         const data = await fetchDuprMatches(duprId, offset, DUPR_TOKEN, startDateSeconds, endDateSeconds);
         
-        // FIX: Use data.results (based on your Swagger output)
         const pageMatches: DuprMatch[] = data.results || [];
         
         if (pageMatches.length === 0) {
@@ -100,8 +92,6 @@ export async function POST(req: NextRequest) {
         }
 
         for (const match of pageMatches) {
-            // FIX: Handle parsing the matchDate from the API response
-            // The Swagger says 'matchDate' is a number (Seconds), not a string
             let matchDateVal: Date;
             if (typeof match.eventDate === 'number') {
                 matchDateVal = new Date(match.eventDate * 1000);
@@ -127,7 +117,6 @@ export async function POST(req: NextRequest) {
 
     console.log(`Found ${allMatches.length} recent matches.`);
 
-    // Note: Ensure your transformation service can handle the data structure returned by data.results
     const gamesToProcess = transformPersonalDuprMatches(allMatches);
     console.log(`Extracted ${gamesToProcess.length} valid games from match history.`);
 
@@ -181,7 +170,7 @@ export async function POST(req: NextRequest) {
                 
                 if (userIsInMatch && !processedSet.has(authorizedUser.id)) {
                     shouldProcessUser = true;
-                    matchDoc.processedUsers.push(authorizedUser.id);
+                    matchDoc.processedUsers.push(new Types.ObjectId(authorizedUser.id));
                     await matchDoc.save({ session });
                 }
                 currentMatchId = matchDoc.matchId;
@@ -201,7 +190,6 @@ export async function POST(req: NextRequest) {
                     team2Names: t2Names, 
                     team2Score: score2,
                     winners: winnerIds as string[],
-                    dataSourceId: dataSourceId,
                     processedUsers: userIsInMatch ? [authorizedUser.id] : [],
                     isGlobalContext: true,
                 }, { session });
@@ -227,7 +215,6 @@ export async function POST(req: NextRequest) {
                     isHistorical: true,
                     isGlobalContext: true,
                     triggeringEvent: game.eventName,
-                    dataSourceId: dataSourceId,
                     targetUserIds: [authorizedUser.id]
                 }, { session });
 

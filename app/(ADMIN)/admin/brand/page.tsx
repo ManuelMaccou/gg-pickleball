@@ -18,6 +18,8 @@ import { RewardCardCustomizer } from '../components/RewardCardCustomizer';
 import { BrandPageShell } from '../components/BrandPageShell';
 import { MarketingExportCard } from '../components/MarketingExportCard';
 
+const CUSTOM_MODE = process.env.NEXT_PUBLIC_SHOPIFY_APP_MODE === 'custom';
+
 interface BrandDashboardStats {
   uniquePlayerCount: number;
   topPlayers: { name: string; winCount: number }[];
@@ -134,7 +136,7 @@ export default function BrandAdminDashboard() {
     if (!userId) return;
     const getAdminUser = async () => {
       try {
-        const response = await fetch(`/api/admin?userId=${userId}`);
+        const response = await fetch(`/api/admin?userId=${userId}`, { cache: 'no-store' });
         if (response.status === 204 || response.status === 401 || response.status === 403) {
           setIsRedirecting(true);
           router.replace('/error?reason=no_admin_permissions');
@@ -204,7 +206,7 @@ export default function BrandAdminDashboard() {
 
     const checkConnection = async () => {
       try {
-        const res = await fetch('/api/brand/shopify-status');
+        const res = await fetch('/api/brand/shopify-status', { cache: 'no-store' });
         const data = await res.json();
         if (!res.ok) { setShopifyStatus('check_failed'); return; }
         if (data.connected) {
@@ -243,7 +245,7 @@ export default function BrandAdminDashboard() {
       setIsLoadingStats(true);
       setStatsError(null);
       try {
-        const response = await fetch(`/api/brand/player-stats?clientId=${location._id}`);
+        const response = await fetch(`/api/brand/player-stats?clientId=${location._id}`, { cache: 'no-store' });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error);
         setStats({ uniquePlayerCount: data.uniquePlayerCount, topPlayers: data.topPlayers });
@@ -265,7 +267,8 @@ export default function BrandAdminDashboard() {
       setRewardsError(null);
       try {
         const response = await fetch(
-          `/api/brand/rewards?clientId=${location._id}&page=${page}&limit=20`
+          `/api/brand/rewards?clientId=${location._id}&page=${page}&limit=20`,
+          { cache: 'no-store' }
         );
         const data = await response.json();
         if (!response.ok) throw new Error(data.error);
@@ -350,11 +353,17 @@ export default function BrandAdminDashboard() {
     if (!planHandle) setIsConfirmingPlan(false);
   }, [searchParams]);
 
+  // Mode-aware, matching AdminOnboardingChecklist's own
+  // isShopifyConnected logic exactly. In custom mode, hasActivePlan means
+  // "Stripe billing active" — a separate concern from whether Shopify OAuth
+  // itself is connected — so it's no longer required here. Public mode is
+  // unchanged: hasActivePlan there genuinely does mean "Shopify App Pricing
+  // plan selected," which is part of what "connected" means for that mode.
   const isShopifyConnected = !!(
     location?.retailSoftware === 'shopify' &&
     location?.shopify?.shopDomain &&
     location?.shopify?.accessToken &&
-    location?.shopify?.hasActivePlan
+    (CUSTOM_MODE || location?.shopify?.hasActivePlan)
   );
 
   // Loading gate — includes isConfirmingPlan so the checklist never flashes

@@ -110,8 +110,6 @@ export interface AchievementData {
 export interface RewardData {
   rewardId: Types.ObjectId;
   earnedAt: Date;
-  redeemed: boolean;
-  redemptionDate?: Date;
   rewardCodeId?: Types.ObjectId;
   sponsoringClientId?: Types.ObjectId;
   triggeringEvent?: string;
@@ -134,7 +132,6 @@ export interface IDupr {
   rating?: number;
   unverfiedId?: string;
   email?: string;
-  activated?: boolean;
   userToken?: string;
   refreshToken?: string;
   hasBasicEntitlement?: boolean      // BASIC_L1
@@ -154,14 +151,16 @@ export interface IUser extends Document {
   _id: Types.ObjectId;
   accountClaimed: boolean;
   brandOptin: boolean;
+  transactionalOptOut: boolean;
+  marketingOptOut: boolean;
   name: string;
   auth0Id?: string;
-  superAdmin?: string;
-  email?: string;
+  superAdmin?: boolean;
+  email: string;
   dupr?: IDupr;
   profilePicture?: string;
-  lastLocation?: Types.ObjectId;
   stats: Map<string,ClientStats>;
+  identityUnresolved?: boolean;
 }
 
 export type ResolvedUser = {
@@ -178,23 +177,33 @@ export type ResolvedUser = {
 
 export interface IMatch extends Document {
   _id: Types.ObjectId;
-  dataSourceId: Types.ObjectId;
+  matchId: string;
   duprMatchId?: number;
   duprGameNumber?: number;
-  processedUsers?: Types.ObjectId;
+  sourceMatchId?: string;
+  matchType?: 'singles' | 'doubles';
+  programId?: Types.ObjectId;
+  division?: string;
+  team1DuprIds?: string[];
+  team2DuprIds?: string[];
+  processedUsers: Types.ObjectId[];
   matchDate: Date;
-  matchId?: number;
+ 
   team1: {
-    players: Types.ObjectId[]; 
+    players: Types.ObjectId[];
+    playerNames?: string[];
     score: number;
   };
   team2: {
     players: Types.ObjectId[];
+    playerNames?: string[];
     score: number;
   };
   winners: Types.ObjectId[];
   location?: Types.ObjectId;
-  logToDupr: boolean;
+  logToDupr?: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // Player as the admin enters them. Email is optional; DUPR ID is the key field.
@@ -471,7 +480,6 @@ export interface IRewardCode {
   redemptionDate?: Date;
   addedToPos?: boolean;
   createdAt: Date;
-  dataSourceId?: Types.ObjectId;
   isGlobalReward: boolean;
 }
 
@@ -487,23 +495,6 @@ export interface IGGRConfig {
   updatedAt: string;
 }
 
-export interface IDataSourceCredentials {
-  apiKey?: string;
-  apiSecret?: string;
-}
-
-export interface IDataSource {
-  _id: Types.ObjectId;
-  name: string;
-  type: 'dupr' | 'silly_pickles' | 'swish'; 
-  logo: string;
-  icon: string;
-  credentials?: IDataSourceCredentials;
-  active: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
 export interface ISourceRewardSponsorship {
   sponsoringClientId: Types.ObjectId;
   rewardId: Types.ObjectId;
@@ -511,9 +502,127 @@ export interface ISourceRewardSponsorship {
 
 export interface ISourceRewardConfig {
   _id: Types.ObjectId;
-  dataSourceId: Types.ObjectId;
   achievementName: string; // e.g., "5-dupr-matches-won"
   sponsorships: ISourceRewardSponsorship[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IProgramApplication extends Document {
+  name: string;
+  title: string;
+  club: string;
+  programName: string;
+  programStartDate: string;
+  programEndDate: string;
+  email: string;
+  phone: string;
+  authorityConfirmed: boolean;
+  disclosureConfirmed: boolean;
+  ipAddress: string;
+  status: 'pending' | 'approved' | 'rejected';
+  submittedAt: Date;
+}
+
+export interface IProgram extends Document {
+  _id: Types.ObjectId;
+  programApplicationId: Types.ObjectId;
+  name: string;
+  date: string;
+  club: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IPlayerRow {
+  rowNumber: number;
+  name?: string;
+  email?: string;
+  duprId?: string;
+  dateOfBirth?: string;
+  age?: number;
+  isUnder13: boolean;
+  validationErrors: string[];
+  warnings: string[];
+}
+ 
+export interface IPlayersUploadPreview extends Document {
+  _id: Types.ObjectId;
+  programId: Types.ObjectId;
+  rows: IPlayerRow[];
+  fileErrors: string[];
+  confirmedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IMatchRow {
+  rowNumber: number;
+  sourceMatchId?: string;
+  division?: string;
+  matchType?: 'singles' | 'doubles';
+  matchDate?: string;
+  team1Score?: number;
+  team2Score?: number;
+  team1Player1DuprId?: string;
+  team1Player2DuprId?: string;
+  team2Player1DuprId?: string;
+  team2Player2DuprId?: string;
+  validationErrors: string[];
+  warnings: string[];
+}
+ 
+export interface IMatchesUploadPreview extends Document {
+  _id: Types.ObjectId;
+  programId: Types.ObjectId;
+  rows: IMatchRow[];
+  fileErrors: string[];
+  confirmedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IPlayerIdentityIssueAttempt {
+  attemptedEmail: string;
+  attemptedDuprId: string;
+  succeeded: boolean;
+  conflictType?: 'email_matches_dupr_conflict' | 'dupr_matches_email_conflict' | 'cross_match_conflict';
+  conflictImplicatedUserIds?: Types.ObjectId[];
+  attemptedAt: Date;
+  attemptedBy?: Types.ObjectId;
+}
+
+export interface IPlayerIdentityIssue extends Document {
+  _id: Types.ObjectId;
+  programId: Types.ObjectId;
+  submittedName?: string;
+  submittedEmail: string;
+  submittedDuprId: string;
+  submittedDateOfBirth?: string;
+  submittedAge?: number;
+  implicatedUserIds: Types.ObjectId[];
+  conflictType: 'email_matches_dupr_conflict' | 'dupr_matches_email_conflict' | 'cross_match_conflict';
+  attempts: IPlayerIdentityIssueAttempt[];
+  status: 'open' | 'resolved';
+  notes?: string;
+  resolvedAt?: Date;
+  resolvedBy?: Types.ObjectId;
+  resolvedEmail?: string;
+  resolvedDuprId?: string;
+  resolvedUserId?: Types.ObjectId;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IPlayerAgeVerification extends Document {
+  _id: Types.ObjectId;
+  duprId: string;
+  dateOfBirth?: string;
+  ageAtSubmission?: number;
+  birthYear?: number;
+  source: 'players_upload' | 'dupr_api';
+  programId?: Types.ObjectId;
+  confirmedAt: Date;
   createdAt: Date;
   updatedAt: Date;
 }

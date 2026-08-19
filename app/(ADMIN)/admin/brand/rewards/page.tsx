@@ -13,14 +13,13 @@ import {
 } from '@radix-ui/react-icons';
 import {
   AdminPermissionType,
-  IAchievement, IClient, IDataSource, IReward, ISourceRewardSponsorship,
+  IAchievement, IClient, IReward, ISourceRewardSponsorship,
 } from '@/app/types/databaseTypes';
 import { useIsMobile } from '@/app/hooks/useIsMobile';
 import { BrandPageShell } from '../../components/BrandPageShell';
 
 // --- TYPES ---
 type ClientSideSourceConfig = {
-  dataSourceId: string;
   achievementName: string;
   sponsorships: ISourceRewardSponsorship[];
 };
@@ -40,7 +39,6 @@ export default function BrandRewardConfigPage() {
   const [location, setLocation] = useState<IClient | null>(null);
   const [allAchievements, setAllAchievements] = useState<IAchievement[]>([]);
   const [allRewards, setAllRewards] = useState<IReward[]>([]);
-  const [selectedDataSource, setSelectedDataSource] = useState<IDataSource | null>(null);
 
   const [sourceConfigs, setSourceConfigs] = useState<ClientSideSourceConfig[]>([]);
   const [adminPermission, setAdminPermission] = useState<AdminPermissionType>(null);
@@ -99,22 +97,17 @@ export default function BrandRewardConfigPage() {
       if (!user) return;
       setIsLoading(true);
       try {
-        const [achRes, dataSourceRes, rewardRes] = await Promise.all([
+        const [achRes, rewardRes] = await Promise.all([
           fetch('/api/achievement/category/scope?scope=global'),
-          fetch('/api/data-source'),
           fetch('/api/reward'),
         ]);
 
         const achievementsData = await achRes.json();
-        const dataSourcesData = await dataSourceRes.json();
         const rewardsData = await rewardRes.json();
 
         setAllAchievements(achievementsData.achievements || []);
         setAllRewards(rewardsData.rewards || []);
 
-        if (dataSourcesData.dataSources && dataSourcesData.dataSources.length > 0) {
-          setSelectedDataSource(dataSourcesData.dataSources[0]);
-        }
       } catch (err) {
         console.error(err);
         setError(err instanceof Error ? err.message : 'Failed to load data');
@@ -127,11 +120,10 @@ export default function BrandRewardConfigPage() {
 
   // --- 2. FETCH CONFIGS ---
   useEffect(() => {
-    if (!selectedDataSource?._id) return;
 
     const fetchConfigs = async () => {
       try {
-        const res = await fetch(`/api/source-reward-config?dataSourceId=${selectedDataSource._id}`);
+        const res = await fetch('/api/source-reward-config');
         const data = await res.json();
 
         if (res.ok) {
@@ -141,7 +133,6 @@ export default function BrandRewardConfigPage() {
             const achName = reward.achievement.name;
             if (!groupedConfigs[achName]) {
               groupedConfigs[achName] = {
-                dataSourceId: selectedDataSource._id.toString(),
                 achievementName: achName,
                 sponsorships: [],
               };
@@ -158,7 +149,7 @@ export default function BrandRewardConfigPage() {
       }
     };
     fetchConfigs();
-  }, [selectedDataSource?._id, isSaving, isRemoving]);
+  }, [isSaving, isRemoving]);
 
   // --- 3. POPULATE FORM ON SELECTION ---
   useEffect(() => {
@@ -192,7 +183,7 @@ export default function BrandRewardConfigPage() {
 
   // --- SAVE HANDLER ---
   const handleSave = async () => {
-    if (!selectedAchievement || !location || !selectedDataSource || !discountAmount) return;
+    if (!selectedAchievement || !location || !discountAmount) return;
 
     if (discountAmount <= 0) {
       setError('Discount amount must be greater than 0.');
@@ -248,7 +239,6 @@ export default function BrandRewardConfigPage() {
         finalRewardObj = createData.reward;
 
         const configPayload = {
-          dataSourceId: selectedDataSource._id,
           achievementName: selectedAchievement.name,
           sponsorship: {
             sponsoringClientId: location._id,
@@ -293,7 +283,6 @@ export default function BrandRewardConfigPage() {
           }
         } else {
           next.push({
-            dataSourceId: selectedDataSource._id.toString(),
             achievementName: selectedAchievement!.name,
             sponsorships: [newSponsorship],
           });
@@ -314,7 +303,7 @@ export default function BrandRewardConfigPage() {
 
   // --- REMOVE HANDLER ---
   const handleRemove = async () => {
-    if (!existingRewardId || !selectedAchievement || !selectedDataSource || !location) return;
+    if (!existingRewardId || !selectedAchievement || !location) return;
     setIsRemoving(true);
 
     try {
@@ -322,7 +311,6 @@ export default function BrandRewardConfigPage() {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          dataSourceId: selectedDataSource._id,
           achievementName: selectedAchievement.name,
           rewardId: existingRewardId,
         }),

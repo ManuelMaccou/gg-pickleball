@@ -9,7 +9,8 @@ type FormState = {
   title: string;
   club: string;
   programName: string;
-  programDate: string;
+  programStartDate: string;
+  programEndDate: string;
   email: string;
   phone: string;
   authorityConfirmed: boolean;
@@ -23,7 +24,8 @@ const initialForm: FormState = {
   title: '',
   club: '',
   programName: '',
-  programDate: '',
+  programStartDate: '',
+  programEndDate: '',
   email: '',
   phone: '',
   authorityConfirmed: false,
@@ -49,7 +51,15 @@ export default function ProgramApplicationPage() {
     if (!form.title.trim()) next.title = 'Please enter your title.';
     if (!form.club.trim()) next.club = 'Please enter your club or organization.';
     if (!form.programName.trim()) next.programName = 'Please enter the program name.';
-    if (!form.programDate) next.programDate = 'Please select a date.';
+    if (!form.programStartDate) next.programStartDate = 'Please select a start date.';
+    if (!form.programEndDate) next.programEndDate = 'Please select an end date.';
+    if (
+      form.programStartDate &&
+      form.programEndDate &&
+      form.programEndDate < form.programStartDate
+    ) {
+      next.programEndDate = 'End date can\'t be before the start date.';
+    }
     if (!form.email.trim() || !EMAIL_REGEX.test(form.email.trim())) next.email = 'Please enter a valid email address.';
     if (!form.phone.trim()) next.phone = 'Please enter a phone number.';
     if (!form.authorityConfirmed) next.authorityConfirmed = 'This confirmation is required to submit.';
@@ -74,7 +84,8 @@ export default function ProgramApplicationPage() {
           title: form.title.trim(),
           club: form.club.trim(),
           programName: form.programName.trim(),
-          programDate: form.programDate,
+          programStartDate: form.programStartDate,
+          programEndDate: form.programEndDate,
           email: form.email.trim(),
           phone: form.phone.trim(),
           authorityConfirmed: form.authorityConfirmed,
@@ -190,18 +201,32 @@ export default function ProgramApplicationPage() {
                 />
                 {errors.programName && <span style={errorStyle}>{errors.programName}</span>}
               </Box>
-              <Box>
-                <label style={labelStyle} htmlFor="programDate">Program date</label>
-                <input
-                  id="programDate"
-                  type="date"
-                  className="gg-date-input"
-                  style={inputStyle}
-                  value={form.programDate}
-                  onChange={(e) => setField('programDate', e.target.value)}
-                />
-                {errors.programDate && <span style={errorStyle}>{errors.programDate}</span>}
-              </Box>
+              <Flex gap="4" direction={{ initial: 'column', xs: 'row' }}>
+                <Box style={{ flex: 1 }}>
+                  <label style={labelStyle} htmlFor="programStartDate">Start date</label>
+                  <input
+                    id="programStartDate"
+                    type="date"
+                    className="gg-date-input"
+                    style={inputStyle}
+                    value={form.programStartDate}
+                    onChange={(e) => setField('programStartDate', e.target.value)}
+                  />
+                  {errors.programStartDate && <span style={errorStyle}>{errors.programStartDate}</span>}
+                </Box>
+                <Box style={{ flex: 1 }}>
+                  <label style={labelStyle} htmlFor="programEndDate">End date</label>
+                  <input
+                    id="programEndDate"
+                    type="date"
+                    className="gg-date-input"
+                    style={inputStyle}
+                    value={form.programEndDate}
+                    onChange={(e) => setField('programEndDate', e.target.value)}
+                  />
+                  {errors.programEndDate && <span style={errorStyle}>{errors.programEndDate}</span>}
+                </Box>
+              </Flex>
 
               {/* add once anywhere in this component's JSX, or hoist to a shared spot if you use type="date" elsewhere */}
               <style>{`

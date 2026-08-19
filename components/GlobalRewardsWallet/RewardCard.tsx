@@ -6,7 +6,6 @@ import { RewardWithContext } from '@/app/types/rewardTypes';
 import { useMemo } from 'react';
 
 import '../GlobalRewardsWallet/wallet.css';
-import { IDataSource } from '@/app/types/databaseTypes';
 
 type Props = {
   reward: RewardWithContext;
@@ -17,7 +16,6 @@ type Props = {
   backgroundImage?: string;
   textColor?: string;
   zIndex: number;
-  dataSource: IDataSource | null;
 };
 
 const DEFAULT_CARD_BACKGROUND_IMAGE = '/rewardCardBackgrounds/defaultCardBackground.jpg';
@@ -31,7 +29,6 @@ export const RewardCard = ({
   backgroundImage,
   textColor = '#ffffff',
   zIndex,
-  dataSource,
 }: Props) => {
 
   const unredeemedCount = reward.codes?.filter(c => !c.redeemed).length ?? 0;
@@ -93,13 +90,6 @@ export const RewardCard = ({
                 height={70}
                 width={70}
               />
-              <Image
-                src={dataSource?.logo ?? '/logos/gg-rewards_white.png'}
-                alt={`${dataSource?.name} logo`}
-                height={70}
-                width={70}
-              />
-  
             </Flex>
           <Flex direction="column" align="center" justify="center" flexGrow="1">
             <Text size="6" weight="bold" align="center">{reward.friendlyName}</Text>

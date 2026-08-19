@@ -13,7 +13,6 @@ export interface RewardCodeTask {
   reward: IReward;
   clientId: Types.ObjectId;
   isGlobalReward?: boolean;
-  dataSourceId?: Types.ObjectId;
 }
 
 export interface IRewardCodeEntry {

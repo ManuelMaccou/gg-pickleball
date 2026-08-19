@@ -1,9 +1,11 @@
 'use client'
 
+// If the admin edits the reward, anyone who has already earned it will see the 
+// original version, not the updated one.
+
 import { useEffect, useState } from 'react';
 import { Flex, Box, Spinner, Text, Grid, Dialog, VisuallyHidden, Button } from '@radix-ui/themes';
 import { ReloadIcon } from '@radix-ui/react-icons';
-import { IDataSource } from '@/app/types/databaseTypes';
 import { FrontendUser } from '@/app/types/frontendTypes';
 import { achievementKeyToFunctionName } from '@/lib/achievements/definitions';
 import { achievementFunctionMetadata } from '@/lib/achievements/achievementMetadata';
@@ -15,27 +17,18 @@ type WalletStatus = 'loading' | 'error' | 'empty' | 'ready';
 
 type Props = {
   user: FrontendUser | null;
-  dataSourceId: string;
 };
 
-export default function GlobalRewardsWallet({ user, dataSourceId }: Props) {
+export default function GlobalRewardsWallet({ user }: Props) {
   const [status, setStatus] = useState<WalletStatus>('loading');
   const [allRewards, setAllRewards] = useState<RewardWithContext[]>([]);
-  const [dataSource, setDataSource] = useState<IDataSource | null>(null);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
   const fetchAllDataAndMerge = async () => {
-    if (!dataSourceId) {
-      setStatus('empty');
-      return;
-    }
-
     setStatus('loading');
 
     try {
-      const dataSourcePromise = fetch('/api/data-source');
       let finalRewardsList: RewardWithContext[] = [];
-      let fetchedDataSource: IDataSource | null = null;
 
       const getWinCount = (reward: any) => {
         const name = reward.achievementName || '';
@@ -45,17 +38,13 @@ export default function GlobalRewardsWallet({ user, dataSourceId }: Props) {
 
       if (!user) {
         // ── Logged-out ──────────────────────────────────────────────────────
-        const rewardsPromise = fetch(`/api/source-reward-config?dataSourceId=${dataSourceId}`);
-        const [dataSourceRes, rewardsRes] = await Promise.all([dataSourcePromise, rewardsPromise]);
+        const rewardsPromise = fetch('/api/source-reward-config');
+        const [rewardsRes] = await Promise.all([rewardsPromise]);
 
-        if (!dataSourceRes.ok || !rewardsRes.ok) {
-          throw new Error(`Fetch failed — datasource: ${dataSourceRes.status}, rewards: ${rewardsRes.status}`);
+        if (!rewardsRes.ok) {
+          throw new Error(`Fetch failed: rewards: ${rewardsRes.status}`);
         }
-
-        const dataSourceData = await dataSourceRes.json();
-        const allDataSources = dataSourceData.dataSources || [];
-        fetchedDataSource = allDataSources.find((ds: IDataSource) => ds._id.toString() === dataSourceId) || null;
-
+        
         const rewardsData = await rewardsRes.json();
         const configuredRewards = (rewardsData.rewards || []) as GlobalConfiguredReward[];
 
@@ -71,21 +60,17 @@ export default function GlobalRewardsWallet({ user, dataSourceId }: Props) {
 
       } else {
         // ── Logged-in ───────────────────────────────────────────────────────
-        const earnedPromise = fetch(`/api/reward-code/global-earned?userId=${user._id}&dataSourceId=${dataSourceId}`);
-        const configuredPromise = fetch(`/api/source-reward-config?dataSourceId=${dataSourceId}`);
-        const [dataSourceRes, earnedRes, configuredRes] = await Promise.all([
-          dataSourcePromise, earnedPromise, configuredPromise,
+        const earnedPromise = fetch(`/api/reward-code/global-earned?userId=${user._id}`);
+        const configuredPromise = fetch('/api/source-reward-config');
+        const [earnedRes, configuredRes] = await Promise.all([
+          earnedPromise, configuredPromise,
         ]);
 
-        if (!dataSourceRes.ok || !earnedRes.ok || !configuredRes.ok) {
+        if (!earnedRes.ok || !configuredRes.ok) {
           throw new Error(
-            `Fetch failed — datasource: ${dataSourceRes.status}, earned: ${earnedRes.status}, configured: ${configuredRes.status}`
+            `Fetch failed — earned: ${earnedRes.status}, configured: ${configuredRes.status}`
           );
         }
-
-        const dataSourceData = await dataSourceRes.json();
-        const allDataSources = dataSourceData.dataSources || [];
-        fetchedDataSource = allDataSources.find((ds: IDataSource) => ds._id.toString() === dataSourceId) || null;
 
         const earnedData = await earnedRes.json();
         const configuredData = await configuredRes.json();
@@ -145,13 +130,7 @@ export default function GlobalRewardsWallet({ user, dataSourceId }: Props) {
 
         for (const earned of [...earnedRewardsMap.values()]) {
           const uniqueSnapshotKey = `${earned._id.toString()}-${earned.sponsoringClient._id.toString()}`;
-          if (mergedMap.has(uniqueSnapshotKey)) {
-            const existingEntry = mergedMap.get(uniqueSnapshotKey)!;
-            existingEntry.codes = earned.codes;
-            existingEntry.repeatable = earned.repeatable;
-          } else {
-            mergedMap.set(uniqueSnapshotKey, earned);
-          }
+          mergedMap.set(uniqueSnapshotKey, earned);
         }
 
         const allRewardVersions = [...mergedMap.values()];
@@ -185,7 +164,6 @@ export default function GlobalRewardsWallet({ user, dataSourceId }: Props) {
         });
       }
 
-      setDataSource(fetchedDataSource);
       setAllRewards(finalRewardsList);
       setStatus(finalRewardsList.length === 0 ? 'empty' : 'ready');
 
@@ -195,7 +173,7 @@ export default function GlobalRewardsWallet({ user, dataSourceId }: Props) {
     }
   };
 
-  useEffect(() => { fetchAllDataAndMerge(); }, [user, user?._id, dataSourceId]);
+  useEffect(() => { fetchAllDataAndMerge(); }, [user, user?._id]);
 
   // ── Loading ────────────────────────────────────────────────────────────────
   if (status === 'loading') {
@@ -281,7 +259,6 @@ export default function GlobalRewardsWallet({ user, dataSourceId }: Props) {
               reward={reward}
               index={index}
               onClick={() => setActiveIndex(index)}
-              dataSource={dataSource}
             />
           );
         })}

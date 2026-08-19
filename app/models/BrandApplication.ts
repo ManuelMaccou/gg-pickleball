@@ -1,9 +1,8 @@
-// app/models/BrandApplication.ts
-//
 // Tracks brand applications through their lifecycle:
 //   draft     — user is authenticated but hasn't submitted the full form
 //   pending   — full application submitted, awaiting admin review
 //   approved  — admin approved; Client + Admin records created via createBrandClient/inviteAdminToClient
+//   invited   — The invite email has actually gone out
 //   rejected  — admin rejected; reviewNote optional
 
 import mongoose, { Schema, Model } from 'mongoose';

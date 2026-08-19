@@ -10,8 +10,7 @@ import { DuprMatch, DuprMember } from '@/app/types/duprTypes';
 import { findOrCreateUserForUpload } from '@/lib/services/matchBulkUpload/userService';
 import { JobResult, RowContextData } from '@/app/types/bulkUploadTypes';
 import Match from '@/app/models/Match';
-import DataSource from '@/app/models/DataSource';
-import { startSession } from 'mongoose';
+import { startSession, Types } from 'mongoose';
 import DuprImportError from '@/app/models/DuprImportError'; // <--- UPDATED IMPORT
 import { sendNotificationEmail } from '@/lib/mailgun/sendNotificationEmail';
 
@@ -22,18 +21,16 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { duprMatches, locationId, duprId, isGlobalContext, dataSourceType } = await req.json() as { 
+    const { duprMatches, locationId, duprId, isGlobalContext } = await req.json() as { 
       duprMatches: DuprMatch[], 
       locationId: string, 
       duprId: number, 
       isGlobalContext?: boolean,
-      dataSourceType: string,
     };
 
     if (!duprMatches || duprMatches.length === 0) return NextResponse.json({ error: 'A list of DUPR matches is required.' }, { status: 400 });
     if (!isGlobalContext && !locationId) return NextResponse.json({ error: 'A location is required for a local sync.' }, { status: 400 });
     if (isGlobalContext && authorizedUser.superAdmin === false) return NextResponse.json({ error: 'Only superAdmins can perform a global sync.' }, { status: 403 });
-    if (!dataSourceType) return NextResponse.json({ error: 'A dataSourceType is required.' }, { status: 400 });
 
     const DUPR_TOKEN = process.env.DUPR_API_BACKEND_BEARER_TOKEN;
     if (!DUPR_TOKEN) throw new Error("DUPR API token is not configured.");
@@ -43,10 +40,6 @@ export async function POST(req: NextRequest) {
 
     if (!duprId) throw new Error("Could not determine a DUPR Club ID for fetching members.");
 
-    const dataSource = await DataSource.findOne({ type: dataSourceType });
-    if (!dataSource) return NextResponse.json({ error: `Data source with type '${dataSourceType}' not found.` }, { status: 404 });
-    const dataSourceId = dataSource._id.toString();
-    
     // --- FETCH MEMBERS ---
     const membersRes = await fetch(`${baseUrl}/api/dupr/members`, {
       method: 'POST',
@@ -154,7 +147,13 @@ export async function POST(req: NextRequest) {
                   });
                   continue; 
                 }
-                matchDoc.processedUsers.push(...usersToProcess);
+                // Wrapped with Types.ObjectId — same fix as the other
+                // DUPR-sync routes. usersToProcess is declared string[]
+                // (matches its other use as targetUserIds below, which
+                // expects string[]), but the Mongoose-typed
+                // processedUsers array needs real ObjectId instances, not
+                // raw strings.
+                matchDoc.processedUsers.push(...usersToProcess.map(id => new Types.ObjectId(id)));
                 await matchDoc.save({ session });
                 currentMatchId = matchDoc.matchId;
             } else {
@@ -168,7 +167,6 @@ export async function POST(req: NextRequest) {
                     team1Ids, team1Score: matchData.team1_score,
                     team2Ids, team2Score: matchData.team2_score,
                     winners: winnerIds,
-                    dataSourceId: dataSourceId,
                     processedUsers: allPlayerIds,
                     isGlobalContext
                 }, { session });
@@ -188,7 +186,6 @@ export async function POST(req: NextRequest) {
               isHistorical,
               isGlobalContext: !!isGlobalContext,
               triggeringEvent: eventName,
-              dataSourceId: dataSourceId,
               targetUserIds: usersToProcess,
               countAsWin: matchData.isLastGame,
             }, { session });

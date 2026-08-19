@@ -25,6 +25,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import styles from './(APP)/HomePage.module.css';
+import TournamentCards from './(APP)/components/TournamentCards';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Inline product-screen mockup components
@@ -493,9 +494,9 @@ export default function HomePage() {
         </Container>
       </Box>
 
-      {/* ============ TOURNAMENTS SECTION (new) ============ */}
-      {/* Public-facing tournament showcase — Section 5.2 pattern, no DUPR mentions (Section 6). */}
-      {/* Sample data below; wire up to a real tournaments feed when available. */}
+      {/* ============ TOURNAMENTS SECTION ============ */}
+      {/* Header copy and organizer callout stay inline here — page-specific
+          marketing framing, not part of the shared TournamentCards grid. */}
       <Box id="tournaments" py="9" style={{ backgroundColor: '#0a0a0a', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
         <Container size="4" px="5">
           <Flex direction="column" align="center" mb="8">
@@ -510,11 +511,11 @@ export default function HomePage() {
               events and any rewards you've earned will be waiting when you log in.
             </Text>
           </Flex>
-
-          <Grid columns={{ initial: '1', xs: '2', md: '4' }} gap="4" mb="7">
-            {tournaments.map((t) => <TournamentCard key={t.name} {...t} />)}
-          </Grid>
-
+ 
+          <Box mb="7">
+            <TournamentCards />
+          </Box>
+ 
           {/* Lightweight organizer callout — replaces the old full "Clubs & Organizers" section */}
           <Flex
             justify="between" align="center" gap="4" wrap="wrap"

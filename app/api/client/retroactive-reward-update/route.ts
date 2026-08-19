@@ -54,7 +54,7 @@ export async function POST(request: Request) {
     const rewardDocs = await Reward.find({ _id: { $in: rewardIds } }).lean<IReward[]>();
     const rewardMap = new Map(rewardDocs.map((r) => [r._id.toString(), r]));
 
-    const achievementDataMap = new Map<string, { reward: IReward, dataSourceId: Types.ObjectId }>();
+    const achievementDataMap = new Map<string, { reward: IReward }>();
     const targetAchievementIds: string[] = [];
 
     for (const config of sourceConfigs) {
@@ -69,7 +69,6 @@ export async function POST(request: Request) {
 
         achievementDataMap.set(achId, {
             reward,
-            dataSourceId: config.dataSourceId 
         });
         targetAchievementIds.push(achId);
     }
@@ -119,7 +118,7 @@ export async function POST(request: Request) {
 
                 if (new Date(userAch.earnedAt) < cutoffDate) continue;
 
-                const { reward: rewardConfig, dataSourceId } = achievementDataMap.get(achIdStr)!;
+                const { reward: rewardConfig } = achievementDataMap.get(achIdStr)!;
 
                 // Rule 3: IDEMPOTENCY CHECK
                 const alreadyHasIt = globalStats.rewards.some((r: any) => 
@@ -176,8 +175,7 @@ export async function POST(request: Request) {
                     reward: rewardConfig, 
                     isGlobalReward: true,
                     redeemed: false,
-                    addedToPos, // Track sync status
-                    dataSourceId: new Types.ObjectId(dataSourceId) 
+                    addedToPos,
                 }, { session });
 
                 rewardsToAdd.push({

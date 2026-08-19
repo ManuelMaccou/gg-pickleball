@@ -11,7 +11,6 @@ const RewardCodeSchema = new Schema<IRewardCode>({
   redeemed: { type: Boolean, default: false },
   redemptionDate: { type: Date },
   addedToPos: { type: Boolean },
-  dataSourceId: { type: Schema.Types.ObjectId, ref: 'DataSource' },
   isGlobalReward: { type: Boolean, default: false },
 }, { timestamps: true });
 

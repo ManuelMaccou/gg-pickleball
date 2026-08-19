@@ -46,7 +46,6 @@ export async function generateAndSaveShopifyDiscountCodes(
           redeemed: false,
           addedToPos: true,
           isGlobalReward: task.isGlobalReward ?? false,
-          dataSourceId: task.dataSourceId ? new Types.ObjectId(task.dataSourceId) : undefined,
         });
         tasksToProcess.push(task);
       } else {

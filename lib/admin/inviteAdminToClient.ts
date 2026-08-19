@@ -1,13 +1,7 @@
-// lib/admin/inviteAdminToClient.ts
-//
-// Shared helper that finds-or-creates a User, links them as an Admin to a Client,
-// and sends the password-set or welcome email. Used by:
-//   - POST /api/admin-tasks/onboard-client/invite-admin (superadmin manual flow)
-//   - PATCH /api/admin/brand-applications/[id] (when approving a brand application)
-
 import { ManagementClient } from 'auth0';
 import User from '@/app/models/User';
 import Admin from '@/app/models/Admin';
+import { BrandApplication } from '@/app/models/BrandApplication';
 import { sendNotificationEmail } from '@/lib/mailgun/sendNotificationEmail';
 import type { IClient } from '@/app/types/databaseTypes';
 
@@ -172,6 +166,15 @@ export async function inviteAdminToClient({
       action_url: actionUrl,
     },
   });
+
+  try {
+    await BrandApplication.findOneAndUpdate(
+      { clientId: client._id, status: 'pending' },
+      { $set: { status: 'approved' } }
+    );
+  } catch (err) {
+    console.error('[inviteAdminToClient] Failed to update BrandApplication status:', err);
+  }
 
   return {
     alreadyAdmin: !!existingAdminRecord,

@@ -1,9 +1,16 @@
 'use client';
 
-// app/(ADMIN)/admin/gg/onboard/page.tsx
+// Destination: app/(ADMIN)/admin/gg/onboard/page.tsx
 //
-// Superadmin-only. Custom app mode client onboarding — walks through every
-// step needed to get a new brand partner live in one place.
+// [Onboarding wizard resume] Added: reading ?clientId= to resume an
+// existing client's onboarding instead of always starting fresh at Step 1.
+// Resume rule (per direct instruction): any client that exists but hasn't
+// had its admin invited yet lands on Step 2, with whatever Shopify fields
+// are already saved pre-filled — no fine-grained derivation of which of
+// Step 2's sub-tasks are done, since three of the four checkboxes describe
+// external, unverifiable actions the admin re-confirms by hand regardless.
+// A client whose admin has already been invited skips straight to Step 4 —
+// nothing left to do.
 //
 // Step 1 — Create client (name only → POST /api/admin/onboard)
 // Step 2 — Configure Shopify (shopDomain + envKey + installUrl → PATCH /api/admin/onboard)
@@ -11,7 +18,7 @@
 // Step 3 — Invite admin (name + email → POST /api/admin-tasks/onboard-client/invite-admin)
 // Step 4 — Done — summary + what the client needs to do next
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Badge, Box, Button, Callout, Card, Checkbox,
@@ -217,20 +224,34 @@ function Step1Create({
 
 function Step2Shopify({
   client,
+  initialShopDomain = '',
+  initialEnvKey = '',
+  initialInstallUrl = '',
   onDone,
 }: {
   client: CreatedClient;
+  initialShopDomain?: string;
+  initialEnvKey?: string;
+  initialInstallUrl?: string;
   onDone: (config: ShopifyConfig) => void;
 }) {
-  const [shopDomain, setShopDomain] = useState('');
-  const [envKey, setEnvKey] = useState('');
-  const [installUrl, setInstallUrl] = useState('');
+  const [shopDomain, setShopDomain] = useState(initialShopDomain);
+  const [envKey, setEnvKey] = useState(initialEnvKey);
+  const [installUrl, setInstallUrl] = useState(initialInstallUrl);
   const [partnerChecked, setPartnerChecked] = useState(false);
   const [distributionChecked, setDistributionChecked] = useState(false);
   const [railwayChecked, setRailwayChecked] = useState(false);
-  const [installUrlChecked, setInstallUrlChecked] = useState(false);
+  // [Resume] Auto-checked only when resuming with an install URL already
+  // saved — this one specifically describes a fact about our own DB, not
+  // an external/unverifiable action, so there's nothing to re-confirm by
+  // hand. The other three checkboxes below always start unchecked.
+  const [installUrlChecked, setInstallUrlChecked] = useState(!!initialInstallUrl);
   const [submitting, setSubmitting] = useState(false);
-  const [saved, setSaved] = useState(false);
+  // [Resume] If we resumed with shopDomain + envKey already saved, treat
+  // as already-saved so Continue isn't blocked on redundantly re-clicking
+  // "Save to DB". Editing either field still resets this via the existing
+  // onChange handlers below.
+  const [saved, setSaved] = useState(!!(initialShopDomain && initialEnvKey));
   const [error, setError] = useState<string | null>(null);
 
   const cleanKey = envKey.trim().toUpperCase().replace(/\s+/g, '_');
@@ -607,6 +628,11 @@ function Step4Done({
     { label: 'Distribution set', detail: 'Custom distribution — merchant store selected' },
     { label: 'Railway env vars added', detail: `SHOPIFY_API_KEY_${shopifyConfig.envKey} + SECRET` },
     { label: 'Install URL saved', detail: shopifyConfig.installUrl ? '✓' : '—' },
+    // [Resume] On a resumed-and-already-invited client, we know an admin
+    // exists but not their email (Admin doesn't store it directly, and
+    // fetching it would mean populating through to User — skipped for
+    // now). This row just doesn't render in that case rather than showing
+    // something wrong.
     ...(inviteEmail ? [{ label: 'Admin invited', detail: inviteEmail }] : []),
   ];
 
@@ -713,8 +739,76 @@ export default function OnboardPage() {
   const [shopifyConfig, setShopifyConfig] = useState<ShopifyConfig | null>(null);
   const [inviteEmail, setInviteEmail] = useState('');
 
+  // [Resume] New — resuming an existing client's onboarding via ?clientId=
+  const resumeClientId = searchParams.get('clientId');
+  const [isResuming, setIsResuming] = useState(!!resumeClientId);
+  const [resumeError, setResumeError] = useState<string | null>(null);
+  const [resumePrefill, setResumePrefill] = useState<{
+    shopDomain: string; envKey: string; installUrl: string;
+  } | null>(null);
+
   // Pre-fill from brand application if redirected from brand-applications page
   const prefilledName = searchParams.get('name') ?? '';
+
+  useEffect(() => {
+    if (!resumeClientId) return;
+
+    (async () => {
+      setIsResuming(true);
+      setResumeError(null);
+      try {
+        const res = await fetch(`/api/admin/onboard?clientId=${resumeClientId}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? 'Failed to load client.');
+
+        setClient({ clientId: data.clientId, name: data.name });
+        setResumePrefill({
+          shopDomain: data.shopify?.shopDomain ?? '',
+          envKey: data.shopify?.envKey ?? '',
+          installUrl: data.shopify?.installUrl ?? '',
+        });
+
+        if (data.adminInvited) {
+          setShopifyConfig({
+            shopDomain: data.shopify?.shopDomain ?? '',
+            envKey: data.shopify?.envKey ?? '',
+            installUrl: data.shopify?.installUrl ?? '',
+          });
+          setStep(4);
+        } else {
+          setStep(2);
+        }
+      } catch (e) {
+        setResumeError(e instanceof Error ? e.message : 'Something went wrong.');
+      } finally {
+        setIsResuming(false);
+      }
+    })();
+  }, [resumeClientId]);
+
+  if (isResuming) {
+    return (
+      <Flex align="center" justify="center" style={{ minHeight: '100vh' }}>
+        <Flex direction="column" align="center" gap="3">
+          <Spinner size="3" />
+          <Text size="2" color="gray">Loading client…</Text>
+        </Flex>
+      </Flex>
+    );
+  }
+
+  if (resumeError) {
+    return (
+      <Flex align="center" justify="center" style={{ minHeight: '100vh' }}>
+        <Flex direction="column" align="center" gap="4" style={{ maxWidth: 400, textAlign: 'center' }}>
+          <ExclamationTriangleIcon width={32} height={32} color="var(--red-9)" />
+          <Text size="3" weight="bold">Couldn't load this client</Text>
+          <Text size="2" color="gray">{resumeError}</Text>
+          <Button onClick={() => router.push('/admin/gg/config')}>Back to clients</Button>
+        </Flex>
+      </Flex>
+    );
+  }
 
   return (
     <Flex direction="column" style={{ minHeight: '100vh', backgroundColor: '#F9FAFB' }}>
@@ -729,7 +823,9 @@ export default function OnboardPage() {
         <Flex align="center" gap="4">
           <Image src={darkGgLogo} alt="Logo" height={32} width={60} style={{ objectFit: 'contain' }} />
           <Separator orientation="vertical" style={{ height: 20 }} />
-          <Text weight="bold" size="3">Onboard New Client</Text>
+          <Text weight="bold" size="3">
+            {client ? `Onboarding — ${client.name}` : 'Onboard New Client'}
+          </Text>
         </Flex>
         <Button variant="soft" color="gray" onClick={() => router.push('/admin/gg/config')}>
           ← Back to clients
@@ -750,6 +846,9 @@ export default function OnboardPage() {
             {step === 2 && client && (
               <Step2Shopify
                 client={client}
+                initialShopDomain={resumePrefill?.shopDomain}
+                initialEnvKey={resumePrefill?.envKey}
+                initialInstallUrl={resumePrefill?.installUrl}
                 onDone={(config) => { setShopifyConfig(config); setStep(3); }}
               />
             )}

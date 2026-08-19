@@ -3,8 +3,7 @@ import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser';
 import connectToDatabase from '@/lib/mongodb';
 import User from '@/app/models/User';
 import Match from '@/app/models/Match';
-import DataSource from '@/app/models/DataSource';
-import { startSession } from 'mongoose';
+import { startSession, Types } from 'mongoose';
 import { updateUserAndAchievements } from '@/utils/achievementFunctions/updateUserAndAchievements';
 import { createMatch } from '@/lib/services/matchBulkUpload/matchService';
 import { transformPersonalDuprMatches } from '@/lib/services/matchBulkUpload/duprTransformationService';
@@ -53,9 +52,8 @@ export async function POST(req: NextRequest) {
 
         const userDoc = await User.findById(authorizedUser.id);
         const duprId = userDoc?.dupr?.id;
-        const dataSource = await DataSource.findOne({ type: 'dupr' });
 
-        if (!duprId || !dataSource) {
+        if (!duprId) {
           sendEvent({
             type: 'ERROR',
             message: 'processing_incomplete',
@@ -64,7 +62,6 @@ export async function POST(req: NextRequest) {
           return;
         }
 
-        const dataSourceId = dataSource._id.toString();
         let processedCount = 0;
         let rewardCodeError = false; // set true if any Shopify code creation fails
         const total = matchIdsToProcess.length;
@@ -131,26 +128,26 @@ export async function POST(req: NextRequest) {
 
                 if (userIsInMatch && !processedSet.has(authorizedUser.id)) {
                   shouldProcessUser = true;
-                  matchDoc.processedUsers.push(authorizedUser.id);
+                  matchDoc.processedUsers.push(new Types.ObjectId(authorizedUser.id));
 
                   if (t1Ids.includes(authorizedUser.id)) {
                     const currentT1 = matchDoc.team1.players.map((id: any) => id.toString());
                     if (!currentT1.includes(authorizedUser.id)) {
-                      matchDoc.team1.players.push(authorizedUser.id);
+                      matchDoc.team1.players.push(new Types.ObjectId(authorizedUser.id));
                     }
                   }
 
                   if (t2Ids.includes(authorizedUser.id)) {
                     const currentT2 = matchDoc.team2.players.map((id: any) => id.toString());
                     if (!currentT2.includes(authorizedUser.id)) {
-                      matchDoc.team2.players.push(authorizedUser.id);
+                      matchDoc.team2.players.push(new Types.ObjectId(authorizedUser.id));
                     }
                   }
 
                   if (matchWinnerIds.includes(authorizedUser.id)) {
                     const currentWinners = matchDoc.winners.map((id: any) => id.toString());
                     if (!currentWinners.includes(authorizedUser.id)) {
-                      matchDoc.winners.push(authorizedUser.id);
+                      matchDoc.winners.push(new Types.ObjectId(authorizedUser.id));
                     }
                   }
 
@@ -176,7 +173,6 @@ export async function POST(req: NextRequest) {
                   team2Names: t2Names,
                   team2Score: score2,
                   winners: matchWinnerIds as string[],
-                  dataSourceId: dataSourceId,
                   processedUsers: userIsInMatch ? [authorizedUser.id] : [],
                   isGlobalContext: true,
                 }, { session });
@@ -205,7 +201,6 @@ export async function POST(req: NextRequest) {
                   isHistorical: true,
                   isGlobalContext: true,
                   triggeringEvent: game.eventName,
-                  dataSourceId: dataSourceId,
                   targetUserIds: [authorizedUser.id],
                   countAsWin: game.isLastGame,
                 }, { session, logContext });

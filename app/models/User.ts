@@ -1,4 +1,4 @@
-import mongoose, { Schema } from "mongoose";
+import mongoose, { Model, Schema } from "mongoose";
 import { IUser } from "../types/databaseTypes";
 
 export const AchievementSubSchema = new Schema({
@@ -39,9 +39,8 @@ const ClientStatsSubSchema = new Schema({
 const DuprSchema = new Schema({
   id: { type: String },
   rating: { type: Number },
-  unverfiedId: { type: String },
+  unverifiedId: { type: String },
   email: { type: String },
-  activated: { type: Boolean, default: false },
   userToken: { type: String },
   refreshToken: { type: String },
   hasBasicEntitlement: { type: Boolean },
@@ -55,30 +54,38 @@ const DuprSchema = new Schema({
   doublesProvisional: { type: Boolean },
   singlesProvisional: { type: Boolean },
   lastRatingUpdate: { type: Date },
-})
+}, { _id: false })
 
 
 const UserSchema = new Schema<IUser>(
   {
     accountClaimed: { type: Boolean, default: false }, 
     brandOptin: { type: Boolean, default: false },
+
+    // My own transaction emails, including "A new reward was unlocked. Log in to claim it."
+    transactionalOptOut: { type: Boolean, default: false },
+    marketingOptOut: { type: Boolean, default: false },
     name: { type: String, required: true},
     email: { type: String },
     auth0Id: { type: String },
     superAdmin: { type: Boolean },
     profilePicture: { type: String },
     dupr: { type: DuprSchema },
-    lastLocation: { type: Schema.Types.ObjectId, ref: "Client" },
     stats: {
       type: Map,
       of: ClientStatsSubSchema,
       default: {}
-    }
+    },
+    identityUnresolved: { type: Boolean, default: false },
   }, { timestamps: true }
 );
 
 UserSchema.index({ auth0Id: 1 });
-UserSchema.index({ name: 1 }, { unique: true, collation: { locale: 'en', strength: 2 } });
+UserSchema.index({ name: 1 }, { collation: { locale: 'en', strength: 2 } });
+UserSchema.index({ "dupr.id": 1 }, { unique: true, sparse: true });
 UserSchema.index({ "stats.global.rewards.sponsoringClientId": 1 });
 
-export default mongoose.models.User || mongoose.model<IUser>("User", UserSchema);
+const User: Model<IUser> =
+  mongoose.models.User || mongoose.model<IUser>("User", UserSchema);
+ 
+export default User;

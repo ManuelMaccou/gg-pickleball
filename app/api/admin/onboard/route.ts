@@ -1,4 +1,4 @@
-// app/api/admin/onboard/route.ts
+// Destination: app/api/admin/onboard/route.ts
 //
 // Superadmin-only. Supports the custom app client onboarding flow.
 //
@@ -8,12 +8,66 @@
 //
 // PATCH — saves shopDomain and envKey to an existing Client's shopify sub-doc.
 //          Called in step 2 of the onboarding flow after the client is created.
+//
+// GET — [Onboarding wizard resume] returns a client's current onboarding
+//        state so the wizard can resume at the right step instead of always
+//        starting fresh. adminInvited is derived from whether an Admin
+//        record exists for this client (Admin.location) — not a separate
+//        tracked flag, same "derive, don't store" pattern used throughout
+//        the program-upload work.
 
 import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
 import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser';
 import Client from '@/app/models/Client';
+import Admin from '@/app/models/Admin';
 import { logError } from '@/lib/sentry/logger';
+
+// ── GET — resume state for the onboarding wizard ──────────────────────────────
+
+export async function GET(req: NextRequest) {
+  try {
+    const user = await getAuthorizedUser(req);
+    if (!user?.superAdmin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const clientId = searchParams.get('clientId');
+    if (!clientId) {
+      return NextResponse.json({ error: 'clientId is required.' }, { status: 400 });
+    }
+
+    await connectToDatabase();
+
+    const client = await Client.findById(clientId)
+      .select('name shopify.shopDomain shopify.envKey shopify.installUrl')
+      .lean() as {
+        name?: string;
+        shopify?: { shopDomain?: string; envKey?: string; installUrl?: string };
+      } | null;
+
+    if (!client) {
+      return NextResponse.json({ error: 'Client not found.' }, { status: 404 });
+    }
+
+    const adminInvited = await Admin.exists({ location: clientId });
+
+    return NextResponse.json({
+      clientId,
+      name: client.name,
+      shopify: {
+        shopDomain: client.shopify?.shopDomain ?? '',
+        envKey: client.shopify?.envKey ?? '',
+        installUrl: client.shopify?.installUrl ?? '',
+      },
+      adminInvited: !!adminInvited,
+    });
+  } catch (err) {
+    logError(err, { endpoint: 'GET /api/admin/onboard' });
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+  }
+}
 
 // ── POST — create client with defaults ───────────────────────────────────────
 
