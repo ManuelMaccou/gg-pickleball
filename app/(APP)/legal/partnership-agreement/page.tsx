@@ -67,7 +67,7 @@ export default function PartnershipAgreementPage() {
               ['"Platform"', 'means the GG Pickleball website, mobile application, and associated services.'],
               ['"Brand Partner"', 'means the company that has been approved by GG Pickleball and has accepted this Agreement.'],
               ['"Promo Code"', 'means a unique discount code issued by the Brand Partner and made available to players through the Platform.'],
-              ['"Win Milestones"', 'means the DUPR-verified pickleball win thresholds at which players become eligible to receive Promo Codes. GG Pickleball may adjust milestone structures from time to time with reasonable notice to Brand Partners.'],
+              ['"Win Milestones"', 'means the verified pickleball win thresholds at which players become eligible to receive Promo Codes. GG Pickleball may adjust milestone structures from time to time with reasonable notice to Brand Partners.'],
               ['"Order"', 'means a completed, paid transaction placed by a player at the Brand Partner\'s Shopify storefront using a Promo Code.'],
               ['"Net Order Value"', 'means the total value of an Order minus any amounts refunded to the customer.'],
               ['"Commission"', 'means the fee owed to GG Pickleball equal to 5% of the Net Order Value of each Order.'],
@@ -161,7 +161,7 @@ export default function PartnershipAgreementPage() {
             </SubSection>
             <SubSection title="4.6 Billing Records">
               {isCustomApp ? (
-                <Para>GG Pickleball maintains records of all billing events and Commission calculations. The Brand Partner may request a summary of billing activity by contacting GG Pickleball. GG Pickleball's billing records constitute the authoritative source for Commission calculations, absent manifest error.</Para>
+                <Para>GG Pickleball maintains records of all billing events and Commission calculations. The Brand Partner may access a summary of billing activity at any time directly from thier dashboard. GG Pickleball's billing records constitute the authoritative source for Commission calculations, absent manifest error.</Para>
               ) : (
                 <Para>GG Pickleball maintains records of all billing events submitted to Shopify. The Brand Partner may request a summary of billing events by contacting GG Pickleball. GG Pickleball's billing records constitute the authoritative source for Commission calculations, absent manifest error. Shopify's billing statements serve as the authoritative record of charges actually collected.</Para>
               )}
