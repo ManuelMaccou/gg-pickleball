@@ -134,7 +134,7 @@ export function ModernRewardCard({ reward, index, onClick }: ModernRewardCardPro
       <div style={{
         position: 'absolute', inset: 0,
         background:
-          'linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.10) 25%, ' +
+          'linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.10) 35%, ' +
           'rgba(0,0,0,0.15) 55%, rgba(0,0,0,0.55) 78%, rgba(0,0,0,0.88) 100%)',
       }} />
 

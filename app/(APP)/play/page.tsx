@@ -270,7 +270,7 @@ export default function Play() {
         {userFetchBanner}
 
         {/* ── Row 1: Hero (2/3) + CheckEligibilityPanel (1/3) ── */}
-        <Grid columns={{ initial: '1', md: '3' }} gap="5" mb="8">
+        <Grid columns={{ initial: '1', md: '3' }} gap={{initial: "0" , md: '5'}} mb="8">
           <Box
             position="relative"
             overflow="hidden"

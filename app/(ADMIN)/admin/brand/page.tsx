@@ -117,9 +117,6 @@ export default function BrandAdminDashboard() {
 
   const [statsError, setStatsError] = useState<string | null>(null);
   const [rewardsError, setRewardsError] = useState<string | null>(null);
-
-  const [showCardCustomizer, setShowCardCustomizer] = useState(false);
-
   const [shopifyStatus, setShopifyStatus] = useState<
     'unknown' | 'connected' | 'disconnected' | 'check_failed'
   >('unknown');
@@ -189,6 +186,10 @@ export default function BrandAdminDashboard() {
     };
     getAdminUser();
   }, [userId, router]);
+
+  useEffect(() => {
+    console.log('set background position:', location?.cardBackgroundPosition)
+  }, [location])
 
   // ── Effect 2: Shopify status check ──
   useEffect(() => {
@@ -284,11 +285,6 @@ export default function BrandAdminDashboard() {
     };
     getBrandRewards();
   }, [location?._id, page]);
-
-  // ── Effect 5: Auto-open card customizer ──
-  useEffect(() => {
-    if (!isLoadingRewards) setShowCardCustomizer(totalRewardsCount === 0);
-  }, [isLoadingRewards, totalRewardsCount]);
 
   // ── Effect 6: Auth redirect ──
   useEffect(() => {
@@ -587,38 +583,25 @@ export default function BrandAdminDashboard() {
       {/* <MarketingExportCard /> */}
 
       <Box>
-        <Flex align="center" gap="4" mb="1">
-          <Heading size="4">Reward Card</Heading>
-          <Button variant="soft" color={showCardCustomizer ? 'red' : 'blue'} size="2"
-            onClick={() => setShowCardCustomizer((v) => !v)}>
-            {showCardCustomizer ? 'Hide' : 'Show'}
-          </Button>
-        </Flex>
+  <Heading size="4" mb="1">Reward Card</Heading>
+  <Text size="2" color="gray" mb="4">
+    Customize the background image, logo, and text color shown on your reward cards.
+  </Text>
 
-        {!showCardCustomizer && (
-          <Text size="2" color="gray" mb="4">
-            Customize the background image, logo, and text color shown on your reward cards.
-          </Text>
-        )}
-
-        {showCardCustomizer && location && (
-          <>
-            <Text size="2" color="gray" mb="4">
-              Customize the background image, logo, and text color shown on your reward cards.
-            </Text>
-            <Card size="3">
-              <RewardCardCustomizer
-                key={`${location.cardBackgroundImage}-${location.cardTextColor}`}
-                clientId={location._id.toString()}
-                currentBackgroundImage={location.cardBackgroundImage}
-                currentTextColor={location.cardTextColor}
-                currentLogo={location.logo}
-                onSaved={handleClientUpdated}
-              />
-            </Card>
-          </>
-        )}
-      </Box>
+  {location && (
+    <Card size="3">
+      <RewardCardCustomizer
+        key={`${location.cardBackgroundImage}-${location.cardTextColor}`}
+        clientId={location._id.toString()}
+        currentBackgroundImage={location.cardBackgroundImage}
+        currentBackgroundPosition={location.cardBackgroundPosition || 'center'}
+        currentTextColor={location.cardTextColor}
+        currentLogo={location.logo}
+        onSaved={handleClientUpdated}
+      />
+    </Card>
+  )}
+</Box>
 
     </BrandPageShell>
   );

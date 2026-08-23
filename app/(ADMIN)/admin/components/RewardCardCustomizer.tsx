@@ -104,52 +104,74 @@ function CardPreview({
   };
 
   return (
-    <Box style={{
-      borderRadius: 16,
-      overflow: 'hidden',
-      border: '0.5px solid var(--gray-4)',
-      width: '100%',
-    }}>
-      <Box
-        ref={containerRef}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={endDrag}
-        onPointerCancel={endDrag}
-        style={{
-          height: 160,
-          position: 'relative',
-          overflow: 'hidden',
-          cursor: isDragging ? 'grabbing' : 'grab',
-          touchAction: 'none', // stops touch-drag from also scrolling the page
-          userSelect: 'none',
-        }}
-      >
-        <div style={{
-          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundImage: `url(${bgImage})`,
-          backgroundSize: 'cover',
-          backgroundPosition,
-          pointerEvents: 'none',
-        }} />
-        <div style={{
-          position: 'absolute', inset: 0,
-          background: 'linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.7) 100%)',
-          pointerEvents: 'none',
-        }} />
-        {logo && (
-          <Box style={{ position: 'absolute', top: 10, left: 10, pointerEvents: 'none' }}>
-            <img
-              src={logo}
-              alt="Logo"
-              style={{ height: 28, width: 28, objectFit: 'contain' }}
-            />
-          </Box>
-        )}
-        <Flex direction="column" style={{
-          position: 'absolute', bottom: 0, left: 0, right: 0, padding: '12px 14px',
-          pointerEvents: 'none',
-        }}>
+    <Box
+      ref={containerRef}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
+      style={{
+        position: 'relative',
+        aspectRatio: '360 / 340',
+        borderRadius: 16,
+        overflow: 'hidden',
+        border: '0.5px solid var(--gray-4)',
+        cursor: isDragging ? 'grabbing' : 'grab',
+        touchAction: 'none', // stops touch-drag from also scrolling the page
+        userSelect: 'none',
+      }}
+    >
+      {/* Full-card background image — same treatment as ModernRewardCard,
+          not just a strip at the top */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        backgroundImage: `url(${bgImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition,
+        pointerEvents: 'none',
+      }} />
+
+      {/* Same darkening gradient as the real card and the brand admin
+          "what the player sees" preview — near-clear through the middle,
+          stronger at top/bottom. */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        background:
+          'linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.05) 30%, ' +
+          'rgba(0,0,0,0.35) 70%, rgba(0,0,0,0.75) 100%)',
+        pointerEvents: 'none',
+      }} />
+
+      {logo && (
+        <Box style={{ position: 'absolute', top: 10, left: 10, pointerEvents: 'none' }}>
+          <img
+            src={logo}
+            alt="Logo"
+            style={{ height: 28, width: 28, objectFit: 'contain' }}
+          />
+        </Box>
+      )}
+
+      {/* Drag affordance — persistent, not just a first-use hint. This
+          page gets configured occasionally, not daily, so a hint that
+          disappears after one use would just mean a returning admin
+          months later doesn't see it either. */}
+      <Flex align="center" gap="1" style={{
+        position: 'absolute', top: 8, right: 8,
+        backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 999,
+        padding: '4px 10px', pointerEvents: 'none',
+      }}>
+        <Move size={12} color="white" />
+        <Text size="1" style={{ color: 'white' }}>Drag to reposition</Text>
+      </Flex>
+
+      {/* Bottom-anchored group: sample name sits directly above the
+          translucent "Claim Reward" panel, same relationship as the real
+          card and the brand admin preview — pointerEvents:none on the
+          whole group so dragging still works even when the pointer is
+          over this content, not just over bare image. */}
+      <Flex direction="column" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, pointerEvents: 'none' }}>
+        <Flex direction="column" px="4" pb="3">
           <Text size="4" weight="bold" style={{
             color: textColor,
             textShadow: '0 1px 3px rgba(0,0,0,0.8)',
@@ -159,26 +181,19 @@ function CardPreview({
           </Text>
         </Flex>
 
-        {/* Drag affordance — persistent, not just a first-use hint. This
-            page gets configured occasionally, not daily, so a hint that
-            disappears after one use would just mean a returning admin
-            months later doesn't see it either. */}
-        <Flex align="center" gap="1" style={{
-          position: 'absolute', top: 8, right: 8,
-          backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 999,
-          padding: '4px 10px', pointerEvents: 'none',
+        <Flex direction="column" p="4" style={{
+          backgroundColor: 'rgba(10,10,10,0.55)',
+          backdropFilter: 'blur(5px)',
+          WebkitBackdropFilter: 'blur(5px)',
+          borderTop: '1px solid rgba(255,255,255,0.08)',
         }}>
-          <Move size={12} color="white" />
-          <Text size="1" style={{ color: 'white' }}>Drag to reposition</Text>
-        </Flex>
-      </Box>
-      <Flex direction="column" style={{ padding: '12px 14px', backgroundColor: 'white' }} gap="3">
-        <Flex align="center" justify="center" style={{
-          backgroundColor: 'var(--lime-9)', borderRadius: 10,
-          padding: '8px 12px', gap: 6,
-        }}>
-          <Gift size={15} color="var(--slate-12)" />
-          <Text size="2" weight="bold" style={{ color: 'var(--slate-12)' }}>Claim Reward</Text>
+          <Flex align="center" justify="center" style={{
+            backgroundColor: 'var(--lime-9)', borderRadius: 10,
+            padding: '8px 12px', gap: 6, width: '100%',
+          }}>
+            <Gift size={15} color="var(--slate-12)" />
+            <Text size="2" weight="bold" style={{ color: 'var(--slate-12)' }}>Claim Reward</Text>
+          </Flex>
         </Flex>
       </Flex>
     </Box>
@@ -243,12 +258,24 @@ function ImageUploadField({
             </Box>
           ) : (
             <Box style={{
-              width: 120, height: 64, borderRadius: 8,
-              overflow: 'hidden', border: '0.5px solid var(--gray-4)',
-              backgroundImage: `url(${currentUrl})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-            }} />
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 6,
+              border: '0.5px solid var(--gray-4)',
+              borderRadius: 8,
+              // Neutral gray rather than white — makes it visually clear
+              // any empty margin here is letterboxing from objectFit, not
+              // part of the actual image.
+              backgroundColor: 'var(--gray-3)',
+              maxWidth: 200,
+            }}>
+              <img
+                src={currentUrl}
+                alt="Background preview"
+                style={{ maxHeight: 250, maxWidth: 250, objectFit: 'contain', display: 'block' }}
+              />
+            </Box>
           )}
         </Box>
       )}
@@ -467,7 +494,7 @@ export function RewardCardCustomizer({
       <Flex direction={{ initial: 'column', sm: 'row' }} gap="9" align="start">
 
         {/* Controls */}
-        <Flex direction="column" gap="4" style={{ flex: 1, minWidth: 0 }}>
+        <Flex direction="column" gap="4" maxWidth={'66%'} style={{ flex: 1, minWidth: 0 }}>
 
           <ImageUploadField
             label="Card Background"
@@ -561,7 +588,7 @@ export function RewardCardCustomizer({
         </Flex>
 
         {/* Live preview — fixed width, sticky feel */}
-        <Box style={{ width: 300, flexShrink: 0 }}>
+        <Box maxWidth={'34%'} flexGrow={"1"}>
           <Box style={{
             background: 'var(--gray-2)',
             border: '0.5px solid var(--gray-4)',
