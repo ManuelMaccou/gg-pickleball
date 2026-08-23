@@ -1,22 +1,33 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import Image from 'next/image';
 import darkGgLogo from '../../../../../public/logos/gg_logo_black_transparent.png';
 import { 
-  Flex, Heading, Select, Button, Spinner, Text, Badge, TextField, SegmentedControl, AlertDialog, 
-  Card, Separator, Box, ScrollArea, Avatar, Callout, IconButton 
+  Flex, Heading, Select, Button, Spinner, Text, Badge, TextField, AlertDialog, 
+  Card, Separator, Box, ScrollArea, Callout, IconButton 
 } from '@radix-ui/themes';
 import { 
-  CheckCircledIcon, InfoCircledIcon, MagnifyingGlassIcon, MagicWandIcon, TrashIcon, Pencil1Icon, Cross2Icon 
+  CheckCircledIcon, InfoCircledIcon, MagnifyingGlassIcon, MagicWandIcon, TrashIcon, Pencil1Icon, Cross2Icon,
+  ChevronLeftIcon,
 } from "@radix-ui/react-icons";
 import { 
-  AdminPermissionType, IAchievement, IClient, IReward, ISourceRewardSponsorship, RewardProductName 
+  AdminPermissionType, IAchievement, IClient, IReward, ISourceRewardSponsorship 
 } from '@/app/types/databaseTypes';
 import { useUserContext } from '@/app/contexts/UserContext';
 import { useIsMobile } from '@/app/hooks/useIsMobile';
 import { AdminSidebar } from '../../components/AdminSidebar';
 import { Types } from 'mongoose';
+import {
+  DEFAULT_DISCOUNT_FORM_STATE,
+  DiscountFormState,
+  buildRewardPayloadFields,
+  discountFormStateFromReward,
+  targetSummaryText,
+  validateDiscountForm,
+} from '@/lib/rewards/discountFormState';
+import { RewardDiscountForm } from '../../components/RewardDiscountForm';
 
 type ClientSideSourceConfig = {
   achievementName: string;
@@ -42,16 +53,19 @@ export default function GGRewardsAdminPage() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [adminPermission, setAdminPermission] = useState<AdminPermissionType>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  // Desktop-only: controls the achievement-picker overlay drawer. Starts
+  // open so there's something to pick from on first load. Mobile ignores
+  // this entirely and keeps its own full-screen list/canvas swap.
+  const [achievementDrawerOpen, setAchievementDrawerOpen] = useState(true);
 
-  // Form State
+  // Form State — every reward here is an 'online store' / 'retail' Shopify
+  // reward, same as the brand admin page. The only thing this page adds on
+  // top of that flow is picking WHICH client is sponsoring, since a single
+  // achievement can have multiple sponsors here (unlike brand admin, where
+  // there's only ever one — the logged-in admin's own store).
   const [selectedAchievement, setSelectedAchievement] = useState<IAchievement | null>(null);
   const [selectedClient, setSelectedClient] = useState<string>('');
-  const [discountAmount, setDiscountAmount] = useState<number | null>(null);
-  const [discountType, setDiscountType] = useState<"percent" | "dollars">("percent");
-  const [discountProduct, setDiscountProduct] = useState<RewardProductName>('online store'); // Default
-  const [productDescription, setProductDescription] = useState<string>(''); 
-  const [minimumSpend, setMinimumSpend] = useState<number | null>(null);
-  const [maxDiscount, setMaxDiscount] = useState<number | null>(null);
+  const [discountForm, setDiscountForm] = useState<DiscountFormState>(DEFAULT_DISCOUNT_FORM_STATE);
   
   // Edit Mode State
   const [editingRewardId, setEditingRewardId] = useState<string | null>(null);
@@ -59,12 +73,7 @@ export default function GGRewardsAdminPage() {
   // --- 1. RESET FORM ---
   const resetForm = () => {
     setSelectedClient('');
-    setDiscountAmount(null); 
-    setDiscountType('percent');
-    setDiscountProduct('online store');
-    setProductDescription('');
-    setMinimumSpend(null);
-    setMaxDiscount(null);
+    setDiscountForm(DEFAULT_DISCOUNT_FORM_STATE);
     setEditingRewardId(null);
     setError(null);
     setSuccessMsg(null);
@@ -151,6 +160,39 @@ export default function GGRewardsAdminPage() {
     setAdminPermission(user.superAdmin ? 'admin' : 'associate');
   }, [user]);
 
+  // Escape closes the achievement drawer, matching modal conventions —
+  // lightweight overlay, not a full Radix Dialog, so no built-in focus
+  // trap here.
+  useEffect(() => {
+    if (isMobile || !achievementDrawerOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setAchievementDrawerOpen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isMobile, achievementDrawerOpen]);
+
+  // --- SELECTED CLIENT LOOKUP — drives the Shopify-connection guard below ---
+  const selectedClientObj = useMemo(
+    () => allClients.find(c => c._id.toString() === selectedClient) ?? null,
+    [allClients, selectedClient]
+  );
+  const selectedClientHasShopify = !!(
+    selectedClientObj?.retailSoftware === 'shopify' &&
+    selectedClientObj?.shopify?.accessToken
+  );
+
+  // Only used for the "add new sponsor" flow (the Select is disabled while
+  // editing, so this never fires mid-edit). Resets discountForm on every
+  // client change — without this, product/collection selections picked
+  // for one client's catalog would silently carry over as state when
+  // switching to a different client, even though those Shopify IDs mean
+  // nothing (or something entirely different) in the new client's store.
+  const handleClientChange = (clientId: string) => {
+    setSelectedClient(clientId);
+    setDiscountForm(DEFAULT_DISCOUNT_FORM_STATE);
+  };
+
   // --- 4. HANDLE EDIT CLICK ---
   const handleEdit = (sponsorship: ISourceRewardSponsorship) => {
     const reward = allRewards.find(r => r._id.toString() === sponsorship.rewardId.toString());
@@ -161,50 +203,56 @@ export default function GGRewardsAdminPage() {
 
     setEditingRewardId(reward._id.toString());
     setSelectedClient(sponsorship.sponsoringClientId.toString());
-    
-    // Populate form
-    setDiscountAmount(reward.discount ?? null);
-    setDiscountType(reward.type === 'dollars' ? 'dollars' : 'percent');
-    setDiscountProduct(reward.product as RewardProductName);
-    setProductDescription(reward.productDescription || "");
-    setMinimumSpend(reward.minimumSpend ?? null);
-    setMaxDiscount(reward.maxDiscount ?? null);
-    
+    // Reconstructs scope/BXGY selections (with real product/collection
+    // names already snapshotted) from the persisted reward — same
+    // function the brand admin page uses for the identical purpose.
+    setDiscountForm(discountFormStateFromReward(reward));
+
     // Scroll to form
     document.getElementById('reward-form')?.scrollIntoView({ behavior: 'smooth' });
   };
   
   // --- 5. SAVE HANDLER (Create OR Update) ---
   const handleSaveGlobalReward = async () => {
-    if (!selectedAchievement || !selectedClient || !discountAmount) return;
+    if (!selectedAchievement || !selectedClient) return;
+
+    const validationError = validateDiscountForm(discountForm);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
     setIsSaving(true);
     setError(null);
     setSuccessMsg(null);
     
     try {
-      const friendlyName = `${discountType === 'dollars' ? '$' : ''}${discountAmount}${discountType === 'percent' ? '%' : ''} off ${productDescription ? productDescription : 'Entire Order'}`;
+      let friendlyName: string;
+      let rawSlug: string;
 
-      type Category = "custom" | "programming" | "retail";
-      const specialCategories: Record<string, Category> = {
-          "custom": "custom",
-          "pro shop": "retail",
-          "online store": "retail"
-      };
-      const category: Category = specialCategories[discountProduct] || "programming";
+      if (discountForm.discountKind === 'bxgy') {
+        const off = discountForm.getPercent === 100 ? 'free' : `${discountForm.getPercent}% off`;
+        friendlyName = `Buy ${discountForm.buyQuantity}, get ${discountForm.getQuantity} ${off}`;
+        rawSlug = `buy-${discountForm.buyQuantity}-get-${discountForm.getQuantity}-${
+          discountForm.getPercent === 100 ? 'free' : `${discountForm.getPercent}-percent-off`
+        }`;
+      } else {
+        const scopeLabel =
+          discountForm.scope === 'store' ? 'Entire Order' : targetSummaryText(discountForm.scopeSelection);
+        friendlyName = `${discountForm.amountType === 'dollars' ? '$' : ''}${discountForm.amountValue}${
+          discountForm.amountType === 'percent' ? '%' : ''
+        } off ${scopeLabel}`;
+        rawSlug = `${discountForm.amountValue}-${discountForm.amountType}-off-${scopeLabel}`;
+      }
 
-      const slugName = `${discountAmount}-${discountType}-off-${productDescription || 'item'}`
-        .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+      const name = rawSlug.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
       const rewardPayload: Partial<IReward> = {
         friendlyName,
-        name: slugName,
-        type: discountProduct !== 'custom' ? discountType : undefined,
-        category: category,
-        product: discountProduct,
-        productDescription: productDescription.trim() || undefined,
-        discount: discountAmount ?? undefined,
-        minimumSpend: minimumSpend ?? undefined,
-        maxDiscount: maxDiscount ?? undefined,
+        name,
+        category: 'retail',
+        product: 'online store',
+        ...buildRewardPayloadFields(discountForm),
       };
 
       let finalReward: IReward;
@@ -374,16 +422,280 @@ export default function GGRewardsAdminPage() {
 
   const isSaveDisabled = useMemo(() => {
     if (isSaving || !selectedAchievement || !selectedClient) return true;
-    if (discountProduct === 'custom') return !productDescription.trim();
-    return !discountAmount || discountAmount <= 0;
-  }, [isSaving, selectedAchievement, selectedClient, discountProduct, productDescription, discountAmount]);
+    return !!validateDiscountForm(discountForm);
+  }, [isSaving, selectedAchievement, selectedClient, discountForm]);
 
   if (isLoading) return <Flex justify="center" align="center" height="100vh"><Spinner size="3" /></Flex>;
-  const userName = user?.name;
   
   if (user && !user.superAdmin) {
     return <Flex height="100vh" align="center" justify="center"><Text>Access Denied</Text></Flex>;
   }
+
+  // Mobile: unchanged concept from the brand admin page — a real
+  // screen-size constraint, not a preference. This page never had mobile
+  // handling before; adding it now alongside the drawer so mobile isn't
+  // left showing a cramped fixed-width list next to the canvas.
+  const showMobileList = isMobile && !selectedAchievement;
+  const showMobileCanvas = isMobile && !!selectedAchievement;
+
+  // Shared between the mobile in-flow panel and the desktop overlay
+  // drawer — only the outer wrapper differs between the two.
+  const achievementListInner = (
+    <>
+      <Flex justify="between" align="center" px="4" pt="4" pb="2">
+        <Text size="2" weight="bold" color="gray">ACHIEVEMENTS</Text>
+        {!isMobile && (
+          <IconButton
+            variant="ghost"
+            color="gray"
+            onClick={() => setAchievementDrawerOpen(false)}
+            style={{ cursor: 'pointer' }}
+          >
+            <Cross2Icon />
+          </IconButton>
+        )}
+      </Flex>
+      <Box px="4" pb="2">
+        <TextField.Root placeholder="Search..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}>
+          <TextField.Slot><MagnifyingGlassIcon height="16" width="16" /></TextField.Slot>
+        </TextField.Root>
+      </Box>
+
+      <ScrollArea type="hover" scrollbars="vertical" style={{ flex: 1, minHeight: 0 }}>
+        <Flex direction="column" p="2">
+          {filteredAchievements.map(ach => {
+            const configForAch = sourceConfigs.find(c => c.achievementName === ach.name);
+            const count = configForAch ? configForAch.sponsorships.length : 0;
+            const isSelected = selectedAchievement?._id === ach._id;
+
+            return (
+              <Button
+                key={ach._id.toString()}
+                variant="ghost"
+                color="gray"
+                onClick={() => {
+                  setSelectedAchievement(ach);
+                  // No-op on mobile (drawer state unused there), closes
+                  // the drawer on desktop — same click, both cases.
+                  setAchievementDrawerOpen(false);
+                }}
+                style={{
+                  justifyContent: 'space-between',
+                  height: 'auto',
+                  padding: '12px 16px',
+                  borderRadius: '8px',
+                  backgroundColor: isSelected ? 'var(--accent-3)' : 'transparent',
+                  color: isSelected ? 'var(--accent-11)' : 'var(--gray-12)',
+                  marginBottom: '2px',
+                  cursor: 'pointer'
+                }}
+              >
+                <Text size="2" weight={isSelected ? "bold" : "medium"}>{ach.friendlyName}</Text>
+                {count > 0 && <Badge color="green" radius="full">{count}</Badge>}
+              </Button>
+            );
+          })}
+        </Flex>
+      </ScrollArea>
+    </>
+  );
+
+  const canvasContent = selectedAchievement ? (
+    <>
+      <Button
+        variant="ghost"
+        color="gray"
+        onClick={() => (isMobile ? setSelectedAchievement(null) : setAchievementDrawerOpen(true))}
+        style={{ alignSelf: 'flex-start', padding: 0 }}
+      >
+        <ChevronLeftIcon width="20" height="20" /> Browse achievements
+      </Button>
+
+      <Flex direction="column" gap="1">
+          <Heading size="6">{selectedAchievement.friendlyName}</Heading>
+          <Text color="gray" size="2">Configure global rewards for this achievement.</Text>
+      </Flex>
+
+      {error && (
+          <Callout.Root color="red">
+              <Callout.Icon><InfoCircledIcon /></Callout.Icon>
+              <Callout.Text>{error}</Callout.Text>
+          </Callout.Root>
+      )}
+      {successMsg && (
+          <Callout.Root color="green">
+              <Callout.Icon><CheckCircledIcon /></Callout.Icon>
+              <Callout.Text>{successMsg}</Callout.Text>
+          </Callout.Root>
+      )}
+
+      {/* EXISTING SPONSORS */}
+      {currentSponsorships.length > 0 && (
+          <Flex direction="column" gap="3">
+              <Text size="2" weight="bold" color="gray">CURRENT SPONSORS</Text>
+              <Card>
+                  <Flex direction="column" gap="0">
+                      {currentSponsorships.map((sp, idx) => {
+                          const clientName = allClients.find(c => c._id.toString() === sp.sponsoringClientId.toString())?.name || 'Unknown Client';
+                          const reward = allRewards.find(r => r._id.toString() === sp.rewardId.toString());
+                          const isDeleting = isRemoving === sp.rewardId.toString();
+                          const isEditing = editingRewardId === sp.rewardId.toString();
+
+                          return (
+                              <Box key={sp.rewardId.toString()}>
+                                  {idx > 0 && <Separator size="4" />}
+                                  <Flex justify="between" align="center" py="3">
+                                      <Flex direction="column" gap="1">
+                                        <Flex direction={'row'} gap={'3'} align={'center'}>
+                                          <Text weight="bold" size="3">{clientName}</Text>
+                                          {isEditing && <Badge color="amber">Editing</Badge>}
+                                        </Flex>
+                                         
+                                          <Flex direction={'column'}>
+                                              <Text color="gray" size="2">
+                                                  {reward?.friendlyName || "Reward Not Found"}
+                                              </Text>
+                                              {reward?.minimumSpend && (
+                                                <Text color='gray' size={'2'}>
+                                                  Minimum spend: ${reward.minimumSpend}
+                                                </Text>
+                                              )}
+                                              
+                                          </Flex>
+                                      </Flex>
+                                      
+                                      <Flex gap="3">
+                                          {/* EDIT BUTTON */}
+                                          <IconButton 
+                                              variant="ghost" 
+                                              color="gray"
+                                              onClick={() => handleEdit(sp)}
+                                              disabled={!!editingRewardId || isDeleting}
+                                          >
+                                              <Pencil1Icon />
+                                          </IconButton>
+
+                                          {/* DELETE BUTTON */}
+                                          <AlertDialog.Root>
+                                              <AlertDialog.Trigger>
+                                                  <IconButton variant="ghost" color="red" disabled={isDeleting}>
+                                                      {isDeleting ? <Spinner /> : <TrashIcon />}
+                                                  </IconButton>
+                                              </AlertDialog.Trigger>
+                                              <AlertDialog.Content maxWidth="450px">
+                                                  <AlertDialog.Title>Remove Sponsorship</AlertDialog.Title>
+                                                  <AlertDialog.Description>Are you sure you want to remove this reward? This cannot be undone.</AlertDialog.Description>
+                                                  <Flex gap="3" mt="4" justify="end">
+                                                      <AlertDialog.Cancel><Button variant="soft" color="gray">Cancel</Button></AlertDialog.Cancel>
+                                                      <AlertDialog.Action>
+                                                          <Button color="red" onClick={() => handleRemoveSponsorship(selectedAchievement.name, sp.rewardId.toString())}>Delete</Button>
+                                                      </AlertDialog.Action>
+                                                  </Flex>
+                                              </AlertDialog.Content>
+                                          </AlertDialog.Root>
+                                      </Flex>
+                                  </Flex>
+                              </Box>
+                          );
+                      })}
+                  </Flex>
+              </Card>
+          </Flex>
+      )}
+
+      {/* ADD / EDIT FORM */}
+      <Flex direction="column" gap="4" id="reward-form">
+          <Flex justify="between" align="center">
+              <Text size="2" weight="bold" color="gray">
+                  {editingRewardId ? "EDIT REWARD DETAILS" : "ADD NEW SPONSOR"}
+              </Text>
+              {editingRewardId && (
+                  <Button variant="ghost" color="gray" size="1" onClick={resetForm}>
+                      <Cross2Icon /> Cancel Edit
+                  </Button>
+              )}
+          </Flex>
+
+          {/* Step 1 — the one piece of this flow with no equivalent on
+              the brand admin page, since a brand admin only ever
+              configures their own store. */}
+          <Card style={{ padding: '24px', border: editingRewardId ? '2px solid var(--accent-9)' : undefined }}>
+              <Flex direction="column" gap="2">
+                  <Text size="2" weight="bold">1. Sponsoring client</Text>
+                  
+                  {!editingRewardId && availableClients.length === 0 ? (
+                    <Callout.Root color="amber" size="1">
+                      <Callout.Icon><InfoCircledIcon /></Callout.Icon>
+                      <Callout.Text>All available clients already sponsor this achievement.</Callout.Text>
+                    </Callout.Root>
+                  ) : (
+                    <Select.Root 
+                        value={selectedClient} 
+                        onValueChange={handleClientChange}
+                        disabled={!!editingRewardId} 
+                    >
+                        <Select.Trigger placeholder="Select a client..." />
+                        <Select.Content>
+                            {availableClients.map(client => (
+                                <Select.Item key={client._id.toString()} value={client._id.toString()}>
+                                  {client.name}
+                                </Select.Item>
+                            ))}
+                        </Select.Content>
+                    </Select.Root>
+                  )}
+              </Flex>
+          </Card>
+
+          {/* Step 2 — identical to the brand admin page's flow, just
+              parameterized by whichever client was picked in step 1. */}
+          {selectedClient && (
+            !selectedClientHasShopify ? (
+              <Callout.Root color="amber" size="1">
+                <Callout.Icon><InfoCircledIcon /></Callout.Icon>
+                <Callout.Text>
+                  {selectedClientObj?.name ?? 'This client'} isn't connected to Shopify — rewards need
+                  an active Shopify connection.
+                </Callout.Text>
+              </Callout.Root>
+            ) : (
+              <RewardDiscountForm
+                key={selectedClient}
+                clientId={selectedClient}
+                value={discountForm}
+                onChange={(patch) => setDiscountForm((prev) => ({ ...prev, ...patch }))}
+                editingLive={!!editingRewardId}
+              />
+            )
+          )}
+
+          <Flex justify="end" gap="3">
+              {editingRewardId && (
+                  <Button variant="soft" color="gray" onClick={resetForm}>Cancel</Button>
+              )}
+              <Button size="3" onClick={handleSaveGlobalReward} disabled={isSaveDisabled || isSaving}>
+                  {isSaving ? <Spinner /> : (editingRewardId ? "Update Reward" : "Add Sponsor")}
+              </Button>
+          </Flex>
+      </Flex>
+    </>
+  ) : (
+    <Flex direction="column" align="center" justify="center" height="100%" gap="3" style={{ opacity: isMobile ? 1 : undefined, marginTop: isMobile ? 0 : '100px' }}>
+      <Box style={{ opacity: 0.4 }}>
+        <MagicWandIcon width="64" height="64" />
+      </Box>
+      <Heading size="6" color="gray">Select an Achievement</Heading>
+      <Text color="gray">Choose an item from the list to configure rewards.</Text>
+      {/* Fallback for the edge case where the drawer gets dismissed via
+          backdrop/Escape before ever picking anything — it doesn't
+          reopen on its own once closed once. */}
+      {!isMobile && (
+        <Button mt="2" onClick={() => setAchievementDrawerOpen(true)}>
+          Browse achievements
+        </Button>
+      )}
+    </Flex>
+  );
 
   return (
     <Flex direction="column" style={{ height: "100vh", backgroundColor: "#F9FAFB", overflow: "hidden" }}>
@@ -400,267 +712,83 @@ export default function GGRewardsAdminPage() {
         </Flex>
       </Flex>
       
-      <Flex style={{ height: 'calc(100vh - 64px)' }}>
+      <Flex style={{ height: 'calc(100vh - 64px)', position: 'relative' }}>
         
         {/* --- LEFT SIDEBAR (Nav) --- */}
         {!isMobile && <AdminSidebar adminPermission={adminPermission} />}
 
-        {/* --- MIDDLE: ACHIEVEMENT LIST --- */}
-        <Flex 
-          direction="column" 
-          width="320px" 
-          style={{ backgroundColor: 'white', borderRight: '1px solid var(--gray-4)' }}
-        >
-          <Box p="4" pb="2">
-            <TextField.Root placeholder="Search..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}>
-              <TextField.Slot><MagnifyingGlassIcon height="16" width="16" /></TextField.Slot>
-            </TextField.Root>
-          </Box>
-
-          <ScrollArea type="hover" scrollbars="vertical">
-            <Flex direction="column" p="2">
-              {filteredAchievements.map(ach => {
-                const configForAch = sourceConfigs.find(c => c.achievementName === ach.name);
-                const count = configForAch ? configForAch.sponsorships.length : 0;
-                const isSelected = selectedAchievement?._id === ach._id;
-
-                return (
-                  <Button
-                    key={ach._id.toString()}
-                    variant="ghost"
-                    color="gray"
-                    onClick={() => setSelectedAchievement(ach)}
-                    style={{
-                      justifyContent: 'space-between',
-                      height: 'auto',
-                      padding: '12px 16px',
-                      borderRadius: '8px',
-                      backgroundColor: isSelected ? 'var(--accent-3)' : 'transparent',
-                      color: isSelected ? 'var(--accent-11)' : 'var(--gray-12)',
-                      marginBottom: '2px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <Text size="2" weight={isSelected ? "bold" : "medium"}>{ach.friendlyName}</Text>
-                    {count > 0 && <Badge color="green" radius="full">{count}</Badge>}
-                  </Button>
-                );
-              })}
-            </Flex>
-          </ScrollArea>
-        </Flex>
-
-        {/* --- RIGHT: CONFIGURATION CANVAS --- */}
-        <Flex flexGrow="1" justify="center" style={{ overflowY: 'auto' }} p="6">
-          <Flex direction="column" maxWidth="800px" width="100%" gap="6">
-            
-            {selectedAchievement ? (
-              <>
-                <Flex direction="column" gap="1">
-                    <Heading size="6">{selectedAchievement.friendlyName}</Heading>
-                    <Text color="gray" size="2">Configure global rewards for this achievement.</Text>
-                </Flex>
-
-                {error && (
-                    <Callout.Root color="red">
-                        <Callout.Icon><InfoCircledIcon /></Callout.Icon>
-                        <Callout.Text>{error}</Callout.Text>
-                    </Callout.Root>
-                )}
-                {successMsg && (
-                    <Callout.Root color="green">
-                        <Callout.Icon><CheckCircledIcon /></Callout.Icon>
-                        <Callout.Text>{successMsg}</Callout.Text>
-                    </Callout.Root>
-                )}
-
-                {/* EXISTING SPONSORS */}
-                {currentSponsorships.length > 0 && (
-                    <Flex direction="column" gap="3">
-                        <Text size="2" weight="bold" color="gray">CURRENT SPONSORS</Text>
-                        <Card>
-                            <Flex direction="column" gap="0">
-                                {currentSponsorships.map((sp, idx) => {
-                                    const clientName = allClients.find(c => c._id.toString() === sp.sponsoringClientId.toString())?.name || 'Unknown Client';
-                                    const reward = allRewards.find(r => r._id.toString() === sp.rewardId.toString());
-                                    const isDeleting = isRemoving === sp.rewardId.toString();
-                                    const isEditing = editingRewardId === sp.rewardId.toString();
-
-                                    return (
-                                        <Box key={sp.rewardId.toString()}>
-                                            {idx > 0 && <Separator size="4" />}
-                                            <Flex justify="between" align="center" py="3">
-                                                <Flex direction="column" gap="1">
-                                                  <Flex direction={'row'} gap={'3'} align={'center'}>
-                                                    <Text weight="bold" size="3">{clientName}</Text>
-                                                    {isEditing && <Badge color="amber">Editing</Badge>}
-                                                  </Flex>
-                                                   
-                                                    <Flex direction={'column'}>
-                                                        <Text color="gray" size="2">
-                                                            {reward?.friendlyName || "Reward Not Found"}
-                                                        </Text>
-                                                        {reward?.minimumSpend && (
-                                                          <Text color='gray' size={'2'}>
-                                                            Minimum spend: ${reward.minimumSpend}
-                                                          </Text>
-                                                        )}
-                                                        
-                                                    </Flex>
-                                                </Flex>
-                                                
-                                                <Flex gap="3">
-                                                    {/* EDIT BUTTON */}
-                                                    <IconButton 
-                                                        variant="ghost" 
-                                                        color="gray"
-                                                        onClick={() => handleEdit(sp)}
-                                                        disabled={!!editingRewardId || isDeleting}
-                                                    >
-                                                        <Pencil1Icon />
-                                                    </IconButton>
-
-                                                    {/* DELETE BUTTON */}
-                                                    <AlertDialog.Root>
-                                                        <AlertDialog.Trigger>
-                                                            <IconButton variant="ghost" color="red" disabled={isDeleting}>
-                                                                {isDeleting ? <Spinner /> : <TrashIcon />}
-                                                            </IconButton>
-                                                        </AlertDialog.Trigger>
-                                                        <AlertDialog.Content maxWidth="450px">
-                                                            <AlertDialog.Title>Remove Sponsorship</AlertDialog.Title>
-                                                            <AlertDialog.Description>Are you sure you want to remove this reward? This cannot be undone.</AlertDialog.Description>
-                                                            <Flex gap="3" mt="4" justify="end">
-                                                                <AlertDialog.Cancel><Button variant="soft" color="gray">Cancel</Button></AlertDialog.Cancel>
-                                                                <AlertDialog.Action>
-                                                                    <Button color="red" onClick={() => handleRemoveSponsorship(selectedAchievement.name, sp.rewardId.toString())}>Delete</Button>
-                                                                </AlertDialog.Action>
-                                                            </Flex>
-                                                        </AlertDialog.Content>
-                                                    </AlertDialog.Root>
-                                                </Flex>
-                                            </Flex>
-                                        </Box>
-                                    );
-                                })}
-                            </Flex>
-                        </Card>
-                    </Flex>
-                )}
-
-                {/* ADD / EDIT FORM */}
-                <Flex direction="column" gap="3" id="reward-form">
-                    <Flex justify="between" align="center">
-                        <Text size="2" weight="bold" color="gray">
-                            {editingRewardId ? "EDIT REWARD DETAILS" : "ADD NEW SPONSOR"}
-                        </Text>
-                        {editingRewardId && (
-                            <Button variant="ghost" color="gray" size="1" onClick={resetForm}>
-                                <Cross2Icon /> Cancel Edit
-                            </Button>
-                        )}
-                    </Flex>
-                    
-                    <Card style={{ padding: '24px', border: editingRewardId ? '2px solid var(--accent-9)' : undefined }}>
-                        <Flex direction="column" gap="5">
-                            
-                            {/* CLIENT SELECTOR - with empty state logic */}
-                            <Flex direction="column" gap="2">
-                                <Text size="2" weight="bold">Sponsoring Client</Text>
-                                
-                                {!editingRewardId && availableClients.length === 0 ? (
-                                  <Callout.Root color="amber" size="1">
-                                    <Callout.Icon><InfoCircledIcon /></Callout.Icon>
-                                    <Callout.Text>All available clients already sponsor this achievement.</Callout.Text>
-                                  </Callout.Root>
-                                ) : (
-                                  <Select.Root 
-                                      value={selectedClient} 
-                                      onValueChange={setSelectedClient}
-                                      disabled={!!editingRewardId} 
-                                  >
-                                      <Select.Trigger placeholder="Select a client..." />
-                                      <Select.Content>
-                                          {availableClients.map(client => (
-                                              <Select.Item key={client._id.toString()} value={client._id.toString()}>
-                                                {client.name}
-                                              </Select.Item>
-                                          ))}
-                                      </Select.Content>
-                                  </Select.Root>
-                                )}
-                            </Flex>
-
-                            {/* Type Select */}
-                            <Flex direction="column" gap="2">
-                                <Text size="2" weight="bold">Product Type</Text>
-                                <Select.Root value={discountProduct} onValueChange={(v) => setDiscountProduct(v as RewardProductName)}>
-                                    <Select.Trigger />
-                                    <Select.Content>
-                                        <Select.Item value="custom">Custom Reward</Select.Item>
-                                        <Select.Item value="open play">Open Play</Select.Item>
-                                        <Select.Item value="reservations">Reservations</Select.Item>
-                                        <Select.Item value="online store">Online Store</Select.Item>
-                                        <Select.Item value="pro shop">Pro Shop</Select.Item>
-                                    </Select.Content>
-                                </Select.Root>
-                            </Flex>
-
-                            {/* Discount Inputs */}
-                            {discountProduct !== 'custom' && (
-                                <Flex direction="column" gap="2">
-                                    <Text size="2" weight="bold">Discount Amount</Text>
-                                    <Flex gap="3">
-                                        <TextField.Root 
-                                            type="number" 
-                                            placeholder="0" 
-                                            value={discountAmount ?? ''} 
-                                            onChange={(e) => setDiscountAmount(Number(e.target.value) || null)}
-                                            style={{ flexGrow: 1 }} 
-                                        />
-                                        <SegmentedControl.Root value={discountType} onValueChange={(v) => setDiscountType(v as "percent" | "dollars")}>
-                                            <SegmentedControl.Item value="percent">%</SegmentedControl.Item>
-                                            <SegmentedControl.Item value="dollars">$</SegmentedControl.Item>
-                                        </SegmentedControl.Root>
-                                    </Flex>
-                                </Flex>
-                            )}
-
-                            {/* Advanced Options */}
-                            {discountProduct !== 'custom' && (
-                                <Flex gap="4">
-                                    {discountType === 'dollars' && (
-                                        <Box flexGrow="1">
-                                            <Text size="2" weight="bold" mb="1">Min Spend</Text>
-                                            <TextField.Root size="2" type="number" value={minimumSpend ?? ''} onChange={(e) => setMinimumSpend(Number(e.target.value) || null)}>
-                                                <TextField.Slot>$</TextField.Slot>
-                                            </TextField.Root>
-                                        </Box>
-                                    )}
-                                </Flex>
-                            )}
-
-                            <Flex justify="end" mt="4" gap="3">
-                                {editingRewardId && (
-                                    <Button variant="soft" color="gray" onClick={resetForm}>Cancel</Button>
-                                )}
-                                <Button size="3" onClick={handleSaveGlobalReward} disabled={isSaveDisabled || isSaving}>
-                                    {isSaving ? <Spinner /> : (editingRewardId ? "Update Reward" : "Add Sponsor")}
-                                </Button>
-                            </Flex>
-                        </Flex>
-                    </Card>
-                </Flex>
-              </>
-            ) : (
-              <Flex direction="column" align="center" justify="center" height="100%" style={{ opacity: 0.4, marginTop: '100px' }}>
-                <MagicWandIcon width="64" height="64" />
-                <Heading size="6" mt="4">Select an Achievement</Heading>
-                <Text>Choose an item from the sidebar to configure rewards.</Text>
+        {isMobile ? (
+          <>
+            {/* --- MOBILE: full-screen swap between list and canvas --- */}
+            {showMobileList && (
+              <Flex direction="column" width="100%" style={{ backgroundColor: 'white' }}>
+                {achievementListInner}
               </Flex>
             )}
-          </Flex>
-        </Flex>
+            {showMobileCanvas && (
+              <Flex flexGrow="1" justify="center" style={{ overflowY: 'auto' }} p="6">
+                <Flex direction="column" maxWidth="1100px" width="100%" gap="6">
+                  {canvasContent}
+                </Flex>
+              </Flex>
+            )}
+          </>
+        ) : (
+          <>
+            {/* --- DESKTOP: canvas always full width; list is an overlay drawer --- */}
+            <Flex flexGrow="1" justify="center" style={{ overflowY: 'auto' }} p="6">
+              <Flex direction="column" maxWidth="1100px" width="100%" gap="6">
+                {canvasContent}
+              </Flex>
+            </Flex>
+
+            <AnimatePresence>
+              {achievementDrawerOpen && (
+                <>
+                  <motion.div
+                    key="achievement-drawer-backdrop"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.18 }}
+                    onClick={() => setAchievementDrawerOpen(false)}
+                    style={{
+                      position: 'fixed',
+                      top: 64,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      backgroundColor: 'rgba(15,23,42,0.45)',
+                      zIndex: 40,
+                    }}
+                  />
+                  <motion.div
+                    key="achievement-drawer"
+                    initial={{ x: '-100%' }}
+                    animate={{ x: 0 }}
+                    exit={{ x: '-100%' }}
+                    transition={{ type: 'tween', duration: 0.22, ease: 'easeOut' }}
+                    style={{
+                      position: 'fixed',
+                      top: 64,
+                      left: 0,
+                      bottom: 0,
+                      width: 320,
+                      backgroundColor: 'white',
+                      borderRight: '1px solid var(--gray-4)',
+                      boxShadow: '4px 0 24px rgba(0,0,0,0.12)',
+                      zIndex: 41,
+                      display: 'flex',
+                      flexDirection: 'column',
+                    }}
+                  >
+                    {achievementListInner}
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+          </>
+        )}
       </Flex>
     </Flex>
   );

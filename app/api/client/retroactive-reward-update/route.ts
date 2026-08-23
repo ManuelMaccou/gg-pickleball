@@ -8,7 +8,9 @@ import SourceRewardConfig from "@/app/models/SourceRewardConfig";
 import { DateTime } from "luxon";
 import { createRewardCodeInDB } from "@/lib/rewards/createRewardCodeInDB";
 import { generateUniqueRewardCode } from "@/lib/rewards/generateUniqueRewardCode";
-import { createShopifyDiscountCode } from "@/lib/shopify/createShopifyDiscountCode"; 
+import { createShopifyDiscountCode } from "@/lib/shopify/createShopifyDiscountCode";
+import { createShopifyBxgyDiscountCode } from "@/lib/shopify/createShopifyBxgyDiscountCode";
+import { getValidShopifyCredentials } from "@/lib/shopify/getValidShopifyCredentials";
 import { IAchievement, IReward, ISourceRewardConfig } from "@/app/types/databaseTypes";
 import { logError } from '@/lib/sentry/logger';
 
@@ -139,19 +141,52 @@ export async function POST(request: Request) {
                 const category = rewardConfig.category || 'retail';
                 const software = category === 'retail' ? client.retailSoftware : client.reservationSoftware;
 
-                if (software === 'shopify') {
-                    // FIX: Strictly enforce token check. Do NOT fallback to generic.
-                    if (!client.shopify?.accessToken) {
-                        logs.push(`Skipped: Missing Shopify Access Token for ${rewardConfig.friendlyName}`);
-                        continue; 
+                if (client.affiliateCode) {
+                    // Client-provided static code — no Shopify call, no uniqueness
+                    // generation needed. Every earner gets the same string; never
+                    // added to a POS since there's no integration for these clients.
+                    code = client.affiliateCode;
+                } else if (software === 'shopify') {
+                    // Was: a raw `client.shopify?.accessToken` truthiness
+                    // check. That token can still be sitting in the DB for a
+                    // client whose subscription was cancelled while the app
+                    // stayed installed (app/uninstalled never fires in that
+                    // case) — so its presence alone doesn't confirm the
+                    // store is actually billable right now. This is the
+                    // same check the live match-processing path relies on
+                    // via the creator functions below, just run up front
+                    // here so a cancelled plan gets a specific, readable
+                    // skip reason in the sweep log instead of surfacing as
+                    // a generic caught exception message.
+                    const credentials = await getValidShopifyCredentials(client._id);
+                    if (!credentials) {
+                        logs.push(`Skipped: Shopify not connected or plan not active for ${rewardConfig.friendlyName}`);
+                        continue;
                     }
                     
                     try {
-                        const shopifyCode = await createShopifyDiscountCode(
-                             new Types.ObjectId(rewardConfig._id),
-                             client._id, 
-                             { session }
-                        );
+                        // Amount-off and BXGY are different Shopify mutations
+                        // entirely (discountCodeBasicCreate vs
+                        // discountCodeBxgyCreate) — this dispatch was missing
+                        // here even though the live match-processing path
+                        // (generateAndSaveShopifyDiscountCodes.ts) already had
+                        // it. Without it, a BXGY reward swept retroactively
+                        // silently got a bogus "$0 off entire store" discount
+                        // instead of its real buy/get configuration, since
+                        // createShopifyDiscountCode reads reward.type/discount/
+                        // shopifyTargeting — all unset ($unset by the PATCH
+                        // route) for a BXGY reward.
+                        const shopifyCode = rewardConfig.discountKind === 'bxgy'
+                            ? await createShopifyBxgyDiscountCode(
+                                new Types.ObjectId(rewardConfig._id),
+                                client._id,
+                                { session }
+                              )
+                            : await createShopifyDiscountCode(
+                                new Types.ObjectId(rewardConfig._id),
+                                client._id,
+                                { session }
+                              );
                         if (!shopifyCode) throw new Error("Shopify returned null code");
                         code = shopifyCode;
                         addedToPos = true;

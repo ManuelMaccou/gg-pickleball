@@ -28,7 +28,7 @@ interface CommissionRow {
   _id: string;
   clientName: string;
   shopifyOrderId: string;
-  discountCode: string;
+  discountCodes: string[]
   orderTotal: number;
   refundedAmount: number;
   commissionAmount: number;
@@ -189,6 +189,9 @@ export default function GGAdminBillingPage() {
   const router = useRouter();
 
   const [records, setRecords] = useState<CommissionRow[]>([]);
+  const [affiliateRows, setAffiliateRows] = useState<
+    { clientId: string; clientName: string; affiliateCode: string; timesIssued: number }[]
+  >([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -219,6 +222,17 @@ export default function GGAdminBillingPage() {
     }
   }, [filterValue, page]);
 
+  const fetchAffiliateUsage = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/affiliate-usage');
+      const data = await res.json();
+      if (res.ok) setAffiliateRows(data.rows);
+    } catch {
+      // Non-critical panel — a failed fetch here shouldn't block the
+      // commission table above it from loading and working normally.
+    }
+  }, []);
+
   useEffect(() => {
     if (!auth0IsLoading && !user) {
       router.push('/auth/login?returnTo=/admin/gg/billing');
@@ -226,8 +240,11 @@ export default function GGAdminBillingPage() {
   }, [auth0IsLoading, user, router]);
 
   useEffect(() => {
-    if (user?.superAdmin) fetchRecords();
-  }, [user, fetchRecords]);
+    if (user?.superAdmin) {
+      fetchRecords();
+      fetchAffiliateUsage();
+    }
+  }, [user, fetchRecords, fetchAffiliateUsage]);
 
   const handleWaive = async () => {
     if (!waiveTarget) return;
@@ -364,7 +381,7 @@ export default function GGAdminBillingPage() {
           </Flex>
 
           {/* Table */}
-          <Card size="2" style={{ padding: 0, overflow: 'hidden' }}>
+          <Card size="2" mb={'7'} style={{ padding: 0, overflow: 'hidden' }}>
             <Table.Root variant="surface">
               <Table.Header>
                 <Table.Row>
@@ -405,7 +422,11 @@ export default function GGAdminBillingPage() {
                         <Text size="2" style={{ fontFamily: 'monospace' }}>{r.shopifyOrderId}</Text>
                       </Table.Cell>
                       <Table.Cell>
-                        <Text size="2" style={{ fontFamily: 'monospace' }}>{r.discountCode}</Text>
+                        <Flex direction="column" gap="1">
+                          {(r.discountCodes ?? []).map((code) => (
+                            <Text key={code} size="2" style={{ fontFamily: 'monospace' }}>{code}</Text>
+                          ))}
+                        </Flex>
                       </Table.Cell>
                       <Table.Cell>
                         <Flex direction="column">
@@ -469,8 +490,41 @@ export default function GGAdminBillingPage() {
               </Flex>
             </Flex>
           </Card>
+          {/* Affiliate codes — issuance counts only, never billed through this
+          table since there's no Shopify order webhook for these clients */}
+          {affiliateRows.length > 0 && (
+            
+              <Flex direction="column" gap="3" >
+                <Flex align="center" gap="2">
+                  <Heading size="3">Affiliate Codes</Heading>
+                  <Badge color="purple" variant="soft" size="1">Not billed</Badge>
+                </Flex>
+                <Table.Root variant="surface">
+                  <Table.Header>
+                    <Table.Row>
+                      <Table.ColumnHeaderCell>Client</Table.ColumnHeaderCell>
+                      <Table.ColumnHeaderCell>Code</Table.ColumnHeaderCell>
+                      <Table.ColumnHeaderCell>Times issued</Table.ColumnHeaderCell>
+                    </Table.Row>
+                  </Table.Header>
+                  <Table.Body>
+                    {affiliateRows.map((r) => (
+                      <Table.Row key={r.clientId}>
+                        <Table.Cell><Text size="2" weight="medium">{r.clientName}</Text></Table.Cell>
+                        <Table.Cell><Text size="2" style={{ fontFamily: 'monospace' }}>{r.affiliateCode}</Text></Table.Cell>
+                        <Table.Cell><Text size="2">{r.timesIssued}</Text></Table.Cell>
+                      </Table.Row>
+                    ))}
+                  </Table.Body>
+                </Table.Root>
+              </Flex>
+       
+          )}
         </Flex>
+        
       </Flex>
+
+      
 
       {/* Waive dialog */}
       <Dialog.Root open={!!waiveTarget} onOpenChange={(open) => !open && setWaiveTarget(null)}>

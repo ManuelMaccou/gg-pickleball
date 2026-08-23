@@ -6,7 +6,7 @@ const CommissionRecordSchema = new Schema<ICommissionRecord>(
     shopifyOrderId: { type: String, required: true },
     shopifyOrderGid: { type: String, required: true },
     shopDomain: { type: String, required: true },
-    discountCode: { type: String, required: true },
+    discountCodes: { type: [String], required: true },
     clientId: { type: Schema.Types.ObjectId, ref: 'Client', required: true },
 
     orderTotal: { type: Number, required: true },
@@ -41,7 +41,7 @@ const CommissionRecordSchema = new Schema<ICommissionRecord>(
 );
 
 CommissionRecordSchema.index({ status: 1, nextCheckAt: 1 });
-CommissionRecordSchema.index({ shopifyOrderId: 1, discountCode: 1 }, { unique: true });
+CommissionRecordSchema.index({ shopifyOrderId: 1 }, { unique: true });
 CommissionRecordSchema.index({ clientId: 1, status: 1 });
 CommissionRecordSchema.index({ status: 1, holdReason: 1 });
 // Look up by Stripe invoice ID for webhook handler

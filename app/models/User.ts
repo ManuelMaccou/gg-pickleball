@@ -77,6 +77,9 @@ const UserSchema = new Schema<IUser>(
       default: {}
     },
     identityUnresolved: { type: Boolean, default: false },
+    pendingAgeReview: { type: Boolean, default: false },
+    pendingAgeReviewReason: { type: String, enum: ['confirmed_under_13', 'unknown'] },
+    pendingAgeReviewAt: { type: Date },
   }, { timestamps: true }
 );
 

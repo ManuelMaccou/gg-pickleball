@@ -30,8 +30,63 @@ export type DuprBirthYearResult =
 const MINIMUM_AGE = 13;
 const DUPR_BACKEND_API_BASE_URL = process.env.DUPR_BACKEND_API_BASE_URL;
 
+// [Test override] Lets a specific MongoDB userId return a forced result
+// without calling the real DUPR API — for testing the age-verification
+// flow end to end (Connect DUPR -> pendingAgeReview -> Age Review admin
+// page) without needing a real DUPR profile with a controllable birth
+// year. Keyed by userId, not duprId, since that's the only identifier
+// this function actually receives.
+//
+// Format: DUPR_AGE_TEST_OVERRIDES="<userId>:<birthYear>,<userId>:<birthYear>"
+//   e.g. "6a83f55c221d2a1a6c4206d7:2015" simulates that user having a 2015
+//   birth year (confirmed_under_13 as of 2026). Leave the year blank
+//   ("<userId>:") to simulate 'unknown' — no birth year returned at all.
+//
+// STRUCTURALLY CANNOT ACTIVATE IN PRODUCTION — checked below regardless of
+// whether the env var is accidentally left set. This gates child-safety
+// logic; the guard is deliberately redundant with "just don't set it in
+// prod" rather than relying on that alone.
+function getTestOverride(userId: string): DuprBirthYearResult | undefined {
+  const raw = process.env.DUPR_AGE_TEST_OVERRIDES;
+  if (!raw) return undefined;
+
+  if (process.env.NODE_ENV === 'production') {
+    console.error(
+      '[DuprBirthYearLookup] DUPR_AGE_TEST_OVERRIDES is set in production — ignoring it entirely. ' +
+      'This must never be set outside local/test environments.'
+    );
+    return undefined;
+  }
+
+  const pairs = raw.split(',').map((p) => p.trim()).filter(Boolean);
+  for (const pair of pairs) {
+    const [id, yearStr] = pair.split(':').map((s) => s.trim());
+    if (id !== userId) continue;
+
+    if (!yearStr) {
+      return { status: 'unknown' };
+    }
+    const birthYear = Number(yearStr);
+    if (!Number.isFinite(birthYear)) return { status: 'unknown' };
+
+    const currentYear = new Date().getFullYear();
+    const approximateAge = currentYear - birthYear;
+    return approximateAge >= MINIMUM_AGE
+      ? { status: 'confirmed_13_plus', birthYear }
+      : { status: 'confirmed_under_13', birthYear };
+  }
+
+  return undefined;
+}
+
 export async function lookupDuprBirthYear(userId: string): Promise<DuprBirthYearResult> {
   console.log(`[DuprBirthYearLookup] Starting lookup for userId: ${userId}`);
+
+  const override = getTestOverride(userId);
+  if (override) {
+    console.log(`[DuprBirthYearLookup] TEST OVERRIDE active for userId ${userId}: ${JSON.stringify(override)}`);
+    return override;
+  }
 
   try {
     if (!DUPR_BACKEND_API_BASE_URL) {

@@ -35,7 +35,8 @@ const PlayerAgeVerificationSchema = new Schema<IPlayerAgeVerification>({
   // [Step 4] Where this confirmation came from — a CSV roster row, or a
   // live DUPR API lookup triggered by a self-serve "check eligibility"
   // click from someone who was never on any roster.
-  source: { type: String, enum: ['players_upload', 'dupr_api'], required: true },
+  source: { type: String, enum: ['players_upload', 'dupr_api', 'manual_admin_review'], required: true },
+  confirmedBy: { type: Schema.Types.ObjectId, ref: 'User' },
 
   // Audit trail — which program's roster first confirmed this, and when.
   // OPTIONAL now — a dupr_api-sourced record has no originating program

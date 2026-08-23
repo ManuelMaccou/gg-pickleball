@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { startSession } from 'mongoose';
 import connectToDatabase from '@/lib/mongodb';
 import User from '@/app/models/User';
 import { escapeRegex } from '@/utils/escapeRegex';
@@ -7,6 +8,7 @@ import { logError } from '@/lib/sentry/logger';
 import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser';
 import { subscribeToDuprWebhook } from '@/lib/services/dupr/duprWebhookSubscription';
 import { checkEntitlementsWithToken } from '@/lib/services/dupr/duprEntitlement';
+import { checkPlayerAgeEligibility } from '@/lib/programs/checkPlayerAgeEligibility';
 
 await connectToDatabase();
 
@@ -306,9 +308,97 @@ export async function PATCH(req: NextRequest) {
       }
     );
 
+    // --- [Age verification] Only relevant when this request actually
+    // connected/reconnected DUPR — dupr.userToken being present in the
+    // original body is what triggered the entitlement check above, and is
+    // the same signal used here. MUST run after DB Call 3 above, never
+    // before: checkPlayerAgeEligibility's DUPR-API fallback
+    // (lookupDuprBirthYear -> authenticatedDuprUserFetch) reads
+    // dupr.userToken fresh from the database by userId, not from anything
+    // held in memory in this function — it has nothing to authenticate
+    // with until the token write above has actually persisted. ---
+    if (dupr?.userToken && updatedUser?.dupr?.id) {
+      const ageSession = await startSession();
+      try {
+        ageSession.startTransaction();
+        const ageResult = await checkPlayerAgeEligibility(
+          updatedUser.dupr.id,
+          updatedUser._id.toString(),
+          ageSession
+        );
+        await ageSession.commitTransaction();
+
+        if (!ageResult.eligible) {
+          await User.updateOne(
+            { _id: updatedUser._id },
+            {
+              $set: {
+                pendingAgeReview: true,
+                pendingAgeReviewReason: ageResult.reason,
+               pendingAgeReviewAt: new Date(),
+             },
+            }
+          );
+          updatedUser.pendingAgeReview = true; // keep the response in sync
+          console.log(`[Age Verification] Flagged user ${updatedUser._id} — reason: ${ageResult.reason}`);
+        } else {
+          console.log(`[Age Verification] User ${updatedUser._id} eligible (source: ${ageResult.source})`);
+        }
+        // eligible === true: nothing else to write — pendingAgeReview
+        // already defaults to false, and checkPlayerAgeEligibility itself
+        // already wrote any new PlayerAgeVerification record it needed to.
+      } catch (err) {
+        await ageSession.abortTransaction();
+        logError(err, {
+          endpoint: 'PATCH /api/user',
+          task: 'age verification at Connect DUPR',
+          userId: updatedUser._id.toString(),
+        });
+        // Deliberately does NOT fail the Connect DUPR request if this
+        // specific check throws unexpectedly (a DB/session-level failure —
+        // NOT an ordinary "DUPR API didn't return a birth year" case,
+        // which lookupDuprBirthYear already handles gracefully as
+        // eligible: false on its own, without throwing). Connecting DUPR
+        // still succeeds; pendingAgeReview simply doesn't get set this
+        // time. Reconnecting DUPR later would re-attempt this check.
+      } finally {
+        ageSession.endSession();
+      }
+    }
+
     return NextResponse.json(updatedUser, { status: 200 });
 
   } catch (error) {
+    // [Connect-DUPR collision] A duplicate-key violation on dupr.id means
+    // the DUPR ID being connected already belongs to a DIFFERENT existing
+    // account. This is a real, actionable scenario — not a generic server
+    // error — so it gets its own message instead of falling into the
+    // catch-all below. Traced in the requirements doc (Section 9 /
+    // Section 12 item 7) but not fixed until now.
+    if (
+      error &&
+      typeof error === 'object' &&
+      'code' in error &&
+      (error as any).code === 11000 &&
+      (error as any).keyPattern?.['dupr.id']
+    ) {
+      const duprId = (error as any).keyValue?.['dupr.id'];
+      logError(error, {
+        endpoint: 'PATCH /api/user',
+        task: 'Connect DUPR — duplicate DUPR ID',
+        duprId: duprId ?? 'unknown',
+      });
+      return NextResponse.json(
+        {
+          error:
+            'This DUPR account is already connected to a different GG Pickleball account. ' +
+            'If this is your DUPR account, log in with that account instead. If you believe ' +
+            'this is a mistake, contact support.',
+        },
+        { status: 409 }
+      );
+    }
+
     const errorId = logError(error, {
       message: `Error while updating user.`,
       endpoint: "PATCH /api/user",
@@ -318,4 +408,3 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ errorId, error: "An unexpected error occured. Please try again." }, { status: 500 });
   }
 }
-

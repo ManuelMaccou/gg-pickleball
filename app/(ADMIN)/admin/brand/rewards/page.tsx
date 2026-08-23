@@ -1,15 +1,17 @@
+// Destination: app/(BRAND)/admin/brand/rewards/page.tsx
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import { useUserContext } from '@/app/contexts/UserContext';
 import {
   Flex, Text, Heading, Button, Spinner,
-  TextField, SegmentedControl, Card,
-  Callout, Separator, Box, ScrollArea, Badge,
+  IconButton, AlertDialog,
+  Box, ScrollArea, Badge,
 } from '@radix-ui/themes';
 import {
   CheckCircledIcon, InfoCircledIcon, MagicWandIcon,
-  TrashIcon, ChevronLeftIcon, ChevronRightIcon,
+  TrashIcon, ChevronLeftIcon, ChevronRightIcon, Cross2Icon,
 } from '@radix-ui/react-icons';
 import {
   AdminPermissionType,
@@ -17,6 +19,15 @@ import {
 } from '@/app/types/databaseTypes';
 import { useIsMobile } from '@/app/hooks/useIsMobile';
 import { BrandPageShell } from '../../components/BrandPageShell';
+import {
+  DEFAULT_DISCOUNT_FORM_STATE,
+  DiscountFormState,
+  buildRewardPayloadFields,
+  discountFormStateFromReward,
+  targetSummaryText,
+  validateDiscountForm,
+} from '@/lib/rewards/discountFormState';
+import { RewardDiscountForm } from '../../components/RewardDiscountForm';
 
 // --- TYPES ---
 type ClientSideSourceConfig = {
@@ -46,13 +57,13 @@ export default function BrandRewardConfigPage() {
   // UI State
   const [selectedAchievement, setSelectedAchievement] = useState<IAchievement | null>(null);
   const [searchQuery] = useState('');
+  // Desktop-only: controls the achievement-picker overlay drawer. Starts
+  // open so there's something to pick from on first load. Mobile ignores
+  // this entirely and keeps its own full-screen list/canvas swap.
+  const [achievementDrawerOpen, setAchievementDrawerOpen] = useState(true);
 
-  // Form State
-  const [discountAmount, setDiscountAmount] = useState<number | null>(null);
-  const [discountType, setDiscountType] = useState<'percent' | 'dollars'>('percent');
-  const [productDescription, setProductDescription] = useState('');
-  const [minimumSpend, setMinimumSpend] = useState<number | null>(null);
-  const [maxDiscount, setMaxDiscount] = useState<number | null>(null);
+  // Form State — discount mechanics (amount off / BXGY) live in one object.
+  const [discountForm, setDiscountForm] = useState<DiscountFormState>(DEFAULT_DISCOUNT_FORM_STATE);
 
   const [existingRewardId, setExistingRewardId] = useState<string | null>(null);
   const [adminError, setAdminError] = useState<string | null>(null);
@@ -164,33 +175,22 @@ export default function BrandRewardConfigPage() {
       const reward = allRewards.find((r) => r._id.toString() === sponsorship.rewardId.toString());
       if (reward) {
         setExistingRewardId(reward._id.toString());
-        setDiscountAmount(reward.discount || null);
-        setDiscountType(reward.type === 'dollars' ? 'dollars' : 'percent');
-        setProductDescription(reward.productDescription || '');
-        setMinimumSpend(reward.minimumSpend || null);
-        setMaxDiscount(reward.maxDiscount || null);
+        setDiscountForm(discountFormStateFromReward(reward));
         return;
       }
     }
 
     setExistingRewardId(null);
-    setDiscountAmount(null);
-    setDiscountType('percent');
-    setProductDescription('');
-    setMinimumSpend(null);
-    setMaxDiscount(null);
+    setDiscountForm(DEFAULT_DISCOUNT_FORM_STATE);
   }, [selectedAchievement, location, sourceConfigs, allRewards]);
 
   // --- SAVE HANDLER ---
   const handleSave = async () => {
-    if (!selectedAchievement || !location || !discountAmount) return;
+    if (!selectedAchievement || !location) return;
 
-    if (discountAmount <= 0) {
-      setError('Discount amount must be greater than 0.');
-      return;
-    }
-    if (discountType === 'percent' && discountAmount > 100) {
-      setError('Percentage discount cannot exceed 100%.');
+    const validationError = validateDiscountForm(discountForm);
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
@@ -199,20 +199,34 @@ export default function BrandRewardConfigPage() {
     setSuccessMsg(null);
 
     try {
-      const friendlyName = `${discountType === 'dollars' ? '$' : ''}${discountAmount}${discountType === 'percent' ? '%' : ''} off ${productDescription ? productDescription : 'Entire Order'}`;
-      const rawSlug = `${discountAmount}-${discountType}-off-${productDescription || 'entire-order'}`;
+      let friendlyName: string;
+      let rawSlug: string;
+
+      if (discountForm.discountKind === 'bxgy') {
+        const off = discountForm.getPercent === 100 ? 'free' : `${discountForm.getPercent}% off`;
+        friendlyName = `Buy ${discountForm.buyQuantity}, get ${discountForm.getQuantity} ${off}`;
+        rawSlug = `buy-${discountForm.buyQuantity}-get-${discountForm.getQuantity}-${
+          discountForm.getPercent === 100 ? 'free' : `${discountForm.getPercent}-percent-off`
+        }`;
+      } else {
+        // Built from the actual scope, not a free-text field — this can't
+        // drift out of sync with what the code actually sends to Shopify,
+        // unlike the old productDescription-based name.
+        const scopeLabel =
+          discountForm.scope === 'store' ? 'Entire Order' : targetSummaryText(discountForm.scopeSelection);
+        friendlyName = `${discountForm.amountType === 'dollars' ? '$' : ''}${discountForm.amountValue}${
+          discountForm.amountType === 'percent' ? '%' : ''
+        } off ${scopeLabel}`;
+        rawSlug = `${discountForm.amountValue}-${discountForm.amountType}-off-${scopeLabel}`;
+      }
       const name = rawSlug.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
       const rewardPayload: Partial<IReward> = {
         friendlyName,
         name,
-        type: discountType,
         category: 'retail',
         product: 'online store',
-        productDescription: productDescription.trim() || undefined,
-        discount: discountAmount,
-        minimumSpend: minimumSpend ?? undefined,
-        maxDiscount: maxDiscount ?? undefined,
+        ...buildRewardPayloadFields(discountForm),
       };
 
       let finalRewardObj: IReward;
@@ -334,8 +348,7 @@ export default function BrandRewardConfigPage() {
 
       setSuccessMsg('Reward removed.');
       setExistingRewardId(null);
-      setDiscountAmount(null);
-      setProductDescription('');
+      setDiscountForm(DEFAULT_DISCOUNT_FORM_STATE);
 
       if (isMobile) {
         setTimeout(() => setSelectedAchievement(null), 1500);
@@ -354,17 +367,42 @@ export default function BrandRewardConfigPage() {
     setError(null);
   }, [selectedAchievement]);
 
+  // Escape closes the achievement drawer, matching modal conventions —
+  // this is a lightweight overlay, not a full Radix Dialog, so there's no
+  // built-in focus trap here; add one later if that turns out to matter.
+  useEffect(() => {
+    if (isMobile || !achievementDrawerOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setAchievementDrawerOpen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isMobile, achievementDrawerOpen]);
+
   const filteredAchievements = useMemo(() => {
     return allAchievements.filter((a) =>
       a.friendlyName.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [allAchievements, searchQuery]);
 
-  const isSaveDisabled = !discountAmount;
+  // Minimal gate on the button itself — mirrors the previous page's
+  // approach of only disabling on the most basic missing field. The
+  // fuller validation (empty scope/buys/gets selections, percent > 100,
+  // etc.) runs in handleSave via validateDiscountForm and surfaces as a
+  // Callout, same layering as before.
+  const isSaveDisabled =
+    discountForm.discountKind === 'amount'
+      ? !discountForm.amountValue
+      : !discountForm.buyQuantity || !discountForm.getQuantity || !discountForm.getPercent;
 
-  // --- MOBILE LAYOUT LOGIC ---
-  const showSidebarList = !isMobile || (isMobile && !selectedAchievement);
-  const showDetailCanvas = !isMobile || (isMobile && !!selectedAchievement);
+  // --- LAYOUT LOGIC ---
+  // Desktop: the achievement list is now an overlay drawer, not an in-flow
+  // sidebar, so the detail canvas always renders at full width and never
+  // resizes when the drawer opens or closes.
+  // Mobile: unchanged — a real screen-size constraint, not a preference —
+  // keeps the original full-screen swap between list and canvas.
+  const showMobileList = isMobile && !selectedAchievement;
+  const showMobileCanvas = isMobile && !!selectedAchievement;
 
   if (isMobile === null || isLoading || isGettingAdmin) {
     return (
@@ -406,6 +444,212 @@ export default function BrandRewardConfigPage() {
     );
   }
 
+  // Shared between the mobile in-flow panel and the desktop overlay drawer
+  // — only the outer wrapper differs between the two. Declared here (after
+  // every early-return guard) so `location` is narrowed to non-null by TS,
+  // same as the JSX below already relied on before this restructuring.
+  const achievementListInner = (
+    <>
+      <Flex justify="between" align="center" px="4" py="4" style={{ borderBottom: '1px solid var(--gray-4)' }}>
+        <Box>
+          <Heading size="4">Configure Rewards</Heading>
+          <Text size="2" color="gray">
+            Select an achievement to configure its reward.
+          </Text>
+        </Box>
+        {!isMobile && (
+          <IconButton
+            variant="ghost"
+            color="gray"
+            onClick={() => setAchievementDrawerOpen(false)}
+            style={{ cursor: 'pointer', flexShrink: 0 }}
+          >
+            <Cross2Icon />
+          </IconButton>
+        )}
+      </Flex>
+
+      <ScrollArea type="hover" scrollbars="vertical" style={{ flex: 1, minHeight: 0 }}>
+        <Flex direction="column" p="2">
+          {filteredAchievements.map((ach) => {
+            const configForAch = sourceConfigs.find((c) => c.achievementName === ach.name);
+            const isSponsored = configForAch?.sponsorships?.some(
+              (s) => s.sponsoringClientId.toString() === location?._id.toString()
+            );
+            const isSelected = selectedAchievement?._id === ach._id;
+
+            return (
+              <Button
+                key={ach._id.toString()}
+                variant="ghost"
+                color="gray"
+                onClick={() => {
+                  setSelectedAchievement(ach);
+                  // No-op on mobile (drawer state is unused there), and
+                  // closes the drawer on desktop — same click, both cases.
+                  setAchievementDrawerOpen(false);
+                }}
+                style={{
+                  justifyContent: 'space-between',
+                  height: 'auto',
+                  padding: '12px 16px',
+                  borderRadius: '8px',
+                  backgroundColor: isSelected && !isMobile ? 'var(--accent-3)' : 'transparent',
+                  color: isSelected && !isMobile ? 'var(--accent-11)' : 'var(--gray-12)',
+                  marginBottom: '4px',
+                  cursor: 'pointer',
+                }}
+              >
+                <Flex align="center" gap="3">
+                  <Box
+                    style={{
+                      width: '10px',
+                      height: '10px',
+                      borderRadius: '50%',
+                      backgroundColor: isSponsored ? 'var(--green-9)' : 'var(--gray-5)',
+                      flexShrink: 0,
+                    }}
+                  />
+                  <Flex direction="column" align="start">
+                    <Text weight={isSelected && !isMobile ? 'bold' : 'medium'} size="2">
+                      {ach.friendlyName}
+                    </Text>
+                    <Text size="1" color={isSelected && !isMobile ? undefined : 'gray'}>
+                      {ach.name.length > 30 ? ach.name.substring(0, 30) + '...' : ach.name}
+                    </Text>
+                  </Flex>
+                </Flex>
+
+                <Flex align="center" gap="2">
+                  {isSponsored && !isMobile && <CheckCircledIcon color="green" />}
+                  {isMobile && <ChevronRightIcon color="gray" />}
+                </Flex>
+              </Button>
+            );
+          })}
+        </Flex>
+      </ScrollArea>
+    </>
+  );
+
+  const detailCanvasContent = selectedAchievement ? (
+    // Widened from the old single-column layout's 800px — the discount
+    // form is a two-pane (form + sticky preview) layout that needs the room.
+    <Flex direction="column"  width="100%" gap="6">
+      <Button
+        variant="ghost"
+        color="gray"
+        onClick={() => (isMobile ? setSelectedAchievement(null) : setAchievementDrawerOpen(true))}
+        style={{ alignSelf: 'flex-start', padding: 0 }}
+      >
+        <ChevronLeftIcon width="20" height="20" /> Browse achievements
+      </Button>
+
+      <Flex
+        justify="between"
+        align="center"
+        direction={{ initial: 'column', xs: 'row' }}
+        gap="2"
+        style={{
+          alignItems: isMobile ? 'flex-start' : 'center',
+          position: 'sticky',
+          top: -35,
+          zIndex: 10,
+          // Matches BrandPageShell's canvas background — needed so content
+          // scrolling underneath doesn't show through while this is stuck.
+          // Coupled to that value on purpose for now; revisit if the shell
+          // ever exposes its background as something other than a literal.
+          backgroundColor: '#F9FAFB',
+          paddingTop: 12,
+          paddingBottom: 12,
+          borderBottom: '1px solid var(--gray-4)',
+        }}
+      >
+        <Box>
+          <Heading size="6" mb="1" style={{ color: 'var(--slate-12)' }}>
+            {selectedAchievement.friendlyName}
+          </Heading>
+          <Text size="2" color="gray">
+            Configure the reward players receive when earning this achievement.
+          </Text>
+        </Box>
+        <Flex justify="between" align="center" wrap="wrap" gap="3">
+          {existingRewardId ? (
+            <AlertDialog.Root>
+              <AlertDialog.Trigger>
+                <Button radius="full" variant="soft" color="red" disabled={isRemoving} loading={isRemoving}>
+                  <TrashIcon /> Remove Reward
+                </Button>
+              </AlertDialog.Trigger>
+              <AlertDialog.Content maxWidth="420px">
+                <AlertDialog.Title>Remove this reward?</AlertDialog.Title>
+                <AlertDialog.Description size="2">
+                  This removes the reward from <strong>{selectedAchievement?.friendlyName}</strong>.
+                  Codes already issued to players are unaffected. This only stops new codes from being issued, and can't be undone.
+                </AlertDialog.Description>
+                <Flex gap="3" mt="4" justify="end">
+                  <AlertDialog.Cancel>
+                    <Button variant="soft" color="gray">Cancel</Button>
+                  </AlertDialog.Cancel>
+                  <AlertDialog.Action>
+                    <Button variant="solid" color="red" onClick={handleRemove}>
+                      Remove Reward
+                    </Button>
+                  </AlertDialog.Action>
+                </Flex>
+              </AlertDialog.Content>
+            </AlertDialog.Root>
+          ) : (
+            <Box />
+          )}
+
+          <Button
+            onClick={handleSave}
+            loading={isSaving}
+            disabled={isSaveDisabled}
+            color='lime'
+            radius="full"
+          >
+            {existingRewardId ? 'Save Changes' : 'Create Reward'}
+          </Button>
+        </Flex>
+      </Flex>
+
+      <Flex direction="column" gap="5" width="100%">
+        <RewardDiscountForm
+          clientId={location._id.toString()}
+          value={discountForm}
+          onChange={(patch) => setDiscountForm((prev) => ({ ...prev, ...patch }))}
+          editingLive={!!existingRewardId}
+          cardBackgroundImage={location.cardBackgroundImage}
+          cardBackgroundPosition={location.cardBackgroundPosition}
+          cardTextColor={location.cardTextColor}
+        />
+      </Flex>
+    </Flex>
+  ) : (
+    <Flex direction="column" align="center" justify="center" height="100%" gap="3">
+      <Box style={{ opacity: 0.4 }}>
+        <MagicWandIcon width="64" height="64" />
+      </Box>
+      <Heading size="6" color="gray">Select an Achievement</Heading>
+      <Text color="gray">
+        {isMobile
+          ? 'Choose an item from the list to configure rewards.'
+          : 'Browse your achievements to configure a reward.'}
+      </Text>
+      {/* Fallback for the edge case where someone closes the drawer via
+          backdrop/Escape before ever picking anything — otherwise there'd
+          be no way back in, since the drawer no longer opens automatically
+          once it's been dismissed once. */}
+      {!isMobile && (
+        <Button mt="2" onClick={() => setAchievementDrawerOpen(true)}>
+          Browse achievements
+        </Button>
+      )}
+    </Flex>
+  );
+
   return (
     <BrandPageShell
       adminPermission={adminPermission}
@@ -413,235 +657,142 @@ export default function BrandRewardConfigPage() {
       contentMaxWidth="none"
       contentPadding="0"
     >
-      <Flex style={{ height: '100%' }}>
-        {/* --- LEFT: ACHIEVEMENTS LIST (Master View) --- */}
-        {showSidebarList && (
-          <Flex
-            direction="column"
-            width={{ initial: '100%', md: '320px' }}
-            style={{
-              backgroundColor: 'white',
-              borderRight: isMobile ? 'none' : '1px solid var(--gray-4)',
-              flexShrink: 0,
-            }}
-          >
-            <Box px="4" py="4" style={{ borderBottom: '1px solid var(--gray-4)' }}>
-              <Heading size="4">Configure Rewards</Heading>
-              <Text size="2" color="gray">
-                Select an achievement to configure its reward.
-              </Text>
-            </Box>
-
-            <ScrollArea type="hover" scrollbars="vertical">
-              <Flex direction="column" p="2">
-                {filteredAchievements.map((ach) => {
-                  const configForAch = sourceConfigs.find((c) => c.achievementName === ach.name);
-                  const isSponsored = configForAch?.sponsorships?.some(
-                    (s) => s.sponsoringClientId.toString() === location?._id.toString()
-                  );
-                  const isSelected = selectedAchievement?._id === ach._id;
-
-                  return (
-                    <Button
-                      key={ach._id.toString()}
-                      variant="ghost"
-                      color="gray"
-                      onClick={() => setSelectedAchievement(ach)}
-                      style={{
-                        justifyContent: 'space-between',
-                        height: 'auto',
-                        padding: '12px 16px',
-                        borderRadius: '8px',
-                        backgroundColor: isSelected && !isMobile ? 'var(--accent-3)' : 'transparent',
-                        color: isSelected && !isMobile ? 'var(--accent-11)' : 'var(--gray-12)',
-                        marginBottom: '4px',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <Flex align="center" gap="3">
-                        <Box
-                          style={{
-                            width: '10px',
-                            height: '10px',
-                            borderRadius: '50%',
-                            backgroundColor: isSponsored ? 'var(--green-9)' : 'var(--gray-5)',
-                            flexShrink: 0,
-                          }}
-                        />
-                        <Flex direction="column" align="start">
-                          <Text weight={isSelected && !isMobile ? 'bold' : 'medium'} size="2">
-                            {ach.friendlyName}
-                          </Text>
-                          <Text size="1" color={isSelected && !isMobile ? undefined : 'gray'}>
-                            {ach.name.length > 30 ? ach.name.substring(0, 30) + '...' : ach.name}
-                          </Text>
-                        </Flex>
-                      </Flex>
-
-                      <Flex align="center" gap="2">
-                        {isSponsored && !isMobile && <CheckCircledIcon color="green" />}
-                        {isMobile && <ChevronRightIcon color="gray" />}
-                      </Flex>
-                    </Button>
-                  );
-                })}
-              </Flex>
-            </ScrollArea>
-          </Flex>
-        )}
-
-        {/* --- RIGHT: DETAIL CANVAS --- */}
-        {showDetailCanvas && (
-          <Flex
-            flexGrow="1"
-            justify="center"
-            style={{ overflowY: 'auto', position: 'relative' }}
-            p={{ initial: '4', md: '6' }}
-          >
-            {selectedAchievement ? (
-              <Flex direction="column" maxWidth="800px" width="100%" gap="6">
-                {isMobile && (
-                  <Button
-                    variant="ghost"
-                    color="gray"
-                    onClick={() => setSelectedAchievement(null)}
-                    style={{ alignSelf: 'flex-start', padding: 0 }}
-                  >
-                    <ChevronLeftIcon width="20" height="20" /> Back to Achievements
-                  </Button>
-                )}
-
-                <Flex
-                  justify="between"
-                  align="center"
-                  direction={{ initial: 'column', xs: 'row' }}
-                  gap="2"
-                  style={{ alignItems: isMobile ? 'flex-start' : 'center' }}
+      <Flex style={{ height: '100%', position: 'relative' }}>
+        {/* Save/remove confirmation toast — success reuses successMsg's
+            existing 3s auto-clear from handleSave/handleRemove; error
+            deliberately does NOT auto-dismiss (it never did before this
+            toast existed either — errors are worth reading, not worth
+            racing a timer for), so it gets its own close button instead.
+            z-index 100 sits above the achievement drawer (40/41) in case
+            a save happens while it's open. Centering is via left/right/
+            margin rather than a CSS transform, since motion already owns
+            the transform property for the y animation — mixing the two
+            would have one silently clobber the other. */}
+        <AnimatePresence>
+          {(successMsg || error) && (
+            <motion.div
+              key="save-toast"
+              initial={{ opacity: 0, y: -16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -16 }}
+              transition={{ duration: 0.2 }}
+              style={{
+                position: 'fixed',
+                top: 76,
+                left: 0,
+                right: 0,
+                width: 'fit-content',
+                maxWidth: '90vw',
+                margin: '0 auto',
+                zIndex: 100,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                backgroundColor: error ? '#3a1414' : '#111',
+                border: error ? '1px solid rgba(239,68,68,0.35)' : 'none',
+                padding: '10px 14px 10px 20px',
+                borderRadius: 999,
+                boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
+              }}
+            >
+              {error ? (
+                <InfoCircledIcon style={{ color: '#f87171', flexShrink: 0 }} />
+              ) : (
+                <CheckCircledIcon style={{ color: '#a3e635', flexShrink: 0 }} />
+              )}
+              <Text size="2" style={{ color: '#fff' }}>{error || successMsg}</Text>
+              {error && (
+                <IconButton
+                  size="1"
+                  variant="ghost"
+                  color="gray"
+                  onClick={() => setError(null)}
+                  style={{ cursor: 'pointer', color: 'rgba(255,255,255,0.5)', flexShrink: 0 }}
                 >
-                  <Box>
-                    <Heading size="6" mb="1" style={{ color: 'var(--slate-12)' }}>
-                      {selectedAchievement.friendlyName}
-                    </Heading>
-                    <Text size="2" color="gray">
-                      Configure the reward players receive when earning this achievement.
-                    </Text>
-                  </Box>
-                  {existingRewardId && (
-                    <Badge color="green" size="2">
-                      <CheckCircledIcon /> Active
-                    </Badge>
-                  )}
-                </Flex>
+                  <Cross2Icon width="14" height="14" />
+                </IconButton>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-                <Separator size="4" />
-
-                <Flex
-                  gap="6"
-                  align="start"
-                  direction={{ initial: 'column', lg: 'row' }}
-                  width={{ initial: '100%', md: '70%' }}
-                >
-                  <Flex direction="column" gap="5" flexGrow="1">
-                    <Card size="3" style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.05)', borderRadius: '16px' }}>
-                      <Flex direction="column" gap="5">
-                        <Flex direction="column" gap="3">
-                          <Text size="2" weight="bold" color="gray" style={{ letterSpacing: '0.05em' }}>
-                            REWARD DETAILS
-                          </Text>
-                          {(successMsg || error) && (
-                            <Callout.Root color={error ? 'red' : 'green'} size="1">
-                              <Callout.Icon>
-                                {error ? <InfoCircledIcon /> : <CheckCircledIcon />}
-                              </Callout.Icon>
-                              <Callout.Text>{error || successMsg}</Callout.Text>
-                            </Callout.Root>
-                          )}
-                        </Flex>
-
-                        <Flex direction="column" gap="4">
-                          <Flex gap="4">
-                            <Box flexGrow="1">
-                              <Text size="2" weight="bold" mb="1" as="div">Amount</Text>
-                              <TextField.Root
-                                size="3"
-                                type="number"
-                                placeholder="0"
-                                value={discountAmount ?? ''}
-                                onChange={(e) => setDiscountAmount(Number(e.target.value) || null)}
-                              />
-                            </Box>
-                            <Box width="120px">
-                              <Text size="2" weight="bold" mb="1" as="div">Type</Text>
-                              <SegmentedControl.Root
-                                size="3"
-                                value={discountType}
-                                onValueChange={(v) => setDiscountType(v as 'percent' | 'dollars')}
-                              >
-                                <SegmentedControl.Item value="percent">%</SegmentedControl.Item>
-                                <SegmentedControl.Item value="dollars">$</SegmentedControl.Item>
-                              </SegmentedControl.Root>
-                            </Box>
-                          </Flex>
-
-                          <Flex gap="4">
-                            {discountType === 'dollars' && (
-                              <Box flexGrow="1">
-                                <Text size="2" weight="bold" mb="1" as="div">Min Spend</Text>
-                                <TextField.Root
-                                  size="3"
-                                  type="number"
-                                  value={minimumSpend ?? ''}
-                                  onChange={(e) => setMinimumSpend(Number(e.target.value) || null)}
-                                >
-                                  <TextField.Slot>$</TextField.Slot>
-                                </TextField.Root>
-                              </Box>
-                            )}
-                          </Flex>
-                        </Flex>
-
-                        <Separator size="4" />
-
-                        <Flex justify="between" align="center" wrap="wrap" gap="3">
-                          {existingRewardId ? (
-                            <Button variant="ghost" color="red" onClick={handleRemove} disabled={isRemoving}>
-                              <TrashIcon /> Remove Reward
-                            </Button>
-                          ) : (
-                            <Box />
-                          )}
-
-                          <Flex gap="3">
-                            <Button
-                              size="3"
-                              onClick={handleSave}
-                              loading={isSaving}
-                              disabled={isSaveDisabled}
-                              style={{ backgroundColor: 'var(--slate-12)', color: 'white' }}
-                            >
-                              {existingRewardId ? 'Save Changes' : 'Create Reward'}
-                            </Button>
-                          </Flex>
-                        </Flex>
-                      </Flex>
-                    </Card>
-                  </Flex>
-                </Flex>
-              </Flex>
-            ) : (
-              <Flex
-                direction="column"
-                align="center"
-                justify="center"
-                height="100%"
-                style={{ opacity: 0.4 }}
-              >
-                <MagicWandIcon width="64" height="64" />
-                <Heading size="6" mt="4">Select an Achievement</Heading>
-                <Text>Choose an item from the sidebar to configure rewards.</Text>
+        {isMobile ? (
+          <>
+            {/* --- MOBILE: full-screen swap between list and canvas, unchanged --- */}
+            {showMobileList && (
+              <Flex direction="column" width="100%" style={{ backgroundColor: 'white' }}>
+                {achievementListInner}
               </Flex>
             )}
-          </Flex>
+            {showMobileCanvas && (
+              <Flex
+                flexGrow="1"
+                justify="center"
+                style={{ overflowY: 'auto', position: 'relative' }}
+                p={{ initial: '4', md: '6' }}
+              >
+                {detailCanvasContent}
+              </Flex>
+            )}
+          </>
+        ) : (
+          <>
+            {/* --- DESKTOP: canvas always full width; list is an overlay drawer --- */}
+            <Flex
+              flexGrow="1"
+              justify="center"
+              style={{ overflowY: 'auto', position: 'relative' }}
+              p={{ initial: '4', md: '6' }}
+            >
+              {detailCanvasContent}
+            </Flex>
+
+            <AnimatePresence>
+              {achievementDrawerOpen && (
+                <>
+                  <motion.div
+                    key="achievement-drawer-backdrop"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.18 }}
+                    onClick={() => setAchievementDrawerOpen(false)}
+                    style={{
+                      position: 'fixed',
+                      top: 64,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      backgroundColor: 'rgba(15,23,42,0.45)',
+                      zIndex: 40,
+                    }}
+                  />
+                  <motion.div
+                    key="achievement-drawer"
+                    initial={{ x: '-100%' }}
+                    animate={{ x: 0 }}
+                    exit={{ x: '-100%' }}
+                    transition={{ type: 'tween', duration: 0.22, ease: 'easeOut' }}
+                    style={{
+                      position: 'fixed',
+                      top: 64,
+                      left: 0,
+                      bottom: 0,
+                      width: 320,
+                      backgroundColor: 'white',
+                      borderRight: '1px solid var(--gray-4)',
+                      boxShadow: '4px 0 24px rgba(0,0,0,0.12)',
+                      zIndex: 41,
+                      display: 'flex',
+                      flexDirection: 'column',
+                    }}
+                  >
+                    {achievementListInner}
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+          </>
         )}
       </Flex>
     </BrandPageShell>

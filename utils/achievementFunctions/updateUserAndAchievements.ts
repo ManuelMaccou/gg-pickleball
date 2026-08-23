@@ -44,6 +44,7 @@ type CheckFunction = (
 
 import { LogContext, logRewardEvent } from '@/lib/rewards/rewardProcessingLogger';
 import { logError } from '@/lib/sentry/logger';
+import { generateAndSaveAffiliateDiscountCodes } from '@/lib/rewards/generateAndSaveAffiliateDiscountCodes';
 type RequiredDbOptions = { session: ClientSession; logContext?: LogContext };
 
 function ensureClientStats(user: IUser, clientId: string): ClientStats {
@@ -662,7 +663,9 @@ async function processGlobalMatch(
 
         for (const [category, tasks] of tasksByCategory.entries()) {
           const software = category === 'retail' ? client.retailSoftware : client.reservationSoftware;
-          const generator = getRewardCodeGenerator(category, software);
+          const generator = (category === 'retail' && client.affiliateCode)
+            ? generateAndSaveAffiliateDiscountCodes
+            : getRewardCodeGenerator(category, software);
 
           if (generator) {
             const map = await generator(tasks, client._id, {

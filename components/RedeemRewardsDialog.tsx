@@ -70,10 +70,6 @@ const rewardCode = reward.codes?.find(c => c._id === earnedInstance._id)?.code;
             <Flex direction={'column'} align={'center'} mt={'3'}>
               <Text align={'center'}>Minimum spend to qualify: ${reward.minimumSpend}</Text>
             </Flex>
-          ) : reward.maxDiscount && reward.product === 'pro shop' ? (
-            <Flex direction={'column'} align={'center'} mt={'3'}>
-              <Text align={'center'}>Max discount amount: ${reward.maxDiscount}</Text>
-            </Flex>
           ) : null}
           <Flex direction={'column'} mt={'4'} gap={'4'}>
             <Text size={'4'}><Strong>To redeem: </Strong>

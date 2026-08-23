@@ -70,10 +70,21 @@ export async function processMatchesUpload(previewId: string): Promise<void> {
       // email/DUPR conflict means we don't actually know this is the
       // right account, so no match reference, no rewards, until a human
       // resolves it via the identity-issue tracker.
+      //
+      // [Age review] Same treatment for pendingAgeReview — an account
+      // flagged pending manual age review is treated as UNKNOWN here too.
+      // This route is a separate code path from check-eligibility and was
+      // never wired to check the flag; without this, an already-existing
+      // flagged account resolving normally here would get credited and
+      // issued a reward, completely bypassing the block. The raw DUPR ID
+      // still lands in team1DuprIds/team2DuprIds regardless (below) — if
+      // the flag is later cleared, this exact match is still catchable via
+      // check-eligibility at that point, same as any slot that was never
+      // resolved in the first place.
       const resolve = (duprId?: string): string => {
         if (!duprId) return 'UNKNOWN';
         const user = userByDuprId.get(duprId);
-        if (!user || user.identityUnresolved) return 'UNKNOWN';
+        if (!user || user.identityUnresolved || user.pendingAgeReview) return 'UNKNOWN';
         return user._id.toString();
       };
 

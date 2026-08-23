@@ -1,6 +1,29 @@
 import mongoose, { Schema } from "mongoose";
 import { IReward } from "../types/databaseTypes";
 
+const DiscountProductSelectionSchema = new Schema({
+  productId: { type: String, required: true },
+  title: { type: String, required: true },
+}, { _id: false });
+
+const DiscountCollectionSelectionSchema = new Schema({
+  collectionId: { type: String, required: true },
+  title: { type: String, required: true },
+}, { _id: false });
+
+const DiscountItemSelectionSchema = new Schema({
+  all: { type: Boolean },
+  products: { type: [DiscountProductSelectionSchema], default: undefined },
+  collections: { type: [DiscountCollectionSelectionSchema], default: undefined },
+}, { _id: false });
+
+const BxgyConfigSchema = new Schema({
+  buys: { type: DiscountItemSelectionSchema, required: true },
+  buyQuantity: { type: Number, required: true },
+  gets: { type: DiscountItemSelectionSchema, required: true },
+  getQuantity: { type: Number, required: true },
+  getPercent: { type: Number },
+}, { _id: false });
 
 export const RewardSchema = new Schema<IReward>(
   {
@@ -22,7 +45,10 @@ export const RewardSchema = new Schema<IReward>(
     productDescription: { type: String },
     discount: { type: Number },
     minimumSpend: { type: Number },
-    maxDiscount: { type: Number }
+    discountKind: { type: String, enum: ['amount', 'bxgy'], default: 'amount' },
+    shopifyTargeting: { type: DiscountItemSelectionSchema },
+    bxgy: { type: BxgyConfigSchema },
+    combinesWithOtherDiscounts: { type: Boolean, default: false }
   }
 );
 

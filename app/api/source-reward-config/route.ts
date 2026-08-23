@@ -29,15 +29,15 @@ export async function GET(req: NextRequest) {
       Achievement.find({ name: { $in: achievementNames } }).lean<IAchievement[]>(),
       Reward.find({ _id: { $in: uniqueRewardIds } }).lean<IReward[]>(),
       Client.find({ _id: { $in: uniqueClientIds } })
-        .select('name icon logo cardBackgroundImage cardTextColor shopify retailSoftware')
-        .lean<Pick<IClient, '_id' | 'name' | 'icon' | 'logo' | 'cardBackgroundImage' | 'cardTextColor'>[]>(),
-    ]);
+        .select('name icon logo cardBackgroundImage cardTextColor shopify retailSoftware affiliateCode cardBackgroundPosition')
+        .lean<Pick<IClient, '_id' | 'name' | 'icon' | 'logo' | 'cardBackgroundImage' | 'cardTextColor' | 'cardBackgroundPosition'>[]>(),
+      ]);
 
     const achievementsByName = new Map(achievements.map(a => [a.name, a]));
     const rewardsById = new Map(rewards.map(r => [r._id.toString(), r]));
     const clientsById = new Map(
       clients
-        .filter((c: any) => c.retailSoftware === 'shopify' && c.shopify?.accessToken)
+        .filter((c: any) => c.affiliateCode || (c.retailSoftware === 'shopify' && c.shopify?.accessToken))
         .map(c => [c._id.toString(), c])
     );
 

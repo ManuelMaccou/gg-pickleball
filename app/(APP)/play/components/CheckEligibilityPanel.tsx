@@ -98,7 +98,7 @@ export function CheckEligibilityPanel({
             <Callout.Text style={{color: 'white'}}>
               {result.matchesProcessed > 0
                 ? `Found ${result.matchesProcessed} match${result.matchesProcessed === 1 ? '' : 'es'} — check your rewards below.`
-                : 'No new matches found in the last 6 months.'}
+                : 'Your rewards are up to date.'}
             </Callout.Text>
           </Callout.Root>
         )}
@@ -106,9 +106,9 @@ export function CheckEligibilityPanel({
         {/* Deliberately generic — never states or implies a specific age
             determination back to the person looking at this screen. */}
         {result.status === 'blocked' && (
-          <Callout.Root color="amber" size="1">
+          <Callout.Root color="orange" size="1">
             <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
-            <Callout.Text>We weren't able to verify eligibility for this account right now.</Callout.Text>
+            <Callout.Text>We weren't able to verify eligibility for this account. Please try again later.</Callout.Text>
           </Callout.Root>
         )}
 

@@ -48,6 +48,7 @@ const ClientSchema = new Schema<IClient>({
     type: String,
     default: '#ffffff'
   },
+  cardBackgroundPosition: { type: String, default: 'center' },
   admin_logo: { type: String },
   bannerColor: { type: String, default: 'white' },
   icon: { type: String },
@@ -77,6 +78,7 @@ const ClientSchema = new Schema<IClient>({
     type: String,
     enum: ['shopify', 'playbypoint'],
   },
+  affiliateCode: { type: String },
   reservationSoftware: {
     type: String,
     enum: ['playbypoint', 'podplay', 'courtreserve'],

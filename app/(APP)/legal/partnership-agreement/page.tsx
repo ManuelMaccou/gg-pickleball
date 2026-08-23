@@ -70,7 +70,7 @@ export default function PartnershipAgreementPage() {
               ['"Win Milestones"', 'means the verified pickleball win thresholds at which players become eligible to receive Promo Codes. GG Pickleball may adjust milestone structures from time to time with reasonable notice to Brand Partners.'],
               ['"Order"', 'means a completed, paid transaction placed by a player at the Brand Partner\'s Shopify storefront using a Promo Code.'],
               ['"Net Order Value"', 'means the total value of an Order minus any amounts refunded to the customer.'],
-              ['"Commission"', 'means the fee owed to GG Pickleball equal to 5% of the Net Order Value of each Order.'],
+              ['"Commission"', 'means the fee owed to GG Pickleball equal to a percentage of the Net Order Value of each Order.'],
               ['"Go-Live Date"', 'means the date on which the Brand Partner\'s first Promo Code is made active and available to players on the Platform.'],
             ]} />
           </Section>

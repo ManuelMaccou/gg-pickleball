@@ -19,7 +19,6 @@ export async function GET(req: NextRequest) {
     const codes = await RewardCode.find({
       userId,
     })
-      .populate('reward') // This populate is likely not needed if reward is embedded
       .populate({ 
         path: 'achievementId',
         model: 'Achievement',
@@ -28,7 +27,7 @@ export async function GET(req: NextRequest) {
       .populate({
         path: 'clientId',
         model: 'Client',
-        select: 'name icon logo shopify'
+        select: 'name icon logo shopify cardBackgroundImage cardTextColor cardBackgroundPosition'
       })
       .lean();
 

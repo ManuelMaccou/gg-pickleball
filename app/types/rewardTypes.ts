@@ -1,5 +1,5 @@
 import { Types } from "mongoose";
-import { IClient, IReward, IRewardCode } from "./databaseTypes";
+import { DiscountItemSelection, IClient, IReward, IRewardCode } from "./databaseTypes";
 
 export const REWARD_PRODUCT_NAMES = ["open play", "reservations", "guest reservations", "classes and clinics", "pro shop", 'online store', 'in store', 'custom'] as const;
 export type RewardProductName = typeof REWARD_PRODUCT_NAMES[number];
@@ -23,21 +23,14 @@ export interface IRewardCodeEntry {
   earnedAt: Date;
 }
 
-export interface IRewardWithCode {
+type OmitFunctions<T> = {
+  [K in keyof T as T[K] extends (...args: any[]) => any ? never : K]: T[K];
+};
+
+export type IRewardWithCode = OmitFunctions<IReward> & {
   _id: Types.ObjectId;
-  index: number;
-  repeatable?: boolean;
-  name: string;
-  friendlyName: string;
-  product: RewardProductName
-  productDescription?: string;
-  discount?: number;
-  minimumSpend?: number;
-  maxDiscount?: number;
-  type?: "dollars" | "percent";
-  category: RewardCategoryName;
   codes?: IRewardCodeEntry[];
-}
+};
 
 export interface GlobalConfiguredReward {
   achievement: {

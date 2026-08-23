@@ -59,6 +59,21 @@ export async function POST(req: NextRequest) {
   }
   console.log(`[CheckEligibility] DUPR ID: ${duprId}`);
 
+  // [Age review] If this account is already flagged pending manual
+  // review, block entirely — before any match-scanning happens, not just
+  // before crediting. Same generic "blocked" shape as a live age-check
+  // failure, so this looks identical from the player's side either way —
+  // never confirms or denies a specific age determination.
+  if (user.pendingAgeReview) {
+    console.log(`[CheckEligibility] User ${user._id} has pendingAgeReview set — blocking without processing.`);
+    return NextResponse.json({
+      matchesFound: 0,
+      matchesProcessed: 0,
+      blocked: true,
+      reason: 'pending_review',
+    });
+  }
+
   const cutoff = new Date(Date.now() - SIX_MONTHS_MS);
   console.log(`[CheckEligibility] Lookback cutoff (6 months): ${cutoff.toISOString()}`);
 
@@ -104,7 +119,26 @@ export async function POST(req: NextRequest) {
   console.log(`[CheckEligibility] Age check result: ${JSON.stringify(ageResult)}`);
 
   if (!ageResult.eligible) {
-    console.log(`[CheckEligibility] BLOCKED — reason: ${ageResult.reason}. Returning without processing any matches.`);
+    console.log(`[CheckEligibility] BLOCKED — reason: ${ageResult.reason}. Flagging account and returning without processing.`);
+    // [Bug fix] This is a SEPARATE age check from the one in
+    // PATCH /api/user (Connect DUPR) — it existed before that wiring was
+    // added, and until now only affected THIS response, transiently.
+    // Whichever endpoint discovers an age problem first needs to persist
+    // it the same way, or an account that was only ever checked here
+    // (never through a real Connect DUPR flow with the age-check code)
+    // would silently never appear in Age Review, and would re-run the
+    // live DUPR API call on every single click forever, since 'unknown'/
+    // confirmed_under_13 are deliberately never cached in the registry.
+    await User.updateOne(
+      { _id: user._id },
+      {
+        $set: {
+          pendingAgeReview: true,
+          pendingAgeReviewReason: ageResult.reason,
+          pendingAgeReviewAt: new Date(),
+        },
+      }
+    );
     return NextResponse.json({
       matchesFound: candidateMatches.length,
       matchesProcessed: 0,

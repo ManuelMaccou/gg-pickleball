@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { Flex, Text } from '@radix-ui/themes';
 import {
   RefreshCw, Settings, CreditCard, Gift, FileText,
-  Upload, Shield, Users, ScrollText, AlertTriangle,
+  Upload, Shield, Users, ScrollText, AlertTriangle, UserX,
 } from 'lucide-react';
 
 interface NavLink {
@@ -24,6 +24,7 @@ const ggAdminLinks: NavLink[] = [
   { href: '/admin/gg/rewards-log',        text: 'Rewards log',              icon: <ScrollText size={16} /> },
   { href: '/admin/gg/upload-matches',     text: 'Upload matches',           icon: <Upload size={16} /> },
   { href: '/admin/gg/identity-issues',    text: 'Identity issues',          icon: <AlertTriangle size={16} /> },
+  { href: '/admin/gg/age-review',         text: 'Age review',               icon: <UserX size={16} /> },
   { href: '/admin/gg/compliance',         text: 'Compliance',               icon: <Shield size={16} /> },
   { href: '/admin/gg/brand-applications', text: 'Brand applications',       icon: <Users size={16} /> },
 ];

@@ -584,7 +584,7 @@ export default function BrandAdminDashboard() {
         </Flex>
       </Grid>
 
-      <MarketingExportCard />
+      {/* <MarketingExportCard /> */}
 
       <Box>
         <Flex align="center" gap="4" mb="1">

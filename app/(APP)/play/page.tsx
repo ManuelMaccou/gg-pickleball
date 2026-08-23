@@ -246,15 +246,6 @@ export default function Play() {
           </Flex>
 
           <Flex align="center" gap="3">
-            {authenticationStatus === 'anonymous' && (
-              <Button
-                size="3" 
-                style={{ backgroundColor: 'transparent', borderStyle: "solid", borderColor: '#ffffff', borderWidth: "1px", borderRadius: '20px' , color: TEXT, cursor: 'pointer' }}
-                onClick={() => router.push('/auth/login?returnTo=/play')}
-              >
-                Log in
-              </Button>
-            )}
             {(authenticationStatus === 'authenticated' || authenticationStatus === 'guest') && dbUser && (
               <Flex align="center" gap="3">
                 {!isMobile && (

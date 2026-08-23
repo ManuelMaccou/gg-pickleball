@@ -1,59 +1,16 @@
-// lib/shopify/createShopifyDiscountCode.ts
+// Destination: lib/shopify/createShopifyDiscountCode.ts
 
 import { ClientSession, Types } from 'mongoose';
 import Reward from '@/app/models/Reward';
-import Client from '@/app/models/Client';
 import crypto from 'crypto';
-import { refreshShopifyToken, tokenNeedsRefresh } from './refreshShopifyToken';
+import { refreshShopifyToken } from './refreshShopifyToken';
+import { getValidShopifyCredentials } from './getValidShopifyCredentials';
+import { buildDiscountItemsInput, buildCombinesWithInput } from './buildDiscountItemsInput';
 
 const SHOPIFY_API_VERSION = '2025-10';
 
 interface GeneratorOptions {
   session: ClientSession;
-}
-
-async function getValidAccessToken(
-  clientId: Types.ObjectId
-): Promise<{ shopDomain: string; accessToken: string } | null> {
-  const client = await Client.findById(clientId)
-    .select('shopify.shopDomain shopify.accessToken shopify.tokenExpiresAt shopify.refreshToken shopify.hasActivePlan')
-    .lean() as {
-      shopify?: {
-        shopDomain?: string;
-        accessToken?: string;
-        tokenExpiresAt?: Date;
-        refreshToken?: string;
-        hasActivePlan?: boolean;
-      };
-    } | null;
-
-  if (!client?.shopify?.shopDomain || !client?.shopify?.accessToken) {
-    return null;
-  }
-
-  // No active plan — treat the same as missing credentials so the auth error
-  // path fires and the player sees the "achievements saved" dialog rather than
-  // silently getting a discount code from a store that's no longer paying.
-  if (!client.shopify.hasActivePlan) {
-    console.warn(
-      `[createShopifyDiscountCode] Client ${clientId} has no active Shopify plan — ` +
-      `skipping discount code creation. Merchant must select a plan.`
-    );
-    return null;
-  }
-
-  // Proactive refresh if token is near expiry
-  if (tokenNeedsRefresh(client.shopify.tokenExpiresAt)) {
-    console.log(`[createShopifyDiscountCode] Token near expiry for client ${clientId} — refreshing`);
-    const refreshResult = await refreshShopifyToken(clientId.toString());
-    if (refreshResult.success && refreshResult.accessToken) {
-      return { shopDomain: client.shopify.shopDomain, accessToken: refreshResult.accessToken };
-    }
-    console.error(`[createShopifyDiscountCode] Proactive refresh failed for client ${clientId}`);
-    // Fall through and try with the existing token — it might still work
-  }
-
-  return { shopDomain: client.shopify.shopDomain, accessToken: client.shopify.accessToken };
 }
 
 export async function createShopifyDiscountCode(
@@ -67,7 +24,7 @@ export async function createShopifyDiscountCode(
   if (!reward) throw new Error(`Reward not found for ID: ${rewardId}`);
 
   // Get a valid token — outside the session to allow token writes if needed
-  let credentials = await getValidAccessToken(clientId);
+  let credentials = await getValidShopifyCredentials(clientId);
   if (!credentials) {
     throw new Error(`Client or Shopify credentials missing for reward ${rewardId}`);
   }
@@ -78,6 +35,12 @@ export async function createShopifyDiscountCode(
   const discountType = reward.type ?? 'dollars';
   const discountValue = reward.discount ?? 0;
   const minimumSpend = reward.minimumSpend ?? null;
+
+  // Entire store when no scope is stored at all — covers every reward
+  // created before scoped discounts existed, and any reward that never
+  // set shopifyTargeting for some other reason.
+  const itemsInput = buildDiscountItemsInput(reward.shopifyTargeting ?? { all: true });
+  const combinesWith = buildCombinesWithInput(reward.combinesWithOtherDiscounts ?? false);
 
   let attempts = 0;
   const MAX_ATTEMPTS = 3;
@@ -93,9 +56,10 @@ export async function createShopifyDiscountCode(
       code,
       title: cleanTitle,
       startsAt: new Date().toISOString(),
-      customerSelection: { all: true },
+      context: { all: "ALL" },
+      combinesWith,
       customerGets: {
-        items: { all: true },
+        items: itemsInput,
         value:
           discountType === 'percent'
             ? { percentage: discountValue / 100 }
@@ -139,8 +103,9 @@ export async function createShopifyDiscountCode(
     };
 
     try {
+      const requestUrl = `https://${credentials.shopDomain}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`;
       const response = await fetch(
-        `https://${credentials.shopDomain}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`,
+        requestUrl,
         {
           method: 'POST',
           headers: {
@@ -165,7 +130,14 @@ export async function createShopifyDiscountCode(
 
       if (!response.ok) {
         const text = await response.text();
-        console.error(`Shopify API HTTP Error (${response.status}):`, text);
+        // A clean HTTP 404 here (as opposed to a 401/403, or a 200 with a
+        // GraphQL userErrors/errors body) almost always means the URL
+        // itself was wrong — most commonly shopDomain being stored as the
+        // store's custom/public domain instead of its actual
+        // *.myshopify.com domain, which Shopify's Admin API requires.
+        // Logging the exact URL here since the response body alone
+        // ({"errors":"Not Found"}) gives no way to tell.
+        console.error(`[createShopifyDiscountCode] Shopify API HTTP Error (${response.status}) for client ${clientId}. Requested URL: ${requestUrl}. Response body:`, text);
         throw new Error(`Shopify API HTTP Error (${response.status}): ${text}`);
       }
 

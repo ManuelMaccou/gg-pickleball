@@ -50,7 +50,7 @@ export function BrandSidebar({ location }: BrandSidebarProps) {
   return (
     <Flex
       direction="column"
-      width="240px"
+      width="200px"
       py="4"
       px="3"
       gap="1"
@@ -89,7 +89,7 @@ export function BrandSidebar({ location }: BrandSidebarProps) {
               className="brand-sidebar-item"
             >
               {item.icon}
-              <Text size="2">{item.label}</Text>
+              <Text size="1">{item.label}</Text>
             </Flex>
           </Link>
         );

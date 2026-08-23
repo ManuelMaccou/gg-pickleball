@@ -32,7 +32,7 @@ export interface ICommissionRecord extends Document {
   shopifyOrderId: string;        // Numeric Shopify order ID (e.g. "1234567890")
   shopifyOrderGid: string;       // GraphQL GID (e.g. "gid://shopify/Order/1234567890")
   shopDomain: string;            // e.g. "my-store.myshopify.com"
-  discountCode: string;          // The GG code that was redeemed
+  discountCodes: string[];          // The GG code that was redeemed
  
   // Client link
   clientId: Types.ObjectId;      // Ref to Client
@@ -161,6 +161,9 @@ export interface IUser extends Document {
   profilePicture?: string;
   stats: Map<string,ClientStats>;
   identityUnresolved?: boolean;
+  pendingAgeReview: boolean;
+  pendingAgeReviewReason?: 'confirmed_under_13' | 'unknown';
+  pendingAgeReviewAt?: Date;
 }
 
 export type ResolvedUser = {
@@ -326,6 +329,21 @@ export interface IAchievementCategory extends Document {
   scope?: "local" | "global"
 }
 
+export interface DiscountProductSelection {
+  productId: string;   // gid://shopify/Product/...
+  title: string;        // snapshot for display
+}
+
+export interface DiscountCollectionSelection {
+  collectionId: string; // gid://shopify/Collection/...
+  title: string;
+}
+
+export interface DiscountItemSelection {
+  all?: boolean;
+  products?: DiscountProductSelection[];
+  collections?: DiscountCollectionSelection[];
+}
 
 export interface IReward extends Document {
   _id: Types.ObjectId;
@@ -337,9 +355,18 @@ export interface IReward extends Document {
   productDescription?: string;
   discount?: number;
   minimumSpend?: number;
-  maxDiscount?: number;
   type?: "dollars" | "percent";
   category: RewardCategoryName;
+  discountKind?: 'amount' | 'bxgy';           // default 'amount'
+  shopifyTargeting?: DiscountItemSelection;   // amount-off scope; undefined == entire store
+  bxgy?: {
+    buys: DiscountItemSelection;
+    buyQuantity: number;
+    gets: DiscountItemSelection;
+    getQuantity: number;
+    getPercent?: number;                      // only when getDiscountType === 'percent'
+  };
+  combinesWithOtherDiscounts?: boolean;
 }
 
 export interface ShopifyData {
@@ -432,6 +459,7 @@ export interface IClient extends Document {
   logo: string;
   cardBackgroundImage?: string;
   cardTextColor: string;
+  cardBackgroundPosition?: string
   rewardProducts: string[];
   admin_logo: string;
   bannerColor: string;
@@ -452,6 +480,7 @@ export interface IClient extends Document {
   // };
   
   retailSoftware: "shopify" | "playbypoint" | undefined;
+  affiliateCode?: string;
   reservationSoftware: "playbypoint" | "podplay" | "courtreserve" | undefined;
   rewardConfigStatus?: "pending" | "active";
   shopify?: ShopifyData;
@@ -620,8 +649,9 @@ export interface IPlayerAgeVerification extends Document {
   dateOfBirth?: string;
   ageAtSubmission?: number;
   birthYear?: number;
-  source: 'players_upload' | 'dupr_api';
+  source: 'players_upload' | 'dupr_api' | 'manual_admin_review';
   programId?: Types.ObjectId;
+  confirmedBy?: Types.ObjectId;
   confirmedAt: Date;
   createdAt: Date;
   updatedAt: Date;

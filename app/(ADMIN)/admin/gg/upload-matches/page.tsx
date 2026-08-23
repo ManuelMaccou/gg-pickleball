@@ -1,5 +1,17 @@
 'use client';
 
+// Destination: app/(ADMIN)/admin/gg/upload-matches/page.tsx
+//
+// [Players Upload retired from UI] The "Upload players" step is removed
+// from this page — Players Upload no longer does anything meaningful
+// (accounts are created via self-serve signup now, not from a roster).
+// The underlying code (PlayersUploadSection, processPlayersUpload, etc.)
+// is untouched and left in place, per explicit instruction not to delete
+// it — only this page's entry point to it is gone. The remaining step
+// (Matches Upload) renumbers from "4" to "3" accordingly, and its
+// description no longer references a players-upload prerequisite that no
+// longer exists.
+
 import { useEffect, useState } from "react";
 import { useUser as useAuth0User } from '@auth0/nextjs-auth0';
 import { useUserContext } from "@/app/contexts/UserContext";
@@ -14,7 +26,6 @@ import Image from "next/image";
 import darkGgLogo from '../../../../../public/logos/gg_logo_black_transparent.png'
 import { useIsMobile } from "@/app/hooks/useIsMobile";
 import { AdminSidebar } from "../../components/AdminSidebar";
-import PlayersUploadSection from "../../components/PlayersUploadSection";
 import MatchesUploadSection from "../../components/MatchesUploadSection";
 
 type ProgramSummary = {
@@ -219,13 +230,7 @@ export default function UploadMatchesPage() {
                     </Callout.Root>
                   )}
 
-                  {selectedApplication.program ? (
-                    <Box style={{ borderTop: '1px solid var(--gray-a4)', paddingTop: 10 }}>
-                      <Text as="div" size="2" color="gray">
-                        Matches CSV upload happens after this — not built yet.
-                      </Text>
-                    </Box>
-                  ) : (
+                  {!selectedApplication.program && (
                     <Button onClick={handleCreateProgram} loading={isCreatingProgram}>
                       Create Program
                     </Button>
@@ -235,25 +240,16 @@ export default function UploadMatchesPage() {
             </Box>
           )}
 
-          {/* Step 3: upload players */}
+          {/* Step 3: upload matches — was step 4; renumbered now that the
+              players-upload step is removed from this page */}
           {selectedApplication?.program && (
             <Box mb="6">
-              <Text as="div" size="2" weight="bold" mb="2">3. Upload players</Text>
+              <Text as="div" size="2" weight="bold" mb="2">3. Upload matches</Text>
               <Text as="div" size="2" color="gray" mb="3">
-                Creates an account for every eligible (13+) participant not already in the
-                system. Do this before uploading matches — the matches CSV only looks players
-                up by DUPR ID, it can't create accounts itself.
-              </Text>
-              <PlayersUploadSection programId={selectedApplication.program.id} />
-            </Box>
-          )}
-
-          {/* Step 4: upload matches */}
-          {selectedApplication?.program && (
-            <Box mb="6">
-              <Text as="div" size="2" weight="bold" mb="2">4. Upload matches</Text>
-              <Text as="div" size="2" color="gray" mb="3">
-                Run this after the players upload for this program. Each row is one game.
+                Each row is one game. Most participants won't yet resolve to an account —
+                that's expected. Accounts are created through self-serve signup, not this
+                upload; a player's own past matches are found and credited automatically
+                once they sign up and check their eligibility.
               </Text>
               <MatchesUploadSection programId={selectedApplication.program.id} />
             </Box>
