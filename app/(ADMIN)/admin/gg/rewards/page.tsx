@@ -665,6 +665,9 @@ export default function GGRewardsAdminPage() {
                 value={discountForm}
                 onChange={(patch) => setDiscountForm((prev) => ({ ...prev, ...patch }))}
                 editingLive={!!editingRewardId}
+                cardBackgroundImage={selectedClientObj?.cardBackgroundImage}
+                cardBackgroundPosition={selectedClientObj?.cardBackgroundPosition}
+                cardTextColor={selectedClientObj?.cardTextColor}
               />
             )
           )}
