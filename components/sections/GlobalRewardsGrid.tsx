@@ -49,12 +49,11 @@ type PopulatedGlobalRewardCode = Omit<IRewardCode, 'rewardId' | 'achievementId'>
 
 type Props = {
   user: FrontendUser | null;
-  dataSourceId: string;
   variant?: 'preview' | 'full';
   maxCount?: number;
 };
 
-export default function GlobalRewardsGrid({ user, dataSourceId, maxCount }: Props) {
+export default function GlobalRewardsGrid({ user, maxCount }: Props) {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [allRewards, setAllRewards] = useState<RewardWithContext[]>([]);
   const [selectedReward, setSelectedReward] = useState<{
@@ -64,16 +63,12 @@ export default function GlobalRewardsGrid({ user, dataSourceId, maxCount }: Prop
 
   useEffect(() => {
     const fetchAllDataAndMerge = async () => {
-      if (!dataSourceId) {
-        setIsLoading(false);
-        return;
-      }
-
+      
       setIsLoading(true);
       try {
         if (!user) {
           // --- LOGIC FOR LOGGED-OUT USERS (VIEWING ALL GLOBAL REWARDS) ---
-          const res = await fetch(`/api/source-reward-config?dataSourceId=${dataSourceId}`);
+          const res = await fetch('/api/source-reward-config');
           if (!res.ok) throw new Error("Failed to fetch global configured rewards");
           
           const data = await res.json();
@@ -97,9 +92,9 @@ export default function GlobalRewardsGrid({ user, dataSourceId, maxCount }: Prop
         // --- LOGIC FOR LOGGED-IN USERS ---
         const [earnedRes, configuredRes] = await Promise.all([
           // This API call now fetches only global rewards for the user
-          fetch(`/api/reward-code/global-earned?userId=${user._id}&dataSourceId=${dataSourceId}`),
+          fetch(`/api/reward-code/global-earned?userId=${user._id}`),
           // This API fetches all available global rewards
-          fetch(`/api/source-reward-config?dataSourceId=${dataSourceId}`)
+          fetch('/api/source-reward-config')
         ]);
 
         if (!earnedRes.ok || !configuredRes.ok) {
@@ -212,7 +207,7 @@ export default function GlobalRewardsGrid({ user, dataSourceId, maxCount }: Prop
     };
 
     fetchAllDataAndMerge();
-  }, [user, user?._id, dataSourceId]);
+  }, [user, user?._id]);
 
   const displayedRewards = maxCount ? allRewards.slice(0, maxCount) : allRewards;
 

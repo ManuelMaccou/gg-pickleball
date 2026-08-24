@@ -191,12 +191,15 @@ async function chargeViaStripe(
           amount: Math.round(item.commissionAmount * 100),
           currency: 'usd',
           description:
-            `5% commission — order ${item.record.shopifyOrderId} ` +
-            `(${item.record.discountCode}), sale: $${item.commissionBase.toFixed(2)}`,
+            `Commission — order ${item.record.shopifyOrderId} ` +
+            // Defensive fallback for any record that predates this field
+            // (still shaped as the old singular discountCode, or never
+            // migrated) — avoids a crash on .join() over undefined.
+            `(${(item.record.discountCodes ?? []).join(', ') || 'unknown code'}), sale: $${item.commissionBase.toFixed(2)}`,
           metadata: {
             commissionRecordId: item.record._id.toString(),
             shopifyOrderId: item.record.shopifyOrderId,
-            discountCode: item.record.discountCode,
+            discountCodes: (item.record.discountCodes ?? []).join(','),
           },
         });
       }

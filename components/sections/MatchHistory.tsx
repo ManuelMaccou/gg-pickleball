@@ -1,3 +1,6 @@
+// Destination: wherever MatchHistory.tsx currently lives — likely
+// components/sections/MatchHistory.tsx based on the Play.tsx import.
+
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -8,26 +11,23 @@ import React from "react";
 type MatchHistoryProps = {
   userId: string;
   userName: string;
-  locationId: string;
 };
 
 type Cursor = { after: string; lastId: string } | null;
 
-// ── fetchMatchData — unchanged ──
+// [Program pivot] locationId removed — match history is every match this
+// user played, not scoped to a physical location/client anymore.
 async function fetchMatchData({
   userId,
-  locationId,
   cursor,
   signal,
 }: {
   userId: string;
-  locationId: string;
   cursor: Cursor;
   signal?: AbortSignal;
 }): Promise<{ matches: PopulatedMatch[]; hasNextPage: boolean }> {
-  const url = new URL(`/api/match/user-and-location`, window.location.origin);
+  const url = new URL(`/api/match/history`, window.location.origin);
   url.searchParams.set("userId", userId);
-  url.searchParams.set("locationId", locationId);
   url.searchParams.set("limit", "10");
 
   if (cursor) {
@@ -42,18 +42,16 @@ async function fetchMatchData({
   return { matches: data.matches, hasNextPage: data.hasNextPage };
 }
 
-// ── InviteFriendsBanner — all logic unchanged, visual update only ──
+// ── InviteFriendsBanner — unchanged ──
 const InviteFriendsBanner = () => {
-  const shareText = "Hey I joined a pickleball rewards platform and thought you might want to check it out. It syncs with your DUPR. https://www.ggpickleball.com/play";
+  const shareText = "Hey I joined a pickleball rewards platform and thought you might want to check it out. You get rewarded for playing in certain tournaments. https://www.ggpickleball.com/play";
 
-  // SMS handler — iOS detection logic unchanged
   const handleSms = () => {
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     const separator = isIOS ? '&' : '?';
     window.location.href = `sms:${separator}body=${encodeURIComponent(shareText)}`;
   };
 
-  // Email handler — unchanged
   const handleEmail = () => {
     window.location.href = `mailto:?subject=${encodeURIComponent("Claim your GG Pickleball Rewards!")}&body=${encodeURIComponent(shareText)}`;
   };
@@ -78,7 +76,6 @@ const InviteFriendsBanner = () => {
           </Text>
         </Box>
 
-        {/* Dialog — all internals unchanged */}
         <Dialog.Root>
           <Dialog.Trigger>
             <Button
@@ -124,9 +121,9 @@ const InviteFriendsBanner = () => {
   );
 };
 
-// ── PlayerNameDisplay — logic unchanged, text colors updated for dark bg ──
+// ── PlayerNameDisplay — unchanged ──
 const PlayerNameDisplay = ({ name, isMain }: { name: string; isMain?: boolean }) => {
-  if (name === "Unclaimed Account") {
+  if (name === "Unknown") {
     return (
       <Text size="2" mt={isMain ? "0" : "1"} style={{ fontStyle: 'italic', color: 'rgba(255,255,255,0.3)' }}>
         Unclaimed Account
@@ -146,15 +143,14 @@ const PlayerNameDisplay = ({ name, isMain }: { name: string; isMain?: boolean })
   );
 };
 
-// ── MatchHistory — all state, effects, cursor, and name resolution unchanged ──
-export default function MatchHistory({ userId, userName, locationId }: MatchHistoryProps) {
+// ── MatchHistory — locationId removed from props, fetch, and effects ──
+export default function MatchHistory({ userId, userName }: MatchHistoryProps) {
   const [matches, setMatches] = useState<PopulatedMatch[]>([]);
   const [cursor, setCursor] = useState<Cursor>(null);
   const [hasNextPage, setHasNextPage] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ── fetchMatches (pagination) — unchanged ──
   const fetchMatches = useCallback(async () => {
     if (loading || !hasNextPage) return;
 
@@ -164,7 +160,6 @@ export default function MatchHistory({ userId, userName, locationId }: MatchHist
     try {
       const { matches: newMatches, hasNextPage: more } = await fetchMatchData({
         userId,
-        locationId,
         cursor,
       });
 
@@ -185,11 +180,12 @@ export default function MatchHistory({ userId, userName, locationId }: MatchHist
     } finally {
       setLoading(false);
     }
-  }, [userId, locationId, cursor, hasNextPage, loading]);
+  }, [userId, cursor, hasNextPage, loading]);
 
-  // ── Initial load with AbortController — unchanged ──
+  // Initial load — was gated on `locationId` existing; now just runs
+  // whenever userId is available, since there's no location to wait on.
   useEffect(() => {
-    if (!locationId) return;
+    if (!userId) return;
 
     const controller = new AbortController();
 
@@ -203,7 +199,6 @@ export default function MatchHistory({ userId, userName, locationId }: MatchHist
       try {
         const { matches: initialMatches, hasNextPage: more } = await fetchMatchData({
           userId,
-          locationId,
           cursor: null,
           signal: controller.signal,
         });
@@ -231,17 +226,15 @@ export default function MatchHistory({ userId, userName, locationId }: MatchHist
 
     loadInitial();
     return () => controller.abort();
-  }, [locationId, userId]);
+  }, [userId]);
 
   return (
     <Flex direction="column">
-      {/* Invite banner — only shown when matches exist, same condition as original */}
       {matches.length > 0 && <InviteFriendsBanner />}
 
       {matches.length > 0 ? (
         <Table.Root>
           <Table.Header>
-            {/* Empty header row preserved — same as original */}
             <Table.Row>
               <Table.ColumnHeaderCell />
               <Table.ColumnHeaderCell />
@@ -260,13 +253,11 @@ export default function MatchHistory({ userId, userName, locationId }: MatchHist
                 const showDate = matchDateString !== lastRenderedDate;
                 if (showDate) lastRenderedDate = matchDateString;
 
-                // ── Team/win resolution — unchanged ──
                 const isTeam1 = match.team1.players.some((p) => p._id.toString() === userId);
                 const userTeam = isTeam1 ? match.team1 : match.team2;
                 const opponentTeam = isTeam1 ? match.team2 : match.team1;
                 const didWin = match.winners.some((w) => w._id.toString() === userId);
 
-                // ── Name resolution — unchanged ──
                 const userPlayer = userTeam.players.find((p) => p._id.toString() === userId);
                 const userPlayerName = userPlayer?.name ?? userName;
 
@@ -290,7 +281,6 @@ export default function MatchHistory({ userId, userName, locationId }: MatchHist
 
                 return (
                   <React.Fragment key={match._id.toString()}>
-                    {/* Date separator row */}
                     {showDate && (
                       <Table.Row>
                         <Table.Cell colSpan={4} style={{ padding: '10px 12px 6px' }}>
@@ -309,13 +299,11 @@ export default function MatchHistory({ userId, userName, locationId }: MatchHist
                       </Table.Row>
                     )}
 
-                    {/* Match row */}
                     <Table.Row
                       style={{
                         borderBottom: '0.5px solid rgba(255,255,255,0.06)',
                       }}
                     >
-                      {/* User team */}
                       <Table.Cell style={{ padding: '12px' }}>
                         <Flex justify={'between'} direction="row" align="center" >
                           <Flex direction="column">
@@ -336,7 +324,6 @@ export default function MatchHistory({ userId, userName, locationId }: MatchHist
                         </Flex>
                       </Table.Cell>
 
-                      {/* Opponent team */}
                       <Table.Cell style={{ padding: '12px' }}>
                         <Flex justify={'between'} direction="row" align="center" gap="5">
                           <Flex direction="column">
@@ -356,7 +343,6 @@ export default function MatchHistory({ userId, userName, locationId }: MatchHist
                         </Flex>
                       </Table.Cell>
 
-                      {/* Win / Loss badge */}
                       <Table.Cell style={{ padding: '12px', verticalAlign: 'middle' }}>
                         <Flex align="center" justify="center" style={{ height: '100%' }}>
                           <Box style={{
@@ -395,12 +381,10 @@ export default function MatchHistory({ userId, userName, locationId }: MatchHist
         </Flex>
       )}
 
-      {/* Error — same condition as original */}
       {error && (
         <Text color="red" size="2" mt="2">{error}</Text>
       )}
 
-      {/* Load more — same condition and handler as original */}
       {hasNextPage && (
         <Button
           variant="ghost"

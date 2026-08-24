@@ -24,7 +24,6 @@ interface MobileRewardFormProps {
   discountProduct: string;
   productDescription: string;
   rewardFriendlyName: string;
-  maxDiscount: number | null;
   minimumSpend: number | null;
   isSavingReward: boolean;
   isRemovingReward: boolean;
@@ -37,7 +36,6 @@ interface MobileRewardFormProps {
   onSetProductDescription: (desc: string) => void;
   onSetRewardFriendlyName: (desc: string) => void;
   onSetMinimumSpend: (amount: number | null) => void;
-  onSetMaxDiscount: (amount: number | null) => void;
   onSave: () => void;
   onRemove: () => void;
 }
@@ -53,7 +51,6 @@ export default function MobileConfigureRewardsForm({
   productDescription,
   rewardFriendlyName,
   minimumSpend,
-  maxDiscount,
   isSavingReward,
   isRemovingReward,
   isConfigured,
@@ -65,7 +62,6 @@ export default function MobileConfigureRewardsForm({
   onSetProductDescription,
   onSetRewardFriendlyName,
   onSetMinimumSpend,
-  onSetMaxDiscount,
   onSave,
   onRemove,
 }: MobileRewardFormProps) {
@@ -190,26 +186,6 @@ export default function MobileConfigureRewardsForm({
                     </TextField.Slot>
                   </TextField.Root>
                 </Flex>
-              </Flex>
-            ) : discountProduct === 'pro shop' && discountType === 'percent' ? (
-              <Flex direction={'column'} gap={'2'}>
-                <Text size={'3'}>Maximum discount (optional)</Text>
-                <Text size={'1'} mt={'-2'}><Em>The max dollar amount that can be discounted from the purchase.</Em></Text>
-                <TextField.Root
-                  type="number"
-                  placeholder="Maximum discount"
-                  value={maxDiscount ?? ''}
-                  style={{flexGrow: '1'}}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    const numeric = Number(value);
-                    onSetMaxDiscount(value === '' || isNaN(numeric) ? null : numeric);
-                  }}
-                  >
-                  <TextField.Slot>
-                    <Text weight={'bold'}>$</Text>
-                  </TextField.Slot>
-                </TextField.Root>
               </Flex>
             ) : null}
 

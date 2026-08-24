@@ -1,22 +1,5 @@
 'use client';
 
-// app/(ADMIN)/admin/brand/connect-shopify/page.tsx
-//
-// Three UI states, identical to the original:
-//   1. Fully connected + active billing  → success screen, lock/change dialog
-//   2. Connected, no plan (public mode)  → "Almost there" + plan selection CTA
-//   3. Not connected                     → install CTA
-//
-// The only mode-specific change is the install CTA in state 3:
-//   Custom mode → "Connect Shopify" links to client.shopify.installUrl stored in DB.
-//                 This is Shopify's generated signed install link — works on real stores.
-//   Public mode → "Connect Shopify ↗" links to the App Store listing.
-//                 Shopify appends shop+hmac and hits /api/shopify/install.
-//
-// State 2 ("connected, no plan") only appears in public mode — in custom mode,
-// billing is handled via Stripe setup after OAuth, so hasActivePlan is set
-// by the time the merchant returns to this page.
-
 import { useEffect, useState, Suspense } from 'react';
 import {
   Flex, Heading, Text, Button, Spinner, Dialog, Callout,
@@ -42,10 +25,23 @@ function ConnectShopifyContent() {
   const [adminPermission, setAdminPermission] = useState<AdminPermissionType>(null);
   const [location, setLocation] = useState<IClient | null>(null);
   const [connectedShop, setConnectedShop] = useState<string | null>(null);
-  const [hasActivePlan, setHasActivePlan] = useState(false);
   const [hasConfiguredRewards, setHasConfiguredRewards] = useState(false);
   const [installUrl, setInstallUrl] = useState<string | null>(null);
   const [changeWarningOpen, setChangeWarningOpen] = useState(false);
+
+  // [Onboarding fix] These three replace the old hasActivePlan-from-DB
+  // state. shopDomain and hasActivePlan sitting in the DB don't get
+  // cleared when a token dies — only accessToken does, and that field is
+  // never sent to the browser at all (stripped server-side for security),
+  // so this page could never have checked it directly even before this
+  // bug. isVerifiedConnected is the actual "is there a working credential
+  // right now" signal, sourced from the same live check
+  // BrandAdminDashboard already trusts — not a second, independent
+  // implementation of the same idea.
+  const [statusChecked, setStatusChecked] = useState(false);
+  const [isVerifiedConnected, setIsVerifiedConnected] = useState(false);
+  const [hasActivePlan, setHasActivePlan] = useState(false);
+  const [statusReason, setStatusReason] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isAuthLoading && !user) {
@@ -57,7 +53,7 @@ function ConnectShopifyContent() {
     if (isAuthLoading || !user) return;
     const checkAdmin = async () => {
       try {
-        const res = await fetch(`/api/admin?userId=${user.id}`);
+        const res = await fetch(`/api/admin?userId=${user.id}`, { cache: 'no-store' });
         if (res.status === 204 || res.status === 403) { router.replace('/error?reason=no_admin_permissions'); return; }
         if (!res.ok) { router.replace('/error?reason=unknown'); return; }
         const data = await res.json();
@@ -65,9 +61,7 @@ function ConnectShopifyContent() {
         setLocation(data.location ?? null);
         setHasConfiguredRewards(!!data.location?.hasConfiguredRewards);
         const shopDomainFromDB = data.location?.shopify?.shopDomain;
-        const hasActivePlanFromDB = !!data.location?.shopify?.hasActivePlan;
         const installUrlFromDB = data.location?.shopify?.installUrl ?? null;
-        setHasActivePlan(hasActivePlanFromDB);
         setInstallUrl(installUrlFromDB);
         if (shopDomainFromDB) setConnectedShop(shopDomainFromDB);
       } catch (e) {
@@ -80,12 +74,59 @@ function ConnectShopifyContent() {
     checkAdmin();
   }, [user, isAuthLoading, router]);
 
-  if (isAuthLoading || isAdminChecking) {
+  // [Onboarding fix] Live connection check — same endpoint and same trust
+  // level as BrandAdminDashboard's Effect 2. Runs once the admin fetch has
+  // resolved. If there's no location at all (fetch failed, or this
+  // account isn't a Shopify retailer), there's nothing to check — treat
+  // as not connected and release the loading gate immediately rather than
+  // waiting forever on an effect that will never fire.
+  useEffect(() => {
+    if (isAdminChecking) return;
+
+    if (!location) {
+      setStatusChecked(true);
+      return;
+    }
+
+    const checkStatus = async () => {
+      try {
+        const res = await fetch('/api/brand/shopify-status', { cache: 'no-store' });
+        const data = await res.json();
+        if (!res.ok) {
+          // Couldn't verify — don't claim a connection we can't confirm.
+          // Falls through to State 3 (reconnect CTA), the safe default.
+          setIsVerifiedConnected(false);
+          setHasActivePlan(false);
+          setStatusReason('check_failed');
+        } else {
+          setIsVerifiedConnected(!!data.connected);
+          setHasActivePlan(!!data.hasActivePlan);
+          setStatusReason(data.reason ?? null);
+        }
+      } catch (e) {
+        console.error('[ConnectShopify] Failed to check Shopify status:', e);
+        setIsVerifiedConnected(false);
+        setHasActivePlan(false);
+        setStatusReason('check_failed');
+      } finally {
+        setStatusChecked(true);
+      }
+    };
+    checkStatus();
+  }, [isAdminChecking, location?._id]);
+
+  if (isAuthLoading || isAdminChecking || !statusChecked) {
     return <Flex justify="center" align="center" height="100vh"><Spinner size="3" /></Flex>;
   }
 
   const isReconnecting = !!searchParams.get('reconnect');
-  const isFullyConnected = !!connectedShop && hasActivePlan;
+  // [Onboarding fix] Mode-aware — this page has nothing to do with billing
+  // in custom mode at all (that's a fully separate page/flow), so
+  // hasActivePlan doesn't gate "connected" here in that mode. Public mode
+  // is untouched — hasActivePlan there still means "App Pricing plan
+  // selected," which genuinely is part of what "connected" means for that
+  // mode's State 2 below.
+  const isFullyConnected = isVerifiedConnected && (CUSTOM_MODE || hasActivePlan);
 
   // ── STATE 1: CONNECTED + ACTIVE BILLING ───────────────────────────────────
   if (isFullyConnected && !isReconnecting) {
@@ -173,10 +214,12 @@ function ConnectShopifyContent() {
   }
 
   // ── STATE 2: CONNECTED, NO PLAN (public mode only) ────────────────────────
-  // In custom mode this state is skipped — Stripe billing setup happens
-  // immediately after OAuth via /admin/brand/billing/payment-method.
-  if (connectedShop && !hasActivePlan && !isReconnecting && !CUSTOM_MODE) {
-    const pricingUrl = buildShopifyPricingUrl(connectedShop);
+  // In custom mode this branch can't fire at all — isFullyConnected above
+  // doesn't require hasActivePlan in custom mode, so a verified connection
+  // already resolved to STATE 1. Billing lives entirely on its own separate
+  // page in custom mode; this page has no business branching on it.
+  if (isVerifiedConnected && !hasActivePlan && !isReconnecting && !CUSTOM_MODE) {
+    const pricingUrl = buildShopifyPricingUrl(connectedShop ?? '');
 
     return (
       <BrandPageShell adminPermission={adminPermission} location={location} contentMaxWidth="600px">
@@ -206,13 +249,22 @@ function ConnectShopifyContent() {
   }
 
   // ── STATE 3: NOT CONNECTED (or reconnecting) ──────────────────────────────
+  // Reached whenever isVerifiedConnected is false — regardless of what
+  // shopDomain/hasActivePlan still say in the DB. This is the branch that
+  // used to be unreachable once a token died, since the old check only
+  // ever looked at those two DB fields.
+  const wasConnectedBefore = statusReason === 'uninstalled';
+
   return (
     <BrandPageShell adminPermission={adminPermission} location={location} contentMaxWidth="600px">
       <Flex direction="column" align="center" gap="5" pt="9">
-        <Heading size="6" align="center">Connect Shopify</Heading>
+        <Heading size="6" align="center">
+          {wasConnectedBefore ? 'Reconnect Shopify' : 'Connect Shopify'}
+        </Heading>
         <Text align="center" color="gray" size="3">
-          Connect your Shopify store to GG Pickleball to start issuing rewards to players.
-          Once complete, you'll be brought back here automatically.
+          {wasConnectedBefore
+            ? "Your Shopify connection was lost — this can happen if the app was uninstalled or access was revoked. Reconnect to restore full functionality."
+            : 'Connect your Shopify store to GG Pickleball to start issuing rewards to players. Once complete, you\'ll be brought back here automatically.'}
         </Text>
 
         <Flex gap="3" mt="2" align="center">
@@ -222,14 +274,14 @@ function ConnectShopifyContent() {
             installUrl ? (
               <Button size="2" asChild>
                 <a href={installUrl}>
-                  Connect Shopify
+                  {wasConnectedBefore ? 'Reconnect Shopify' : 'Connect Shopify'}
                 </a>
               </Button>
             ) : (
               <>
                 <Button size="2" asChild>
                   <a href="/api/shopify/custom-install">
-                    Connect Shopify
+                    {wasConnectedBefore ? 'Reconnect Shopify' : 'Connect Shopify'}
                   </a>
                 </Button>
                 <Callout.Root color="amber" size="1">
@@ -245,7 +297,7 @@ function ConnectShopifyContent() {
             // hits /api/shopify/install when the merchant clicks Install.
             <Button size="2" asChild>
               <a href={SHOPIFY_APP_STORE_URL} target="_blank" rel="noopener noreferrer">
-                Connect Shopify ↗
+                {wasConnectedBefore ? 'Reconnect Shopify ↗' : 'Connect Shopify ↗'}
               </a>
             </Button>
           )}

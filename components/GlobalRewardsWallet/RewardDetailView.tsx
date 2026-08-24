@@ -5,6 +5,7 @@ import '../GlobalRewardsWallet/wallet.css';
 import { Cross2Icon } from '@radix-ui/react-icons';
 import { CSSProperties } from 'react';
 import { formatCurrency } from '@/lib/utils';
+import { formatItemList, itemsLabel } from '@/lib/rewards/discountTargetSelection';
 
 type Props = {
   reward: RewardWithContext;
@@ -17,6 +18,47 @@ export const RewardDetailView = ({ reward, onClose, style }: Props) => {
   const isUnlocked = (reward.codes?.filter(c => !c.redeemed).length ?? 0) > 0;
   const location = reward.sponsoringClient;
   const rewardCode = reward.codes?.find(c => !c.redeemed)?.code;
+
+  // ── Enumerate what a discount actually covers, since the title alone
+  // often can't say it: BXGY titles NEVER name items (a collection can be
+  // named anything, and "Buy Shirts" reads ambiguously either way) — so
+  // this always produces text for BXGY, regardless of item count.
+  // Amount-off titles DO name a single item when there's only one, so
+  // this stays null there and only kicks in once the title itself went
+  // generic ("select products").
+  const coveredItemsText = (() => {
+    if (reward.discountKind === 'bxgy' && reward.bxgy) {
+      const buys = [
+        ...(reward.bxgy.buys?.products ?? []),
+        ...(reward.bxgy.buys?.collections ?? []),
+      ].map((i: any) => i.title);
+      const gets = [
+        ...(reward.bxgy.gets?.products ?? []),
+        ...(reward.bxgy.gets?.collections ?? []),
+      ].map((i: any) => i.title);
+
+      const buysLabel = itemsLabel(reward.bxgy.buys ?? {});
+      const getsLabel = itemsLabel(reward.bxgy.gets ?? {});
+
+      // 'or' connector — buys/gets are eligibility pools ("any qualifying
+      // item from this set"), not a bundle you get all of at once.
+      return (
+        `Buy ${buysLabel}: ${formatItemList(buys, 4, 'or') || '(item unavailable)'}. \n` +
+        `Get ${getsLabel}: ${formatItemList(gets, 4, 'or') || '(item unavailable)'}.`
+      );
+    }
+
+    const targeting = reward.shopifyTargeting;
+    if (!targeting || targeting.all) return null; // entire store — nothing extra to add
+
+    const titles = [
+      ...(targeting.products ?? []),
+      ...(targeting.collections ?? []),
+    ].map((i: any) => i.title);
+
+    if (titles.length <= 1) return null; // already named in reward.friendlyName itself
+    return formatItemList(titles);
+  })();
 
   return (
     <Flex
@@ -101,24 +143,38 @@ export const RewardDetailView = ({ reward, onClose, style }: Props) => {
             </Text>
           )}
 
+          {/* New: specific products/collections this discount applies to —
+              only shown when there's more than one item, since a single
+              item is already named in reward.friendlyName above. */}
+          {coveredItemsText && (
+            <Text size="2" style={{ color: 'rgba(255,255,255)', lineHeight: 1.5, whiteSpace: 'pre-line' }}>
+              {coveredItemsText}
+            </Text>
+          )}
+       
+         <Text size="2" style={{ color: 'rgba(255,255,255,0.5)', lineHeight: 1.5, whiteSpace: 'pre-line' }}>
+            {reward.combinesWithOtherDiscounts ? 'Can be combined with other discounts.' : 'Cannot be combined with other discounts.'}
+          </Text>
+
           {/* Spend/discount conditions — logic unchanged */}
-          {reward.minimumSpend && reward.product === 'online store' ? (
+          {reward.minimumSpend && reward.product === 'online store' && (
             <Text align="center" size="2" style={{ color: 'rgba(255,255,255,0.45)' }}>
               With total purchase of {formatCurrency(reward.minimumSpend)} or more.
             </Text>
-          ) : reward.maxDiscount && reward.product === 'online store' ? (
-            <Text align="center" size="2" style={{ color: 'rgba(255,255,255,0.45)' }}>
-              Max discount amount: ${reward.maxDiscount}
-            </Text>
-          ) : null}
+          )}
 
           {/* Redemption section */}
           <Flex direction="column" mt="4" gap="3">
             <Text size="2" style={{ color: 'rgba(255,255,255,0.5)', lineHeight: 1.6 }}>
               <Strong style={{ color: 'rgba(255,255,255,0.85)' }}>To redeem: </Strong>
-              Visit the website below to start shopping. The discount code is automatically applied.
+              <Text>Visit the website below to start shopping.</Text>
+              {reward.bxgy && (
+                <Text size="2" style={{ color: 'rgba(255,255,255,0.5)', lineHeight: 1.6 }}> Add both eligible items to your cart.</Text>
+              )} 
+              <Text> The discount code is automatically applied.</Text> 
             </Text>
 
+             
             {/* CTA — href unchanged */}
             <Link
               href={`https://${reward?.sponsoringClient?.shopify?.shopDomain}/discount/${rewardCode}`}

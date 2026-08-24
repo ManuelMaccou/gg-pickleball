@@ -170,7 +170,7 @@ export default function PlayMenu({ user, isAuthorized, onUserUpdate, onInitiateD
                 </Card>
 
                 {/* --- DUPR CONNECTION SECTION --- */}
-                <Card size="2" style={{ backgroundColor: 'var(--slate-1)', border: '1px solid var(--slate-4)', borderRadius: '16px', padding: '20px' }}>
+                <Card size="2" style={{backgroundColor: 'var(--slate-1)', border: '1px solid var(--slate-4)', borderRadius: '16px', padding: '20px' }}>
                     <Flex direction="column" gap="4" >
                         <Image
                             src={'/partnerLogos/dupr_logo_dark.png'} // Note: Ensure this is a dark/visible logo on a light background!
@@ -233,7 +233,7 @@ export default function PlayMenu({ user, isAuthorized, onUserUpdate, onInitiateD
                 </Card>
 
                 {/* --- CLUB MANAGEMENT SECTION --- */}
-                <Card size="2" style={{ backgroundColor: 'var(--slate-1)', border: '1px solid var(--slate-4)', borderRadius: '16px', padding: '20px' }}>
+                <Card size="2" style={{display: 'none' ,backgroundColor: 'var(--slate-1)', border: '1px solid var(--slate-4)', borderRadius: '16px', padding: '20px' }}>
                     <Flex direction="column" gap="3">
                         <Flex align="center" gap="2" mb="1">
                             <Shield size={18} color="var(--slate-11)" />
@@ -280,9 +280,9 @@ export default function PlayMenu({ user, isAuthorized, onUserUpdate, onInitiateD
                 </Card>
 
                 {/* --- LOG OUT --- */}
-                <Flex justify="center" mt="4">
-                    <Button variant="ghost" color="red" size="3" asChild style={{ fontWeight: 'bold' }}>
-                        <a href="/auth/logout">Log out securely</a>
+                <Flex direction="column" mt="4" mx={'5'}>
+                    <Button variant="soft" color="red" size="3" radius='full' asChild style={{ fontWeight: 'bold' }}>
+                        <a href="/auth/logout">Log out</a>
                     </Button>
                 </Flex>
 

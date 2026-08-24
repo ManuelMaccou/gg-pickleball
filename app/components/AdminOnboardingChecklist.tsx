@@ -48,7 +48,6 @@ export function AdminOnboardingChecklist({
   onClientUpdated,
 }: OnboardingChecklistProps) {
   const router = useRouter();
-  const [cardCustomizerOpen, setCardCustomizerOpen] = useState(false);
 
   // Custom mode: fetch Stripe billing status from /api/billing/setup
   const [isBillingConfigured, setIsBillingConfigured] = useState(false);
@@ -289,61 +288,52 @@ export function AdminOnboardingChecklist({
             }
           />
 
-          {/* Step 4 (public) / Step 5 (custom): Customize reward card */}
+          {/* Step 4 (public) / Step 5 (custom): Customize reward card.
+              Always shown now — no open/closed toggle. Only the header
+              row (icon + title) dims once customized, as a "this part's
+              done" cue; the customizer body itself stays fully legible
+              and usable regardless, since it's no longer something you
+              open and close. */}
           <Flex
             direction="column"
             p="3"
             style={{
-              backgroundColor: isCardCustomized && !cardCustomizerOpen ? 'var(--gray-2)' : 'white',
+              backgroundColor: 'white',
               borderRadius: 10,
               border: '1px solid var(--gray-4)',
-              opacity: isCardCustomized && !cardCustomizerOpen ? 0.7 : 1,
-              transition: 'opacity 0.2s, background-color 0.2s',
             }}
           >
-            <Flex align="center" justify="between" gap="3">
-              <Flex align="center" gap="3" style={{ flex: 1, minWidth: 0 }}>
-                {isCardCustomized
-                  ? <CheckCircle2 size={20} color="var(--green-10)" style={{ flexShrink: 0 }} />
-                  : <Circle size={20} color="var(--gray-7)" style={{ flexShrink: 0 }} />}
-                <Box>
-                  <Text as="div" weight="bold" size="3" color={isCardCustomized ? 'gray' : undefined}>
-                    {stepNum(4)}. Customize your reward card
-                  </Text>
-                  <Text as="div" size="2" color="gray">
-                    Upload a background image and logo for your reward cards.
-                  </Text>
-                </Box>
-              </Flex>
-              <Button
-                size="2"
-                variant="soft"
-                color={isCardCustomized ? 'gray' : 'blue'}
-                style={{ flexShrink: 0, cursor: 'pointer' }}
-                onClick={() => setCardCustomizerOpen(v => !v)}
-              >
-                {cardCustomizerOpen ? 'Close' : isCardCustomized ? 'Edit' : 'Customize'}
-                {!cardCustomizerOpen && <ArrowRight size={14} />}
-              </Button>
+            <Flex
+              align="center"
+              gap="3"
+              style={{
+                opacity: isCardCustomized ? 0.7 : 1,
+                transition: 'opacity 0.2s ease',
+              }}
+            >
+              {isCardCustomized
+                ? <CheckCircle2 size={20} color="var(--green-10)" style={{ flexShrink: 0 }} />
+                : <Circle size={20} color="var(--gray-7)" style={{ flexShrink: 0 }} />}
+              <Box>
+                <Text as="div" weight="bold" size="3" color={isCardCustomized ? 'gray' : undefined}>
+                  {stepNum(4)}. Customize your reward card
+                </Text>
+                <Text as="div" size="2" color="gray">
+                  Upload a background image and logo for your reward cards.
+                </Text>
+              </Box>
             </Flex>
 
-            {cardCustomizerOpen && (
-              <Box mt="4" pt="4" style={{ borderTop: '1px solid var(--gray-4)' }}>
-                <RewardCardCustomizer
-                  key={`${client.cardBackgroundImage}-${client.cardTextColor}`}
-                  clientId={client._id.toString()}
-                  currentBackgroundImage={client.cardBackgroundImage}
-                  currentTextColor={client.cardTextColor}
-                  currentLogo={client.logo}
-                  onSaved={(updates) => {
-                    onClientUpdated?.(updates);
-                    if (updates.cardBackgroundImage || updates.cardTextColor) {
-                      setCardCustomizerOpen(false);
-                    }
-                  }}
-                />
-              </Box>
-            )}
+            <Box mt="4" pt="4" style={{ borderTop: '1px solid var(--gray-4)' }}>
+              <RewardCardCustomizer
+                key={`${client.cardBackgroundImage}-${client.cardTextColor}`}
+                clientId={client._id.toString()}
+                currentBackgroundImage={client.cardBackgroundImage}
+                currentTextColor={client.cardTextColor}
+                currentLogo={client.logo}
+                onSaved={(updates) => onClientUpdated?.(updates)}
+              />
+            </Box>
           </Flex>
 
         </Flex>

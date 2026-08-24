@@ -5,7 +5,8 @@ export interface IProgramApplication extends Document {
   title: string;
   club: string;
   programName: string;
-  programDate: Date;
+  programStartDate: string;
+  programEndDate: string;
   email: string;
   phone: string;
   authorityConfirmed: boolean;
@@ -20,7 +21,8 @@ const ProgramApplicationSchema = new Schema<IProgramApplication>({
   title: { type: String, required: true },
   club: { type: String, required: true },
   programName: { type: String, required: true },
-  programDate: { type: Date, required: true },
+  programStartDate: { type: String, required: true },
+  programEndDate: { type: String, required: true },
   email: { type: String, required: true },
   phone: { type: String, required: true },
   authorityConfirmed: { type: Boolean, required: true },
@@ -30,8 +32,6 @@ const ProgramApplicationSchema = new Schema<IProgramApplication>({
   submittedAt: { type: Date, default: Date.now },
 });
 
-// Standard Next.js + Mongoose singleton pattern — avoids "Cannot overwrite model"
-// errors during dev hot-reload.
 export const ProgramApplication: Model<IProgramApplication> =
   mongoose.models.ProgramApplication ||
   mongoose.model<IProgramApplication>('ProgramApplication', ProgramApplicationSchema);

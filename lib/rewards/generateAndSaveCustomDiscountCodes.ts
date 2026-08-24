@@ -33,7 +33,6 @@ export async function generateAndSaveCustomDiscountCodes(
         reward: task.reward,
         addedToPos: false,
         isGlobalReward: task.isGlobalReward ?? false,
-        dataSourceId: task.dataSourceId,
       };
 
       // Replace the fetch call with a direct call to our new DB function

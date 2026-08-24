@@ -12,7 +12,7 @@ import {
 import { Trophy, ShieldCheck } from "lucide-react";
 
 interface PotentialMatch {
-  matchId: number;
+  matchId: string;
   matchDate: string;
   eventName: string;
   format: string;

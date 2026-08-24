@@ -1,5 +1,5 @@
 import { Types } from "mongoose";
-import { IClient, IDataSource, IDupr, IMatch } from "./databaseTypes";
+import { IDupr, IMatch } from "./databaseTypes";
 
 export interface FrontendClientStats {
   visits?: Date[];
@@ -31,7 +31,6 @@ export interface FrontendUser {
   email?: string;
   dupr?: IDupr;
   profilePicture?: string;
-  lastLocation?: string;
   stats: Record<string, FrontendClientStats>;
   accountClaimed?: boolean;
 }
@@ -53,11 +52,3 @@ export interface BasePopulatedDoc {
   index?: number;
   [key: string]: unknown;
 }
-
-export type SelectableItem = {
-  _id: string;
-  name: string;
-  displayIcon: string;
-  type: 'client' | 'dataSource';
-  originalData: IClient | IDataSource;
-};

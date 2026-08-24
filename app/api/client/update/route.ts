@@ -25,10 +25,14 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'There was an error while updating client information. Please try again.' }, { status: 400 });
     }
 
+    // Added 'cardBackgroundPosition' — without it, the field is silently
+    // stripped here before the DB write ever happens (the frontend's
+    // optimistic preview updates fine, but nothing actually persists).
     const allowedUpdates: (keyof IClient)[] = [
       'name', 'logo', 'admin_logo', 'icon', 'latitude', 'longitude', 
       'rewardProducts', 'retailSoftware', 'reservationSoftware', 
-      'shopify', 'podplay', 'playbypoint', 'cardBackgroundImage', 'cardTextColor'
+      'shopify', 'podplay', 'playbypoint', 'cardBackgroundImage', 'cardTextColor',
+      'cardBackgroundPosition'
     ];
 
     const sanitizedUpdateData = Object.keys(updateData)

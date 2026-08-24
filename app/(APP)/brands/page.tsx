@@ -465,14 +465,14 @@ const BrandBillingCard = isCustomApp ? (
       <Badge color="green" variant="soft" radius="full">✓ Pay on performance</Badge>
     </Flex>
     <Text size="2" style={{ color: 'var(--slate-11)', lineHeight: 1.65, display: 'block', marginBottom: 12 }}>
-      You only pay a 5% commission when a GG Pickleball referral turns into a real sale.
+      You only pay a commission when a GG Pickleball referral turns into a real sale.
       No monthly fee, no ad spend, no risk. Returns within 30 days are automatically
       factored in. You're never charged on money you didn't keep.
     </Text>
     <Grid columns="2" gap="2">
       {[
         'No monthly fee or setup cost',
-        '5% commission on net sales only',
+        'Commission on net sales only',
         'Full returns within 30 days waive the fee',
         'Partial refunds reduce the commission proportionally',
       ].map((label) => (
@@ -520,13 +520,13 @@ const BrandBillingCard = isCustomApp ? (
 const brandChecks = isCustomApp
   ? [
       'Audience verified by official match data, not self-reported.',
-      '5% commission on net sales only. Zero upfront cost.',
+      'Commission on net sales only. Zero upfront cost.',
       'Connect your existing Shopify store in minutes.',
       'See who earned, who redeemed, and what converted.',
     ]
   : [
       'Audience verified by official match data, not self-reported.',
-      '5% commission on net sales. Waived on returns.',
+      'Commission on net sales. Waived on returns.',
       'Connect your existing Shopify store in minutes.',
       'See who earned, who redeemed, and what converted.',
     ];
@@ -747,7 +747,7 @@ export default function BrandPage() {
             eyebrow="Performance-based reach."
             titleLine1="Reach players who are"
             titleAccent="actively competing."
-            body="GG connects your Shopify store to a verified player base. You set the discount, we surface it the moment a player earns it. You only pay a 5% commission on actual sales. No ad spend, no guesswork."
+            body="GG connects your Shopify store to a verified player base. You set the discount, we surface it the moment a player earns it. You only pay a commission on actual sales. No ad spend, no guesswork."
             checks={brandChecks}
             screen={<BrandScreen />}
             screenRight

@@ -5,10 +5,10 @@ export const achievementFunctionMetadata: Record<string, { repeatable: boolean }
   'totalWins': { repeatable: false },
   'matchesPlayed': { repeatable: false },
   'pointsWon': { repeatable: false },
+  'duprWins': { repeatable: false },
   
   // Repeatable Functions
   'winStreak': { repeatable: true },
   'winStreakBreaker': { repeatable: true },
   'pickle': { repeatable: true },
-  'duprWins': { repeatable: false },
 };

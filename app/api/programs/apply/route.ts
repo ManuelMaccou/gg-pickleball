@@ -19,16 +19,24 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const {
-      name, title, club, programName, programDate,
+      name, title, club, programName, programStartDate, programEndDate,
       email, phone, authorityConfirmed, disclosureConfirmed,
     } = body ?? {};
 
     if (
-      !name || !title || !club || !programName || !programDate ||
+      !name || !title || !club || !programName ||
+      !programStartDate || !programEndDate ||
       !email || !phone || !authorityConfirmed || !disclosureConfirmed
     ) {
       return NextResponse.json(
         { success: false, error: 'Missing required fields.' },
+        { status: 400 },
+      );
+    }
+
+    if (programEndDate < programStartDate) {
+      return NextResponse.json(
+        { success: false, error: "End date can't be before the start date." },
         { status: 400 },
       );
     }
@@ -41,7 +49,8 @@ export async function POST(request: NextRequest) {
       title,
       club,
       programName,
-      programDate: new Date(programDate),
+      programStartDate,
+      programEndDate,
       email,
       phone,
       authorityConfirmed: Boolean(authorityConfirmed),

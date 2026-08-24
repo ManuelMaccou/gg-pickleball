@@ -68,9 +68,6 @@ export default function RootError({ error, reset }: RootErrorProps) {
             Refresh
           </button>
         </div>
-        <p style={{ marginTop: 28, fontSize: 14, color: '#7a7a7a', wordBreak: 'break-word' }}>
-          {error?.message ?? 'An unexpected error occurred.'}
-        </p>
       </div>
     </main>
   );

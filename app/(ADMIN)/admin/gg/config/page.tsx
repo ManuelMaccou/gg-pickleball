@@ -1,16 +1,6 @@
 'use client'
 
-// app/(ADMIN)/admin/gg/config/page.tsx
-//
-// Changes from original:
-//   - Custom mode: "Create New Client" navigates to /admin/gg/onboard
-//   - Public mode: create dialog stripped to name only
-//   - Edit dialog: envKey field added to Shopify section; accessToken/secret hidden in custom mode
-//   - Status badges: label/color accounts for custom mode
-//   - Attention flag labels: mode-aware
-//   - Reservation software dropdown removed
-
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from 'react';
 import { useUser as useAuth0User } from '@auth0/nextjs-auth0';
 import { useUserContext } from "@/app/contexts/UserContext";
 import { useRouter } from "next/navigation";
@@ -20,7 +10,7 @@ import {
 } from "@radix-ui/themes";
 import {
   InfoCircledIcon, DotsHorizontalIcon, GearIcon, MagicWandIcon,
-  ExclamationTriangleIcon, CheckCircledIcon, EnvelopeClosedIcon,
+  ExclamationTriangleIcon, CheckCircledIcon, EnvelopeClosedIcon, ArrowRightIcon,
 } from "@radix-ui/react-icons";
 import Image from "next/image";
 import darkGgLogo from '../../../../../public/logos/gg_logo_black_transparent.png'
@@ -119,7 +109,7 @@ export default function GgpickleballAdminClients() {
   const [isInviting, setIsInviting] = useState(false);
   const [inviteMessage, setInviteMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
 
-  const EXCLUDE_FROM_ATTENTION = ['GG Pickleball Admin']; // Example: clients we know have issues but we're excluding from "Needs Attention" for now
+  const EXCLUDE_FROM_ATTENTION = ['GG Pickleball Adin']; // Example: clients we know have issues but we're excluding from "Needs Attention" for now
 
   const attentionClients = clients.filter(c => 
     clientStatuses.get(c._id.toString())?.needsAttention &&
@@ -328,6 +318,7 @@ export default function GgpickleballAdminClients() {
                                   ))}
                                 </Flex>
                               </Box>
+                              {/* Back to opening the dialog — reverted from last turn's change */}
                               <Button size="1" variant="soft" color="gray" onClick={() => handleOpenEditDialog(client as IClient)}>Edit</Button>
                             </Flex>
                           </Card>
@@ -380,6 +371,7 @@ export default function GgpickleballAdminClients() {
                               <DropdownMenu.Item onClick={() => handleOpenInviteDialog(client)}><EnvelopeClosedIcon /> Invite Admin</DropdownMenu.Item>
                               <DropdownMenu.Separator />
                               <DropdownMenu.Item onClick={() => handleOpenEditDialog(client as IClient)}><GearIcon /> Edit Configuration</DropdownMenu.Item>
+                              <DropdownMenu.Item onClick={() => router.push(`/admin/gg/onboard?clientId=${client._id.toString()}`)}><ArrowRightIcon /> Onboarding Wizard</DropdownMenu.Item>
                               <DropdownMenu.Separator />
                               <DropdownMenu.Item color="blue" onClick={() => router.push(`/admin/client/${client._id.toString()}/retroactive`)}><MagicWandIcon /> Retroactive Sweep</DropdownMenu.Item>
                               {client.needsRetroactiveSweep && <DropdownMenu.Item color="gray" onClick={() => handleToggleSweepFlag(client, false)}><CheckCircledIcon /> Mark as Complete</DropdownMenu.Item>}
@@ -398,7 +390,7 @@ export default function GgpickleballAdminClients() {
         </Flex>
       </Flex>
 
-      {/* Invite Admin Dialog */}
+      {/* Invite Admin Dialog — unchanged */}
       <Dialog.Root open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
         <Dialog.Content maxWidth="450px">
           <Dialog.Title>Invite Client Admin</Dialog.Title>
@@ -431,7 +423,12 @@ export default function GgpickleballAdminClients() {
         </Dialog.Content>
       </Dialog.Root>
 
-      {/* Create/Edit Client Dialog */}
+      {/* [Onboarding wizard] Create/Edit Client Dialog — STILL HERE, unchanged,
+          just no longer reachable from "Edit Configuration" above. Only
+          reachable now via "+ Create New Client" when CUSTOM_MODE is false,
+          and via handleOpenEditDialog if you wire something else to it.
+          Pending your answer on where logo/reward-card/reward-products/
+          PlayByPoint editing should live before this gets removed outright. */}
       <Dialog.Root open={isFormOpen} onOpenChange={setIsFormOpen}>
         <Dialog.Content maxWidth="550px">
           <Dialog.Title>{selectedClientForEdit ? 'Edit Client' : 'Create New Client'}</Dialog.Title>

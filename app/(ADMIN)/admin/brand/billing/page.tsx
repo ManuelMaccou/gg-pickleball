@@ -26,6 +26,19 @@ import { AdminPermissionType, CommissionStatus, IClient } from '@/app/types/data
 import { BrandPageShell } from '../../components/BrandPageShell';
 import { buildShopifyPricingUrl } from '@/lib/shopify/urls';
 
+interface BrandCommissionRow {
+  _id: string;
+  orderCreatedAt: string;
+  shopifyOrderId: string;
+  discountCodes: string[];
+  orderTotal: number;
+  refundedAmount: number;
+  commissionAmount: number;
+  status: CommissionStatus;
+  chargeAfter: string;
+  updatedAt: string;
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const formatCurrency = (n: number) =>
@@ -54,7 +67,7 @@ export default function BrandBillingPage() {
   const [adminPermission, setAdminPermission] = useState<AdminPermissionType>(null);
   const [isGettingAdmin, setIsGettingAdmin] = useState(true);
 
-  const [commissions, setCommissions] = useState<any[]>([]);
+  const [commissions, setCommissions] = useState<BrandCommissionRow[]>([]);
   const [commissionSummary, setCommissionSummary] = useState<{
     totalCharged: number; totalPending: number;
     countCharged: number; countPending: number;
@@ -212,7 +225,7 @@ export default function BrandBillingPage() {
             {stripeBillingConfigured === true && (
               <>
                 <Text size="2" color="gray" style={{ lineHeight: 1.6 }}>
-                  A 5% commission on each redeemed sale is collected automatically 30 days
+                  A commission on each redeemed sale is collected automatically 30 days
                   after the order date. You'll receive an itemized invoice by email before each charge.
                 </Text>
                 <Text size="2" color="gray" style={{ lineHeight: 1.6 }}>
@@ -283,7 +296,7 @@ export default function BrandBillingPage() {
                   </Callout.Text>
                 </Callout.Root>
                 <Text size="2" color="gray" style={{ lineHeight: 1.6 }}>
-                  A 5% commission on each redeemed sale is reported to Shopify 30 days after
+                  A commission on each redeemed sale is reported to Shopify 30 days after
                   the order date. Shopify collects this as part of your app subscription billing.
                   No payment method is required here.
                 </Text>
@@ -371,7 +384,17 @@ export default function BrandBillingPage() {
                     <Text size="2" style={{ fontFamily: 'monospace' }}>{r.shopifyOrderId}</Text>
                   </Table.Cell>
                   <Table.Cell>
-                    <Text size="2" style={{ fontFamily: 'monospace' }}>{r.discountCode}</Text>
+                     <Flex direction="column" gap="1">
+                        {r.discountCodes?.length ? (
+                          <Flex direction="column" gap="1">
+                            {r.discountCodes.map((code) => (
+                              <Text key={code} size="2" style={{ fontFamily: 'monospace' }}>{code}</Text>
+                            ))}
+                          </Flex>
+                        ) : (
+                          <Text size="1" color="red">Missing code</Text>
+                        )}
+                      </Flex>
                   </Table.Cell>
                   <Table.Cell>
                     <Flex direction="column">

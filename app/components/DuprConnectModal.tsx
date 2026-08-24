@@ -89,6 +89,8 @@ export function DuprConnectModal({
       setSaving(true);
       setError(null);
 
+      console.log('[DuprConnectModal] Received DUPR connect message:', data);
+
       try {
         const response = await fetch('/api/user', {
           method: 'PATCH',

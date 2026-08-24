@@ -1,8 +1,9 @@
-// lib/rewards/generateAndSaveShopifyDiscountCodes.ts
+// Destination: lib/rewards/generateAndSaveShopifyDiscountCodes.ts
 
 import RewardCode from '@/app/models/RewardCode';
 import { Types, ClientSession } from 'mongoose';
 import { createShopifyDiscountCode } from '../shopify/createShopifyDiscountCode';
+import { createShopifyBxgyDiscountCode } from '../shopify/createShopifyBxgyDiscountCode';
 import { RewardCodeTask } from '@/app/types/rewardTypes';
 import { IRewardCode } from '@/app/types/databaseTypes';
 import { logRewardEvent, LogContext } from './rewardProcessingLogger';
@@ -35,7 +36,14 @@ export async function generateAndSaveShopifyDiscountCodes(
   // Phase 1: Create all Shopify codes first (outside the session)
   for (const task of tasks) {
     try {
-      const code = await createShopifyDiscountCode(task.reward._id, clientId, options);
+      // Amount-off and BXGY are different Shopify mutations entirely
+      // (discountCodeBasicCreate vs discountCodeBxgyCreate) — a single
+      // client/category batch of tasks can contain a mix of both, so this
+      // branches per-task rather than per-call.
+      const code =
+        task.reward.discountKind === 'bxgy'
+          ? await createShopifyBxgyDiscountCode(task.reward._id, clientId, options)
+          : await createShopifyDiscountCode(task.reward._id, clientId, options);
       if (code) {
         rewardCodeDocsToCreate.push({
           code,
@@ -46,13 +54,12 @@ export async function generateAndSaveShopifyDiscountCodes(
           redeemed: false,
           addedToPos: true,
           isGlobalReward: task.isGlobalReward ?? false,
-          dataSourceId: task.dataSourceId ? new Types.ObjectId(task.dataSourceId) : undefined,
         });
         tasksToProcess.push(task);
       } else {
         const msg =
           `Failed to generate Shopify code for reward ${task.reward._id.toString()} — ` +
-          `createShopifyDiscountCode returned null. Skipping.`;
+          `create function returned null. Skipping.`;
         console.warn(`[RewardCode] ${msg}`);
 
         if (logContext) {
