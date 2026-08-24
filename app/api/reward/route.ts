@@ -38,6 +38,17 @@ function validateRewardBody(body: Partial<IReward>): string | null {
     return null;
   }
 
+  // Rule 3.5: Affiliate — a static client-provided code, no real discount
+  // mechanics at all (no Shopify discount is ever created for these).
+  // Needs its own explicit branch rather than falling through to Rule 4,
+  // which would incorrectly demand discount/type it will never have.
+  if (discountKind === 'affiliate') {
+    if (!friendlyName) {
+      return 'Missing required field: friendlyName is required.';
+    }
+    return null;
+  }
+
   // Rule 4: Amount off (default — includes legacy rewards with no discountKind at all).
   if (discount === undefined || discount === null || !type || !friendlyName) {
     return 'Missing required fields for standard reward: discount, type, and friendlyName are required.';
