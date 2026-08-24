@@ -395,6 +395,7 @@ export default function Play() {
           onInitiateDuprLogin={handleInitiateDuprLogin}
         />
 
+        {/*
         {contextUser && (
           <Box mb="8">
             <SectionHeader
@@ -413,6 +414,7 @@ export default function Play() {
             </Box>
           </Box>
         )}
+        */}
       </Box>
     </Box>
   );
