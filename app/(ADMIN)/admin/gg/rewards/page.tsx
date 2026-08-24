@@ -59,13 +59,19 @@ export default function GGRewardsAdminPage() {
   const [achievementDrawerOpen, setAchievementDrawerOpen] = useState(true);
 
   // Form State — every reward here is an 'online store' / 'retail' Shopify
-  // reward, same as the brand admin page. The only thing this page adds on
-  // top of that flow is picking WHICH client is sponsoring, since a single
-  // achievement can have multiple sponsors here (unlike brand admin, where
-  // there's only ever one — the logged-in admin's own store).
+  // reward, same as the brand admin page, EXCEPT for affiliate clients
+  // (see isAffiliateClient below), which skip Shopify entirely and just
+  // need a display name. The only thing this page adds on top of the
+  // brand admin flow is picking WHICH client is sponsoring, since a
+  // single achievement can have multiple sponsors here.
   const [selectedAchievement, setSelectedAchievement] = useState<IAchievement | null>(null);
   const [selectedClient, setSelectedClient] = useState<string>('');
   const [discountForm, setDiscountForm] = useState<DiscountFormState>(DEFAULT_DISCOUNT_FORM_STATE);
+  // Affiliate clients (client.affiliateCode set) never touch Shopify —
+  // generateAndSaveAffiliateDiscountCodes always hands out that static
+  // code regardless of any discount configuration, so there's no real
+  // discount to build. This is the only field their reward needs.
+  const [affiliateFriendlyName, setAffiliateFriendlyName] = useState('');
   
   // Edit Mode State
   const [editingRewardId, setEditingRewardId] = useState<string | null>(null);
@@ -74,6 +80,7 @@ export default function GGRewardsAdminPage() {
   const resetForm = () => {
     setSelectedClient('');
     setDiscountForm(DEFAULT_DISCOUNT_FORM_STATE);
+    setAffiliateFriendlyName('');
     setEditingRewardId(null);
     setError(null);
     setSuccessMsg(null);
@@ -172,25 +179,31 @@ export default function GGRewardsAdminPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isMobile, achievementDrawerOpen]);
 
-  // --- SELECTED CLIENT LOOKUP — drives the Shopify-connection guard below ---
+  // --- SELECTED CLIENT LOOKUP — drives the affiliate + Shopify-connection
+  // branches below. Checked in this order (affiliate first) to match
+  // processGlobalMatch's own precedence (category === 'retail' &&
+  // client.affiliateCode is checked before any Shopify dispatch) — a
+  // client with affiliateCode set is always treated as affiliate,
+  // regardless of whatever else is on their retailSoftware/shopify fields.
   const selectedClientObj = useMemo(
     () => allClients.find(c => c._id.toString() === selectedClient) ?? null,
     [allClients, selectedClient]
   );
+  const isAffiliateClient = !!selectedClientObj?.affiliateCode;
   const selectedClientHasShopify = !!(
     selectedClientObj?.retailSoftware === 'shopify' &&
     selectedClientObj?.shopify?.accessToken
   );
 
   // Only used for the "add new sponsor" flow (the Select is disabled while
-  // editing, so this never fires mid-edit). Resets discountForm on every
-  // client change — without this, product/collection selections picked
-  // for one client's catalog would silently carry over as state when
-  // switching to a different client, even though those Shopify IDs mean
-  // nothing (or something entirely different) in the new client's store.
+  // editing, so this never fires mid-edit). Resets both form states on
+  // every client change — without this, product/collection selections (or
+  // an affiliate name) picked for one client would silently carry over as
+  // state when switching to a different client.
   const handleClientChange = (clientId: string) => {
     setSelectedClient(clientId);
     setDiscountForm(DEFAULT_DISCOUNT_FORM_STATE);
+    setAffiliateFriendlyName('');
   };
 
   // --- 4. HANDLE EDIT CLICK ---
@@ -201,12 +214,19 @@ export default function GGRewardsAdminPage() {
         return;
     }
 
+    const client = allClients.find(c => c._id.toString() === sponsorship.sponsoringClientId.toString());
+
     setEditingRewardId(reward._id.toString());
     setSelectedClient(sponsorship.sponsoringClientId.toString());
-    // Reconstructs scope/BXGY selections (with real product/collection
-    // names already snapshotted) from the persisted reward — same
-    // function the brand admin page uses for the identical purpose.
-    setDiscountForm(discountFormStateFromReward(reward));
+
+    if (client?.affiliateCode) {
+      setAffiliateFriendlyName(reward.friendlyName || '');
+    } else {
+      // Reconstructs scope/BXGY selections (with real product/collection
+      // names already snapshotted) from the persisted reward — same
+      // function the brand admin page uses for the identical purpose.
+      setDiscountForm(discountFormStateFromReward(reward));
+    }
 
     // Scroll to form
     document.getElementById('reward-form')?.scrollIntoView({ behavior: 'smooth' });
@@ -216,10 +236,17 @@ export default function GGRewardsAdminPage() {
   const handleSaveGlobalReward = async () => {
     if (!selectedAchievement || !selectedClient) return;
 
-    const validationError = validateDiscountForm(discountForm);
-    if (validationError) {
-      setError(validationError);
-      return;
+    if (isAffiliateClient) {
+      if (!affiliateFriendlyName.trim()) {
+        setError('Enter a reward name.');
+        return;
+      }
+    } else {
+      const validationError = validateDiscountForm(discountForm);
+      if (validationError) {
+        setError(validationError);
+        return;
+      }
     }
 
     setIsSaving(true);
@@ -227,33 +254,56 @@ export default function GGRewardsAdminPage() {
     setSuccessMsg(null);
     
     try {
-      let friendlyName: string;
-      let rawSlug: string;
+      let rewardPayload: Partial<IReward>;
 
-      if (discountForm.discountKind === 'bxgy') {
-        const off = discountForm.getPercent === 100 ? 'free' : `${discountForm.getPercent}% off`;
-        friendlyName = `Buy ${discountForm.buyQuantity}, get ${discountForm.getQuantity} ${off}`;
-        rawSlug = `buy-${discountForm.buyQuantity}-get-${discountForm.getQuantity}-${
-          discountForm.getPercent === 100 ? 'free' : `${discountForm.getPercent}-percent-off`
-        }`;
+      if (isAffiliateClient) {
+        const name = affiliateFriendlyName.trim()
+          .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
+        rewardPayload = {
+          friendlyName: affiliateFriendlyName.trim(),
+          name,
+          // category MUST stay 'retail' — that's what routes issuance to
+          // the affiliate path in processGlobalMatch
+          // (category === 'retail' && client.affiliateCode).
+          category: 'retail',
+          product: 'online store',
+          // Required so validateRewardBody's Rule 3.5 catches this instead
+          // of falling through to the amount-off rule (Rule 4), which
+          // demands discount/type this reward will never have. This line
+          // was missing from the actual payload in the previous version —
+          // it was only described in prose, never applied here.
+          discountKind: 'affiliate',
+        };
       } else {
-        const scopeLabel =
-          discountForm.scope === 'store' ? 'Entire Order' : targetSummaryText(discountForm.scopeSelection);
-        friendlyName = `${discountForm.amountType === 'dollars' ? '$' : ''}${discountForm.amountValue}${
-          discountForm.amountType === 'percent' ? '%' : ''
-        } off ${scopeLabel}`;
-        rawSlug = `${discountForm.amountValue}-${discountForm.amountType}-off-${scopeLabel}`;
+        let friendlyName: string;
+        let rawSlug: string;
+
+        if (discountForm.discountKind === 'bxgy') {
+          const off = discountForm.getPercent === 100 ? 'free' : `${discountForm.getPercent}% off`;
+          friendlyName = `Buy ${discountForm.buyQuantity}, get ${discountForm.getQuantity} ${off}`;
+          rawSlug = `buy-${discountForm.buyQuantity}-get-${discountForm.getQuantity}-${
+            discountForm.getPercent === 100 ? 'free' : `${discountForm.getPercent}-percent-off`
+          }`;
+        } else {
+          const scopeLabel =
+            discountForm.scope === 'store' ? 'Entire Order' : targetSummaryText(discountForm.scopeSelection);
+          friendlyName = `${discountForm.amountType === 'dollars' ? '$' : ''}${discountForm.amountValue}${
+            discountForm.amountType === 'percent' ? '%' : ''
+          } off ${scopeLabel}`;
+          rawSlug = `${discountForm.amountValue}-${discountForm.amountType}-off-${scopeLabel}`;
+        }
+
+        const name = rawSlug.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
+        rewardPayload = {
+          friendlyName,
+          name,
+          category: 'retail',
+          product: 'online store',
+          ...buildRewardPayloadFields(discountForm),
+        };
       }
-
-      const name = rawSlug.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-
-      const rewardPayload: Partial<IReward> = {
-        friendlyName,
-        name,
-        category: 'retail',
-        product: 'online store',
-        ...buildRewardPayloadFields(discountForm),
-      };
 
       let finalReward: IReward;
 
@@ -422,8 +472,9 @@ export default function GGRewardsAdminPage() {
 
   const isSaveDisabled = useMemo(() => {
     if (isSaving || !selectedAchievement || !selectedClient) return true;
+    if (isAffiliateClient) return !affiliateFriendlyName.trim();
     return !!validateDiscountForm(discountForm);
-  }, [isSaving, selectedAchievement, selectedClient, discountForm]);
+  }, [isSaving, selectedAchievement, selectedClient, discountForm, isAffiliateClient, affiliateFriendlyName]);
 
   if (isLoading) return <Flex justify="center" align="center" height="100vh"><Spinner size="3" /></Flex>;
   
@@ -638,7 +689,7 @@ export default function GGRewardsAdminPage() {
                         <Select.Content>
                             {availableClients.map(client => (
                                 <Select.Item key={client._id.toString()} value={client._id.toString()}>
-                                  {client.name}
+                                  {client.name}{client.affiliateCode ? ' (Affiliate)' : ''}
                                 </Select.Item>
                             ))}
                         </Select.Content>
@@ -647,10 +698,35 @@ export default function GGRewardsAdminPage() {
               </Flex>
           </Card>
 
-          {/* Step 2 — identical to the brand admin page's flow, just
-              parameterized by whichever client was picked in step 1. */}
+          {/* Step 2 — three branches: affiliate clients get a minimal
+              name-only form (checked first, matching processGlobalMatch's
+              own precedence); non-affiliate clients need a live Shopify
+              connection before the full discount form makes sense to show
+              at all, since it fetches a real product/collection catalog. */}
           {selectedClient && (
-            !selectedClientHasShopify ? (
+            isAffiliateClient ? (
+              <Card size="3">
+                <Flex direction="column" gap="4">
+                  <Callout.Root color="gray" size="1">
+                    <Callout.Icon><InfoCircledIcon /></Callout.Icon>
+                    <Callout.Text>
+                      {selectedClientObj?.name} is an affiliate client — every reward hands out their
+                      code (<Text style={{ fontFamily: 'monospace' }}>{selectedClientObj?.affiliateCode}</Text>) as-is.
+                      There's no Shopify discount to configure here, just what players see.
+                    </Callout.Text>
+                  </Callout.Root>
+
+                  <Flex direction="column" gap="2">
+                    <Text size="2" weight="bold">Reward name (shown to players)</Text>
+                    <TextField.Root
+                      placeholder="e.g. 15% off with code CRBNGG"
+                      value={affiliateFriendlyName}
+                      onChange={(e) => setAffiliateFriendlyName(e.target.value)}
+                    />
+                  </Flex>
+                </Flex>
+              </Card>
+            ) : !selectedClientHasShopify ? (
               <Callout.Root color="amber" size="1">
                 <Callout.Icon><InfoCircledIcon /></Callout.Icon>
                 <Callout.Text>

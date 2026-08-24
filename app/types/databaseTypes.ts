@@ -357,7 +357,7 @@ export interface IReward extends Document {
   minimumSpend?: number;
   type?: "dollars" | "percent";
   category: RewardCategoryName;
-  discountKind?: 'amount' | 'bxgy';           // default 'amount'
+  discountKind?: 'amount' | 'bxgy' | 'affiliate';           // default 'amount'
   shopifyTargeting?: DiscountItemSelection;   // amount-off scope; undefined == entire store
   bxgy?: {
     buys: DiscountItemSelection;

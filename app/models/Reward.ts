@@ -45,7 +45,7 @@ export const RewardSchema = new Schema<IReward>(
     productDescription: { type: String },
     discount: { type: Number },
     minimumSpend: { type: Number },
-    discountKind: { type: String, enum: ['amount', 'bxgy'], default: 'amount' },
+    discountKind: { type: String, enum: ['amount', 'bxgy', 'affiliate'], default: 'amount' },
     shopifyTargeting: { type: DiscountItemSelectionSchema },
     bxgy: { type: BxgyConfigSchema },
     combinesWithOtherDiscounts: { type: Boolean, default: false }
