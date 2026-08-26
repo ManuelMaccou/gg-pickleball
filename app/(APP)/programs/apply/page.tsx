@@ -337,9 +337,8 @@ export default function ProgramApplicationPage() {
                       style={{ marginTop: 3, width: 16, height: 16, accentColor: '#a3e635', flexShrink: 0 }}
                     />
                     <label htmlFor="disclosureConfirmed" style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)', lineHeight: 1.5, cursor: 'pointer' }}>
-                      I confirm that a disclosure about sharing match and player data with GG Pickleball
-                      will be, or already has been, added to this program's registration terms and
-                      conditions and/or waiver.
+                      My program agrees to participate by submitting match data to GG Pickleball at play@ggpickleball.co. 
+                      Submitted match data will include DUPR ID, division, and score for every match.
                     </label>
                   </Flex>
                   {errors.disclosureConfirmed && <span style={errorStyle}>{errors.disclosureConfirmed}</span>}
