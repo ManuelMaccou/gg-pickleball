@@ -29,7 +29,7 @@ uri = "/api/webhooks/shopify/order"
 filter = "discount_codes.code:GG*"
 
 [access_scopes]
-scopes = "read_discounts,write_discounts,read_orders"
+scopes = "read_discounts,write_discounts,read_orders,read_products"
 optional_scopes = []
 
 use_legacy_install_flow = false

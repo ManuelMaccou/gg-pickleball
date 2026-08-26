@@ -369,7 +369,7 @@ function Step2Shopify({
           </Flex>
           <Flex direction="column" gap="1">
             <Text size="2" color="gray" weight="bold">Scopes</Text>
-            <CodeRow value="read_discounts,write_discounts,read_orders" />
+            <CodeRow value="read_discounts,write_discounts,read_orders,read_products" />
           </Flex>
           <Text size="2" color="gray">
             Copy the <Text weight="bold">Client ID</Text> and <Text weight="bold">Client secret</Text> from the app credentials page — you'll need them in step 4.
