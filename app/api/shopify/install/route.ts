@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
     }
 
-    const scopes = 'read_discounts,write_discounts,read_orders';
+    const scopes = 'read_discounts,write_discounts,read_orders,read_products';
     const redirectUri = `${process.env.NEXT_PUBLIC_BASE_URL}/api/shopify/callback`;
     const nonce = crypto.randomUUID();
 
