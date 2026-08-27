@@ -235,9 +235,9 @@ const BrandScreen = () => (
         </div>
         <div style={{ background: '#fff', borderRadius: 8, padding: '8px 10px', border: '0.5px solid rgba(0,0,0,0.06)' }}>
           {([
-            ['#4821', 'GG-WIN10', '$74.00', '$3.70', 'charged'],
-            ['#4820', 'GG-WIN25', '$120.00', '$6.00', 'pending'],
-            ['#4819', 'GG-WIN10', '$55.00', '$2.75', 'held'],
+            ['#4821', 'GG-WIN10', '$74.00', '$7.40', 'charged'],
+            ['#4820', 'GG-WIN25', '$120.00', '$12.00', 'pending'],
+            ['#4819', 'GG-WIN10', '$55.00', '$5.50', 'held'],
           ] as [string, string, string, string, string][]).map(([order, code, sale, comm, status]) => (
             <div key={order} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 0', borderBottom: '0.5px solid rgba(0,0,0,0.05)', fontSize: 11 }}>
               <span style={{ color: '#0f172a', fontFamily: 'monospace' }}>{order}</span>
