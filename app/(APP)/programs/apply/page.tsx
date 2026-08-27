@@ -307,7 +307,7 @@ export default function ProgramApplicationPage() {
 
             {/* Permission */}
             <Text size="1" weight="bold" mb="3" style={{ display: 'block', color: '#84cc16', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-              Permission
+              Confirmation
             </Text>
             <Box mb="6">
               <Flex direction="column" gap="4">
