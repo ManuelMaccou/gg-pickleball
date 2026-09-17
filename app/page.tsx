@@ -185,6 +185,7 @@ type Tournament = {
 // Sample data — swap for a real tournaments feed/API when available.
 const tournaments: Tournament[] = [
   { name: '4x4 Summer Smash', location: 'Fountain Valley, CA', venue: 'Fountain Valley Tennis and Pickleball Center', dateLabel: 'August 22nd', gradient: 'linear-gradient(135deg,#609FDD,#0e3a5a)', href: 'https://www.tpaevents.com/booking-tourney' },
+  { name: '$27,350 Prize Purse, Caballeros Cup 2026: The First Championship', location: 'Fountain Valley, CA', venue: 'Los Cab Sports Club', dateLabel: 'October 9-11', gradient: 'linear-gradient(135deg,#76D775,#2d5a27)', href: 'https://pickleballtournaments.com/tournaments/27-350-prize-purse-los-cab-caballeros-cup-2026-the-first-championship-10-9-11' },
 ];
 
 {/*}
