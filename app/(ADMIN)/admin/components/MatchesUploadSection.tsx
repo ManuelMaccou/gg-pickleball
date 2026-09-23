@@ -2,11 +2,14 @@
 
 // Destination: app/(ADMIN)/admin/components/MatchesUploadSection.tsx
 //
-// [Under-13 handling] warnings added to MatchRow type and surfaced in the
-// Status column (amber, distinct from red validationErrors) — see
-// validateMatchRow.ts for what triggers these. Row background now also
-// distinguishes "has warnings but no errors" (amber) from "has errors"
-// (red, unchanged) from neither (unchanged).
+// [Stale copy fix] Two spots still described the old two-stage roster
+// model: "not on the roster" used to specifically mean under-13, because
+// the (now-retired) Players CSV was the definitive eligibility list.
+// There's no roster anymore — an unmatched DUPR ID is just "no account
+// yet," the normal case for nearly everyone, unrelated to age. Also fixed
+// "will skip," which was actively wrong — nothing gets skipped; the DUPR
+// ID and score are fully recorded either way, just not credited to an
+// account until one exists.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -124,7 +127,7 @@ function PlayerSlotCell({ duprId, match }: { duprId?: string; match?: PlayerSlot
       {match?.matched ? (
         <Text size="1" color="green">✓ {match.name || 'Matched'}</Text>
       ) : (
-        <Text size="1" color="gray">Not on roster — will skip</Text>
+        <Text size="1" color="gray">No account yet — still recorded</Text>
       )}
     </Flex>
   );
@@ -325,11 +328,13 @@ export default function MatchesUploadSection({ programId }: MatchesUploadSection
       <Text as="div" size="2" weight="bold" mb="2">Upload matches CSV</Text>
       <Text as="div" size="2" color="gray" mb="2">
         Expected columns — every row is one game. Player 2 columns are only required for
-        doubles; leave them blank for singles. A DUPR ID that doesn't match anyone on the
-        roster is treated as under 13 and skipped automatically, not an error. A blank
-        required slot (e.g. an under-13 participant already removed from the raw data
-        before this CSV was built) is flagged as a warning, not an error — review it, but
-        it won't block confirming.
+        doubles; leave them blank for singles. Most DUPR IDs won't match an existing account
+        yet — that's expected, not an error, since accounts only exist for players who've
+        already signed up on their own. The match, score, and DUPR ID are still fully
+        recorded either way; if that player signs up later, they can find and claim it
+        themselves. A blank required slot (e.g. an under-13 participant's ID already removed
+        from the raw data before this CSV was built) is flagged as a warning, not an error —
+        review it, but it won't block confirming.
       </Text>
       <ExampleFieldsTable />
       <Flex align="center" gap="3" mt="3">
