@@ -13,7 +13,7 @@ import { buildShopifyPricingUrl } from '@/lib/shopify/urls';
 import { isCustomAppMode } from '@/lib/shopify/appMode';
 import { getShopifyCredentials } from '@/lib/shopify/getShopifyCredentials';
 
-const SHOPIFY_API_VERSION = '2025-10';
+const SHOPIFY_API_VERSION = '2026-10';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

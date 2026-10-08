@@ -15,7 +15,7 @@ import { getAppEventsToken } from './shopifyAppAuth';
 import { refreshShopifyToken, tokenNeedsRefresh } from './refreshShopifyToken';
 
 const APP_EVENTS_URL = 'https://api.shopify.com/app/unstable/events';
-const SHOPIFY_API_VERSION = '2025-10';
+const SHOPIFY_API_VERSION = '2026-10';
 
 interface SendAppEventParams {
   clientId: string;

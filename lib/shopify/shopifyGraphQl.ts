@@ -1,6 +1,6 @@
 import { refreshShopifyToken, tokenNeedsRefresh } from './refreshShopifyToken';
 
-const SHOPIFY_API_VERSION = '2025-10';
+const SHOPIFY_API_VERSION = '2026-10';
 
 interface GraphQLResult {
   ok: boolean;

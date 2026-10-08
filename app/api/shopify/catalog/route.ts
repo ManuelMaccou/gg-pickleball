@@ -6,7 +6,7 @@ import { getAuthorizedUser } from '@/lib/auth/getAuthorizeduser';
 import { getValidShopifyCredentials } from '@/lib/shopify/getValidShopifyCredentials';
 import { logError } from '@/lib/sentry/logger';
 
-const SHOPIFY_API_VERSION = '2025-10';
+const SHOPIFY_API_VERSION = '2026-10';
 
 const PRODUCTS_QUERY = `
   query CatalogProducts($first: Int!, $after: String, $query: String) {
