@@ -7,7 +7,7 @@ import { refreshShopifyToken } from './refreshShopifyToken';
 import { getValidShopifyCredentials } from './getValidShopifyCredentials';
 import { buildDiscountItemsInput, buildCombinesWithInput } from './buildDiscountItemsInput';
 
-const SHOPIFY_API_VERSION = '2025-10';
+const SHOPIFY_API_VERSION = '2026-10';
 
 interface GeneratorOptions {
   session: ClientSession;

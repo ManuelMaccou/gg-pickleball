@@ -8,7 +8,7 @@ import Client from '@/app/models/Client';
 import { HoldReason } from '@/app/types/databaseTypes';
 import { refreshShopifyToken, tokenNeedsRefresh } from './refreshShopifyToken';
 
-const SHOPIFY_API_VERSION = '2025-10';
+const SHOPIFY_API_VERSION = '2026-10';
 
 const COMMISSION_RISK_QUERY = `
   query CommissionRiskCheck($orderId: ID!) {

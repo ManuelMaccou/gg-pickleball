@@ -25,7 +25,7 @@ import { checkPartnerSubscription } from '@/lib/shopify/checkPartnerSubscription
 import { isCustomAppMode } from '@/lib/shopify/appMode';
 import { checkBillingActive } from '@/lib/billing/checkBillingActive';
 
-const SHOPIFY_API_VERSION = '2025-10';
+const SHOPIFY_API_VERSION = '2026-10';
 
 const CURRENT_APP_INSTALLATION_QUERY = `
   query {
