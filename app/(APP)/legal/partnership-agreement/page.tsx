@@ -129,7 +129,7 @@ export default function PartnershipAgreementPage() {
           {/* Section 4 */}
           <Section number="4" title="Commission & Billing">
             <SubSection title="4.1 Commission Rate">
-              <Para>GG Pickleball charges a Commission equal to five percent (5%) of the Net Order Value of each Order placed using a Promo Code. The Commission rate applicable to each Order is stored at the time the Order is recorded and governs that Order regardless of any subsequent rate changes.</Para>
+              <Para>GG Pickleball charges a Commission equal to five percent (10%) of the Net Order Value of each Order placed using a Promo Code. The Commission rate applicable to each Order is stored at the time the Order is recorded and governs that Order regardless of any subsequent rate changes.</Para>
             </SubSection>
             <SubSection title="4.2 Billing Cycle">
               {isCustomApp ? (
