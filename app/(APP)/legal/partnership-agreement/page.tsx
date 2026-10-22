@@ -164,7 +164,7 @@ export default function PartnershipAgreementPage() {
             </SubSection>
             <SubSection title="4.6 Billing Records">
               {isCustomApp ? (
-                <Para>GG Pickleball maintains records of all billing events and Commission calculations. The Brand Partner may access a summary of billing activity at any time directly from thier dashboard. GG Pickleball's billing records constitute the authoritative source for Commission calculations, absent manifest error.</Para>
+                <Para>GG Pickleball maintains records of all billing events and Commission calculations. The Brand Partner may access a summary of billing activity at any time directly from their dashboard. GG Pickleball's billing records constitute the authoritative source for Commission calculations, absent manifest error.</Para>
               ) : (
                 <Para>GG Pickleball maintains records of all billing events submitted to Shopify. The Brand Partner may request a summary of billing events by contacting GG Pickleball. GG Pickleball's billing records constitute the authoritative source for Commission calculations, absent manifest error. Shopify's billing statements serve as the authoritative record of charges actually collected.</Para>
               )}
