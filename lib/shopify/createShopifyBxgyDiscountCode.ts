@@ -16,7 +16,10 @@ interface GeneratorOptions {
 export async function createShopifyBxgyDiscountCode(
   rewardId: Types.ObjectId,
   clientId: Types.ObjectId,
-  options: GeneratorOptions
+  options: GeneratorOptions,
+  // [Expiration] Computed once by the caller so Shopify's endsAt and the
+  // stored RewardCode.expiresAt are the same instant.
+  expiresAt: Date
 ): Promise<string | null> {
   const { session } = options;
 
@@ -55,6 +58,7 @@ export async function createShopifyBxgyDiscountCode(
       context: { all: "ALL" },
       title: cleanTitle,
       startsAt: new Date().toISOString(),
+      endsAt: expiresAt.toISOString(),
       combinesWith,
       // Confirmed against the DiscountCodeBxgy object schema: both fields
       // are Int, and distinct — usageLimit caps total redemptions across

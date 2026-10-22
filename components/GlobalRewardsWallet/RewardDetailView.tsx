@@ -6,6 +6,7 @@ import { Cross2Icon } from '@radix-ui/react-icons';
 import { CSSProperties } from 'react';
 import { formatCurrency } from '@/lib/utils';
 import { formatItemList, itemsLabel } from '@/lib/rewards/discountTargetSelection';
+import { isCodeUsable, soonestExpiry, formatExpiry } from '@/lib/rewards/rewardCodeStatus';
 
 type Props = {
   reward: RewardWithContext;
@@ -15,9 +16,17 @@ type Props = {
 
 export const RewardDetailView = ({ reward, onClose, style }: Props) => {
   // ── Logic unchanged ──
-  const isUnlocked = (reward.codes?.filter(c => !c.redeemed).length ?? 0) > 0;
+  // [Expiration] only unredeemed, unexpired codes count. Show the one that
+  // expires soonest first (codes with no expiry last).
+  const usableCodes = (reward.codes ?? [])
+    .filter(c => isCodeUsable(c))
+    .sort((a, b) =>
+      (a.expiresAt ? new Date(a.expiresAt).getTime() : Infinity) -
+      (b.expiresAt ? new Date(b.expiresAt).getTime() : Infinity));
+  const isUnlocked = usableCodes.length > 0;
   const location = reward.sponsoringClient;
-  const rewardCode = reward.codes?.find(c => !c.redeemed)?.code;
+  const rewardCode = usableCodes[0]?.code;
+  const rewardExpiry = usableCodes[0]?.expiresAt ? soonestExpiry([usableCodes[0]]) : null;
 
   // ── Enumerate what a discount actually covers, since the title alone
   // often can't say it: BXGY titles NEVER name items (a collection can be
@@ -226,6 +235,12 @@ export const RewardDetailView = ({ reward, onClose, style }: Props) => {
                 {rewardCode ?? 'Unavailable'}
               </Text>
             </Box>
+
+            {rewardExpiry && (
+              <Text size="2" align="center" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                Expires {formatExpiry(rewardExpiry)}
+              </Text>
+            )}
           </Flex>
         </Flex>
       ) : (

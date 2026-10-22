@@ -8,6 +8,7 @@ import { useState } from "react";
 import { RewardWithContext } from '@/app/types/rewardTypes';
 import { formatCurrency } from "@/lib/utils";
 import { formatItemList, itemsLabel } from '@/lib/rewards/discountTargetSelection';
+import { isCodeUsable, isCodeExpired, soonestExpiry, formatExpiry } from '@/lib/rewards/rewardCodeStatus';
 
 interface ModernRewardCardProps {
   reward: RewardWithContext;
@@ -28,9 +29,17 @@ export function ModernRewardCard({ reward, index, onClick }: ModernRewardCardPro
   const [lockedTapped, setLockedTapped] = useState(false);
 
   // ── State ──────────────────────────────────────────────────────────────────
-  const unredeemedCodes = reward.codes?.filter(c => !c.redeemed) || [];
-  const unredeemedCount = unredeemedCodes.length;
+  // [Expiration] "usable" = not redeemed AND not expired. An earned reward
+  // whose only unredeemed codes have expired shows an Expired state instead
+  // of Locked (it was earned; it just lapsed).
+  const usableCodes = reward.codes?.filter(c => isCodeUsable(c)) || [];
+  const unredeemedCount = usableCodes.length;
   const isUnlocked = unredeemedCount > 0;
+  const isExpired = !isUnlocked && (reward.codes?.some(c => !c.redeemed && isCodeExpired(c)) ?? false);
+  const expiry = isUnlocked ? soonestExpiry(usableCodes) : null;
+  const expiredOn = isExpired
+    ? soonestExpiry((reward.codes ?? []).filter(c => !c.redeemed && isCodeExpired(c)))
+    : null;
 
   // ── Visuals ────────────────────────────────────────────────────────────────
   const bgImage = reward.sponsoringClient?.cardBackgroundImage || DEFAULT_CARD_BACKGROUND_IMAGE;
@@ -223,16 +232,40 @@ export function ModernRewardCard({ reward, index, onClick }: ModernRewardCardPro
             </Text>
 
             {isUnlocked ? (
-              <Button size="3" style={{
-                width: '100%',
-                backgroundColor: 'var(--lime-9)',
-                color: 'var(--slate-12)',
-                fontWeight: 'bold',
-                borderRadius: '12px',
-              }}>
-                <Gift size={18} style={{ marginRight: 8 }} />
-                Claim Reward{unredeemedCount > 1 ? ` (×${unredeemedCount})` : ''}
-              </Button>
+              <Flex direction="column" gap="2">
+                <Button size="3" style={{
+                  width: '100%',
+                  backgroundColor: 'var(--lime-9)',
+                  color: 'var(--slate-12)',
+                  fontWeight: 'bold',
+                  borderRadius: '12px',
+                }}>
+                  <Gift size={18} style={{ marginRight: 8 }} />
+                  Claim Reward{unredeemedCount > 1 ? ` (×${unredeemedCount})` : ''}
+                </Button>
+                {expiry && (
+                  <Text size="1" align="center" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                    Expires {formatExpiry(expiry)}
+                  </Text>
+                )}
+              </Flex>
+            ) : isExpired ? (
+              // ── Expired: earned, but the code lapsed ──
+              <Flex
+                align="center"
+                justify="center"
+                p="3"
+                style={{
+                  backgroundColor: 'rgba(239,68,68,0.10)',
+                  border: '1px dashed rgba(239,68,68,0.35)',
+                  borderRadius: '12px',
+                  width: '100%',
+                }}
+              >
+                <Text size="2" weight="medium" style={{ color: '#f87171' }}>
+                  Expired{expiredOn ? ` ${formatExpiry(expiredOn)}` : ''}
+                </Text>
+              </Flex>
             ) : lockedTapped ? (
               // ── Tapped state: show what's needed to unlock ──
               <motion.div

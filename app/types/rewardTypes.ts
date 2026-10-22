@@ -21,6 +21,7 @@ export interface IRewardCodeEntry {
   redeemed: boolean;
   redemptionDate?: Date;
   earnedAt: Date;
+  expiresAt?: string;
 }
 
 type OmitFunctions<T> = {
@@ -56,6 +57,7 @@ export type RewardWithContext = IRewardWithCode & {
     redeemed: boolean;
     earnedAt: Date;
     redemptionDate?: Date;
+    expiresAt?: Date | string;
   }[];
 };
 

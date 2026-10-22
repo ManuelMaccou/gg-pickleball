@@ -12,6 +12,7 @@ const RewardCodeSchema = new Schema<IRewardCode>({
   redemptionDate: { type: Date },
   addedToPos: { type: Boolean },
   isGlobalReward: { type: Boolean, default: false },
+  expiresAt: { type: Date, required: false, index: true }
 }, { timestamps: true });
 
 RewardCodeSchema.index({ code: 1 });

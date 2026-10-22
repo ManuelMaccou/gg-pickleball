@@ -12,6 +12,7 @@ import { achievementFunctionMetadata } from '@/lib/achievements/achievementMetad
 import { GlobalConfiguredReward, PopulatedGlobalRewardCode, RewardWithContext } from '@/app/types/rewardTypes';
 import { RewardDetailView } from '../GlobalRewardsWallet/RewardDetailView';
 import { ModernRewardCard } from '../GlobalRewardsWallet/ModernRewardCard';
+import { isCodeUsable } from '@/lib/rewards/rewardCodeStatus';
 
 type WalletStatus = 'loading' | 'error' | 'empty' | 'ready';
 
@@ -108,6 +109,7 @@ export default function GlobalRewardsWallet({ user }: Props) {
             redeemed: code.redeemed,
             redemptionDate: code.redemptionDate,
             earnedAt: code.createdAt,
+            expiresAt: code.expiresAt,
           });
         }
 
@@ -156,8 +158,9 @@ export default function GlobalRewardsWallet({ user }: Props) {
         });
 
         finalRewardsList = visibleRewards.sort((a, b) => {
-          const aUnlocked = a.codes.some(c => !c.redeemed);
-          const bUnlocked = b.codes.some(c => !c.redeemed);
+          // [Expiration] expired codes don't count as unlocked
+          const aUnlocked = a.codes.some(c => isCodeUsable(c));
+          const bUnlocked = b.codes.some(c => isCodeUsable(c));
           if (aUnlocked && !bUnlocked) return -1;
           if (!aUnlocked && bUnlocked) return 1;
           return getWinCount(a) - getWinCount(b);
