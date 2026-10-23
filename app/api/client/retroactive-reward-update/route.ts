@@ -135,6 +135,8 @@ export async function POST(request: Request) {
 
                 // --- CODE GENERATION LOGIC ---
                 let code: string;
+                // [Expiration] only Shopify codes are enforceable, so only they get one
+                let expiresAt: Date | undefined;
                 let addedToPos = false;
 
                 // Determine the correct software based on the reward category
@@ -176,16 +178,19 @@ export async function POST(request: Request) {
                         // createShopifyDiscountCode reads reward.type/discount/
                         // shopifyTargeting — all unset ($unset by the PATCH
                         // route) for a BXGY reward.
+                        expiresAt = DateTime.now().plus({ months: 2 }).toJSDate();
                         const shopifyCode = rewardConfig.discountKind === 'bxgy'
                             ? await createShopifyBxgyDiscountCode(
                                 new Types.ObjectId(rewardConfig._id),
                                 client._id,
-                                { session }
+                                { session },
+                                expiresAt
                               )
                             : await createShopifyDiscountCode(
                                 new Types.ObjectId(rewardConfig._id),
                                 client._id,
-                                { session }
+                                { session },
+                                expiresAt
                               );
                         if (!shopifyCode) throw new Error("Shopify returned null code");
                         code = shopifyCode;
@@ -211,6 +216,7 @@ export async function POST(request: Request) {
                     isGlobalReward: true,
                     redeemed: false,
                     addedToPos,
+                    expiresAt,
                 }, { session });
 
                 rewardsToAdd.push({

@@ -16,7 +16,10 @@ interface GeneratorOptions {
 export async function createShopifyDiscountCode(
   rewardId: Types.ObjectId,
   clientId: Types.ObjectId,
-  options: GeneratorOptions
+  options: GeneratorOptions,
+  // [Expiration] Computed once by the caller so the end date Shopify enforces
+  // and the expiresAt stored on RewardCode are the exact same instant.
+  expiresAt: Date
 ): Promise<string | null> {
   const { session } = options;
 
@@ -56,6 +59,7 @@ export async function createShopifyDiscountCode(
       code,
       title: cleanTitle,
       startsAt: new Date().toISOString(),
+      endsAt: expiresAt.toISOString(),
       context: { all: "ALL" },
       combinesWith,
       customerGets: {

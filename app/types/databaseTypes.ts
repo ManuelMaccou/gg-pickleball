@@ -510,6 +510,7 @@ export interface IRewardCode {
   addedToPos?: boolean;
   createdAt: Date;
   isGlobalReward: boolean;
+  expiresAt?: Date;
 }
 
 export interface IGGRConfigSponsorship {

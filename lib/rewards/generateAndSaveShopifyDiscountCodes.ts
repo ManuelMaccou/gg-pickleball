@@ -1,5 +1,6 @@
 // Destination: lib/rewards/generateAndSaveShopifyDiscountCodes.ts
 
+import { DateTime } from 'luxon';
 import RewardCode from '@/app/models/RewardCode';
 import { Types, ClientSession } from 'mongoose';
 import { createShopifyDiscountCode } from '../shopify/createShopifyDiscountCode';
@@ -40,10 +41,17 @@ export async function generateAndSaveShopifyDiscountCodes(
       // (discountCodeBasicCreate vs discountCodeBxgyCreate) — a single
       // client/category batch of tasks can contain a mix of both, so this
       // branches per-task rather than per-call.
+      // [Expiration] Every code expires 2 months after creation — automatic,
+      // no per-reward config. Computed once per code and passed down so
+      // Shopify's endsAt and the stored expiresAt are identical.
+      // luxon clamps month-ends (Dec 31 -> Feb 28); Date.setMonth would
+      // overflow into March.
+      const expiresAt = DateTime.now().plus({ months: 2 }).toJSDate();
+
       const code =
         task.reward.discountKind === 'bxgy'
-          ? await createShopifyBxgyDiscountCode(task.reward._id, clientId, options)
-          : await createShopifyDiscountCode(task.reward._id, clientId, options);
+          ? await createShopifyBxgyDiscountCode(task.reward._id, clientId, options, expiresAt)
+          : await createShopifyDiscountCode(task.reward._id, clientId, options, expiresAt);
       if (code) {
         rewardCodeDocsToCreate.push({
           code,
@@ -54,6 +62,7 @@ export async function generateAndSaveShopifyDiscountCodes(
           redeemed: false,
           addedToPos: true,
           isGlobalReward: task.isGlobalReward ?? false,
+          expiresAt,
         });
         tasksToProcess.push(task);
       } else {
