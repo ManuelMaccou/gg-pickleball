@@ -419,80 +419,85 @@ export default function HomePage() {
           filter: 'blur(80px)',
         }} />
 
-        <Container size="4" px="5" style={{ position: 'relative', zIndex: 10 }}>
-          <Flex justify={{initial: 'center', md: 'between'}} align="center" pt="9" mb="6">
-            <Badge color="lime" variant="soft" size="2" radius="full" className={styles.fadeIn} style={{
-              border: '1px solid var(--lime-a6)',
-              backgroundColor: 'rgba(178, 255, 0, 0.08)',
-              padding: '6px 14px',
-            }}>
-              <Flex align="center" gap="2">
-                <Box style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#b2ff00', boxShadow: '0 0 8px #b2ff00' }} />
-                <Text size="2" style={{ color: '#b2ff00', letterSpacing: '0.02em' }}>
-                  Rewards built for pickleball players
-                </Text>
-              </Flex>
-            </Badge>
-            {/* Preserved: /auth/login?returnTo=/play — still the correct entry point for existing/claimed accounts */}
-            <Flex display={{initial: 'none', md: 'flex'}}>
-              <Button  asChild variant="solid" size="3" radius="full" color="lime">
-                <Link  href="/auth/login?returnTo=/api/auth/redirect">Access your account</Link>
-              </Button>
+       <Container size="4" px="5" style={{ position: 'relative', zIndex: 10 }}>
+  <Flex
+    direction={{ initial: 'column', md: 'row' }}
+    justify={{ initial: 'center', md: 'between' }}
+    align="center"
+    gap={{ initial: '4', md: '0' }}
+    pt="9"
+    mb="6"
+  >
+    <Badge color="lime" variant="soft" size="2" radius="full" className={styles.fadeIn} style={{
+      border: '1px solid var(--lime-a6)',
+      backgroundColor: 'rgba(178, 255, 0, 0.08)',
+      padding: '6px 14px',
+    }}>
+      <Flex align="center" gap="2">
+        <Box style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#b2ff00', boxShadow: '0 0 8px #b2ff00' }} />
+        <Text size="2" style={{ color: '#b2ff00', letterSpacing: '0.02em' }}>
+          Rewards built for pickleball players
+        </Text>
+      </Flex>
+    </Badge>
+
+    {/* Entry point for existing accounts, visible on all screen sizes */}
+    <Button asChild variant="solid" size="3" radius="full" color="lime">
+      <Link href="/auth/login?returnTo=/api/auth/redirect">Access your account</Link>
+    </Button>
+  </Flex>
+
+  <Flex align="center" style={{ minHeight: '80vh' }} pb="9">
+    <Box style={{ maxWidth: 900 }}>
+      <Heading
+        as="h1"
+        weight="bold"
+        mb="5"
+        className={styles.slideUp}
+        align={{ initial: 'center', md: 'left' }}
+        style={{ color: '#FFFFFF', fontSize: 'clamp(56px, 9vw, 120px)', lineHeight: 0.92, letterSpacing: '-0.035em' }}
+      >
+        Pickleball
+        <br />
+        <span className={styles.heroTextGradient}>Rewarded.</span>
+      </Heading>
+
+      <Text as="p" size="5" mb="7" align={{ initial: 'center', md: 'left' }} className={styles.slideUp}
+        style={{ color: 'rgba(255,255,255,0.72)', animationDelay: '0.2s', lineHeight: 1.55, maxWidth: 620 }}
+      >
+        GG Pickleball partners with tournaments across the country to turn every
+        match you play into exclusive rewards from the brands shaping the sport.
+      </Text>
+
+      <Flex gap="3" direction={{ initial: 'column', xs: 'row' }} className={styles.slideUp} style={{ animationDelay: '0.4s' }}>
+        {/* Primary action is discovery of participating tournaments */}
+        <Button asChild size="4" radius="full" color="lime">
+          <Link href="#tournaments">
+            <Flex align="center" gap="2">
+              See participating tournaments
+              <ArrowRight size={18} strokeWidth={2.5} />
             </Flex>
-            
+          </Link>
+        </Button>
+        {/* Preserved: /apply */}
+       <Button asChild size="4" radius="full" variant="outline" color="lime" highContrast
+  style={{ color: '#FFFFFF', borderColor: 'rgba(255,255,255,1)' }}
+>
+  <Link href="/auth/login?returnTo=/api/auth/redirect">See your rewards</Link>
+</Button>
+      </Flex>
+
+      <Flex gap="5" mt="7" wrap="wrap" justify={{ initial: 'center', md: 'start' }} className={styles.slideUp} style={{ animationDelay: '0.6s' }}>
+        {['Free forever', 'No credit card', 'Verified tournament results'].map((label) => (
+          <Flex key={label} align="center" gap="2">
+            <Check size={16} strokeWidth={3} color="#b2ff00" />
+            <Text size="2" style={{ color: 'rgba(255,255,255,0.7)' }}>{label}</Text>
           </Flex>
-
-          <Flex align="center" style={{ minHeight: '80vh' }} pb="9">
-            <Box style={{ maxWidth: 900 }}>
-              <Heading
-                as="h1"
-                weight="bold"
-                mb="5"
-                className={styles.slideUp}
-                align={{ initial: 'center', md: 'left' }}
-                style={{ color: '#FFFFFF', fontSize: 'clamp(56px, 9vw, 120px)', lineHeight: 0.92, letterSpacing: '-0.035em' }}
-              >
-                Pickleball
-                <br />
-                <span className={styles.heroTextGradient}>Rewarded.</span>
-              </Heading>
-
-              <Text as="p" size="5" mb="7" align={{ initial: 'center', md: 'left' }} className={styles.slideUp}
-                style={{ color: 'rgba(255,255,255,0.72)', animationDelay: '0.2s', lineHeight: 1.55, maxWidth: 620 }}
-              >
-                GG Pickleball partners with tournaments across the country to turn every
-                match you play into exclusive rewards from the brands shaping the sport.
-              </Text>
-
-              <Flex gap="3" direction={{ initial: 'column', xs: 'row' }} className={styles.slideUp} style={{ animationDelay: '0.4s' }}>
-                {/* Updated: no self-signup exists (Section 9 item 1) — primary action is discovery, not signup */}
-                <Button asChild size="4" radius="full" color="lime">
-                  <Link href="#tournaments">
-                    <Flex align="center" gap="2">
-                      See participating tournaments
-                      <ArrowRight size={18} strokeWidth={2.5} />
-                    </Flex>
-                  </Link>
-                </Button>
-                {/* Preserved: /apply */}
-                <Button asChild size="4" radius="full" variant="outline" color="lime" highContrast
-                  style={{ color: '#FFFFFF', borderColor: 'rgba(255,255,255,1)' }}
-                >
-                  <Link href="/apply">Feature your brand</Link>
-                </Button>
-              </Flex>
-
-              <Flex gap="5" mt="7" wrap="wrap" justify={{ initial: 'center', md: 'start' }} className={styles.slideUp} style={{ animationDelay: '0.6s' }}>
-                {['Free forever', 'No credit card', 'Verified tournament results'].map((label) => (
-                  <Flex key={label} align="center" gap="2">
-                    <Check size={16} strokeWidth={3} color="#b2ff00" />
-                    <Text size="2" style={{ color: 'rgba(255,255,255,0.7)' }}>{label}</Text>
-                  </Flex>
-                ))}
-              </Flex>
-            </Box>
-          </Flex>
-        </Container>
+        ))}
+      </Flex>
+    </Box>
+  </Flex>
+</Container>
       </Box>
 
       {/* ============ TOURNAMENTS SECTION ============ */}
