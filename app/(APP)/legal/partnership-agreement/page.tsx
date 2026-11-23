@@ -69,7 +69,7 @@ export default function PartnershipAgreementPage() {
               ['"Promo Code"', 'means a unique discount code issued by the Brand Partner and made available to players through the Platform.'],
               ['"Win Milestones"', 'means the verified pickleball win thresholds at which players become eligible to receive Promo Codes. GG Pickleball may adjust milestone structures from time to time with reasonable notice to Brand Partners.'],
               ['"Order"', 'means a completed, paid transaction placed by a player at the Brand Partner\'s Shopify storefront using a Promo Code.'],
-              ['"Net Order Value"', 'means the total value of an Order minus any amounts refunded to the customer.'],
+              ['"Net Order Value"', 'means the price of the products in an Order after all discounts, excluding taxes, shipping charges, tips, and gift cards purchased at full price, minus any amounts refunded to the customer for those products.'],
               ['"Commission"', 'means the fee owed to GG Pickleball equal to a percentage of the Net Order Value of each Order.'],
               ['"Go-Live Date"', 'means the date on which the Brand Partner\'s first Promo Code is made active and available to players on the Platform.'],
             ]} />
@@ -148,8 +148,8 @@ export default function PartnershipAgreementPage() {
                 'If a dispute is lost or accepted by the Brand Partner, the Commission is waived in full.',
                 'If a dispute is won or prevented, processing continues under the standard rules.',
                 'If the Order has been fully refunded, the Commission is waived and set to $0.',
-                'If the Order has been partially refunded and no returns or disputes remain open, the Commission is charged on the Net Order Value (Order total minus refunded amount).',
-                'If the return was unsuccessful or the Order is clean with no return or dispute, the full Commission is charged on the original Order total.',
+                'If the Order has been partially refunded and no returns or disputes remain open, the Commission is charged on the Net Order Value.',
+                'If the return was unsuccessful or the Order is clean with no return or dispute, the full Commission is charged on the Net Order Value.',
               ]} />
             </SubSection>
             <SubSection title="4.4 Subscription Requirement">

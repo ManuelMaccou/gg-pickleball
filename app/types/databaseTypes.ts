@@ -38,10 +38,11 @@ export interface ICommissionRecord extends Document {
   clientId: Types.ObjectId;      // Ref to Client
  
   // Financials
-  orderTotal: number;            // Original order total in dollars
+  orderTotal: number;            // Commission base at order time ("Eligible sale"): products after discounts, no tax/shipping/tips/full-price gift cards
+  orderSubtotal?: number;        // All products incl. gift cards after discounts, no tax/shipping/tips ("Products subtotal"). Display only; missing on older records
   refundedAmount: number;        // Total refunded at time of decision (0 if clean)
-  commissionRate: number;        // 0.05 (stored explicitly in case rate changes later)
-  commissionAmount: number;      // Calculated: (orderTotal - refundedAmount) * commissionRate
+  commissionRate: number;        // 0.10 (stored per record; the cron charges this, not the current rate)
+  commissionAmount: number;      // commissionBase at decision time * commissionRate
   shopifyEventKey?: string;
   stripeInvoiceId?: string;
  
