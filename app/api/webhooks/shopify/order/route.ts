@@ -3,6 +3,7 @@
 import { verifyAndReadWebhook } from '@/lib/shopify/verifyWebhookHmac';
 import { redeemDiscountCode } from '@/lib/rewards/redeemDiscountCodes';
 import { logError } from '@/lib/sentry/logger';
+import { orderAmountsFromWebhookPayload } from '@/lib/shopify/commissionBase';
 
 export async function POST(req: Request): Promise<Response> {
   const shopDomain = req.headers.get('x-shopify-shop-domain');
@@ -36,7 +37,9 @@ export async function POST(req: Request): Promise<Response> {
       shopifyOrderId,
       shopifyOrderGid: `gid://shopify/Order/${shopifyOrderId}`,
       shopDomain,
-      orderTotal: parseFloat(payload.total_price ?? '0'),
+      // Commission base + products subtotal from the payload. Only used if
+      // the Shopify lookup in redeemDiscountCode fails.
+      payloadAmounts: orderAmountsFromWebhookPayload(payload),
       orderCreatedAt: new Date(payload.created_at),
     };
 

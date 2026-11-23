@@ -31,6 +31,7 @@ interface BrandCommissionRow {
   orderCreatedAt: string;
   shopifyOrderId: string;
   discountCodes: string[];
+  orderSubtotal?: number;
   orderTotal: number;
   refundedAmount: number;
   commissionAmount: number;
@@ -353,8 +354,9 @@ export default function BrandBillingPage() {
               <Table.ColumnHeaderCell>Order date</Table.ColumnHeaderCell>
               <Table.ColumnHeaderCell>Order</Table.ColumnHeaderCell>
               <Table.ColumnHeaderCell>Code</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>Sale</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>Amount due</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>Products subtotal</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>Eligible sale</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>Commission from eligible items</Table.ColumnHeaderCell>
               <Table.ColumnHeaderCell>Charge date</Table.ColumnHeaderCell>
               <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
             </Table.Row>
@@ -362,13 +364,13 @@ export default function BrandBillingPage() {
           <Table.Body>
             {commissionsLoading ? (
               <Table.Row>
-                <Table.Cell colSpan={7}>
+                <Table.Cell colSpan={8}>
                   <Flex justify="center" p="5"><Spinner size="2" /></Flex>
                 </Table.Cell>
               </Table.Row>
             ) : commissions.length === 0 ? (
               <Table.Row>
-                <Table.Cell colSpan={7}>
+                <Table.Cell colSpan={8}>
                   <Text color="gray" align="center" my="4">
                     No commissions yet. They'll appear here when customers use your promo codes.
                   </Text>
@@ -395,6 +397,9 @@ export default function BrandBillingPage() {
                           <Text size="1" color="red">Missing code</Text>
                         )}
                       </Flex>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Text size="2">{r.orderSubtotal != null ? formatCurrency(r.orderSubtotal) : '—'}</Text>
                   </Table.Cell>
                   <Table.Cell>
                     <Flex direction="column">

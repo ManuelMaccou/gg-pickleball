@@ -4,30 +4,23 @@
 // a commission is safe to collect, should be held, or should be waived.
 // Called by the commission cron on day 30 and every 5 days for held records.
 
-import Client from '@/app/models/Client';
 import { HoldReason } from '@/app/types/databaseTypes';
-import { refreshShopifyToken, tokenNeedsRefresh } from './refreshShopifyToken';
-
-const SHOPIFY_API_VERSION = '2026-10';
+import { shopifyAdminQuery } from './shopifyAdminQuery';
+import { ORDER_COMMISSION_BASE_FIELDS, computeCommissionBase } from './commissionBase';
 
 const COMMISSION_RISK_QUERY = `
   query CommissionRiskCheck($orderId: ID!) {
     order(id: $orderId) {
       id
       displayFulfillmentStatus
-      totalPriceSet {
-        shopMoney { amount }
-      }
       totalRefundedSet {
         shopMoney { amount }
-      }
-      refunds(first: 10) {
-        createdAt
       }
       returnStatus
       disputes {
         status
       }
+      ${ORDER_COMMISSION_BASE_FIELDS}
     }
   }
 `;
@@ -45,97 +38,23 @@ const ACTIVE_RETURN_STATUSES = new Set([
   'INSPECTION_COMPLETE',
 ]);
 
-async function queryOrder(
-  shopDomain: string,
-  accessToken: string,
-  shopifyOrderGid: string
-): Promise<{ ok: boolean; status: number; order: any }> {
-  const response = await fetch(
-    `https://${shopDomain}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Shopify-Access-Token': accessToken,
-      },
-      body: JSON.stringify({
-        query: COMMISSION_RISK_QUERY,
-        variables: { orderId: shopifyOrderGid },
-      }),
-    }
-  );
-
-  if (!response.ok) {
-    return { ok: false, status: response.status, order: null };
-  }
-
-  const json = await response.json();
-  return {
-    ok: true,
-    status: response.status,
-    order: json?.data?.order ?? null,
-  };
-}
-
 export async function checkOrderCommissionRisk(
   shopifyOrderGid: string,
   clientId: string
 ): Promise<CommissionDecision> {
-  // Look up credentials including expiry fields for refresh check
-  const client = await Client.findById(clientId)
-    .select('shopify.shopDomain shopify.accessToken shopify.tokenExpiresAt shopify.refreshToken')
-    .lean() as {
-      shopify?: {
-        shopDomain?: string;
-        accessToken?: string;
-        tokenExpiresAt?: Date;
-        refreshToken?: string;
-      };
-    } | null;
-
-  if (!client?.shopify?.shopDomain || !client?.shopify?.accessToken) {
-    console.error(`[CommissionRisk] Client ${clientId} missing Shopify credentials`);
-    return { action: 'hold', holdReason: null };
-  }
-
-  const { shopDomain } = client.shopify;
-  let { accessToken } = client.shopify;
-
-  // ── Proactive refresh if token is near expiry ─────────────────────────────
-  if (tokenNeedsRefresh(client.shopify.tokenExpiresAt)) {
-    console.log(`[CommissionRisk] Token near expiry for client ${clientId} — refreshing`);
-    const refreshResult = await refreshShopifyToken(clientId);
-    if (refreshResult.success && refreshResult.accessToken) {
-      accessToken = refreshResult.accessToken;
-    } else {
-      console.error(`[CommissionRisk] Token refresh failed for client ${clientId}`);
-      return { action: 'hold', holdReason: null };
-    }
-  }
-
-  // ── Query Shopify ─────────────────────────────────────────────────────────
-  let result = await queryOrder(shopDomain, accessToken, shopifyOrderGid);
-
-  // ── Reactive refresh on 401 ───────────────────────────────────────────────
-  if (result.status === 401) {
-    console.log(`[CommissionRisk] 401 on order query — attempting token refresh`);
-    const refreshResult = await refreshShopifyToken(clientId);
-    if (refreshResult.success && refreshResult.accessToken) {
-      result = await queryOrder(shopDomain, refreshResult.accessToken, shopifyOrderGid);
-    } else {
-      console.error(`[CommissionRisk] Token refresh failed after 401 for client ${clientId}`);
-      return { action: 'hold', holdReason: null };
-    }
-  }
+  const result = await shopifyAdminQuery(
+    clientId,
+    COMMISSION_RISK_QUERY,
+    { orderId: shopifyOrderGid },
+    '[CommissionRisk]'
+  );
 
   if (!result.ok) {
-    console.error(
-      `[CommissionRisk] Shopify API error (${result.status}) for order ${shopifyOrderGid}`
-    );
+    console.error(`[CommissionRisk] Query failed (${result.reason}) for order ${shopifyOrderGid}`);
     return { action: 'hold', holdReason: null };
   }
 
-  const order = result.order;
+  const order = result.data?.order;
 
   if (!order) {
     console.error(`[CommissionRisk] Order not found: ${shopifyOrderGid}`);
@@ -143,7 +62,6 @@ export async function checkOrderCommissionRisk(
   }
 
   const fulfillmentStatus: string = order.displayFulfillmentStatus ?? '';
-  const orderTotal = parseFloat(order.totalPriceSet?.shopMoney?.amount ?? '0');
   const totalRefunded = parseFloat(order.totalRefundedSet?.shopMoney?.amount ?? '0');
   const returnStatus: string = order.returnStatus ?? 'NO_RETURN';
   const disputes: { status: string }[] = order.disputes ?? [];
@@ -183,20 +101,26 @@ export async function checkOrderCommissionRisk(
     return { action: 'hold', holdReason: 'partial_refund_open' };
   }
 
-  // 5. Return failed or declined — treat as clean.
-  if (returnStatus === 'RETURN_FAILED') {
-    return { action: 'charge', commissionBase: orderTotal - totalRefunded };
+  // 5–7. Work out the commission base: products after discounts, no tax,
+  //      shipping, tips or full-price gift cards, minus refunds recorded in
+  //      Shopify (lib/shopify/commissionBase.ts). Returned items and
+  //      money-only refunds are already taken off, so a failed return, a
+  //      partial refund and a clean order all charge on this same figure.
+  const commissionBase = await computeCommissionBase(order, shopifyOrderGid, clientId);
+
+  if (commissionBase === null) {
+    // Couldn't work it out reliably — hold; unresolved by day 60 → review.
+    return { action: 'hold', holdReason: null };
   }
 
-  // 6. Items returned and money moved back — charge on remainder.
-  if (returnStatus === 'RETURNED' || totalRefunded > 0) {
-    const commissionBase = orderTotal - totalRefunded;
-    if (commissionBase <= 0) {
-      return { action: 'waive', reason: 'Full refund — no commission base remaining' };
-    }
-    return { action: 'charge', commissionBase };
+  if (commissionBase <= 0) {
+    return {
+      action: 'waive',
+      reason: totalRefunded > 0
+        ? 'Full refund — no commission base remaining'
+        : 'No commissionable products on order',
+    };
   }
 
-  // 7. Everything clean.
-  return { action: 'charge', commissionBase: orderTotal };
+  return { action: 'charge', commissionBase };
 }

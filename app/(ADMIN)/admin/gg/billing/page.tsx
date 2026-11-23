@@ -29,6 +29,7 @@ interface CommissionRow {
   clientName: string;
   shopifyOrderId: string;
   discountCodes: string[]
+  orderSubtotal?: number;
   orderTotal: number;
   refundedAmount: number;
   commissionAmount: number;
@@ -389,8 +390,9 @@ export default function GGAdminBillingPage() {
                   <Table.ColumnHeaderCell>Client</Table.ColumnHeaderCell>
                   <Table.ColumnHeaderCell>Order</Table.ColumnHeaderCell>
                   <Table.ColumnHeaderCell>Code</Table.ColumnHeaderCell>
-                  <Table.ColumnHeaderCell>Sale</Table.ColumnHeaderCell>
-                  <Table.ColumnHeaderCell>Commission</Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell>Products subtotal</Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell>Eligible sale</Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell>Commission from eligible items</Table.ColumnHeaderCell>
                   <Table.ColumnHeaderCell>Charge After</Table.ColumnHeaderCell>
                   <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
                   <Table.ColumnHeaderCell></Table.ColumnHeaderCell>
@@ -399,13 +401,13 @@ export default function GGAdminBillingPage() {
               <Table.Body>
                 {loading ? (
                   <Table.Row>
-                    <Table.Cell colSpan={9}>
+                    <Table.Cell colSpan={10}>
                       <Flex justify="center" p="6"><Spinner size="2" /></Flex>
                     </Table.Cell>
                   </Table.Row>
                 ) : records.length === 0 ? (
                   <Table.Row>
-                    <Table.Cell colSpan={9}>
+                    <Table.Cell colSpan={10}>
                       <Text color="gray" align="center" my="4">No commission records found.</Text>
                     </Table.Cell>
                   </Table.Row>
@@ -427,6 +429,9 @@ export default function GGAdminBillingPage() {
                             <Text key={code} size="2" style={{ fontFamily: 'monospace' }}>{code}</Text>
                           ))}
                         </Flex>
+                      </Table.Cell>
+                      <Table.Cell>
+                        <Text size="2">{r.orderSubtotal != null ? formatCurrency(r.orderSubtotal) : '—'}</Text>
                       </Table.Cell>
                       <Table.Cell>
                         <Flex direction="column">

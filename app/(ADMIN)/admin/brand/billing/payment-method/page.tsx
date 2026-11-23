@@ -391,8 +391,9 @@ export default function PaymentMethodPage() {
               <Heading size="4">How billing works</Heading>
               <Text size="2" color="gray" style={{ lineHeight: 1.6 }}>
                 GG Pickleball charges a{' '}
-                <Text weight="bold" style={{ color: 'var(--slate-12)' }}>5% commission</Text>{' '}
-                on sales made using promo codes issued through the platform.
+                <Text weight="bold" style={{ color: 'var(--slate-12)' }}>10% commission</Text>{' '}
+                on sales made using promo codes issued through the platform, based on product
+                prices after discounts. Tax, shipping and tips are not included.
               </Text>
               <Text size="2" color="gray" style={{ lineHeight: 1.6 }}>
                 Commissions are collected 30 days after each sale to account for returns

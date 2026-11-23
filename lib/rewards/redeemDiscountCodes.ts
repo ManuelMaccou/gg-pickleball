@@ -3,15 +3,18 @@
 import connectToDatabase from '../mongodb';
 import RewardCode from '@/app/models/RewardCode';
 import { CommissionRecord } from '@/app/models/CommissionRecord';
+import { fetchOrderAmounts, OrderAmounts } from '@/lib/shopify/commissionBase';
 
-const COMMISSION_RATE = 0.05;
+// Stored on each record at creation; the cron charges the stored rate, so a
+// later change here never affects orders already recorded (agreement 4.1).
+export const COMMISSION_RATE = 0.10;
 const DAYS_30_MS = 30 * 24 * 60 * 60 * 1000;
 
 interface OrderContext {
   shopifyOrderId: string;
   shopifyOrderGid: string;
   shopDomain: string;
-  orderTotal: number;
+  payloadAmounts: OrderAmounts; // fallback if the Shopify lookup fails
   orderCreatedAt: Date;
 }
 
@@ -72,7 +75,20 @@ export async function redeemDiscountCode(
   // ── One CommissionRecord per real-world order, not per code ────────────
   if (orderContext && orderClientId && redeemedCodesForThisOrder.length > 0) {
     const chargeAfter = new Date(orderContext.orderCreatedAt.getTime() + DAYS_30_MS);
-    const commissionAmount = Math.round(orderContext.orderTotal * COMMISSION_RATE * 100) / 100;
+    // Commission base = products after discounts, no tax/shipping/tips/
+    // full-price gift cards (lib/shopify/commissionBase.ts). Read from Shopify
+    // so the "Sale" shown to the brand matches what the day-30 cron charges.
+    const liveAmounts = await fetchOrderAmounts(
+      orderContext.shopifyOrderGid,
+      orderClientId.toString()
+    );
+    if (liveAmounts === null) {
+      console.warn(
+        `⚠️ Using webhook payload for commission base on order ${orderContext.shopifyOrderId}`
+      );
+    }
+    const { commissionBase, productsSubtotal } = liveAmounts ?? orderContext.payloadAmounts;
+    const commissionAmount = Math.round(commissionBase * COMMISSION_RATE * 100) / 100;
 
     try {
       // Upsert keyed on shopifyOrderId alone (NOT shopifyOrderId +
@@ -90,7 +106,8 @@ export async function redeemDiscountCode(
             shopifyOrderGid: orderContext.shopifyOrderGid,
             shopDomain: orderContext.shopDomain,
             clientId: orderClientId,
-            orderTotal: orderContext.orderTotal,
+            orderTotal: commissionBase, // shown as "Eligible sale" on billing pages
+            orderSubtotal: productsSubtotal, // shown as "Products subtotal"
             refundedAmount: 0,
             commissionRate: COMMISSION_RATE,
             commissionAmount,

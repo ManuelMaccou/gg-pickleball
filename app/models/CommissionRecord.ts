@@ -10,8 +10,9 @@ const CommissionRecordSchema = new Schema<ICommissionRecord>(
     clientId: { type: Schema.Types.ObjectId, ref: 'Client', required: true },
 
     orderTotal: { type: Number, required: true },
+    orderSubtotal: { type: Number }, // display only; absent on records created before 2026-11-23
     refundedAmount: { type: Number, required: true, default: 0 },
-    commissionRate: { type: Number, required: true, default: 0.05 },
+    commissionRate: { type: Number, required: true, default: 0.10 },
     commissionAmount: { type: Number, required: true },
     shopifyEventKey: { type: String },
     stripeInvoiceId: { type: String },

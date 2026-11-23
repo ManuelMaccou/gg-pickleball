@@ -26,10 +26,10 @@ import { sendAppEvent } from '@/lib/shopify/sendAppEvent';
 import { logError } from '@/lib/sentry/logger';
 import { isCustomAppMode } from '@/lib/shopify/appMode';
 import { ICommissionRecord } from '@/app/types/databaseTypes';
+import { COMMISSION_RATE } from '@/lib/rewards/redeemDiscountCodes';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
-const COMMISSION_RATE = 0.05;
 const DAYS_5_MS = 5 * 24 * 60 * 60 * 1000;
 
 export async function POST(req: NextRequest) {
@@ -112,8 +112,14 @@ export async function POST(req: NextRequest) {
       }
 
       if (decision.action === 'charge') {
-        const commissionAmount = Math.round(decision.commissionBase * COMMISSION_RATE * 100) / 100;
-        const refundedAmount = record.orderTotal - decision.commissionBase;
+        // Charge the rate stored when the order was recorded (agreement 4.1);
+        // the current rate is only a fallback for a record missing one.
+        const rate = record.commissionRate ?? COMMISSION_RATE;
+        const commissionAmount = Math.round(decision.commissionBase * rate * 100) / 100;
+        const refundedAmount = Math.max(
+          0,
+          Math.round((record.orderTotal - decision.commissionBase) * 100) / 100
+        );
         readyToCharge.push({
           record: record as unknown as ICommissionRecord,
           commissionBase: decision.commissionBase,
