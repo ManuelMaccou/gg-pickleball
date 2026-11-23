@@ -278,8 +278,13 @@ export async function POST(req: NextRequest) {
     `[CheckEligibility] ── Done. Found: ${candidateMatches.length}, Processed: ${processedCount} ──`
   );
 
+  // matchesFailed lets the page tell "nothing new" apart from "found
+  // matches but couldn't process them" — both used to show as "up to date".
+  // Failed matches are safe to retry: they're still missing this user in
+  // processedUsers.
   return NextResponse.json({
     matchesFound: candidateMatches.length,
     matchesProcessed: processedCount,
+    matchesFailed: candidateMatches.length - processedCount,
   });
 }

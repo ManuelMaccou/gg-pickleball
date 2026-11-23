@@ -86,6 +86,9 @@ export default function Play() {
   // [Eligibility check] Bumped whenever a check-eligibility call actually
   // processes a match — forces GlobalRewardsWallet to remount and re-fetch.
   const [walletRefreshKey, setWalletRefreshKey] = useState(0);
+  // [Eligibility check] Bumped right after DUPR is connected so the panel
+  // runs the check automatically.
+  const [autoCheckKey, setAutoCheckKey] = useState(0);
 
   // ── Auth status ────────────────────────────────────────────────────────────
   const authenticationStatus = useMemo(() => {
@@ -97,7 +100,27 @@ export default function Play() {
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleInitiateDuprLogin = () => setDuprModalOpen(true);
-  const handleDuprConnected = (updatedUser: FrontendUser) => setDbUser(updatedUser);
+  const handleDuprConnected = (updatedUser: FrontendUser) => {
+    setDbUser(updatedUser);
+    setAutoCheckKey((k) => k + 1);
+  };
+
+  // Re-reads the player after an eligibility check credits matches, so the
+  // wins/matches stats (and the progress line) don't stay stale until reload.
+  const refreshDbUser = async () => {
+    let query = '';
+    if (contextUser?.isGuest) query = `?name=${encodeURIComponent(contextUser.name)}`;
+    else if (auth0User?.sub) query = `?auth0Id=${encodeURIComponent(auth0User.sub)}`;
+    if (!query) return;
+    try {
+      const res = await fetch(`/api/user${query}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.user) setDbUser(data.user);
+    } catch (err) {
+      console.error('[Play] User refresh after eligibility check failed:', err);
+    }
+  };
   const handleUserUpdate = (updatedUser: FrontendUser | null) => setDbUser(updatedUser);
 
   // ── User fetch ─────────────────────────────────────────────────────────────
@@ -358,7 +381,11 @@ export default function Play() {
           <CheckEligibilityPanel
             dbUser={dbUser}
             onInitiateDuprLogin={handleInitiateDuprLogin}
-            onRewardsMayHaveChanged={() => setWalletRefreshKey((k) => k + 1)}
+            onRewardsMayHaveChanged={() => {
+              setWalletRefreshKey((k) => k + 1);
+              refreshDbUser();
+            }}
+            autoCheckKey={autoCheckKey}
           />
         </Grid>
       </Box>

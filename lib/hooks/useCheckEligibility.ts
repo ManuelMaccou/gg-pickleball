@@ -17,7 +17,7 @@ import { FrontendUser } from '@/app/types/frontendTypes';
 export type CheckEligibilityResult =
   | { status: 'idle' }
   | { status: 'loading' }
-  | { status: 'success'; matchesFound: number; matchesProcessed: number }
+  | { status: 'success'; matchesFound: number; matchesProcessed: number; matchesFailed: number }
   | { status: 'blocked' }
   | { status: 'error'; message: string };
 
@@ -61,10 +61,13 @@ export function useCheckEligibility(
         return;
       }
 
+      const matchesFound = data.matchesFound ?? 0;
+      const matchesProcessed = data.matchesProcessed ?? 0;
       setResult({
         status: 'success',
-        matchesFound: data.matchesFound ?? 0,
-        matchesProcessed: data.matchesProcessed ?? 0,
+        matchesFound,
+        matchesProcessed,
+        matchesFailed: data.matchesFailed ?? Math.max(0, matchesFound - matchesProcessed),
       });
 
       if ((data.matchesProcessed ?? 0) > 0) {
